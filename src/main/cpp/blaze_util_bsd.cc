@@ -46,6 +46,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -89,7 +90,7 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath(const char* argv0) {
+string GetSelfPath(const char* argv0, const StartupOptions &options) {
 #if defined(__FreeBSD__)
   char buffer[PATH_MAX] = {};
   auto pid = getpid();

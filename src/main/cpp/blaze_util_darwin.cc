@@ -124,7 +124,7 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath(const char* argv0) {
+string GetSelfPath(const char* argv0, const StartupOptions &options) {
   char pathbuf[PROC_PIDPATHINFO_MAXSIZE] = {};
   int len = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));
   if (len == 0) {

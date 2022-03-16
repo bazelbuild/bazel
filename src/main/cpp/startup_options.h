@@ -279,6 +279,10 @@ class StartupOptions {
   // developer mode to be enabled.
   bool windows_enable_symlinks;
 
+  // Accomodate bazel running via Linux's binfmt_misc which
+  // defeats /proc/self/exe path-finding
+  bool linux_bazel_path_from_getauxval;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

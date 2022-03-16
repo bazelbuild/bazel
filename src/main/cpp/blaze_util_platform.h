@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
@@ -113,7 +114,7 @@ std::string Which(const std::string& executable);
 
 // Gets an absolute path to the binary being executed that is guaranteed to be
 // readable.
-std::string GetSelfPath(const char* argv0);
+std::string GetSelfPath(const char* argv0, const StartupOptions &options);
 
 // Returns the directory Bazel can use to store output.
 std::string GetOutputRoot();

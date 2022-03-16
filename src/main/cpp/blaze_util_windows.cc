@@ -383,7 +383,7 @@ string GetProcessIdAsString() {
   return blaze_util::ToString(GetCurrentProcessId());
 }
 
-string GetSelfPath(const char* argv0) {
+string GetSelfPath(const char* argv0, const StartupOptions &options) {
   WCHAR buffer[kWindowsPathBufferSize] = {0};
   if (!GetModuleFileNameW(0, buffer, kWindowsPathBufferSize)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)

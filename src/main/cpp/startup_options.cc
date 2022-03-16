@@ -97,7 +97,8 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_UNSPECIFIED),
 #endif
       unlimit_coredumps(false),
-      windows_enable_symlinks(false) {
+      windows_enable_symlinks(false),
+      linux_bazel_path_from_getauxval(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -148,6 +149,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
   RegisterNullaryStartupFlag("windows_enable_symlinks",
                              &windows_enable_symlinks);
+  RegisterNullaryStartupFlag("linux_bazel_path_from_getauxval", &linux_bazel_path_from_getauxval);
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("local_startup_timeout_secs");

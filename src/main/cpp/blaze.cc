@@ -1587,13 +1587,6 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(default_handler));
 
-  const string self_path = GetSelfPath(argv[0]);
-
-  if (argc == 2 && strcmp(argv[1], "--version") == 0) {
-    PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());
-    return blaze_exit_code::SUCCESS;
-  }
-
   string cwd = GetCanonicalCwd();
   LoggingInfo logging_info(CheckAndGetBinaryPath(cwd, argv[0]), start_time);
 
@@ -1623,6 +1616,12 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv);
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
   startup_options->MaybeLogStartupOptionWarnings();
+  const string self_path = GetSelfPath(argv[0], *startup_options);
+
+  if (argc == 2 && strcmp(argv[1], "--version") == 0) {
+      PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());
+      return blaze_exit_code::SUCCESS;
+  }
 
   SetDebugLog(startup_options->client_debug);
   // If client_debug was false, this is ignored, so it's accurate.

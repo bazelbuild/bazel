@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  // strerror
+#include <sys/auxv.h> // getauxval
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -29,6 +30,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -82,7 +84,13 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath(const char* argv0) {
+string GetSelfPath(const char* argv0, const StartupOptions &options) {
+    // Sometimes /proc/self/exec isn't valid (binfmt_misc + qemu)
+    // so we provide an alternate API. e.g. Linux aarch64 running
+    // bazel-x86_64-linux
+    if (options.linux_bazel_path_from_getauxval) {
+        return reinterpret_cast<const char *>(getauxval(AT_EXECFN));
+    }
   // The file to which this symlink points could change contents or go missing
   // concurrent with execution of the Bazel client, so we don't eagerly resolve
   // it.
