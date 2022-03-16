@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
@@ -160,7 +159,7 @@ public final class MockToolsConfig {
   public void copyTool(String relativePath, String dest) throws IOException {
     Path runfiles = FileSystems.getNativeFileSystem().getPath(BlazeTestUtils.runfilesDir());
     Path source = runfiles.getRelative(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
-    create(dest, FileSystemUtils.readContent(source, StandardCharsets.ISO_8859_1));
+    create(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
   }
 
   /**
