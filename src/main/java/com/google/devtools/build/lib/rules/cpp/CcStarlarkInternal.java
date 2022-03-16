@@ -15,12 +15,9 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,7 +26,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
@@ -115,23 +111,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         input,
         output,
         featureConfig.getFeatureConfiguration());
-  }
-
-  @StarlarkMethod(
-      name = "init_make_variables",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-      })
-  public void initMakeVariables(
-      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain) {
-    ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
-    ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
-    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    ruleContext.initConfigurationMakeVariableContext(
-        new MapBackedMakeVariableSupplier(toolchainMakeVariables.buildOrThrow()),
-        new CcFlagsSupplier(starlarkRuleContext.getRuleContext()));
   }
 
   @StarlarkMethod(
