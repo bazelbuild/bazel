@@ -541,7 +541,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             Iterables.concat(
                 dirtinessCheckers,
                 ImmutableList.of(
-                    new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)));
+                    new MissingDiffDirtinessChecker(
+                        diffPackageRootsUnderWhichToCheck, tmpExternalFilesHelper)));
       }
       if (checkExternalRepositoryFiles && repositoryHelpersHolder != null) {
         dirtinessCheckers =
