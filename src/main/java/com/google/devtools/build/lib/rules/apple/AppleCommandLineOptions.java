@@ -511,6 +511,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
     host.appleCrosstoolTop = appleCrosstoolTop;
 
+    // Save host option for further use.
+    host.hostMacosMinimumOs = hostMacosMinimumOs;
+
     return host;
   }
 
