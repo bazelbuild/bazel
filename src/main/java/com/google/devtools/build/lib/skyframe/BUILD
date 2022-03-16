@@ -5,6 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
@@ -78,7 +79,6 @@ java_library(
         "ToplevelStarlarkAspectFunction.java",
         "TransitiveTargetFunction.java",
         "WorkspaceFileFunction.java",
-        "actiongraph/v2/ActionGraphDump.java",
     ],
     deps = [
         ":abstract_label_cycle_reporter",
@@ -92,13 +92,6 @@ java_library(
         ":action_template_expansion_function",
         ":action_template_expansion_value",
         ":action_utils",
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/known_artifacts",
-        ":actiongraph/v2/known_aspect_descriptors",
-        ":actiongraph/v2/known_configurations",
-        ":actiongraph/v2/known_nested_sets",
-        ":actiongraph/v2/known_rule_class_strings",
-        ":actiongraph/v2/known_targets",
         ":artifact_conflict_finder",
         ":artifact_function",
         ":artifact_nested_set_function",
@@ -233,9 +226,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/substitution",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
@@ -312,7 +302,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
         "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
         "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
@@ -322,6 +311,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -340,7 +330,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:caffeine",
@@ -565,123 +554,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/aquery_output_handler",
-    srcs = [
-        "actiongraph/v2/AqueryOutputHandler.java",
-        "actiongraph/v2/InvalidAqueryOutputFormatException.java",
-    ],
-    deps = ["//src/main/protobuf:analysis_v2_java_proto"],
-)
-
-java_library(
-    name = "actiongraph/v2/base_cache",
-    srcs = ["actiongraph/v2/BaseCache.java"],
-    deps = [":actiongraph/v2/aquery_output_handler"],
-)
-
-java_library(
-    name = "actiongraph/v2/known_artifacts",
-    srcs = ["actiongraph/v2/KnownArtifacts.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/base_cache",
-        ":actiongraph/v2/known_path_fragments",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/protobuf:analysis_v2_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/known_aspect_descriptors",
-    srcs = ["actiongraph/v2/KnownAspectDescriptors.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/protobuf:analysis_v2_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/known_configurations",
-    srcs = ["actiongraph/v2/KnownConfigurations.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/protobuf:analysis_v2_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/known_nested_sets",
-    srcs = ["actiongraph/v2/KnownNestedSets.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/base_cache",
-        ":actiongraph/v2/known_artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/protobuf:analysis_v2_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/known_path_fragments",
-    srcs = ["actiongraph/v2/KnownPathFragments.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:analysis_v2_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/known_rule_class_strings",
-    srcs = ["actiongraph/v2/KnownRuleClassStrings.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/base_cache",
-        "//src/main/protobuf:analysis_v2_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/known_targets",
-    srcs = ["actiongraph/v2/KnownTargets.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        ":actiongraph/v2/base_cache",
-        ":actiongraph/v2/known_rule_class_strings",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/protobuf:analysis_v2_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/monolithic_output_handler",
-    srcs = ["actiongraph/v2/MonolithicOutputHandler.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        "//src/main/protobuf:analysis_v2_java_proto",
-        "//third_party/protobuf:protobuf_java_util",
-    ],
-)
-
-java_library(
-    name = "actiongraph/v2/streamed_output_handler",
-    srcs = ["actiongraph/v2/StreamedOutputHandler.java"],
-    deps = [
-        ":actiongraph/v2/aquery_output_handler",
-        "//src/main/protobuf:analysis_v2_java_proto",
-        "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
