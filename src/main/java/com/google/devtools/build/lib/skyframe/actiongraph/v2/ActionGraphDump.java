@@ -161,7 +161,7 @@ public class ActionGraphDump {
       SpawnAction spawnAction = (SpawnAction) action;
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      Map<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv().toMap();
+      Map<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv();
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         actionBuilder.addEnvironmentVariables(
             AnalysisProtosV2.KeyValuePair.newBuilder()

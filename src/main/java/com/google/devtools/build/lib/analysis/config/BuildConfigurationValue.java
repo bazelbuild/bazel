@@ -485,7 +485,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    */
   @Override
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return actionEnv.getFixedEnv().toMap();
+    return actionEnv.getFixedEnv();
   }
 
   /**
@@ -629,7 +629,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    */
   @Override
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnv.getFixedEnv().toMap();
+    return testEnv.getFixedEnv();
   }
 
   /**

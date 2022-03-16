@@ -465,7 +465,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage());
     message.append('\n');
-    for (Map.Entry<String, String> entry : env.getFixedEnv().toMap().entrySet()) {
+    for (Map.Entry<String, String> entry : env.getFixedEnv().entrySet()) {
       message.append("  Environment variable: ");
       message.append(ShellEscaper.escapeString(entry.getKey()));
       message.append('=');
@@ -574,7 +574,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
     // requires first updating all subclasses and callers to actually handle environments correctly,
     // so it's not a small change.
-    return env.getFixedEnv().toMap();
+    return env.getFixedEnv();
   }
 
   /** Returns the out-of-band execution data for this action. */
