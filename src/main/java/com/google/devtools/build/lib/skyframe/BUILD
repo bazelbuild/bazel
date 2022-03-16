@@ -40,7 +40,6 @@ java_library(
         "FileStateFunction.java",
         "HighWaterMarkLimiter.java",
         "LocalRepositoryLookupFunction.java",
-        "NonRuleConfiguredTargetValue.java",
         "PackageFunction.java",
         "PlatformLookupUtil.java",
         "PlatformMappingFunction.java",
@@ -52,7 +51,6 @@ java_library(
         "RegisteredToolchainsCycleReporter.java",
         "RegisteredToolchainsFunction.java",
         "RegisteredToolchainsValue.java",
-        "RuleConfiguredTargetValue.java",
         "SequencedSkyframeExecutor.java",
         "SequencedSkyframeExecutorFactory.java",
         "SingleToolchainResolutionFunction.java",
@@ -180,6 +178,7 @@ java_library(
         ":recursive_pkg_value",
         ":repository_mapping_function",
         ":repository_mapping_value",
+        ":rule_configured_target_value",
         ":sane_analysis_exception",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
@@ -272,7 +271,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
@@ -2962,4 +2960,25 @@ java_library(
 java_library(
     name = "already_reported_exception",
     srcs = ["AlreadyReportedException.java"],
+)
+
+java_library(
+    name = "rule_configured_target_value",
+    srcs = [
+        "NonRuleConfiguredTargetValue.java",
+        "RuleConfiguredTargetValue.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )

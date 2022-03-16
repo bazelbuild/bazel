@@ -98,6 +98,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:prepare_deps_of_patterns_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_package_provider_backed_target_pattern_resolver",
         "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_pkg_value_root_package_extractor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_value",
