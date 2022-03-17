@@ -516,6 +516,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "No-op")
     public boolean besBestEffort;
+
+    @Option(
+        name = "distinct_host_configuration",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean useDistinctHostConfiguration;
   }
 
   @Override

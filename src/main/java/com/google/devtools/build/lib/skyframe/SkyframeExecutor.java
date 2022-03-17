@@ -1474,14 +1474,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     BuildConfigurationValue firstTargetConfig = topLevelTargetConfigs.get(0);
 
-    BuildOptions targetOptions = firstTargetConfig.getOptions();
     BuildOptionsView hostTransitionOptionsView =
         new BuildOptionsView(
             firstTargetConfig.getOptions(), HostTransition.INSTANCE.requiresOptionFragments());
     BuildOptions hostOptions =
-        targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.patch(hostTransitionOptionsView, eventHandler)
-            : targetOptions;
+        HostTransition.INSTANCE.patch(hostTransitionOptionsView, eventHandler);
     BuildConfigurationValue hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
 
     // TODO(gregce): cache invalid option errors in BuildConfigurationFunction, then use a dedicated

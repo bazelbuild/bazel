@@ -75,10 +75,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     BuildOptionsView hostTransitionOptionsView =
         new BuildOptionsView(targetOptions, HostTransition.INSTANCE.requiresOptionFragments());
     BuildOptions hostOptions =
-        targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.patch(hostTransitionOptionsView, env.getListener())
-            : targetOptions;
-
+        HostTransition.INSTANCE.patch(hostTransitionOptionsView, env.getListener());
     PathFragment platformMappingPath = targetOptions.get(PlatformOptions.class).platformMappings;
     PlatformMappingValue platformMappingValue =
         (PlatformMappingValue) env.getValue(PlatformMappingValue.Key.create(platformMappingPath));
