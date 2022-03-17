@@ -70,7 +70,7 @@ public class DirtinessCheckerUtils {
         SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
       RootedPath rootedPath = (RootedPath) key.argument();
       try {
-        return DirectoryListingStateValue.create(rootedPath);
+        return DirectoryListingStateValue.create(syscallCache.readdir(rootedPath.asPath()));
       } catch (IOException e) {
         return null;
       }

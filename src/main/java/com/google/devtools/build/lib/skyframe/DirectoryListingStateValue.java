@@ -22,11 +22,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -52,11 +50,6 @@ public final class DirectoryListingStateValue implements SkyValue {
   @AutoCodec.Instantiator
   public static DirectoryListingStateValue create(Collection<Dirent> dirents) {
     return new DirectoryListingStateValue(dirents);
-  }
-
-  public static DirectoryListingStateValue create(RootedPath dirRootedPath) throws IOException {
-    Collection<Dirent> dirents = dirRootedPath.asPath().readdir(Symlinks.NOFOLLOW);
-    return create(dirents);
   }
 
   @ThreadSafe
