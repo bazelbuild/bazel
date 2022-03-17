@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+/// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -196,9 +196,12 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
+            /*runfilesSupplier=*/ null,
+            /*filesetMappings=*/ ImmutableMap.of(),
             /*inputs=*/ NestedSetBuilder.create(
                 Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableSet.<ActionInput>of(
+            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*outputs=*/ ImmutableSet.of(
                 new ActionInput() {
                   @Override
                   public String getExecPathString() {
@@ -231,6 +234,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     return PathFragment.create("bar");
                   }
                 }),
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
