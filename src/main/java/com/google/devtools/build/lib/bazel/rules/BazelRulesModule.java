@@ -487,6 +487,17 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         help = "No-op")
     public boolean enableCpuUsageProfiling;
+
+    @Option(
+        name = "bes_best_effort",
+        defaultValue = "false",
+        deprecationWarning =
+            "BES best effort upload has been removed. The flag has no more "
+                + "functionality attached to it and will be removed in a future release.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op")
+    public boolean besBestEffort;
   }
 
   @Override
