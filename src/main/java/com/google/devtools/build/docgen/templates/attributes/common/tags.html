@@ -13,7 +13,7 @@
 </p>
 
 <p>
-  Bazel modifies the behavior of its sandboxing code if it finds the following
+  Blaze modifies the behavior of its sandboxing code if it finds the following
   keywords in the <code>tags</code> attribute of any test or <code>genrule</code>
   target, or the keys of <code>execution_requirements</code> for any Starlark
   action.
@@ -78,7 +78,7 @@
 </p>
 
 <p>
-  Bazel modifies test running behavior if it finds the following keywords in the
+  Blaze modifies test running behavior if it finds the following keywords in the
   <code>tags</code> attribute of the test rule:
 </p>
 
@@ -98,8 +98,8 @@
     affect target wildcard or test suite expansion in other contexts, including the
     <code>query</code> command. Note that <code>manual</code> does not imply that a target should
     not be built/run automatically by continuous build/test systems. For example, it may be
-    desirable to exclude a target from <code>bazel test ...</code> because it requires specific
-    Bazel flags, but still have it included in properly-configured presubmit or continuous test
+    desirable to exclude a target from <code>blaze test ...</code> because it requires specific
+    Blaze flags, but still have it included in properly-configured presubmit or continuous test
     runs.
 
       </li>

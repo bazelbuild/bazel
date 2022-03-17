@@ -195,7 +195,7 @@ We are reachable at bazel-discuss@googlegroups.com.
 
 Open on issue [on GitHub](https://github.com/bazelbuild/bazel/issues){: .external}.
 
-## What’s up with the word “Bazel” in the codebase?
+## What’s up with the word “Blaze” in the codebase?
 
 This is an internal name for the tool. Please refer to Bazel as Bazel.
 
