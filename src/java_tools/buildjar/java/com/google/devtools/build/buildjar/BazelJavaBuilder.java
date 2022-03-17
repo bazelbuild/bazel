@@ -55,6 +55,8 @@ public class BazelJavaBuilder {
         workerHandler.processRequests();
       } catch (IOException e) {
         System.err.println(e.getMessage());
+      } finally {
+        // Prevent hanging threads from keeping the worker alive.
         System.exit(1);
       }
     } else {
