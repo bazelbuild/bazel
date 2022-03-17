@@ -1101,9 +1101,21 @@ public class RemoteExecutionServiceTest {
     ActionResult r = ActionResult.newBuilder().setExitCode(0).build();
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
+    // set file1 as declared output but not mandatory output
     Spawn spawn =
-        newSpawn(
-            ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"), ImmutableSet.of(a1));
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
+            /*runfilesSupplier=*/ null,
+            /*filesetMappings=*/ ImmutableMap.of(),
+            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*outputs=*/ ImmutableSet.of(a1),
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
+
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -1118,6 +1130,32 @@ public class RemoteExecutionServiceTest {
     assertThat(inMemoryOutput).isNull();
     // The in memory file metadata also should not have been injected.
     verify(injector, never()).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+  }
+
+  @Test
+  public void downloadOutputs_missingMandatoryOutputs_reportError() throws Exception {
+    // Test that an AC which misses mandatory outputs is correctly ignored.
+    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    ImmutableSet.Builder<Artifact> outputs = ImmutableSet.builder();
+    ImmutableList<String> expectedOutputFiles = ImmutableList.of("outputs/foo", "outputs/bar");
+    for (String outputFile : expectedOutputFiles) {
+      Path path = remotePathResolver.outputPathToLocalPath(outputFile);
+      Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
+      outputs.add(output);
+    }
+    Spawn spawn = newSpawn(ImmutableMap.of(), outputs.build());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    IOException error =
+        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
+
+    assertThat(error).hasMessageThat().containsMatch("expected output .+ does not exist.");
   }
 
   @Test
@@ -1368,7 +1406,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void uploadOutputs_missingDeclaredOutputs_dontUpload() throws Exception {
+  public void uploadOutputs_missingMandatoryOutputs_dontUpload() throws Exception {
     Path file = execRoot.getRelative("outputs/file");
     Artifact outputFile = ActionsTestUtil.createArtifact(artifactRoot, file);
     RemoteExecutionService service = newRemoteExecutionService();
