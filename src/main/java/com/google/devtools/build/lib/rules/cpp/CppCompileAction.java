@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -1813,8 +1814,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // commented-out include references a header file with an error in it). However, we generally
     // don't try to recover from errors around spurious includes discovered in the current build.
     // TODO(janakr): Can errors be aggregated here at least?
-    Map<SkyKey, SkyValue> actionExecutionValues =
-        env.getValues(Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey));
+    Collection<SkyKey> skyKeys =
+        Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey);
+    SkyframeIterableResult actionExecutionValues = env.getOrderedValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -1823,10 +1825,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     for (DerivedArtifact module : usedModules) {
       Preconditions.checkState(
           module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s", module);
+      SkyValue skyValue = actionExecutionValues.next();
+      if (skyValue == null) {
+        return null;
+      }
       ActionExecutionValue value =
-          Preconditions.checkNotNull(
-              (ActionExecutionValue) actionExecutionValues.get(module.getGeneratingActionKey()),
-              module);
+          Preconditions.checkNotNull((ActionExecutionValue) skyValue, module);
       transitivelyUsedModules.put(module, value.getDiscoveredModules());
     }
     return transitivelyUsedModules.buildOrThrow();
