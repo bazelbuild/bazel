@@ -53,6 +53,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
@@ -189,11 +190,11 @@ class ArtifactFunction implements SkyFunction {
       // The expanded actions are not yet available.
       return null;
     }
-    ActionTemplateExpansionValue expansionValue = actionTemplateExpansion.getValue();
     ImmutableList<ActionLookupData> expandedActionExecutionKeys =
         actionTemplateExpansion.getExpandedActionExecutionKeys();
 
-    Map<SkyKey, SkyValue> expandedActionValueMap = env.getValues(expandedActionExecutionKeys);
+    SkyframeIterableResult expandedActionValueMap =
+        env.getOrderedValuesAndExceptions(expandedActionExecutionKeys);
     if (env.valuesMissing()) {
       // The execution values of the expanded actions are not yet all available.
       return null;
@@ -208,13 +209,10 @@ class ArtifactFunction implements SkyFunction {
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {
       boolean sawTreeChild = false;
       ActionExecutionValue actionExecutionValue =
-          (ActionExecutionValue)
-              Preconditions.checkNotNull(
-                  expandedActionValueMap.get(actionKey),
-                  "Missing tree value: %s %s %s",
-                  artifactDependencies,
-                  expansionValue,
-                  expandedActionValueMap);
+          (ActionExecutionValue) expandedActionValueMap.next();
+      if (actionExecutionValue == null) {
+        return null;
+      }
 
       for (Map.Entry<Artifact, FileArtifactValue> entry :
           actionExecutionValue.getAllFileValues().entrySet()) {
@@ -358,12 +356,19 @@ class ArtifactFunction implements SkyFunction {
         ImmutableList.builder();
     // Avoid iterating over nested set twice.
     List<Artifact> inputs = action.getInputs().toList();
-    Map<SkyKey, SkyValue> values = env.getValues(Artifact.keys(inputs));
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(Artifact.keys(inputs));
     if (env.valuesMissing()) {
       return null;
     }
     for (Artifact input : inputs) {
-      SkyValue inputValue = Preconditions.checkNotNull(values.get(Artifact.key(input)), input);
+
+      SkyValue inputValue = values.next();
+      if (inputValue == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "SkyValue " + input + " was missing, this should never happen"));
+        return null;
+      }
       if (inputValue instanceof FileArtifactValue) {
         fileInputsBuilder.add(Pair.of(input, (FileArtifactValue) inputValue));
       } else if (inputValue instanceof ActionExecutionValue) {

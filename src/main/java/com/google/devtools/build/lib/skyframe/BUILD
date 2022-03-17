@@ -373,6 +373,7 @@ java_library(
         ":client_environment_value",
         ":precomputed_value",
         ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe",

@@ -182,18 +182,20 @@ public class ActionExecutionFunction implements SkyFunction {
     Collection<String> clientEnvironmentVariables = action.getClientEnvironmentVariables();
     Map<String, String> clientEnv;
     if (!clientEnvironmentVariables.isEmpty()) {
-      Map<SkyKey, SkyValue> clientEnvLookup =
-          env.getValues(
-              Iterables.transform(clientEnvironmentVariables, ClientEnvironmentFunction::key));
+      ImmutableSet<String> clientEnvironmentVariablesSet =
+          ImmutableSet.copyOf(clientEnvironmentVariables);
+      Iterable<SkyKey> skyKeys =
+          Iterables.transform(clientEnvironmentVariablesSet, ClientEnvironmentFunction::key);
+      SkyframeIterableResult clientEnvLookup = env.getOrderedValuesAndExceptions(skyKeys);
       if (env.valuesMissing()) {
         return null;
       }
       ImmutableMap.Builder<String, String> builder =
-          ImmutableMap.builderWithExpectedSize(clientEnvLookup.size());
-      for (Map.Entry<SkyKey, SkyValue> entry : clientEnvLookup.entrySet()) {
-        ClientEnvironmentValue envValue = (ClientEnvironmentValue) entry.getValue();
+          ImmutableMap.builderWithExpectedSize(clientEnvironmentVariablesSet.size());
+      for (SkyKey depKey : skyKeys) {
+        ClientEnvironmentValue envValue = (ClientEnvironmentValue) clientEnvLookup.next();
         if (envValue.getValue() != null) {
-          builder.put((String) entry.getKey().argument(), envValue.getValue());
+          builder.put((String) depKey.argument(), envValue.getValue());
         }
       }
       clientEnv = builder.buildOrThrow();
