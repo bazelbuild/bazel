@@ -99,10 +99,6 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       this.compression = Preconditions.checkNotNull(compression);
       this.artifact = artifact;
       this.artifactMetadata = artifactMetadata;
-      Preconditions.checkState(
-          (artifact == null) == (artifactMetadata == null),
-          "Artifact and metadata must both be null or both non-null: %s",
-          this);
     }
 
     @Override
