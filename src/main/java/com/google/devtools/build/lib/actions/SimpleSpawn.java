@@ -22,13 +22,11 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-/**
- * Immutable implementation of a Spawn that does not perform any processing on the parameters.
- * Prefer this over all other Spawn implementations.
- */
+/** Immutable implementation of a Spawn that does not perform any processing on the parameters. */
 @Immutable
 public final class SimpleSpawn implements Spawn {
   private final ActionExecutionMetadata owner;
@@ -41,6 +39,8 @@ public final class SimpleSpawn implements Spawn {
   private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
   private final ImmutableList<? extends ActionInput> outputs;
   private final ResourceSet localResources;
+  // If null, all outputs are mandatory.
+  @Nullable private final Set<? extends ActionInput> mandatoryOutputs;
 
   public SimpleSpawn(
       ActionExecutionMetadata owner,
@@ -52,6 +52,7 @@ public final class SimpleSpawn implements Spawn {
       NestedSet<? extends ActionInput> inputs,
       NestedSet<? extends ActionInput> tools,
       ImmutableSet<? extends ActionInput> outputs,
+      @Nullable Set<? extends ActionInput> mandatoryOutputs,
       ResourceSet localResources) {
     this.owner = Preconditions.checkNotNull(owner);
     this.arguments = Preconditions.checkNotNull(arguments);
@@ -63,6 +64,7 @@ public final class SimpleSpawn implements Spawn {
         runfilesSupplier == null ? EmptyRunfilesSupplier.INSTANCE : runfilesSupplier;
     this.filesetMappings = filesetMappings;
     this.outputs = Preconditions.checkNotNull(outputs).asList();
+    this.mandatoryOutputs = mandatoryOutputs;
     this.localResources = Preconditions.checkNotNull(localResources);
   }
 
@@ -73,7 +75,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableMap<String, String> executionInfo,
       NestedSet<? extends ActionInput> inputs,
       ImmutableSet<? extends ActionInput> outputs,
-      ResourceSet localResources) {
+      ResourceSet resourceSet) {
     this(
         owner,
         arguments,
@@ -84,7 +86,8 @@ public final class SimpleSpawn implements Spawn {
         inputs,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
-        localResources);
+        /*mandatoryOutputs=*/ null,
+        resourceSet);
   }
 
   @Override
@@ -125,6 +128,11 @@ public final class SimpleSpawn implements Spawn {
   @Override
   public ImmutableList<? extends ActionInput> getOutputFiles() {
     return outputs;
+  }
+
+  @Override
+  public boolean isMandatoryOutput(ActionInput output) {
+    return mandatoryOutputs == null || mandatoryOutputs.contains(output);
   }
 
   @Override
