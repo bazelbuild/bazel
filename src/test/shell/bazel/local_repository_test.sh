@@ -509,6 +509,8 @@ eof
 
   ANDROID_HOME=./fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
   expect_log "@foo3b.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
+  ANDROID_SDK_ROOT=./fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo3b.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
 
   bazel query @foo4a//:* >& "$TEST_log" && fail "Expected failure" || true
   expect_log "@foo4a.* path is \"./missing\" (absolute: \"[^\"]*workspace/missing\").*symlink could not be created"
@@ -554,6 +556,9 @@ eof
   # will actually be expanded to the full path of the home directory.
   HOME=/fake_home ANDROID_HOME=~/fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
   expect_log "@foo3b.* path is \"/fake_home/fake\" (absolute: \"/fake_home/fake\").*symlink could not be created"
+  # Run the same test for ANDROID_SDK_ROOT
+  HOME=/fake_home ANDROID_SDK_ROOT=~/fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo3b.* path is \"/fake_home/fake\" (absolute: \"/fake_home/fake\").*symlink could not be created"
 
   bazel query @foo4a//:* >& "$TEST_log" && fail "Expected failure" || true
   expect_log "@foo4a.* path is \"~/missing\" (absolute: \"[^\"]*workspace/~/missing\").*symlink could not be created"
@@ -562,6 +567,21 @@ eof
   # ANDROID_NDK_HOME will actually be expanded to the full path of the home directory.
   HOME=/fake_home ANDROID_NDK_HOME=~/fake bazel query @foo4b//:* >& "$TEST_log" && fail "Expected failure" || true
   expect_log "@foo4b.* path is \"/fake_home/fake\" (absolute: \"/fake_home/fake\").*symlink could not be created"
+}
+
+function test_android_home_env_var_precedence() {
+  cat >WORKSPACE <<eof
+android_sdk_repository(name = "foo")
+eof
+  # Only ANDROID_HOME is set.
+  ANDROID_HOME=./fake bazel query @foo//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
+  # Only ANDROID_SDK_ROOT is set.
+  ANDROID_SDK_ROOT=./fake bazel query @foo//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
+  # Both are set. ANDROID_HOME should have priority over ANDROID_SDK_ROOT.
+  ANDROID_SDK_ROOT=./wrongfake ANDROID_HOME=./fake bazel query @foo//:* >& "$TEST_log" && fail "Expected failure" || true
+  expect_log "@foo.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
 }
 
 function test_overlaid_build_file() {
