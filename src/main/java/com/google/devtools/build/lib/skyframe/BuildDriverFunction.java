@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -145,7 +146,8 @@ public class BuildDriverFunction implements SkyFunction {
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
     if (buildDriverKey.getTestType() == NOT_TEST) {
-      env.getValues(
+      declareDependenciesAndCheckValues(
+          env,
           Iterables.concat(
               artifactsToBuild.build(),
               Collections.singletonList(
@@ -172,7 +174,8 @@ public class BuildDriverFunction implements SkyFunction {
         "Invalid test type, expect only parallel tests: %s",
         buildDriverKey);
     // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
-    env.getValues(
+    declareDependenciesAndCheckValues(
+        env,
         Iterables.concat(
             artifactsToBuild.build(),
             Collections.singletonList(
@@ -200,7 +203,23 @@ public class BuildDriverFunction implements SkyFunction {
           AspectCompletionKey.create(
               ((AspectValue) aspectValue).getKey(), topLevelArtifactContext));
     }
-    env.getValues(Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
+    declareDependenciesAndCheckValues(
+        env, Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
+  }
+
+  /**
+   * Declares dependencies and checks values for requested nodes in the graph.
+   *
+   * <p>Calls {@link SkyframeIterableResult} and iterates over the result. If any node is not done,
+   * or during iteration any value has exception, {@link SkyFunction.Environment#valuesMissing} will
+   * return true.
+   */
+  private static void declareDependenciesAndCheckValues(
+      Environment env, Iterable<? extends SkyKey> skyKeys) throws InterruptedException {
+    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(skyKeys);
+    while (result.hasNext()) {
+      result.next();
+    }
   }
 
   private ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
