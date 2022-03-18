@@ -1,0 +1,109 @@
+project_path: /_project.yaml
+book_path: /_book.yaml
+keywords:
+- docType:Product
+page_type: Product
+
+landing_page:
+  rows:
+  - options:
+    - description-50
+    - large-headings
+    items:
+    - buttons:
+      - label: Install Bazel
+        path: /install/
+        classname: button
+      image_path: /images/placeholder.png
+      heading: Why Bazel?
+      description: >
+          { Fast, Correct } — Choose two
+      list:
+      - heading: Speed up your builds and tests
+        description: >
+          Rebuild only what is necessary. Get fast, incremental builds with Bazel's advanced local and distributed caching, optimized dependency analysis, and parallel execution.
+        icon:
+          name: speed
+          foreground: google-blue
+      - heading: One tool, multiple languages
+        description: >
+          Build and test using Java, C++, Go, Android, iOS and many other languages and platforms. Bazel runs on Windows, macOS, and Linux.
+        icon:
+          name: language
+          foreground: google-red
+      - heading: Scalable
+        description: >
+          Scale your organization, codebase, and Continuous Integration systems. Bazel handles codebases of any size, whether in multiple repositories or a huge monorepo.
+        icon:
+          name: aspect_ratio
+          foreground: google-green
+      - heading: Extensible to your needs
+        description: >
+          Add support for new languages and platforms with Bazel's extension language. Share and re-use language rules written by the growing Bazel community.
+        icon:
+          name: extension
+          foreground: google-yellow
+
+  - options:
+    - cards
+    background: grey
+    heading: Essential Bazel
+    description: >
+      Build and test software of any size, quickly and reliably. Industry leaders like Google, Stripe, and Dropbox trust Bazel to build heavy-duty, mission-critical infrastructure, services, and applications.
+    items:
+    - heading: Get started
+      image_path: /images/integrate.svg
+      description: >
+        Learn what Bazel is, why it is a good choice for your project, and how you can get started using it quickly.
+      buttons:
+      - label: Get started
+        path: /start/
+        classname: button button-primary
+    - heading: User's guide
+      image_path: /images/integrate.svg
+      description: >
+        Learn how to use Bazel with documentation and tutorials covering topics from foundational to expert.
+      buttons:
+      - label: Read the docs
+        path: /docs/
+        classname: button
+    - heading: Reference guide
+      image_path: /images/reports.svg
+      description: >
+        Use these resources to efficiently look up the commands, queries, and terminology necessary to working with Bazel.
+      buttons:
+      - label: Search the guide
+        path: /reference/
+        classname: button
+
+  - heading: What's new?
+    description: >
+      Bazel is always evolving — catch up on our newest documentation or check the release notes to see what's changed and how that affects your builds.
+    buttons:
+    - label: Release notes
+      path: https://github.com/bazelbuild/bazel/releases/latest
+      classname: button
+    items:
+    - heading: Build basics
+      path: /basics/
+      description: >
+        Learn some history of building and build systems, including design decisions that went into making Bazel.
+    - heading: Bzlmod user guide
+      path: /docs/bzlmod
+      description: >
+        Bzlmod is the codename of the new external dependency system introduced in Bazel 5.0.
+    - heading: SIGs
+      path: /contribute/sig
+      description: >
+        Join or start a Special Interest Group (SIG) to focus collaboration on particular areas of Bazel development.
+
+  - options:
+    - cta
+    items:
+    - heading: Trusted by industry leaders
+      description: >
+        When you build software with Bazel, you're running the same code that has been refined and tested for years at Google to build heavy-duty, mission-critical infrastructure, services, and applications.
+      buttons:
+      - label: Who's using Bazel
+        path: /community/users
+        classname: button
