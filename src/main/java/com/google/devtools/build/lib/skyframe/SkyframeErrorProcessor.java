@@ -116,7 +116,8 @@ public final class SkyframeErrorProcessor {
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
-      @Nullable EventBus eventBus)
+      @Nullable EventBus eventBus,
+      BugReporter bugReporter)
       throws InterruptedException, ViewCreationFailedException {
     try {
       return processErrors(
@@ -126,7 +127,7 @@ public final class SkyframeErrorProcessor {
           eventHandler,
           keepGoing,
           eventBus,
-          /*bugReporter=*/ null,
+          bugReporter,
           /*includeExecutionPhase=*/ false);
     } catch (BuildFailedException | TestExecException unexpected) {
       throw new IllegalStateException("Unexpected execution phase exception: ", unexpected);

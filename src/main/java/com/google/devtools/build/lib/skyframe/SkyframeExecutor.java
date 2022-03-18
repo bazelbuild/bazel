@@ -1865,7 +1865,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           cyclesReporter,
           eventHandler,
           /*keepGoing=*/ true,
-          /*eventBus=*/ null);
+          /*eventBus=*/ null,
+          bugReporter);
     } catch (ViewCreationFailedException ignored) {
       // Ignored.
     }
