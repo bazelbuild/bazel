@@ -21,9 +21,17 @@ dynamic_deps attribute is not specified.
 load(":common/cc/cc_binary_with_aspects.bzl", cc_binary_with_aspects = "cc_binary")
 load(":common/cc/cc_binary_without_aspects.bzl", cc_binary_without_aspects = "cc_binary")
 
+def _is_non_empty_list_or_select(value, attr):
+    if type(value) == "list":
+        return len(value) > 0
+    elif type(value) == "select":
+        return True
+    else:
+        fail("Only select or list is valid for {} attr".format(attr))
+
 def cc_binary(**kwargs):
     # Propagate an aspect if dynamic_deps attribute is specified.
-    if "dynamic_deps" in kwargs and len(kwargs["dynamic_deps"]) > 0:
+    if "dynamic_deps" in kwargs and _is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
         cc_binary_with_aspects(**kwargs)
     else:
         cc_binary_without_aspects(**kwargs)
