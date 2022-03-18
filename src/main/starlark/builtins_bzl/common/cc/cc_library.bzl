@@ -29,6 +29,7 @@ def _cc_library_impl(ctx):
 
     cc_toolchain = common.toolchain
 
+    cc_internal.init_make_variables(ctx = ctx, cc_toolchain = cc_toolchain)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
