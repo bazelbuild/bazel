@@ -54,6 +54,13 @@ function parse_option() {
 # let parse the option list
 for i in "$@"; do
     if [[ "$i" = @* ]]; then
+        if [[ "$i" = @executable_path/* ]] \
+            || [[ "$i" = @loader_path/* ]] \
+            || [[ "$i" = @rpath/* ]]; then
+            # magic tokens on Mac OS X
+            parse_option "$i"
+            continue
+        fi
         while IFS= read -r opt
         do
             parse_option "$opt"
