@@ -250,8 +250,8 @@ public final class Converters {
     return buf.length() == 0 ? "nothing" : buf.toString();
   }
 
-  public static class SeparatedOptionListConverter implements Converter<List<String>> {
-
+  /** Converter for a list of options, separated by some separator character. */
+  public static class SeparatedOptionListConverter implements Converter<ImmutableList<String>> {
     private final String separatorDescription;
     private final Splitter splitter;
     private final boolean allowEmptyValues;
@@ -264,8 +264,8 @@ public final class Converters {
     }
 
     @Override
-    public List<String> convert(String input) throws OptionsParsingException {
-      List<String> result =
+    public ImmutableList<String> convert(String input) throws OptionsParsingException {
+      ImmutableList<String> result =
           input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
       if (!allowEmptyValues && result.contains("")) {
         // If the list contains exactly the empty string, it means an empty value was passed and we
