@@ -179,3 +179,44 @@ PropertyCombiner::~PropertyCombiner() {}
 bool PropertyCombiner::Merge(const CDH * /*cdh*/, const LH * /*lh*/) {
   return false;  // This should not be called.
 }
+
+ManifestCombiner::~ManifestCombiner() {}
+
+static const char *MULTI_RELEASE = "Multi-Release: true";
+static const size_t MULTI_RELEASE_LENGTH = strlen(MULTI_RELEASE);
+
+static const char *MULTI_RELEASE_PREFIX = "Multi-Release: ";
+static const size_t MULTI_RELEASE_PREFIX_LENGTH = strlen(MULTI_RELEASE_PREFIX);
+
+void ManifestCombiner::AppendLine(const std::string &line) {
+  if (line.find(MULTI_RELEASE_PREFIX, 0, MULTI_RELEASE_PREFIX_LENGTH) !=
+      std::string::npos) {
+    if (line.find("true", MULTI_RELEASE_PREFIX_LENGTH) != std::string::npos) {
+      multi_release_ = true;
+    } else if (line.find("false", MULTI_RELEASE_PREFIX_LENGTH) !=
+               std::string::npos) {
+      multi_release_ = false;
+    }
+    return;
+  }
+  concatenator_->Append(line);
+  if (line[line.size() - 1] != '\n') {
+    concatenator_->Append("\r\n");
+  }
+}
+
+bool ManifestCombiner::Merge(const CDH *cdh, const LH *lh) {
+  // Ignore Multi-Release attributes in inputs: we write the manifest first,
+  // before inputs are processed, so we reply on  deploy_manifest_lines to
+  // create Multi-Release jars instead of doing it automatically based on
+  // the inputs.
+  return true;
+}
+
+void *ManifestCombiner::OutputEntry(bool compress) {
+  if (multi_release_) {
+    concatenator_->Append(MULTI_RELEASE);
+  }
+  concatenator_->Append("\r\n");
+  return concatenator_->OutputEntry(compress);
+}

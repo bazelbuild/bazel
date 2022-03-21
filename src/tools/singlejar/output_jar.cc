@@ -72,9 +72,8 @@ OutputJar::OutputJar()
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
-  manifest_.Append(
-      "Manifest-Version: 1.0\r\n"
-      "Created-By: singlejar\r\n");
+  manifest_.AppendLine("Manifest-Version: 1.0");
+  manifest_.AppendLine("Created-By: singlejar");
 }
 
 static std::string Basename(const std::string &path) {
@@ -127,9 +126,7 @@ int OutputJar::Doit(Options *options) {
 
   if (!options_->main_class.empty()) {
     build_properties_.AddProperty("main.class", options_->main_class);
-    manifest_.Append("Main-Class: ");
-    manifest_.Append(options_->main_class);
-    manifest_.Append("\r\n");
+    manifest_.AppendLine("Main-Class: " + options_->main_class);
   }
 
   // Copy CDS archive file (.jsa) if it is set.
@@ -139,10 +136,7 @@ int OutputJar::Doit(Options *options) {
 
   for (auto &manifest_line : options_->manifest_lines) {
     if (!manifest_line.empty()) {
-      manifest_.Append(manifest_line);
-      if (manifest_line[manifest_line.size() - 1] != '\n') {
-        manifest_.Append("\r\n");
-      }
+      manifest_.AppendLine(manifest_line);
     }
   }
 
@@ -206,7 +200,6 @@ int OutputJar::Doit(Options *options) {
   // First, write a directory entry for the META-INF, followed by the manifest
   // file, followed by the build properties file.
   WriteMetaInf();
-  manifest_.Append("\r\n");
   WriteEntry(manifest_.OutputEntry(compress));
   if (!options_->exclude_build_data) {
     WriteEntry(build_properties_.OutputEntry(compress));
@@ -1056,8 +1049,7 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
   snprintf( cds_manifest_attr, sizeof(cds_manifest_attr),
     "Jsa-Offset: %ld", (long)aligned_offset); // NOLINT(runtime/int,
                                               // google-runtime-int)
-  manifest_.Append(cds_manifest_attr);
-  manifest_.Append("\r\n");
+  manifest_.AppendLine(cds_manifest_attr);
 
   // Add to build_properties
   build_properties_.AddProperty("cds.archive",
