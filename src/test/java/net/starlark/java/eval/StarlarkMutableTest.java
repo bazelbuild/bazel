@@ -20,14 +20,13 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for how Starlark value implementations interact with {@link Mutability#freeze}. */
+/** Tests for {@link StarlarkMutable}. */
 @RunWith(JUnit4.class)
 public final class StarlarkMutableTest {
 
@@ -142,34 +141,5 @@ public final class StarlarkMutableTest {
     assertThat(dict3.toString())
         .isEqualTo(
             "{\"one\": \"1\", \"two\": \"22\", \"three\": \"33\", \"four\": \"4\"}"); // unchanged
-  }
-
-  @Test
-  public void testImmutableDictUsesImmutableMap() {
-    Mutability mu = Mutability.IMMUTABLE;
-    Dict<String, String> dict = Dict.<String, String>builder().put("cat", "dog").build(mu);
-    assertThat(dict.getContentsForTesting()).isInstanceOf(ImmutableMap.class);
-    assertThat(dict.getContentsForTesting()).containsExactly("cat", "dog");
-  }
-
-  @Test
-  public void testMutableDictSwitchesToImmutableMapWhenFrozen() {
-    Mutability mu = Mutability.create("test");
-    Dict<String, String> dict = Dict.<String, String>builder().put("cat", "dog").build(mu);
-    assertThat(dict.getContentsForTesting()).isInstanceOf(LinkedHashMap.class);
-    assertThat(dict.getContentsForTesting()).containsExactly("cat", "dog");
-    mu.freeze();
-    assertThat(dict.getContentsForTesting()).isInstanceOf(ImmutableMap.class);
-    assertThat(dict.getContentsForTesting()).containsExactly("cat", "dog");
-  }
-
-  @Test
-  public void testMutableDictSwitchesToImmutableMapWhenFrozen_usesCanonicalEmptyImmutableMap() {
-    Mutability mu = Mutability.create("test");
-    Dict<String, String> dict = Dict.<String, String>builder().build(mu);
-    assertThat(dict.getContentsForTesting()).isInstanceOf(LinkedHashMap.class);
-    assertThat(dict.getContentsForTesting()).isEmpty();
-    mu.freeze();
-    assertThat(dict.getContentsForTesting()).isSameInstanceAs(ImmutableMap.of());
   }
 }
