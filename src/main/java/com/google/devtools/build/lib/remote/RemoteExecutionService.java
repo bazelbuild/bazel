@@ -1014,6 +1014,13 @@ public class RemoteExecutionService {
     // Check that all mandatory outputs are created.
     for (ActionInput output : action.spawn.getOutputFiles()) {
       if (action.spawn.isMandatoryOutput(output)) {
+        // Don't check output that is tree artifact since spawn could generate nothing under that
+        // directory. Remote server typically doesn't create directory ahead of time resulting in
+        // empty tree artifact missing from action cache entry.
+        if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+          continue;
+        }
+
         Path localPath = execRoot.getRelative(output.getExecPath());
         if (!metadata.files.containsKey(localPath)
             && !metadata.directories.containsKey(localPath)
