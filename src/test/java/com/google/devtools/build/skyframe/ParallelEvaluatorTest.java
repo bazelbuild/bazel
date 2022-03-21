@@ -923,7 +923,7 @@ public class ParallelEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getValues(ImmutableList.of(cycleKey));
+                env.getValue(cycleKey);
                 return env.valuesMissing() ? null : topValue;
               }
             });
@@ -934,7 +934,7 @@ public class ParallelEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getValues(ImmutableList.of(cycleKey, catastropheKey));
+                env.getOrderedValuesAndExceptions(ImmutableList.of(cycleKey, catastropheKey));
                 Preconditions.checkState(env.valuesMissing());
                 return null;
               }
@@ -2042,7 +2042,7 @@ public class ParallelEvaluatorTest {
               } catch (SomeErrorException e) {
                 // Recover from the child error.
               }
-              env.getValues(deps);
+              env.getOrderedValuesAndExceptions(deps);
               if (env.valuesMissing()) {
                 return null;
               }
