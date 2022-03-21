@@ -218,7 +218,9 @@ public class BuildDriverFunction implements SkyFunction {
       Environment env, Iterable<? extends SkyKey> skyKeys) throws InterruptedException {
     SkyframeIterableResult result = env.getOrderedValuesAndExceptions(skyKeys);
     while (result.hasNext()) {
-      result.next();
+      if (result.next() == null) {
+        return;
+      }
     }
   }
 
