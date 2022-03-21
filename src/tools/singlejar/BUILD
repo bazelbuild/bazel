@@ -117,15 +117,11 @@ cc_test(
         ":zip_headers",
         ":zlib_interface",
     ],
-    data = [
-        "data/multi_release.jar",
-    ],
     # Requires at least 5 GiB of memory
     exec_compatible_with = ["//:highcpu_machine"],
     deps = [
         ":combiners",
         ":input_jar",
-        ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],

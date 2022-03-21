@@ -128,7 +128,7 @@ class OutputJar {
   Concatenator spring_handlers_;
   Concatenator spring_schemas_;
   Concatenator protobuf_meta_handler_;
-  ManifestCombiner manifest_;
+  Concatenator manifest_;
   PropertyCombiner build_properties_;
   NullCombiner null_combiner_;
   std::vector<std::unique_ptr<Concatenator> > service_handlers_;
