@@ -150,7 +150,7 @@ genrule(
     ],
     outs = ["jekyll-tree.tar"],
     cmd = ("$(location jekyll-tree.sh) $@ " +
-           "main" " +
+           "main " +
            "$(location :jekyll-base) " +
            "$(location :skylark-rule-docs) " +
            "$(location //src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia) " +
