@@ -106,11 +106,6 @@ for ARG in "$@"; do
   fi
 done
 
-# A file storing the test's runtime classpath, excluding the test support.
-# The file is read by the persistent test runner. The jars inside the file are
-# loaded dynamically for every test run into a custom classloader.
-%test_runtime_classpath_file%
-
 # Find our runfiles tree.  We need this to construct the classpath
 # (unless --singlejar was passed).
 #
@@ -263,10 +258,6 @@ export JACOCO_IS_JAR_WRAPPED=0
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}
   JVM_DEBUG_FLAGS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=${JVM_DEBUG_SUSPEND},address=${JVM_DEBUG_PORT}"
-
-  if [[ "$PERSISTENT_TEST_RUNNER" == "true" ]]; then
-    JVM_DEBUG_FLAGS+=",quiet=y"
-  fi
 fi
 
 if [[ -n "$MAIN_ADVICE_CLASSPATH" ]]; then

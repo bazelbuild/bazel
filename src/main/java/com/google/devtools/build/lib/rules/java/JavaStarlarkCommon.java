@@ -376,7 +376,6 @@ public class JavaStarlarkCommon
         .addProvider(
             JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
-        .addTransitiveOnlyRuntimeJars(javaInfo.getTransitiveOnlyRuntimeJars())
         .build();
   }
 

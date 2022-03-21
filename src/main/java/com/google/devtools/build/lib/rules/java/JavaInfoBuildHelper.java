@@ -352,9 +352,6 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
-        .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)
-        .addTransitiveOnlyRuntimeJarsToJavaInfo(exports)
-        .addTransitiveOnlyRuntimeJarsToJavaInfo(runtimeDeps)
         .setNeverlink(neverlink)
         .build();
   }

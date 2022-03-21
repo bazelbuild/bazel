@@ -501,9 +501,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .inOrder();
     assertThat(prettyArtifactNames(info.getDirectRuntimeJars()))
         .containsExactly("java/test/libcustom.jar");
-    assertThat(prettyArtifactNames(info.getTransitiveOnlyRuntimeJars()))
-        .containsExactly("java/test/libdep.jar", "java/test/libruntime.jar")
-        .inOrder();
     assertThat(
             prettyArtifactNames(compilationInfo.getCompilationClasspath().toList(Artifact.class)))
         .containsExactly("java/test/libdep-hjar.jar");

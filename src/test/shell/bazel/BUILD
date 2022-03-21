@@ -976,18 +976,6 @@ sh_test(
 )
 
 sh_test(
-    name = "persistent_test_runner_test",
-    size = "large",
-    srcs = ["persistent_test_runner_test.sh"],
-    data = [
-        ":test-deps",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-sh_test(
     name = "bazel_workspace_status_test",
     size = "large",
     srcs = ["bazel_workspace_status_test.sh"],
