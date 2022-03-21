@@ -27,10 +27,11 @@ public class BuildEncyclopediaGenerator {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
         "Usage: docgen_bin -m link_map_file -p rule_class_provider (-i input_dir)+\n"
-            + "    [-o outputdir] [-b denylist] [-1] [-h]\n\n"
+            + "    [-o outputdir] [-b denylist] [-1 | -t] [-h]\n\n"
             + "Generates the Build Encyclopedia from embedded native rule documentation.\n"
             + "The link map file (-m), rule class provider (-p) and at least one input_dir\n"
-            + "(-i) must be specified.\n");
+            + "(-i) must be specified.\n"
+            + "Single page (-1) and table-of-contents creation (-t) are mutually exclusive.\n");
     System.err.println(
         parser.describeOptionsWithDeprecatedCategories(
             Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
@@ -68,7 +69,8 @@ public class BuildEncyclopediaGenerator {
 
     if (options.linkMapPath.isEmpty()
         || options.inputDirs.isEmpty()
-        || options.provider.isEmpty()) {
+        || options.provider.isEmpty()
+        || (options.singlePage && options.createToc)) {
       printUsage(parser);
       Runtime.getRuntime().exit(1);
     }
@@ -85,7 +87,7 @@ public class BuildEncyclopediaGenerator {
       } else {
         processor =
             new MultiPageBuildEncyclopediaProcessor(
-                linkExpander, createRuleClassProvider(options.provider));
+                linkExpander, createRuleClassProvider(options.provider), options.createToc);
       }
       processor.generateDocumentation(options.inputDirs, options.outputDir, options.denylist);
     } catch (BuildEncyclopediaDocException e) {

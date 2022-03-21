@@ -1,0 +1,33 @@
+toc:
+- title: Build API
+  section:
+  - title: Overview
+    path: /rules/lib/starlark-overview
+  - title: "Functions & Constants"
+    path: /rules/lib/globals
+  - title: Modules
+    section:
+#foreach ($module in $global_modules)
+    - title: ${module.name}
+      path: /rules/lib/${module.name}
+#end
+#foreach ($entry in $modules.entrySet())
+  - title: "${entry.key.title}"
+    section:
+    - title: Overview
+      path: /rules/lib/starlark-${entry.key.templateIdentifier}
+#foreach ($module in $entry.value)
+    - title: ${module.title}
+      path: /rules/lib/${module.name}
+#end
+#end
+  - title: "Repository rules"
+    section:
+    - title: Overview
+      path: /rules/lib/repo/index
+    - title: git
+      path: /rules/lib/repo/git
+    - title: http
+      path: /rules/lib/repo/http
+    - title: utils
+      path: /rules/lib/repo/utils

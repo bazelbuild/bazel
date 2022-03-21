@@ -100,4 +100,15 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     help = "Prints the help string."
   )
   public boolean help;
+
+  @Option(
+      name = "create_toc",
+      abbrev = 't',
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether a table-of-contents file should be created. Mutually exclusive with"
+              + " --single_page.")
+  public boolean createToc;
 }

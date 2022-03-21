@@ -35,6 +35,7 @@ public class DocgenConsts {
   public static final String OVERVIEW_TEMPLATE = BE_TEMPLATE_DIR + "/overview.vm";
   public static final String RULES_TEMPLATE = BE_TEMPLATE_DIR + "/rules.vm";
   public static final String BE_NAV_TEMPLATE = BE_TEMPLATE_DIR + "/be-nav.vm";
+  public static final String BE_TOC_TEMPLATE = BE_TEMPLATE_DIR + "/be-toc.vm";
 
   public static final String STARLARK_LIBRARY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/starlark-library.vm";
@@ -44,6 +45,8 @@ public class DocgenConsts {
       "com/google/devtools/build/docgen/templates/starlark-category.vm";
   public static final String STARLARK_OVERVIEW_TEMPLATE =
       "com/google/devtools/build/docgen/templates/starlark-overview.vm";
+  public static final String STARLARK_TOC_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/starlark-toc.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 

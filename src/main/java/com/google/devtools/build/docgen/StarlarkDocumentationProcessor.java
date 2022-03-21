@@ -130,6 +130,9 @@ public final class StarlarkDocumentationProcessor {
         globalConstants,
         globalModules,
         modulesByCategory);
+    if (shouldCreateToc(options)) {
+      writeTableOfContents(outputDir, globalModules, modulesByCategory);
+    }
   }
 
   private static StarlarkBuiltinDoc findGlobalModule(
@@ -193,6 +196,18 @@ public final class StarlarkDocumentationProcessor {
     page.write(starlarkDocPath);
   }
 
+  private static void writeTableOfContents(
+      String outputDir,
+      List<StarlarkBuiltinDoc> globalModules,
+      Map<Category, List<StarlarkBuiltinDoc>> modulesPerCategory)
+      throws IOException {
+    File starlarkDocPath = new File(outputDir + "/_toc.yaml");
+    Page page = TemplateEngine.newPage(DocgenConsts.STARLARK_TOC_TEMPLATE);
+    page.add("global_modules", globalModules);
+    page.add("modules", modulesPerCategory);
+    page.write(starlarkDocPath);
+  }
+
   private static Map<String, String> parseOptions(String... args) {
     Map<String, String> options = new HashMap<>();
     for (String arg : args) {
@@ -202,6 +217,14 @@ public final class StarlarkDocumentationProcessor {
       }
     }
     return options;
+  }
+
+  private static boolean shouldCreateToc(Map<String, String> options) {
+    String arg = options.get("--create_toc");
+    if (arg == null) {
+      return false;
+    }
+    return Boolean.parseBoolean(arg) || arg.equals("1");
   }
 
   /**

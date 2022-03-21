@@ -1,0 +1,27 @@
+toc:
+- title: Build encyclopedia
+  section:
+  - title: Overview
+    path: /reference/be/overview
+  - title: Common definitions
+    path: /reference/be/common-definitions
+  - title: Make variables
+    path: /reference/be/make-variables
+  - title: Functions
+    path: /reference/be/functions
+  - title: Language-specific rules
+    section:
+#foreach ($ruleFamily in $langSpecificRuleFamilies)
+#if ($ruleFamily.size() > 0)
+    - title: ${ruleFamily.name}
+      path: /reference/be/${ruleFamily.id}
+#end
+#end
+  - title: Language-agnostic rules
+    section:
+#foreach ($ruleFamily in $genericRuleFamilies)
+#if ($ruleFamily.size() > 0)
+    - title: ${ruleFamily.name}
+      path: /reference/be/${ruleFamily.id}
+#end
+#end

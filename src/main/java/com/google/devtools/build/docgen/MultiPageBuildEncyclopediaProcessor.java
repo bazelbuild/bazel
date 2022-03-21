@@ -24,9 +24,16 @@ import java.util.Map;
  * Assembles the multi-page version of the Build Encyclopedia with one page per rule family.
  */
 public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProcessor {
+
+  // Whether a table-of-contents file should be created.
+  protected final boolean createToc;
+
   public MultiPageBuildEncyclopediaProcessor(
-      RuleLinkExpander linkExpander, ConfiguredRuleClassProvider ruleClassProvider) {
+      RuleLinkExpander linkExpander,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      boolean createToc) {
     super(linkExpander, ruleClassProvider);
+    this.createToc = createToc;
   }
 
   /**
@@ -83,6 +90,9 @@ public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProces
         writeRuleDoc(outputDir, ruleFamily);
       }
     }
+    if (createToc) {
+      writeTableOfContents(outputDir, ruleFamilies.langSpecific, ruleFamilies.generic);
+    }
   }
 
   private void writeOverviewPage(String outputDir,
@@ -94,6 +104,17 @@ public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProces
     page.add("langSpecificRuleFamilies", langSpecificRuleFamilies);
     page.add("genericRuleFamilies", genericRuleFamilies);
     writePage(page, outputDir, "overview.html");
+  }
+
+  private void writeTableOfContents(
+      String outputDir,
+      List<RuleFamily> langSpecificRuleFamilies,
+      List<RuleFamily> genericRuleFamilies)
+      throws IOException {
+    Page page = TemplateEngine.newPage(DocgenConsts.BE_TOC_TEMPLATE);
+    page.add("langSpecificRuleFamilies", langSpecificRuleFamilies);
+    page.add("genericRuleFamilies", genericRuleFamilies);
+    writePage(page, outputDir, "_toc.yaml");
   }
 
   private void writeRuleDoc(String outputDir, RuleFamily ruleFamily)
