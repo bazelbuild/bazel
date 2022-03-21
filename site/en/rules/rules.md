@@ -987,6 +987,7 @@ def _example_library_impl(ctx):
     return [
         ...
         coverage_common.instrumented_files_info(
+            ctx,
             dependency_attributes = ["deps", "data"],
             # Omitted if coverage is not supported for this rule:
             source_attributes = ["srcs", "hdrs"],

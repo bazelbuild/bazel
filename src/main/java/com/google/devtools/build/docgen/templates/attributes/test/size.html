@@ -4,9 +4,9 @@ default is "medium"; optional; <a href="#configurable-attributes">nonconfigurabl
 <p>Specifies a test's "heaviness": how much time/resources it needs to run.</p>
 
 <p>Unit tests are considered "small", integration tests "medium", and end-to-end tests "large" or
-"enormous". Blaze uses the size to determine a default timeout, which can be overridden using the
+"enormous". Bazel uses the size to determine a default timeout, which can be overridden using the
 <code>timeout</code> attribute. When the test is run locally, the <code>size</code> is additionally
-used for scheduling purposes: Blaze tries to respect <code>--local_{ram,cpu}_resources</code> and
+used for scheduling purposes: Bazel tries to respect <code>--local_{ram,cpu}_resources</code> and
 not overwhelm the local machine by running lots of heavy tests at the same time.</p>
 
 <p>Test sizes correspond to the following default timeouts and assumed peak local resource
