@@ -19,13 +19,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This file just contains some examples of the use of
@@ -254,13 +252,11 @@ public class ThreadSafetyTest {
 
   @Test
   public void threadSafety() throws InterruptedException {
-    final ThreadSafeCounter threadSafeCounterArray[] =
+    final ThreadSafeCounter[] threadSafeCounterArray =
         new ThreadSafeCounter[] {
-          new ThreadSafeCounter(1),
-          new ThreadSafeCounter(2),
-          new ThreadSafeCounter(3)
+          new ThreadSafeCounter(1), new ThreadSafeCounter(2), new ThreadSafeCounter(3)
         };
-    final ThreadCompatibleCounter threadCompatibleCounterArray[] =
+    final ThreadCompatibleCounter[] threadCompatibleCounterArray =
         new ThreadCompatibleCounter[] {
           new ThreadCompatibleCounter(1),
           new ThreadCompatibleCounter(2),
