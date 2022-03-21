@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
@@ -110,6 +111,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -1435,19 +1437,18 @@ public class RemoteExecutionServiceTest {
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
     RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
 
     for (int i = 0; i < taskCount; ++i) {
       executorService.execute(
           () -> {
             try {
-              Spawn spawn =
-                  newSpawn(
-                      ImmutableMap.of(),
-                      ImmutableSet.of(),
-                      NestedSetBuilder.create(Order.STABLE_ORDER, input));
-              FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-              RemoteAction action = service.buildRemoteAction(spawn, context);
-
               service.uploadInputsIfNotPresent(action, /*force=*/ false);
             } catch (Throwable e) {
               if (e instanceof InterruptedException) {
@@ -1466,6 +1467,72 @@ public class RemoteExecutionServiceTest {
     for (Integer num : cache.getNumFindMissingDigests().values()) {
       assertThat(num).isEqualTo(1);
     }
+  }
+
+  @Test
+  public void uploadInputsIfNotPresent_sameInputs_interruptOne_keepOthers() throws Exception {
+    int taskCount = 100;
+    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Semaphore semaphore = new Semaphore(0);
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    Random random = new Random();
+
+    for (int i = 0; i < taskCount; ++i) {
+      boolean shouldInterrupt = random.nextBoolean();
+      executorService.execute(
+          () -> {
+            try {
+              if (shouldInterrupt) {
+                Thread.currentThread().interrupt();
+              }
+              service.uploadInputsIfNotPresent(action, /*force=*/ false);
+            } catch (Throwable e) {
+              if (!(shouldInterrupt && e instanceof InterruptedException)) {
+                error.set(e);
+              }
+            } finally {
+              semaphore.release();
+            }
+          });
+    }
+    semaphore.acquire(taskCount);
+
+    assertThat(error.get()).isNull();
+  }
+
+  @Test
+  public void uploadInputsIfNotPresent_interrupted_requestCancelled() throws Exception {
+    SettableFuture<ImmutableSet<Digest>> future = SettableFuture.create();
+    doReturn(future).when(cache).findMissingDigests(any(), any());
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    try {
+      Thread.currentThread().interrupt();
+      service.uploadInputsIfNotPresent(action, /*force=*/ false);
+    } catch (InterruptedException ignored) {
+      // Intentionally left empty
+    }
+
+    assertThat(future.isCancelled()).isTrue();
   }
 
   @Test
