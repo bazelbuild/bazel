@@ -69,7 +69,8 @@ filegroup(
 filegroup(
     name = "qemu2_x86",
     srcs = ["emulator/emulator"] + select({
-        "@bazel_tools//src/conditions:darwin": ["emulator/qemu/darwin-x86_64/qemu-system-i386"],
+        "@bazel_tools//src/conditions:darwin_x86_64": ["emulator/qemu/darwin-x86_64/qemu-system-i386"],
+        "@bazel_tools//src/conditions:darwin_arm64": ["emulator/qemu/darwin-aarch64/qemu-system-aarch64"],
         "//conditions:default": ["emulator/qemu/linux-x86_64/qemu-system-i386"],
     }),
 )
