@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectoryValue.PrepareDepsOfTargetsUnderDirectoryKey;
@@ -76,7 +77,10 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
               keysToRequest);
     }
     return GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
-            env, keysToRequest, NoSuchPackageException.class)
+            env,
+            keysToRequest,
+            NoSuchPackageException.class,
+            ProcessPackageDirectoryException.class)
         ? null
         : PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
   }
