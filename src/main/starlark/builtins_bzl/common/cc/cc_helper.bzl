@@ -63,6 +63,47 @@ def _check_srcs_extensions(ctx, allowed_src_files, rule_name, allow_versioned_sh
                 if not at_least_one_good:
                     fail("'{}' does not produce any {} srcs files".format(str(src.label), rule_name), attr = "srcs")
 
+def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_configuration):
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_stripping"):
+        ctx.actions.symlink(
+            output = output,
+            target_file = input,
+            progress_message = "Symlinking original binary as stripped binary",
+        )
+        return
+
+    if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
+        fail("Expected action_config for 'strip' to be configured.")
+
+    variables = cc_common.create_compile_variables(
+        cc_toolchain = cc_toolchain,
+        feature_configuration = feature_configuration,
+        output_file = output.path,
+        input_file = input.path,
+        strip_opts = cpp_config.strip_opts(),
+    )
+    command_line = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = "strip",
+        variables = variables,
+    )
+    execution_info = {}
+    for execution_requirement in cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = "strip"):
+        execution_info[execution_requirement] = ""
+    ctx.actions.run(
+        inputs = depset(
+            direct = [input],
+            transitive = [cc_toolchain.all_files],
+        ),
+        outputs = [output],
+        use_default_shell_env = True,
+        executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
+        execution_requirements = execution_info,
+        progress_message = "Stripping {} for {}".format(output.short_path, ctx.label),
+        mnemonic = "CcStrip",
+        arguments = command_line,
+    )
+
 def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
     debug_context = cc_common.create_debug_context(compilation_outputs)
     debug_contexts = []
@@ -561,4 +602,5 @@ cc_helper = struct(
     get_linked_artifact = _get_linked_artifact,
     collect_compilation_prerequisites = _collect_compilation_prerequisites,
     collect_native_cc_libraries = _collect_native_cc_libraries,
+    create_strip_action = _create_strip_action,
 )

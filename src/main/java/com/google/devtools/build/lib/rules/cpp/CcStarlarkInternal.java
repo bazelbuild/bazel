@@ -92,32 +92,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "strip",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", named = true, positional = false),
-        @Param(name = "toolchain", named = true, positional = false),
-        @Param(name = "input", named = true, positional = false),
-        @Param(name = "output", named = true, positional = false),
-        @Param(name = "feature_configuration", named = true, positional = false),
-      })
-  public void createStripAction(
-      StarlarkRuleContext ctx,
-      CcToolchainProvider toolchain,
-      Artifact input,
-      Artifact output,
-      FeatureConfigurationForStarlark featureConfig)
-      throws EvalException, RuleErrorException {
-    CppHelper.createStripAction(
-        ctx.getRuleContext(),
-        toolchain,
-        ctx.getRuleContext().getFragment(CppConfiguration.class),
-        input,
-        output,
-        featureConfig.getFeatureConfiguration());
-  }
-
-  @StarlarkMethod(
       name = "init_make_variables",
       documented = false,
       parameters = {
