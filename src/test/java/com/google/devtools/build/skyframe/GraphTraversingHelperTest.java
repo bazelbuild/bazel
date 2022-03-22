@@ -31,8 +31,8 @@ import org.mockito.ArgumentCaptor;
 @RunWith(JUnit4.class)
 public final class GraphTraversingHelperTest {
   SkyFunction.Environment mockEnv = mock(SkyFunction.Environment.class);
-  SkyKey keyA = mock(SkyKey.class);
-  SkyKey keyB = mock(SkyKey.class);
+  SkyKey keyA = mock(SkyKey.class, "keyA");
+  SkyKey keyB = mock(SkyKey.class, "keyB");
   SomeErrorException exn = new SomeErrorException("");
   SkyValue value = mock(SkyValue.class);
 
@@ -69,7 +69,9 @@ public final class GraphTraversingHelperTest {
     ArgumentCaptor<IllegalStateException> exceptionCaptor =
         ArgumentCaptor.forClass(IllegalStateException.class);
     verify(mockReporter).sendBugReport(exceptionCaptor.capture());
-    assertThat(exceptionCaptor.getValue()).hasMessageThat().contains("Some value from");
+    assertThat(exceptionCaptor.getValue())
+        .hasMessageThat()
+        .matches("Value for: 'keyA' was missing, this should never happen");
     verifyNoMoreInteractions(mockReporter);
     assertThat(valuesMissing).isTrue();
   }
@@ -89,5 +91,29 @@ public final class GraphTraversingHelperTest {
         GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
             mockEnv, ImmutableList.of(keyA, keyB), SomeErrorException.class);
     assertThat(valuesMissing).isFalse();
+  }
+
+  @Test
+  public void declareDependenciesAndCheckIfValuesMissing_nullAfterError_hasCorrectKeyInBugReport()
+      throws Exception {
+    SkyframeIterableResult result =
+        new SkyframeIterableResult(
+            () -> {},
+            ImmutableList.of(ValueOrUntypedException.ofExn(exn), ValueOrUntypedException.ofNull())
+                .iterator());
+    when(mockEnv.getOrderedValuesAndExceptions(ImmutableList.of(keyA, keyB))).thenReturn(result);
+    BugReporter mockReporter = mock(BugReporter.class);
+
+    boolean valuesMissing =
+        GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            mockEnv, ImmutableList.of(keyA, keyB), SomeErrorException.class, null, mockReporter);
+
+    assertThat(valuesMissing).isTrue();
+    ArgumentCaptor<IllegalStateException> exceptionCaptor =
+        ArgumentCaptor.forClass(IllegalStateException.class);
+    verify(mockReporter).sendBugReport(exceptionCaptor.capture());
+    assertThat(exceptionCaptor.getValue())
+        .hasMessageThat()
+        .isEqualTo("Value for: 'keyB' was missing, this should never happen");
   }
 }

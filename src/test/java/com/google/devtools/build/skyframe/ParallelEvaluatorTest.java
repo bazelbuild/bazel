@@ -2299,7 +2299,9 @@ public class ParallelEvaluatorTest {
     ArgumentCaptor<IllegalStateException> exceptionCaptor =
         ArgumentCaptor.forClass(IllegalStateException.class);
     verify(mockReporter).sendBugReport(exceptionCaptor.capture());
-    assertThat(exceptionCaptor.getValue()).hasMessageThat().contains("Some value from");
+    assertThat(exceptionCaptor.getValue())
+        .hasMessageThat()
+        .matches("Value for: '.*' was missing, this should never happen");
     verifyNoMoreInteractions(mockReporter);
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
