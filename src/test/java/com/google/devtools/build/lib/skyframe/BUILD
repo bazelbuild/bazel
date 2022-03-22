@@ -378,6 +378,8 @@ java_test(
     srcs = ["PrepareDepsOfTargetsUnderDirectoryFunctionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:collect_packages_under_directory_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:prepare_deps_of_targets_under_directory_value",
