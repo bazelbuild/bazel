@@ -236,8 +236,8 @@ public class OptionProcessorTest {
         .processedWith(new OptionProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Option that allows multiple occurrences must be of type java.util.List<E>, "
-                + "but is of type java.util.Collection<java.lang.String>");
+            "Option that allows multiple occurrences must be assignable to type java.util.List<E>,"
+                + " but is of type java.util.Collection<java.lang.String>");
   }
 
   @Test
@@ -247,8 +247,16 @@ public class OptionProcessorTest {
         .processedWith(new OptionProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Option that allows multiple occurrences must be of type java.util.List<E>, "
-                + "but is of type java.lang.String");
+            "Option that allows multiple occurrences must be assignable to type java.util.List<E>,"
+                + " but is of type java.lang.String");
+  }
+
+  @Test
+  public void allowMultipleOptionWithImmutableListTypeIsAllowed() {
+    assertAbout(javaSource())
+        .that(getFile("ImmutableListTypeForAllowMultipleOption.java"))
+        .processedWith(new OptionProcessor())
+        .compilesWithoutError();
   }
 
   @Test
