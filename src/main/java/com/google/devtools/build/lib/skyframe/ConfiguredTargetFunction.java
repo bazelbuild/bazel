@@ -479,15 +479,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } else {
       packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
     }
-    SkyframeLookupResult packageAndMaybeConfigurationValues =
-        env.getValuesAndExceptions(packageAndMaybeConfiguration);
+    Map<SkyKey, SkyValue> packageAndMaybeConfigurationValues =
+        env.getValues(packageAndMaybeConfiguration);
     if (env.valuesMissing()) {
       return null;
     }
     PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
-    if (packageValue == null) {
-      return null;
-    }
     Package pkg = packageValue.getPackage();
     if (configurationKeyMaybe != null) {
       configuration =
@@ -994,7 +991,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Map<SkyKey, ConfiguredTargetAndData> result = Maps.newHashMapWithExpectedSize(deps.size());
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
     List<Dependency> aliasDepsToRedo = new ArrayList<>();
-    SkyframeLookupResult aliasPackageValues = null;
+    Map<SkyKey, SkyValue> aliasPackageValues = null;
     Collection<Dependency> depsToProcess = deps;
     for (int i = 0; i < 2; i++) {
       for (Dependency dep : depsToProcess) {
@@ -1076,7 +1073,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       if (aliasDepsToRedo.isEmpty()) {
         break;
       }
-      aliasPackageValues = env.getValuesAndExceptions(aliasPackagesToFetch);
+      aliasPackageValues = env.getValues(aliasPackagesToFetch);
       depsToProcess = aliasDepsToRedo;
     }
 

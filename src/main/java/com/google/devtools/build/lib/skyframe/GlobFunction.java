@@ -35,9 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -170,15 +168,17 @@ public final class GlobFunction implements SkyFunction {
                   globSubdir,
                   patternTail,
                   globberOperation);
-          SkyframeIterableResult listingAndRecursiveGlobResult =
-              env.getOrderedValuesAndExceptions(
+          Map<SkyKey, SkyValue> listingAndRecursiveGlobMap =
+              env.getValues(
                   ImmutableList.of(keyForRecursiveGlobInCurrentDirectory, directoryListingKey));
           if (env.valuesMissing()) {
             return null;
           }
-          GlobValue globValue = (GlobValue) listingAndRecursiveGlobResult.next();
+          GlobValue globValue =
+              (GlobValue) listingAndRecursiveGlobMap.get(keyForRecursiveGlobInCurrentDirectory);
           matches.addTransitive(globValue.getMatches());
-          listingValue = (DirectoryListingValue) listingAndRecursiveGlobResult.next();
+          listingValue =
+              (DirectoryListingValue) listingAndRecursiveGlobMap.get(directoryListingKey);
         }
       }
 
@@ -233,9 +233,8 @@ public final class GlobFunction implements SkyFunction {
         }
       }
 
-      Set<SkyKey> subdirAndSymlinksKeys = Sets.union(subdirMap.keySet(), symlinkFileMap.keySet());
-      SkyframeIterableResult subdirAndSymlinksResult =
-          env.getOrderedValuesAndExceptions(subdirAndSymlinksKeys);
+      Map<SkyKey, SkyValue> subdirAndSymlinksResult =
+          env.getValues(Sets.union(subdirMap.keySet(), symlinkFileMap.keySet()));
       if (env.valuesMissing()) {
         return null;
       }
@@ -243,17 +242,14 @@ public final class GlobFunction implements SkyFunction {
       // Second pass: process the symlinks and subdirectories from the first pass, and maybe
       // collect further SkyKeys if fully resolved symlink targets are themselves directories.
       // Also process any known directories.
-      for (SkyKey subdirAndSymlinksKey : subdirAndSymlinksKeys) {
-        if (symlinkFileMap.containsKey(subdirAndSymlinksKey)) {
-          FileValue symlinkFileValue = (FileValue) subdirAndSymlinksResult.next();
-          if (symlinkFileValue == null) {
-            return null;
-          }
+      for (Map.Entry<SkyKey, SkyValue> lookedUpKeyAndValue : subdirAndSymlinksResult.entrySet()) {
+        if (symlinkFileMap.containsKey(lookedUpKeyAndValue.getKey())) {
+          FileValue symlinkFileValue = (FileValue) lookedUpKeyAndValue.getValue();
           if (!symlinkFileValue.isSymlink()) {
             throw new GlobFunctionException(
                 new InconsistentFilesystemException(
                     "readdir and stat disagree about whether "
-                        + ((RootedPath) subdirAndSymlinksKey.argument()).asPath()
+                        + ((RootedPath) lookedUpKeyAndValue.getKey().argument()).asPath()
                         + " is a symlink."),
                 Transience.TRANSIENT);
           }
@@ -282,7 +278,7 @@ public final class GlobFunction implements SkyFunction {
             throw new GlobFunctionException(symlinkException, Transience.PERSISTENT);
           }
 
-          Dirent dirent = symlinkFileMap.get(subdirAndSymlinksKey);
+          Dirent dirent = symlinkFileMap.get(lookedUpKeyAndValue.getKey());
           String fileName = dirent.getName();
           if (symlinkFileValue.isDirectory()) {
             SkyKey keyToRequest = getSkyKeyForSubdir(fileName, glob, subdirPattern);
@@ -293,28 +289,18 @@ public final class GlobFunction implements SkyFunction {
             sortedResultMap.put(dirent, glob.getSubdir().getRelative(fileName));
           }
         } else {
-          SkyValue value = subdirAndSymlinksResult.next();
-          if (value == null) {
-            return null;
-          }
-          processSubdir(Map.entry(subdirAndSymlinksKey, value), subdirMap, glob, sortedResultMap);
+          processSubdir(lookedUpKeyAndValue, subdirMap, glob, sortedResultMap);
         }
       }
 
-      Set<SkyKey> symlinkSubdirKeys = symlinkSubdirMap.keySet();
-      SkyframeIterableResult symlinkSubdirResult =
-          env.getOrderedValuesAndExceptions(symlinkSubdirKeys);
+      Map<SkyKey, SkyValue> symlinkSubdirResult = env.getValues(symlinkSubdirMap.keySet());
       if (env.valuesMissing()) {
         return null;
       }
       // Third pass: do needed subdirectories of symlinked directories discovered during the second
       // pass.
-      for (SkyKey symlinkSubdirKey : symlinkSubdirKeys) {
-        processSubdir(
-            Map.entry(symlinkSubdirKey, symlinkSubdirResult.next()),
-            symlinkSubdirMap,
-            glob,
-            sortedResultMap);
+      for (Map.Entry<SkyKey, SkyValue> lookedUpKeyAndValue : symlinkSubdirResult.entrySet()) {
+        processSubdir(lookedUpKeyAndValue, symlinkSubdirMap, glob, sortedResultMap);
       }
       for (Map.Entry<Dirent, Object> fileMatches : sortedResultMap.entrySet()) {
         addToMatches(fileMatches.getValue(), matches);
