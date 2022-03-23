@@ -472,6 +472,41 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertFileContentContains(def_file, 'hello_B')
     self.AssertFileContentContains(def_file, 'hello_C')
 
+  def testInterfaceLibraryForCcBinaryExecutable(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+      'main/BUILD',
+      [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        ')',
+      ])
+    self.ScratchFile('main/main.cc', [
+      '#include <stdio.h>',
+      '',
+      '__declspec(dllexport) int hello() {',
+      '  printf("Hello\\n");',
+      '  return 0;',
+      '}',
+      '',
+      'int main() {',
+      '  return hello();',
+      '}',
+    ])
+    bazel_bin = self.getBazelInfo('bazel-bin')
+
+    exit_code, stdout, stderr = self.RunBazel([
+      'build', '//main:main',
+      '--output_groups=default,interface_library',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+    main_binary = os.path.join(bazel_bin, 'main/main.exe')
+    main_interface = os.path.join(bazel_bin, 'main/main.if.lib')
+    self.assertTrue(os.path.exists(main_binary))
+    self.assertTrue(os.path.exists(main_interface))
+
   def testBuildSharedLibraryFromCcBinaryWithDynamicLink(self):
     self.createProjectFiles()
     self.ScratchFile(
