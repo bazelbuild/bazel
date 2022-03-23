@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -451,15 +452,32 @@ class ArtifactFunction implements SkyFunction {
       // Discovered inputs may not have an owner. Directory source artifacts may be owned by a label
       // ':.' which will crash toPathFragment below.
       return String.format("%s '%s'", error, artifact.getExecPathString());
-    } else if (ownerLabel.toPathFragment().equals(artifact.getExecPath())) {
-      // No additional useful information from path.
-      return String.format("%s '%s'", error, ownerLabel);
-    } else {
-      // TODO(janakr): when is this hit?
-      BugReport.sendBugReport(
-          new IllegalStateException("Unexpected special owner? " + artifact + ", " + ownerLabel));
-      return String.format("%s '%s', owner: '%s'", error, artifact.getExecPathString(), ownerLabel);
     }
+
+    PathFragment labelFragment = ownerLabel.toPathFragment();
+    if (ownerLabel.getRepository().isMain()) {
+      if (labelFragment.equals(artifact.getExecPath())) {
+        // No additional useful information from path.
+        return String.format("%s '%s'", error, ownerLabel);
+      }
+    } else {
+      // Not worth threading sibling repository layout config value all the way here: if either
+      // match, we know the label isn't useful.
+      for (boolean siblingRepositoryLayout : ImmutableList.of(Boolean.FALSE, Boolean.TRUE)) {
+        if (ownerLabel
+            .getRepository()
+            .getExecPath(siblingRepositoryLayout)
+            .getRelative(labelFragment)
+            .equals(artifact.getExecPath())) {
+          return String.format("%s '%s'", error, ownerLabel);
+        }
+      }
+    }
+
+    // TODO(bazel-team): when is this hit?
+    BugReport.sendBugReport(
+        new IllegalStateException("Unexpected special owner? " + artifact + ", " + ownerLabel));
+    return String.format("%s '%s', owner: '%s'", error, artifact.getExecPathString(), ownerLabel);
   }
 
   /** Describes dependencies of derived artifacts. */
