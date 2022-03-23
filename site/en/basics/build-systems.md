@@ -34,7 +34,7 @@ This instructs the Java compiler to take every Java source file in the current
 directory and turn it into a binary class file. In the simplest case, this is
 all you need.
 
-However, as soon as code expands,the complications begin. `javac` is smart
+However, as soon as code expands, the complications begin. `javac` is smart
 enough to look in subdirectories of the current directory to find code to
 import. But it has no way of finding code stored in _other parts_ of the
 filesystem (perhaps a library shared by several projects). It also only knows
