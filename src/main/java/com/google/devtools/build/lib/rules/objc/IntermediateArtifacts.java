@@ -292,7 +292,8 @@ public final class IntermediateArtifacts implements StarlarkValue {
   /** {@link CppModuleMap} for layering check and modules. */
   @StarlarkMethod(name = "internal_module_map", documented = false, structField = true)
   public CppModuleMap internalModuleMap() {
-    return new CppModuleMap(appendExtensionInGenfiles(".internal.cppmap"), getModuleName());
+    return new CppModuleMap(
+        appendExtensionInGenfiles(".internal.cppmap"), ruleContext.getLabel().toString());
   }
 
   /**
