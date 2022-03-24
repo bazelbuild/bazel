@@ -216,6 +216,7 @@ bool ManifestCombiner::Merge(const CDH *cdh, const LH *lh) {
 void *ManifestCombiner::OutputEntry(bool compress) {
   if (multi_release_) {
     concatenator_->Append(MULTI_RELEASE);
+    concatenator_->Append("\r\n");
   }
   concatenator_->Append("\r\n");
   return concatenator_->OutputEntry(compress);

@@ -30,7 +30,7 @@ static const char kCombinedXmlContents[] =
     "<toplevel>\n<tag1>Contents1</tag1><tag2>Contents2</tag2></toplevel>\n";
 static const char kConcatenatedContents[] =
     "<tag1>Contents1</tag1>\n<tag2>Contents2</tag2>";
-const char kCombinedManifestContents[] = "Multi-Release: true\r\n";
+const char kCombinedManifestContents[] = "Multi-Release: true\r\n\r\n";
 const char kCombinedManifestContentsDisabled[] = "\r\n";
 const uint8_t kPoison = 0xFA;
 
