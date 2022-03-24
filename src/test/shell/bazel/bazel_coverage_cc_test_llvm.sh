@@ -146,7 +146,77 @@ LH:5
 LF:7
 end_of_record"
 
-  assert_equals "$(cat $(get_coverage_file_path_from_test_log))" "$expected_result"
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
 }
+
+function test_cc_test_with_runtime_objects_not_in_runfiles() {
+  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  if [[ ! -x ${llvm_profdata} ]]; then
+    return
+  fi
+
+  local -r clang="/usr/bin/clang-9"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+
+  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  if [[ ! -x ${llvm_cov} ]]; then
+    return
+  fi
+
+  cat << EOF > BUILD
+cc_test(
+    name = "main",
+    srcs = ["main.cpp"],
+    data = [":jar"],
+)
+
+java_binary(
+    name = "jar",
+    resources = [":shared_lib"],
+    create_executable = False,
+)
+
+cc_binary(
+    name = "shared_lib",
+    linkshared = True,
+)
+EOF
+
+  cat << EOF > main.cpp
+#include <iostream>
+
+int main(int argc, char const *argv[])
+{
+  if (argc < 5) {
+    std::cout << "Hello World!" << std::endl;
+  }
+}
+EOF
+
+
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
+    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
+      --test_output=all --instrument_test_targets \
+        //:main &>$TEST_log || fail "Coverage for //:main failed"
+
+  local expected_result="SF:main.cpp
+FN:4,main
+FNDA:1,main
+FNF:1
+FNH:1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:7,1
+DA:8,1
+LH:5
+LF:5
+end_of_record"
+
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
+}
+
 
 run_suite "test tests"
