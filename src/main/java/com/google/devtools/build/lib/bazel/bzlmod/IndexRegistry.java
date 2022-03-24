@@ -117,7 +117,7 @@ public class IndexRegistry implements Registry {
       return Optional.empty();
     }
     String jsonString = new String(bytes.get(), UTF_8);
-    if (jsonString.strip().equals("")) {
+    if (jsonString.strip().isEmpty()) {
       return Optional.empty();
     }
     try {
