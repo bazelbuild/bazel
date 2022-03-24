@@ -1999,6 +1999,7 @@ java_library(
         ":action_execution_value",
         ":detailed_exceptions",
         ":directory_listing_value",
+        ":dirents",
         ":package_lookup_value",
         ":sky_functions",
         ":tree_artifact_value",
