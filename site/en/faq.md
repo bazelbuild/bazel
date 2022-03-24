@@ -193,7 +193,7 @@ We are reachable at bazel-discuss@googlegroups.com.
 
 ## Where do I report bugs?
 
-Open on issue [on GitHub](https://github.com/bazelbuild/bazel/issues){: .external}.
+Open an issue [on GitHub](https://github.com/bazelbuild/bazel/issues){: .external}.
 
 ## What’s up with the word “Blaze” in the codebase?
 
