@@ -120,8 +120,8 @@ public final class LexerTest {
 
   @Test
   public void testOperatorWithQuotedExprWithMoreSpecialCharacters() throws QuerySyntaxException {
-    Lexer.Token[] tokens = scan("set(\"//foo:foo=base/2~123+asd\")");
-    assertThat(asString(tokens)).isEqualTo("set ( //foo:foo=base/2~123+asd ) EOF");
+    Lexer.Token[] tokens = scan("set(\"//foo:foo=base/2~123[]+asd\")");
+    assertThat(asString(tokens)).isEqualTo("set ( //foo:foo=base/2~123[]+asd ) EOF");
     assertThat(tokens[0].kind).isEqualTo(Lexer.TokenKind.SET);
     assertThat(tokens[1].kind).isEqualTo(Lexer.TokenKind.LPAREN);
     assertThat(tokens[2].kind).isEqualTo(Lexer.TokenKind.WORD);
@@ -130,8 +130,8 @@ public final class LexerTest {
 
   @Test
   public void testOperatorWithUnquotedExprWithSpecialCharacters() throws QuerySyntaxException {
-    Lexer.Token[] tokens = scan("set(//a:b=bar./@_:~-*$123+asd)");
-    assertThat(asString(tokens)).isEqualTo("set ( //a:b = bar./@_:~-*$123 + asd ) EOF");
+    Lexer.Token[] tokens = scan("set(//a:b=bar./@_:~-*$123[]+asd)");
+    assertThat(asString(tokens)).isEqualTo("set ( //a:b = bar./@_:~-*$123[] + asd ) EOF");
     assertThat(tokens[0].kind).isEqualTo(Lexer.TokenKind.SET);
     assertThat(tokens[1].kind).isEqualTo(Lexer.TokenKind.LPAREN);
     assertThat(tokens[2].kind).isEqualTo(Lexer.TokenKind.WORD);
