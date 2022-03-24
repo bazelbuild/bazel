@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -115,7 +116,14 @@ public class IndexRegistry implements Registry {
       return Optional.empty();
     }
     String jsonString = new String(bytes.get(), UTF_8);
-    return Optional.of(gson.fromJson(jsonString, klass));
+    if (jsonString.strip().isEmpty()) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(gson.fromJson(jsonString, klass));
+    } catch (JsonParseException e) {
+      throw new IOException(String.format("Unable to parse json at url %s", url), e);
+    }
   }
 
   @Override
