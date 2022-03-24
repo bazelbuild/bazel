@@ -664,12 +664,15 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .allowedFileTypes(FileTypeSet.ANY_FILE))
           .add(
+              // This attribute definition must be kept in sync with
+              // third_party/bazel_rules/rules_apple/apple/internal/rule_factory.bzl
               attr("$j2objc_dead_code_pruner", LABEL)
-                  .allowedFileTypes(FileType.of(".py"))
                   .cfg(ExecutionTransitionFactory.create())
                   .exec()
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
+                  // Allow arbitrary executable files; this gives more flexibility for the
+                  // implementation of the underlying tool.
+                  .legacyAllowAnyFileType()
+                  .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner_binary")))
           .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
           .build();
     }
