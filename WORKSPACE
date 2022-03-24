@@ -457,35 +457,6 @@ dist_http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-
-)
-
-dist_http_archive(
-    name = "remotejdk17_linux_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_macos_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_macos_aarch64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_win_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
@@ -493,8 +464,18 @@ dist_http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-
 )
+
+[
+    dist_http_archive(
+        name = "remotejdk%s_%s_for_testing" % (version, os),
+        build_file = "@local_jdk//:BUILD.bazel",
+        patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+        patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    )
+    for version in ("17", "18")
+    for os in ("linux", "macos", "macos_aarch64", "win")
+]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
