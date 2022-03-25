@@ -45,6 +45,7 @@ class Options {
   std::string main_class;
   std::string java_launcher;
   std::string cds_archive;
+  std::string jdk_lib_modules;
   std::vector<std::string> manifest_lines;
   std::vector<std::pair<std::string, std::string> > input_jars;
   std::vector<std::string> resources;

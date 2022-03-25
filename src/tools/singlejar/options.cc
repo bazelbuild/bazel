@@ -37,6 +37,7 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
       tokens->MatchAndSet("--main_class", &main_class) ||
       tokens->MatchAndSet("--java_launcher", &java_launcher) ||
       tokens->MatchAndSet("--cds_archive", &cds_archive) ||
+      tokens->MatchAndSet("--jdk_lib_modules", &jdk_lib_modules) ||
       tokens->MatchAndSet("--deploy_manifest_lines", &manifest_lines) ||
       tokens->MatchAndSet("--sources", &input_jars) ||
       tokens->MatchAndSet("--resources", &resources) ||

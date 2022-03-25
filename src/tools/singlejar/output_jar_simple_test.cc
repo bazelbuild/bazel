@@ -307,6 +307,80 @@ TEST_F(OutputJarSimpleTest, CDSArchive) {
   EXPECT_PRED2(HasSubstr, build_properties, prop);
 }
 
+// --jdk_lib_modules option
+TEST_F(OutputJarSimpleTest, JDKLibModules) {
+  string out_path = OutputFilePath("out.jar");
+  string launcher_path = CreateTextFile("launcher", "Dummy");
+  string jdk_lib_modules_path = CreateTextFile("modules", "Dummy");
+  CreateOutput(out_path, {"--java_launcher", launcher_path,
+                          "--jdk_lib_modules", jdk_lib_modules_path});
+
+  // Test META-INF/MANIFEST.MF attribute.
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  size_t pagesize;
+#ifndef _WIN32
+  pagesize = sysconf(_SC_PAGESIZE);
+#else
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  pagesize = si.dwPageSize;
+#endif
+  char attr[128];
+  snprintf(attr, sizeof(attr), "JDK-Lib-Modules-Offset: %ld", pagesize);
+  EXPECT_PRED2(HasSubstr, manifest, attr);
+}
+
+// --cds_archive & --jdk_lib_modules options
+TEST_F(OutputJarSimpleTest, CDSAndJDKLibModules) {
+  string cds_data = "cafebabe";
+  string modules_data = "deadbeef";
+  string out_path = OutputFilePath("out.jar");
+  string launcher_path = CreateTextFile("launcher", "Dummy");
+  string cds_archive_path = CreateTextFile("classes.jsa", cds_data.c_str());
+  string jdk_lib_modules_path = CreateTextFile("modules", modules_data.c_str());
+  CreateOutput(out_path, {"--java_launcher", launcher_path,
+                          "--cds_archive", cds_archive_path,
+                          "--jdk_lib_modules", jdk_lib_modules_path});
+
+  FILE *fp = fopen(out_path.c_str(), "r");
+  ASSERT_NE(nullptr, fp);
+
+  // Test META-INF/MANIFEST.MF attributes.
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  size_t pagesize;
+#ifndef _WIN32
+  pagesize = sysconf(_SC_PAGESIZE);
+#else
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  pagesize = si.dwPageSize;
+#endif
+  size_t page_aligned_cds_offset = pagesize;
+  char buf[8];
+  size_t buf_len = sizeof(buf);
+
+  char cds_attr[128];
+  snprintf(cds_attr, sizeof(cds_attr), "Jsa-Offset: %ld",
+           page_aligned_cds_offset);
+  EXPECT_PRED2(HasSubstr, manifest, cds_attr);
+
+  fseek(fp, page_aligned_cds_offset, 0);
+  fread(buf, 1, buf_len, fp);
+  ASSERT_EQ(cds_data, string(buf, buf_len));
+
+  size_t page_aligned_modules_offset = pagesize * 2;
+  char modules_attr[128];
+  snprintf(modules_attr, sizeof(modules_attr), "JDK-Lib-Modules-Offset: %ld",
+           page_aligned_modules_offset);
+  EXPECT_PRED2(HasSubstr, manifest, modules_attr);
+
+  fseek(fp, page_aligned_modules_offset, 0);
+  fread(buf, 1, buf_len, fp);
+  ASSERT_EQ(modules_data, string(buf, buf_len));
+
+  fclose(fp);
+}
+
 // --main_class option.
 TEST_F(OutputJarSimpleTest, MainClass) {
   string out_path = OutputFilePath("out.jar");
