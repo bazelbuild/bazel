@@ -17,7 +17,7 @@ landing_page:
       image_path: /images/placeholder.png
       heading: Why Bazel?
       description: >
-          { Fast, Correct } — Choose two
+          &#123 Fast, Correct &#125 — Choose two
       list:
       - heading: Speed up your builds and tests
         description: >
