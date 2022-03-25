@@ -579,6 +579,20 @@ DIST_DEPS = {
         ],
         "used_in": [],
     },
+    "remotejdk18_win_arm64": {
+        "aliases": [
+            "remotejdk18_win_arm64_for_testing",
+            "openjdk18_windows_arm64_archive",
+        ],
+        "archive": "zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+        "sha256": "9b52b259516e4140ee56b91f77750667bffbc543e78ad8c39082449d4c377b54",
+        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-win_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
 }
 
 # Add aliased names

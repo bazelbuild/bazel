@@ -112,6 +112,7 @@ gen_workspace_stanza(
         "remotejdk18_macos",
         "remotejdk18_macos_aarch64",
         "remotejdk18_win",
+        "remotejdk18_win_arm64",
     ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],
