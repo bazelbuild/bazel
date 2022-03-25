@@ -188,6 +188,8 @@ static const size_t MULTI_RELEASE_LENGTH = strlen(MULTI_RELEASE);
 static const char *MULTI_RELEASE_PREFIX = "Multi-Release: ";
 static const size_t MULTI_RELEASE_PREFIX_LENGTH = strlen(MULTI_RELEASE_PREFIX);
 
+void ManifestCombiner::EnableMultiRelease() { multi_release_ = true; }
+
 void ManifestCombiner::AppendLine(const std::string &line) {
   if (line.find(MULTI_RELEASE_PREFIX, 0, MULTI_RELEASE_PREFIX_LENGTH) !=
       std::string::npos) {

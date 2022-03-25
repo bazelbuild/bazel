@@ -889,4 +889,30 @@ TEST_F(OutputJarSimpleTest, Nocompress) {
   input_jar.Close();
 }
 
+// --multi_release option.
+TEST_F(OutputJarSimpleTest, MultiRelease) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--multi_release"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Multi-Release: true\r\n"
+      "\r\n",
+      manifest);
+}
+
+// --multi_release option doesn't override --deploy_manifest_lines.
+TEST_F(OutputJarSimpleTest, MultiReleaseManifestLines) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--multi_release", "--deploy_manifest_lines",
+                          "Multi-Release: false"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "\r\n",
+      manifest);
+}
+
 }  // namespace

@@ -36,6 +36,7 @@ TEST(OptionsTest, Flags1) {
   EXPECT_FALSE(options.verbose);
   EXPECT_FALSE(options.warn_duplicate_resources);
   EXPECT_FALSE(options.check_desugar_deps);
+  EXPECT_FALSE(options.multi_release);
   EXPECT_EQ("output_jar", options.output_jar);
 }
 
@@ -44,7 +45,9 @@ TEST(OptionsTest, Flags2) {
                         "--verbose",
                         "--warn_duplicate_resources",
                         "--check_desugar_deps",
-                        "--output", "output_jar"};
+                        "--output",
+                        "output_jar",
+                        "--multi_release"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -56,6 +59,7 @@ TEST(OptionsTest, Flags2) {
   ASSERT_TRUE(options.verbose);
   ASSERT_TRUE(options.warn_duplicate_resources);
   ASSERT_TRUE(options.check_desugar_deps);
+  ASSERT_TRUE(options.multi_release);
 }
 
 TEST(OptionsTest, SingleOptargs) {

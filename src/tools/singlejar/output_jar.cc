@@ -134,6 +134,9 @@ int OutputJar::Doit(Options *options) {
     AppendCDSArchive(options->cds_archive);
   }
 
+  if (options_->multi_release) {
+    manifest_.EnableMultiRelease();
+  }
   for (auto &manifest_line : options_->manifest_lines) {
     if (!manifest_line.empty()) {
       manifest_.AppendLine(manifest_line);

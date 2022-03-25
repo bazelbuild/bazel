@@ -33,7 +33,8 @@ class Options {
         preserve_compression(false),
         verbose(false),
         warn_duplicate_resources(false),
-        check_desugar_deps(false) {}
+        check_desugar_deps(false),
+        multi_release(false) {}
 
   virtual ~Options() {}
 
@@ -62,6 +63,7 @@ class Options {
   bool verbose;
   bool warn_duplicate_resources;
   bool check_desugar_deps;
+  bool multi_release;
 
  protected:
   /*
