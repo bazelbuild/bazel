@@ -122,7 +122,13 @@ public class Dict<K, V>
     Preconditions.checkState(mutability != Mutability.IMMUTABLE);
     this.mutability = mutability;
     // TODO(bazel-team): Memory optimization opportunity: Make it so that a call to
-    //  `mutability.freeze()` causes `contents` here to become an ImmutableMap.
+    // `mutability.freeze()` causes `contents` here to become an ImmutableMap. Benchmarks show that
+    // for many targets, this can save a small amount of retained heap (up to 1%). But for some
+    // targets the bookkeeping required for this causes unacceptably increased temporary heap, and
+    // the CPU overhead of the bookkeeping and the CPU cost of the ImmutableMap#copyOf call cause
+    // unacceptably increased CPU. In other words, the overall tradeoff is not obviously worth it
+    // in all cases. So be careful making this optimization! See comment #12 of b/225469491 for
+    // details.
     this.contents = contents;
   }
 
