@@ -40,9 +40,19 @@ class MethodLibrary {
               + "or if no arguments are given. "
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
-  public Object min(Sequence<?> args) throws EvalException {
-    return findExtreme(args, Starlark.ORDERING.reverse());
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      parameters = {
+          @Param(
+              name = "key",
+              doc = "An optional function applied to each element before comparison.",
+              named = true,
+              defaultValue = "None",
+              positional = false),
+      },
+      useStarlarkThread = true
+  )
+  public Object min(Object key, Sequence<?> args, StarlarkThread thread) throws EvalException, InterruptedException {
+    return sorted(unwrapListFromExtraPositional(args, thread), key, false, thread).get(0);
   }
 
   @StarlarkMethod(
@@ -54,23 +64,31 @@ class MethodLibrary {
               + "or if no arguments are given. "
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
-  public Object max(Sequence<?> args) throws EvalException {
-    return findExtreme(args, Starlark.ORDERING);
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      parameters = {
+          @Param(
+                  name = "key",
+                  doc = "An optional function applied to each element before comparison.",
+                  named = true,
+                  defaultValue = "None",
+                  positional = false),
+      },
+      useStarlarkThread = true
+  )
+  public Object max(Object key, Sequence<?> args, StarlarkThread thread) throws EvalException, InterruptedException {
+    return sorted(unwrapListFromExtraPositional(args, thread), key, true, thread).get(0);
   }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
-  private static Object findExtreme(Sequence<?> args, Ordering<Object> maxOrdering)
-      throws EvalException {
-    // Args can either be a list of items to compare, or a singleton list whose element is an
-    // iterable of items to compare. In either case, there must be at least one item to compare.
-    Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
+  private static StarlarkList<?> unwrapListFromExtraPositional(Sequence<?> args, StarlarkThread thread) throws EvalException {
+    if (args.size() > 1) {
+      return StarlarkList.wrap(thread.mutability(), args.toArray());
+    }
+    Object item = args.get(0);
     try {
-      return maxOrdering.max(items);
-    } catch (ClassCastException ex) {
-      throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
-    } catch (NoSuchElementException ex) {
-      throw new EvalException("expected at least one item", ex);
+      return (StarlarkList<?>) item;
+    } catch (ClassCastException e) {
+      throw Starlark.errorf("type '%s' is not iterable", Starlark.type(item));
     }
   }
 

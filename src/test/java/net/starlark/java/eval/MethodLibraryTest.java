@@ -761,4 +761,17 @@ public final class MethodLibraryTest {
         .testIfErrorContains(
             "expected string for sequence element 1, got '2' of type int", "', '.join(['foo', 2])");
   }
+
+  @Test
+  public void testMinMax() throws Exception {
+    ev.new Scenario()
+            .testEval("min([1,0,2,3])", "0")
+            .testEval("min(['two','three','four'], key=len)", "'two'")
+            .testEval("max(['two','three','four'], key=len)", "'three'")
+            .testEval("max('two','three','four', key=len)", "'three'")
+            .testEval("min('two','three','four', key=len)", "'two'")
+            .testIfErrorContains("type 'int' is not iterable", "min(1)")
+            .testIfErrorContains("type 'string' is not iterable", "max('foo')")
+    ;
+  }
 }
