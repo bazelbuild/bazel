@@ -156,7 +156,7 @@ public class IndexRegistry implements Registry {
     if (bazelRegistryJson.isPresent() && bazelRegistryJson.get().mirrors != null) {
       for (String mirror : bazelRegistryJson.get().mirrors) {
         try {
-          new URL(mirror);
+          var unused = new URL(mirror);
         } catch (MalformedURLException e) {
           throw new IOException("Malformed mirror URL", e);
         }
