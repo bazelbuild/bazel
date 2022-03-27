@@ -49,7 +49,13 @@ public class NestedSetFingerprintCache {
       fingerprint.addInt(EMPTY_SET_DIGEST);
       return;
     }
-    DigestMap digestMap = mapFnToDigestMap.computeIfAbsent(mapFn, this::newDigestMap);
+    DigestMap digestMap;
+    if (mapFn instanceof CommandLineItem.DefinedParamsCacheMapFn) {
+      fingerprint.addUUID(((CommandLineItem.DefinedParamsCacheMapFn) mapFn).getUUID());
+      fingerprint.addBytes(((CommandLineItem.DefinedParamsCacheMapFn) mapFn).getParamsBytes());
+      mapFn = CommandLineItem.MapFn.DEFAULT;
+    }
+    digestMap = mapFnToDigestMap.computeIfAbsent(mapFn, this::newDigestMap);
     fingerprint.addInt(nestedSet.getOrder().ordinal());
     Object children = nestedSet.getChildren();
     addToFingerprint(mapFn, fingerprint, digestMap, children);

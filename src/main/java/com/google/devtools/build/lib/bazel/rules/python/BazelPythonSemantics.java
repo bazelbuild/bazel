@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -48,12 +50,15 @@ import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.rules.python.PythonUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -342,6 +347,52 @@ public class BazelPythonSemantics implements PythonSemantics {
     return getZipRunfilesPath(PathFragment.create(path), workspaceName, legacyExternalRunfiles);
   }
 
+  private static class ZipPathArgMapper implements CommandLineItem.DefinedParamsCacheMapFn<Artifact> {
+    private static final UUID MAPPER_UUID = UUID.fromString("a27af967-a391-4214-9e9d-14fd548ce063");
+
+    private Artifact executable;
+    private Artifact zipFile;
+    private PathFragment workspaceName;
+    private boolean legacyExternalRunfiles;
+
+    ZipPathArgMapper(
+        Artifact executable,
+        Artifact zipFile,
+        PathFragment workspaceName,
+        boolean legacyExternalRunfiles
+    ) {
+      this.executable = executable;
+      this.zipFile = zipFile;
+      this.workspaceName = workspaceName;
+      this.legacyExternalRunfiles = legacyExternalRunfiles;
+    }
+
+    @Override
+    public void expandToCommandLine(Artifact artifact, Consumer<String> args) {
+      if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
+        args.accept(
+            getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName, legacyExternalRunfiles)
+                + "="
+                + artifact.getExecPathString());
+      }
+    }
+
+    @Override
+    public UUID getUUID() {
+      return MAPPER_UUID;
+    }
+
+    @Override
+    public byte[] getParamsBytes() {
+      Fingerprint fp = new Fingerprint();
+      fp.addString(executable.getExecPathString());
+      fp.addString(zipFile.getExecPathString());
+      fp.addPath(workspaceName);
+      fp.addBoolean(legacyExternalRunfiles);
+      return fp.digestAndReset();
+    }
+  }
+
   private static void createPythonZipAction(
       RuleContext ruleContext,
       Artifact executable,
@@ -367,12 +418,12 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
     // Filter the executable file, cause we are building it.
+    argv.addAll(VectorArg.of(runfilesSupport.getRunfilesArtifacts()).mapped(
+        new ZipPathArgMapper(executable, zipFile, workspaceName, legacyExternalRunfiles)));
+
+    // TODO: Consider adding all files to avoid expanding nested sets.
     for (Artifact artifact : runfilesSupport.getRunfilesArtifacts().toList()) {
       if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
-        argv.addDynamicString(
-            getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName, legacyExternalRunfiles)
-                + "="
-                + artifact.getExecPathString());
         inputsBuilder.add(artifact);
       }
     }

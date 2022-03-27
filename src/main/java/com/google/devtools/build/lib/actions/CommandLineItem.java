@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import java.util.UUID;
 import java.util.function.Consumer;
 
 /** An interface for an object that customizes how it is expanded into a command line. */
@@ -55,6 +56,22 @@ public interface CommandLineItem {
      * number.
      */
     public abstract int maxInstancesAllowed();
+  }
+
+  /**
+   * Map function which may have multiple instances, where each instance differs only by a set of
+   * defined parameters.
+   *
+   * <p>Each instance needs to return a fingerprint of parameters it depends on.</p>
+   */
+  interface DefinedParamsCacheMapFn<T> extends MapFn<T> {
+    // Returns UUID common to all instances of DefinedParamsCacheMapFn.
+    UUID getUUID();
+
+    // Returns bytes representing parameters of this instance.
+    // Note, it could be to replace this method to addToFingerprint, but this need to be done
+    // carefully to avoid cyclic dependencies.
+    byte[] getParamsBytes();
   }
 
   /** Expands the object into the command line as a string. */
