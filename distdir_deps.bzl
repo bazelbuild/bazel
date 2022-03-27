@@ -535,7 +535,7 @@ DIST_DEPS = {
         "sha256": "959a94ca4097dcaabc7886784cec10dfdf2b0a3bff890ea8943cc09c5fff29cb",
         "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.tar.gz",
         ],
         "used_in": [],
@@ -548,7 +548,7 @@ DIST_DEPS = {
         "sha256": "780a9aa4bda95a6793bf41d13f837c59ef915e9bfd0e0c5fd4c70e4cdaa88541",
         "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_x64.tar.gz",
         ],
         "used_in": [],
@@ -561,7 +561,7 @@ DIST_DEPS = {
         "sha256": "9595e001451e201fdf33c1952777968a3ac18fe37273bdeaea5b5ed2c4950432",
         "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_aarch64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_aarch64.tar.gz",
         ],
         "used_in": [],
@@ -574,7 +574,7 @@ DIST_DEPS = {
         "sha256": "6c75498163b047595386fdb909cb6d4e04282c3a81799743c5e1f9316391fe16",
         "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-win_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_x64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_x64.zip",
             "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_x64.zip",
         ],
         "used_in": [],
@@ -588,7 +588,7 @@ DIST_DEPS = {
         "sha256": "9b52b259516e4140ee56b91f77750667bffbc543e78ad8c39082449d4c377b54",
         "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-win_aarch64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
             "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
         ],
         "used_in": ["test_WORKSPACE_files"],
