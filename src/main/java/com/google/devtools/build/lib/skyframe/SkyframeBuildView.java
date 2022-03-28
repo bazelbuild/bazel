@@ -693,7 +693,7 @@ public final class SkyframeBuildView {
               mergedPhasesExecutionJobsCount);
     } finally {
       enableAnalysis(false);
-      skyframeExecutor.resetIncrementalArtifactConflictFinder();
+      skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
     }
 
     if (!evaluationResult.hasError()) {
@@ -810,7 +810,7 @@ public final class SkyframeBuildView {
       return topLevelActionConflictReport;
     } finally {
       skyframeExecutor.resetActionConflictsStoredInSkyframe();
-      skyframeExecutor.resetIncrementalArtifactConflictFinder();
+      skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
     }
   }
 

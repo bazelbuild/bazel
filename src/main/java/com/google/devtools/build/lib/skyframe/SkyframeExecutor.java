@@ -165,6 +165,8 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
+import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -368,7 +370,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Map<String, String> lastRemoteDefaultExecProperties;
   private RemoteOutputsMode lastRemoteOutputsMode;
   private Boolean lastRemoteCacheEnabled;
+
+  // Reset after each build.
   private IncrementalArtifactConflictFinder incrementalArtifactConflictFinder;
+  // A set of ActionLookupKeys which have been confirmed to be conflict-free. This is used for
+  // pruning while going through the ActionLookupKeys in the build for conflict checking.
+  // Reset after each build.
+  private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -469,6 +477,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.packageProgress = packageProgress;
     this.configuredTargetProgress = configuredTargetProgress;
+
+    // Initialize the various conflict-finding states.
+    incrementalArtifactConflictFinder =
+        IncrementalArtifactConflictFinder.createWithActionGraph(
+            new MapBasedActionGraph(actionKeyContext));
+    conflictFreeActionLookupKeysGlobalSet = Sets.newConcurrentHashSet();
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
@@ -636,13 +650,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.ARTIFACT_NESTED_SET,
         ArtifactNestedSetFunction.createInstance(valueBasedChangePruningEnabled()));
-    this.incrementalArtifactConflictFinder =
-        IncrementalArtifactConflictFinder.createWithActionGraph(
-            new MapBasedActionGraph(actionKeyContext));
     map.put(
         SkyFunctions.BUILD_DRIVER,
         new BuildDriverFunction(
-            key -> collectTransitiveActionLookupKeys(key).getActionShards(),
+            new TransitiveActionLookupValuesHelper() {
+              @Override
+              public ActionLookupValuesCollectionResult collect(ActionLookupKey key)
+                  throws InterruptedException {
+                return collectTransitiveActionLookupValues(key);
+              }
+
+              @Override
+              public void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys) {
+                getConflictFreeActionLookupKeysGlobalSet().addAll(keys);
+              }
+            },
             this::getIncrementalArtifactConflictFinder,
             this::getEventBus));
     map.putAll(extraSkyFunctions);
@@ -2393,15 +2415,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Resets the incremental artifact conflict finder to ensure incremental correctness. */
-  public void resetIncrementalArtifactConflictFinder() throws InterruptedException {
+  public void resetIncrementalArtifactConflictFindingStates() throws InterruptedException {
+    conflictFreeActionLookupKeysGlobalSet = Sets.newConcurrentHashSet();
     incrementalArtifactConflictFinder.shutdown();
     incrementalArtifactConflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(
             new MapBasedActionGraph(actionKeyContext));
   }
 
-  public IncrementalArtifactConflictFinder getIncrementalArtifactConflictFinder() {
+  private IncrementalArtifactConflictFinder getIncrementalArtifactConflictFinder() {
     return incrementalArtifactConflictFinder;
+  }
+
+  private Set<SkyKey> getConflictFreeActionLookupKeysGlobalSet() {
+    return conflictFreeActionLookupKeysGlobalSet;
   }
 
   /**
@@ -3100,24 +3127,31 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         return result;
       }
       Map<ActionLookupKey, SkyValue> foundActions =
-          FindActionsRecursively.run(
-              Iterables.concat(topLevelCtKeys, aspectKeys),
-              SkyframeExecutorWrappingWalkableGraph.of(this));
+          TransitiveActionLookupKeysCollector.create(SkyframeExecutorWrappingWalkableGraph.of(this))
+              .collect(Iterables.concat(topLevelCtKeys, aspectKeys));
       foundActions.forEach(result::accumulate);
       return result;
     }
   }
 
-  final AnalysisTraversalResult collectTransitiveActionLookupKeys(ActionLookupKey key)
-      throws InterruptedException {
+  /**
+   * Collects the transitive ActionLookupKeys of the provided {@code key}, taking into account the
+   * set of visited ALKs this build for pruning.
+   */
+  private ActionLookupValuesCollectionResult collectTransitiveActionLookupValues(
+      ActionLookupKey key) throws InterruptedException {
+    TransitiveActionLookupKeysCollector collector =
+        TransitiveActionLookupKeysCollector.withGlobalVisitedKeySet(
+            SkyframeExecutorWrappingWalkableGraph.of(this), conflictFreeActionLookupKeysGlobalSet);
     try (SilentCloseable c =
-        Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupKeys")) {
+        Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValues")) {
       AnalysisTraversalResult result = new AnalysisTraversalResult();
       Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
-          FindActionsRecursively.run(
-              ImmutableList.of(key), SkyframeExecutorWrappingWalkableGraph.of(this));
+          collector.collect(ImmutableList.of(key));
       foundTransitiveActionLookupEntities.forEach(result::accumulate);
-      return result;
+      return ActionLookupValuesCollectionResult.create(
+          result.getActionShards(),
+          ImmutableSet.copyOf(foundTransitiveActionLookupEntities.keySet()));
     }
   }
 
@@ -3200,7 +3234,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  private static final class FindActionsRecursively {
+  private static final class TransitiveActionLookupKeysCollector {
     private final QuiescingExecutor quiescingExecutor =
         ForkJoinQuiescingExecutor.newBuilder()
             .withOwnershipOf(
@@ -3209,35 +3243,71 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                     Runtime.getRuntime().availableProcessors()))
             .build();
     private final WalkableGraph walkableGraph;
-    private final Set<SkyKey> seen = Sets.newConcurrentHashSet();
-    private final Map<ActionLookupKey, SkyValue> found = Maps.newConcurrentMap();
+    @Nullable private final Set<SkyKey> globalVisitedSet;
+    private final Set<SkyKey> localVisitedSet;
 
-    private FindActionsRecursively(WalkableGraph walkableGraph) {
+    private TransitiveActionLookupKeysCollector(
+        WalkableGraph walkableGraph, Set<SkyKey> globalVisitedSet) {
       this.walkableGraph = walkableGraph;
+      this.globalVisitedSet = globalVisitedSet;
+      this.localVisitedSet = Sets.newConcurrentHashSet();
     }
 
-    static Map<ActionLookupKey, SkyValue> run(
-        Iterable<ActionLookupKey> visitationRoots, WalkableGraph walkableGraph)
+    /**
+     * Returns a standard collector that traverses the {@code walkableGraph} to collect transitive
+     * ActionLookupKeys.
+     */
+    static TransitiveActionLookupKeysCollector create(WalkableGraph walkableGraph) {
+      return new TransitiveActionLookupKeysCollector(walkableGraph, /*globalVisitedSet=*/ null);
+    }
+
+    /**
+     * Returns a collector that makes use of the supplied {@code globalVisitedSet} set to prune
+     * traversals.
+     */
+    static TransitiveActionLookupKeysCollector withGlobalVisitedKeySet(
+        WalkableGraph walkableGraph, Set<SkyKey> globalVisitedSet) {
+      return new TransitiveActionLookupKeysCollector(walkableGraph, globalVisitedSet);
+    }
+
+    /**
+     * Traverses the transitive closure of the visitationRoots and returns a mapping of
+     * ActionLookupKey -> SkyValue for the keys previously UNVISITED by this
+     * TransitiveActionLookupKeysCollector instance.
+     *
+     * <p>IMPORTANT: due to pruning, the set of returned ActionLookupKey is a SUBSET of the set of
+     * elements in the transitive closure of the visitationRoots.
+     */
+    Map<ActionLookupKey, SkyValue> collect(Iterable<ActionLookupKey> visitationRoots)
         throws InterruptedException {
-      FindActionsRecursively findActionsRecursively = new FindActionsRecursively(walkableGraph);
+      Map<ActionLookupKey, SkyValue> collected = Maps.newConcurrentMap();
       for (ActionLookupKey actionLookupKey : visitationRoots) {
-        findActionsRecursively.enqueueIfNotYetSeen(actionLookupKey);
+        enqueueIfNotYetSeen(actionLookupKey, collected);
       }
-      findActionsRecursively.quiescingExecutor.awaitQuiescence(true);
-      return findActionsRecursively.found;
+      quiescingExecutor.awaitQuiescence(true);
+      return collected;
     }
 
-    private void enqueueIfNotYetSeen(ActionLookupKey key) {
-      if (seen.add(key)) {
-        quiescingExecutor.execute(new VisitActionLookupKey(key));
+    private boolean seen(ActionLookupKey key) {
+      return (globalVisitedSet != null && globalVisitedSet.contains(key))
+          || !localVisitedSet.add(key);
+    }
+
+    private void enqueueIfNotYetSeen(
+        ActionLookupKey key, Map<ActionLookupKey, SkyValue> collected) {
+      if (!seen(key)) {
+        quiescingExecutor.execute(new VisitActionLookupKey(key, collected));
       }
     }
 
     private final class VisitActionLookupKey implements Runnable {
-      private final ActionLookupKey key;
 
-      private VisitActionLookupKey(ActionLookupKey key) {
+      private final ActionLookupKey key;
+      private final Map<ActionLookupKey, SkyValue> collected;
+
+      private VisitActionLookupKey(ActionLookupKey key, Map<ActionLookupKey, SkyValue> collected) {
         this.key = key;
+        this.collected = collected;
       }
 
       @Override
@@ -3251,7 +3321,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         if (value == null) {
           return; // The value failed to evaluate.
         }
-        found.put(key, value);
+        collected.put(key, value);
         Iterable<SkyKey> directDeps;
         try {
           directDeps = walkableGraph.getDirectDeps(key);
@@ -3265,7 +3335,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             // traversal as an optimization.
             continue;
           }
-          enqueueIfNotYetSeen((ActionLookupKey) dep);
+          enqueueIfNotYetSeen((ActionLookupKey) dep, collected);
         }
       }
     }
