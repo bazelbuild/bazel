@@ -365,7 +365,9 @@ public class ProtoCompileActionBuilder {
             /* pluginFormatFlag = */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ null,
-            /* providedProtoSources= */ ImmutableList.of()),
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protocolCompiler= */ null,
+            /* protocOpts= */ ImmutableList.of()),
         outReplacement,
         protocOpts.build());
   }
