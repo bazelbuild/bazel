@@ -68,6 +68,10 @@ public class TemplateExpanderTest {
     return TemplateExpander.expand(value, context);
   }
 
+  private String expandSingleVariable(String value) throws ExpansionException {
+    return TemplateExpander.expandSingleVariable(value, context);
+  }
+
   private ExpansionException expansionFailure(String cmd) {
     try {
       expand(cmd);
@@ -226,5 +230,12 @@ public class TemplateExpanderTest {
     context.functions.put("foo", (String p) -> "FOO(" + p + ")");
     assertThat(expand("$(foo  baz )"))
         .isEqualTo(Expansion.create("FOO(baz)", ImmutableSet.of("foo")));
+  }
+
+  @Test
+  public void testExpandSingleVariable() throws Exception {
+    context.vars.put("SINGLE", "val1 val2");
+    assertThat(expandSingleVariable("$(SINGLE)")).isEqualTo("val1 val2");
+    assertThat(expandSingleVariable("foo $(SINGLE)")).isNull();
   }
 }
