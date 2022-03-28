@@ -35,6 +35,7 @@ java_library(
         "Printer.java",
         "RangeList.java",
         "Sequence.java",
+        "SortKeyHelper.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFloat.java",

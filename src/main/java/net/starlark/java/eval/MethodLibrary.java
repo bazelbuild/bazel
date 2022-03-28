@@ -52,7 +52,7 @@ class MethodLibrary {
       useStarlarkThread = true
   )
   public Object min(Object key, Sequence<?> args, StarlarkThread thread) throws EvalException, InterruptedException {
-    return sorted(unwrapListFromExtraPositional(args, thread), key, false, thread).get(0);
+    return SortKeyHelper.withItemsAndKey(args, key, thread).min();
   }
 
   @StarlarkMethod(
@@ -76,20 +76,7 @@ class MethodLibrary {
       useStarlarkThread = true
   )
   public Object max(Object key, Sequence<?> args, StarlarkThread thread) throws EvalException, InterruptedException {
-    return sorted(unwrapListFromExtraPositional(args, thread), key, true, thread).get(0);
-  }
-
-  /** Returns the maximum element from this list, as determined by maxOrdering. */
-  private static StarlarkList<?> unwrapListFromExtraPositional(Sequence<?> args, StarlarkThread thread) throws EvalException {
-    if (args.size() > 1) {
-      return StarlarkList.wrap(thread.mutability(), args.toArray());
-    }
-    Object item = args.get(0);
-    try {
-      return (StarlarkList<?>) item;
-    } catch (ClassCastException e) {
-      throw Starlark.errorf("type '%s' is not iterable", Starlark.type(item));
-    }
+    return SortKeyHelper.withItemsAndKey(args, key, thread).max();
   }
 
   @StarlarkMethod(
@@ -152,81 +139,10 @@ class MethodLibrary {
             positional = false)
       },
       useStarlarkThread = true)
-  public StarlarkList<?> sorted(
+  public StarlarkIterable<?> sorted(
       StarlarkIterable<?> iterable, Object key, boolean reverse, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Object[] array = Starlark.toArray(iterable);
-    Comparator<Object> order = reverse ? Starlark.ORDERING.reversed() : Starlark.ORDERING;
-
-    // no key?
-    if (key == Starlark.NONE) {
-      try {
-        Arrays.sort(array, order);
-      } catch (ClassCastException ex) {
-        throw Starlark.errorf("%s", ex.getMessage());
-      }
-      return StarlarkList.wrap(thread.mutability(), array);
-    }
-
-    // The user provided a key function.
-    // We must call it exactly once per element, in order,
-    // so use the decorate/sort/undecorate pattern.
-    if (!(key instanceof StarlarkCallable)) {
-      throw Starlark.errorf("for key, got %s, want callable", Starlark.type(key));
-    }
-    StarlarkCallable keyfn = (StarlarkCallable) key;
-
-    // decorate
-    Object[] empty = {};
-    for (int i = 0; i < array.length; i++) {
-      Object v = array[i];
-      Object k = Starlark.fastcall(thread, keyfn, new Object[] {v}, empty);
-      array[i] = new Object[] {k, v};
-    }
-
-    class KeyComparator implements Comparator<Object> {
-      EvalException e;
-
-      @Override
-      public int compare(Object x, Object y) {
-        Object xkey = ((Object[]) x)[0];
-        Object ykey = ((Object[]) y)[0];
-        try {
-          return order.compare(xkey, ykey);
-        } catch (ClassCastException e) {
-          if (this.e == null) {
-            this.e = new EvalException(e.getMessage());
-          }
-          return 0; // may cause Arrays.sort to fail; see below
-        }
-      }
-    }
-
-    // sort
-    KeyComparator comp = new KeyComparator();
-    try {
-      Arrays.sort(array, comp);
-    } catch (IllegalArgumentException unused) {
-      // Arrays.sort failed because comp violated the Comparator contract.
-      if (comp.e == null) {
-        // There was no exception from order.compare.
-        // Likely the application defined a Comparable type whose
-        // compareTo is not a strict weak order.
-        throw new IllegalStateException("sort: element ordering is not self-consistent");
-      }
-    }
-
-    // Sort completed, possibly with deferred errors.
-    if (comp.e != null) {
-      throw comp.e;
-    }
-
-    // undecorate
-    for (int i = 0; i < array.length; i++) {
-      array[i] = ((Object[]) array[i])[1];
-    }
-
-    return StarlarkList.wrap(thread.mutability(), array);
+    return SortKeyHelper.withItemsAndKey(iterable, key, thread).sorted(reverse);
   }
 
   private static void reverse(Object[] array) {
