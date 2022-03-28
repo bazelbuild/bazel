@@ -49,7 +49,7 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
     flag = flag.replace("$(OUT)", "%s");
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(
+        .addStarlarkDeclaredProvider(
             ProtoLangToolchainProvider.create(
                 flag,
                 ruleContext.attributes().get("plugin_format_flag", Type.STRING),

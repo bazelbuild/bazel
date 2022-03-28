@@ -159,14 +159,15 @@ public class JavaProtoAspectCommon {
   /** Returns the toolchain that specifies how to generate code from {@code .proto} files. */
   public ProtoLangToolchainProvider getProtoToolchainProvider() {
     return checkNotNull(
-        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.class));
+        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.PROVIDER));
   }
 
   /**
    * Returns the toolchain that specifies how to generate Java-lite code from {@code .proto} files.
    */
   static ProtoLangToolchainProvider getLiteProtoToolchainProvider(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+    return ruleContext.getPrerequisite(
+        LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
   }
 
   /**

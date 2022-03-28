@@ -133,7 +133,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryBuiltinProviders(ImmutableList.of(ProtoLangToolchainProvider.class))
+                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER.id())
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
@@ -470,7 +470,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {
-      return ruleContext.getPrerequisite(PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+      return ruleContext.getPrerequisite(PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {

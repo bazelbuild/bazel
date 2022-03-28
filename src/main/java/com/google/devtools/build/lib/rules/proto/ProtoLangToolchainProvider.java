@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkList;
 
@@ -33,7 +35,23 @@ import net.starlark.java.eval.StarlarkList;
  * rules.
  */
 @AutoValue
-public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvider {
+public abstract class ProtoLangToolchainProvider extends NativeInfo {
+  public static final String PROVIDER_NAME = "ProtoLangToolchainInfo";
+  public static final Provider PROVIDER = new Provider();
+
+  /** Provider class for {@link ProtoLangToolchainProvider} objects. */
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
+  public static class Provider extends BuiltinProvider<ProtoLangToolchainProvider> {
+    public Provider() {
+      super(PROVIDER_NAME, ProtoLangToolchainProvider.class);
+    }
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
   @StarlarkMethod(
       name = "out_replacement_format_flag",
       doc = "Format string used when passing output to the plugin used by proto compiler.",

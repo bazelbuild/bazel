@@ -94,7 +94,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER));
   }
 
   @Test
@@ -125,7 +125,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER));
   }
 
   @Test
@@ -156,7 +156,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER));
   }
 
   @Test
@@ -172,7 +172,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     ProtoLangToolchainProvider toolchain =
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class);
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER);
 
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
