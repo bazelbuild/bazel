@@ -55,41 +55,48 @@ def _deterministic_libtool_flags(ctx):
         return ["-D"]
     return []
 
+def _target_os_version(ctx):
+    platform_type = ctx.fragments.apple.single_arch_platform.platform_type
+    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    return xcode_config.minimum_os_for_platform_type(platform_type)
+
 def _impl(ctx):
+    target_os_version = _target_os_version(ctx)
+
     if (ctx.attr.cpu == "ios_arm64"):
-        target_system_name = "arm64-apple-ios"
+        target_system_name = "arm64-apple-ios{}".format(target_os_version)
     elif (ctx.attr.cpu == "tvos_arm64"):
-        target_system_name = "arm64-apple-tvos"
+        target_system_name = "arm64-apple-tvos{}".format(target_os_version)
     elif (ctx.attr.cpu == "watchos_arm64_32"):
-        target_system_name = "arm64_32-apple-watchos"
+        target_system_name = "arm64_32-apple-watchos{}".format(target_os_version)
     elif (ctx.attr.cpu == "ios_arm64e"):
-        target_system_name = "arm64e-apple-ios"
+        target_system_name = "arm64e-apple-ios{}".format(target_os_version)
     elif (ctx.attr.cpu == "ios_armv7"):
-        target_system_name = "armv7-apple-ios"
+        target_system_name = "armv7-apple-ios{}".format(target_os_version)
     elif (ctx.attr.cpu == "watchos_armv7k"):
-        target_system_name = "armv7k-apple-watchos"
+        target_system_name = "armv7k-apple-watchos{}".format(target_os_version)
     elif (ctx.attr.cpu == "ios_i386"):
-        target_system_name = "i386-apple-ios"
+        target_system_name = "i386-apple-ios{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "watchos_i386"):
-        target_system_name = "i386-apple-watchos"
+        target_system_name = "i386-apple-watchos{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "ios_x86_64"):
-        target_system_name = "x86_64-apple-ios"
+        target_system_name = "x86_64-apple-ios{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "ios_sim_arm64"):
-        target_system_name = "arm64-apple-ios-simulator"
+        target_system_name = "arm64-apple-ios{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "tvos_sim_arm64"):
-        target_system_name = "arm64-apple-tvos-simulator"
+        target_system_name = "arm64-apple-tvos{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "watchos_arm64"):
-        target_system_name = "arm64-apple-watchos-simulator"
+        target_system_name = "arm64-apple-watchos{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "darwin_x86_64"):
-        target_system_name = "x86_64-apple-macosx"
+        target_system_name = "x86_64-apple-macosx{}".format(target_os_version)
     elif (ctx.attr.cpu == "darwin_arm64"):
-        target_system_name = "arm64-apple-macosx"
+        target_system_name = "arm64-apple-macosx{}".format(target_os_version)
     elif (ctx.attr.cpu == "darwin_arm64e"):
-        target_system_name = "arm64e-apple-macosx"
+        target_system_name = "arm64e-apple-macosx{}".format(target_os_version)
     elif (ctx.attr.cpu == "tvos_x86_64"):
-        target_system_name = "x86_64-apple-tvos"
+        target_system_name = "x86_64-apple-tvos{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "watchos_x86_64"):
-        target_system_name = "x86_64-apple-watchos"
+        target_system_name = "x86_64-apple-watchos{}-simulator".format(target_os_version)
     else:
         fail("Unreachable")
 
@@ -183,7 +190,6 @@ def _impl(ctx):
         implies = [
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -206,7 +212,7 @@ def _impl(ctx):
         action_name = ACTION_NAMES.objc_compile,
         flag_sets = [
             flag_set(
-                flag_groups = [flag_group(flags = ["-arch", arch])],
+                flag_groups = [flag_group(flags = ["-target", target_system_name])],
             ),
         ],
         implies = [
@@ -218,7 +224,6 @@ def _impl(ctx):
             "framework_paths",
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -241,7 +246,7 @@ def _impl(ctx):
             flag_set(
                 flag_groups = [
                     flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                    flag_group(flags = ["-arch", arch]),
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = [
                             "-Xlinker",
@@ -284,7 +289,6 @@ def _impl(ctx):
         implies = [
             "include_system_dirs",
             "framework_paths",
-            "version_min",
             "strip_debug_symbols",
             "apple_env",
             "apply_implicit_frameworks",
@@ -310,7 +314,6 @@ def _impl(ctx):
             "input_param_flags",
             "strip_debug_symbols",
             "linker_param_file",
-            "version_min",
             "apple_env",
             "sysroot",
             "cpp_linker_flags",
@@ -345,7 +348,6 @@ def _impl(ctx):
         implies = [
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -369,7 +371,6 @@ def _impl(ctx):
         implies = [
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -395,8 +396,8 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-arch",
-                            arch,
+                            "-target",
+                            target_system_name,
                             "-stdlib=libc++",
                             "-std=gnu++11",
                         ],
@@ -412,7 +413,6 @@ def _impl(ctx):
             "framework_paths",
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -456,7 +456,6 @@ def _impl(ctx):
         implies = [
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -526,7 +525,7 @@ def _impl(ctx):
             ),
             flag_set(
                 flag_groups = [
-                    flag_group(flags = ["-arch", arch]),
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = ["-framework", "%{framework_names}"],
                         iterate_over = "framework_names",
@@ -559,7 +558,6 @@ def _impl(ctx):
         implies = [
             "include_system_dirs",
             "framework_paths",
-            "version_min",
             "strip_debug_symbols",
             "apple_env",
             "apply_implicit_frameworks",
@@ -584,7 +582,6 @@ def _impl(ctx):
             "force_pic_flags",
             "strip_debug_symbols",
             "linker_param_file",
-            "version_min",
             "apple_env",
             "sysroot",
             "cpp_linker_flags",
@@ -602,7 +599,6 @@ def _impl(ctx):
         implies = [
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -625,7 +621,6 @@ def _impl(ctx):
         implies = [
             "preprocessor_defines",
             "include_system_dirs",
-            "version_min",
             "objc_arc",
             "no_objc_arc",
             "apple_env",
@@ -657,7 +652,6 @@ def _impl(ctx):
             "input_param_flags",
             "strip_debug_symbols",
             "linker_param_file",
-            "version_min",
             "apple_env",
             "sysroot",
             "cpp_linker_flags",
@@ -1236,201 +1230,6 @@ def _impl(ctx):
             ),
         ],
     )
-
-    if (ctx.attr.cpu == "ios_i386" or
-        ctx.attr.cpu == "ios_x86_64" or
-        ctx.attr.cpu == "ios_sim_arm64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mios-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-miphoneos-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "tvos_sim_arm64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mtvos-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mwatchos-simulator-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k" or ctx.attr.cpu == "watchos_arm64_32"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-mwatchos-version-min=%{version_min}"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(flags = ["-mmacosx-version-min=%{version_min}"]),
-                    ],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        version_min_feature = feature(
-            name = "version_min",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        "objc-executable",
-                        "objc++-executable",
-                        ACTION_NAMES.cpp_link_executable,
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.objc_compile,
-                        ACTION_NAMES.objcpp_compile,
-                    ],
-                    flag_groups = [flag_group(flags = ["-mtvos-version-min=%{version_min}"])],
-                ),
-            ],
-        )
-    else:
-        version_min_feature = None
 
     compiler_output_flags_feature = feature(
         name = "compiler_output_flags",
@@ -2922,7 +2721,6 @@ def _impl(ctx):
             relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
-            version_min_feature,
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
@@ -3002,7 +2800,6 @@ def _impl(ctx):
             relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
-            version_min_feature,
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
@@ -3100,5 +2897,5 @@ cc_toolchain_config = rule(
     },
     provides = [CcToolchainConfigInfo],
     executable = True,
-    fragments = ["cpp"],
+    fragments = ["apple", "cpp"],
 )
