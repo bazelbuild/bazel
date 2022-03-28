@@ -79,7 +79,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .mandatoryProviders(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))
         .requiresConfigurationFragments(ProtoConfiguration.class)
-        .advertiseProvider(ProtoLangToolchainProvider.class)
+        .advertiseStarlarkProvider(ProtoLangToolchainProvider.PROVIDER.id())
         .removeAttribute("data")
         .removeAttribute("deps")
         .build();
