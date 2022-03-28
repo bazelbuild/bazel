@@ -367,7 +367,9 @@ public class ProtoCompileActionBuilder {
             /* runtime= */ null,
             /* providedProtoSources= */ ImmutableList.of(),
             /* protocolCompiler= */ null,
-            /* protocOpts= */ ImmutableList.of()),
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage= */ "",
+            /* mnemonic= */ ""),
         outReplacement,
         protocOpts.build());
   }

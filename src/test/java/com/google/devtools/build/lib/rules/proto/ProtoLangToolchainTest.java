@@ -60,6 +60,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
     assertThat(toolchain.protoc().getExecutable().prettyPrint())
         .isEqualTo(protoc.toPathFragment().getPathString());
+
+    assertThat(toolchain.progressMessage()).isEqualTo("Progress Message %{label}");
+    assertThat(toolchain.mnemonic()).isEqualTo("MyMnemonic");
   }
 
   @Test
@@ -83,7 +86,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:denied']",
+        "    blacklisted_protos = ['//third_party/x:denied'],",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
@@ -112,7 +117,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:descriptors', '//third_party/x:any']",
+        "    blacklisted_protos = ['//third_party/x:descriptors', '//third_party/x:any'],",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
@@ -141,7 +148,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:any']",
+        "    blacklisted_protos = ['//third_party/x:any'],",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
@@ -169,5 +178,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(toolchain.runtime()).isNull();
     assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
     assertThat(toolchain.forbiddenProtos().toList()).isEmpty();
+    assertThat(toolchain.mnemonic()).isEqualTo("GenProto");
   }
 }

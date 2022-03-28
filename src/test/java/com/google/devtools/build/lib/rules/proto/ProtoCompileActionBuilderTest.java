@@ -110,7 +110,9 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoc= */ FilesToRunProvider.EMPTY,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
     ProtoLangToolchainProvider toolchainWithPlugin =
         ProtoLangToolchainProvider.create(
             "--PLUGIN_pluginName_out=param3,param4:%s",
@@ -119,7 +121,9 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoc= */ FilesToRunProvider.EMPTY,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
     useConfiguration("--strict_proto_deps=OFF");
 
     CustomCommandLine cmdLine =
@@ -186,7 +190,9 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoc= */ FilesToRunProvider.EMPTY,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -227,7 +233,9 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoc= */ FilesToRunProvider.EMPTY,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
     useConfiguration("--strict_proto_deps=OFF");
 
     CustomCommandLine cmdLine =
@@ -301,7 +309,9 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoc= */ FilesToRunProvider.EMPTY,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -338,7 +348,9 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoc= */ FilesToRunProvider.EMPTY,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
     ProtoLangToolchainProvider toolchain2 =
         ProtoLangToolchainProvider.create(
             "dontcare=%s",
@@ -347,7 +359,9 @@ public class ProtoCompileActionBuilderTest {
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoc= */ FilesToRunProvider.EMPTY,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     IllegalStateException e =
         assertThrows(
