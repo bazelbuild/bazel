@@ -44,6 +44,15 @@ public class ProtoLangToolchainRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(progress_message) -->
+        This value will be set as the progress message on protoc action.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("progress_message", Type.STRING).value("Generating proto_library %{label}"))
+
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(mnemonic) -->
+        This value will be set as the mnemonic on protoc action.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("mnemonic", Type.STRING).value("GenProto"))
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(command_line) -->
         This value will be passed to proto-compiler to generate the code. Only include the parts

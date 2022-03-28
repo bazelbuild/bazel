@@ -78,6 +78,18 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
 
   public abstract ImmutableList<String> protocOpts();
 
+  @StarlarkMethod(
+      name = "progress_message",
+      doc = "Progress message to set on the proto compiler action.",
+      structField = true)
+  public abstract String progressMessage();
+
+  @StarlarkMethod(
+      name = "mnemonic",
+      doc = "Mnemonic to set on the proto compiler action.",
+      structField = true)
+  public abstract String mnemonic();
+
   /**
    * This makes the blacklisted_protos member available in the provider. It can be removed after
    * users are migrated and a sufficient time for Bazel rules to migrate has elapsed.
@@ -98,7 +110,9 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
       TransitiveInfoCollection runtime,
       ImmutableList<ProtoSource> providedProtoSources,
       FilesToRunProvider protoc,
-      ImmutableList<String> protocOpts) {
+      ImmutableList<String> protocOpts,
+      String progressMessage,
+      String mnemonic) {
     NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
     for (ProtoSource protoSource : providedProtoSources) {
       blacklistedProtos.add(protoSource.getOriginalSourceFile());
@@ -111,6 +125,8 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
         providedProtoSources,
         protoc,
         protocOpts,
+        progressMessage,
+        mnemonic,
         blacklistedProtos.build());
   }
 }
