@@ -41,6 +41,8 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/test/shell/integration/runfiles_test_utils.sh")" \
+  || { echo "runfiles_test_utils.sh not found!" >&2; exit 1; }
 
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
@@ -80,6 +82,31 @@ function create_pkg() {
 
   cd ..
   touch __init__.py
+}
+
+# This is basically a cross-platform version of `find -printf '%n %y %Y'`.
+# i.e. recursively print paths, their raw file type, and for symbolic links,
+# the type of file the link points to.
+# Macs don't support `find -printf`, and stat, readlink etc all have different
+# args and format specifiers. Basic bash works fine, though.
+function recursive_path_info() {
+  for path in $(find "$1" | sort); do
+    if [[ -L "$path" ]]; then
+      actual_type=symlink
+    else
+      actual_type=regular
+    fi
+    if [[ -f "$path" ]]; then
+      effective_type=file
+    elif [[ -d "$path" ]]; then
+      effective_type=dir
+    else
+      # The various special file types shouldn't occur in practice, so just
+      # call them unknown
+      effective_type=unknown
+    fi
+    echo "$path $actual_type $effective_type"
+  done
 }
 
 #### TESTS #############################################################
@@ -137,68 +164,66 @@ EOF
 
   cd ${WORKSPACE_NAME}
 
-  # these are real directories
-  test \! -L $pkg
-  test    -d $pkg
 
   cd $pkg
-  test \! -L a
-  test    -d a
-  test \! -L a/b
-  test    -d a/b
-  test \! -L c
-  test    -d c
-  test \! -L c/d
-  test    -d c/d
-  test \! -L e
-  test    -d e
-  test \! -L x
-  test    -d x
-  test \! -L x/y
-  test    -d x/y
-
-  # these are symlinks to the source tree
-  test    -L foo
-  test    -L x/y/z.sh
-  test    -L a/b/no_module.py
-  test    -L c/d/one_module.py
-  test    -L c/__init__.py
-  test    -L e/f
-  test    -d e/f
-  # TODO(bazel-team): an __init__.py should appear here
 
   # these are real empty files
-  test \! -L a/__init__.py
-  test    -f a/__init__.py
   test \! -s a/__init__.py
-  test \! -L a/b/__init__.py
-  test    -f a/b/__init__.py
   test \! -s a/b/__init__.py
-  test \! -L c/d/__init__.py
-  test    -f c/d/__init__.py
   test \! -s c/d/__init__.py
-  test \! -L __init__.py
-  test    -f __init__.py
   test \! -s __init__.py
+  cd ..
 
-  # that accounts for everything
-  cd ../..
+  # These are 3-tuples of (path actualFileType effectiveFileType),
+  expected="
+. regular dir
+./__init__.py symlink file
+./test_foo_runfiles regular dir
+./test_foo_runfiles/__init__.py regular file
+./test_foo_runfiles/a regular dir
+./test_foo_runfiles/a/__init__.py regular file
+./test_foo_runfiles/a/b regular dir
+./test_foo_runfiles/a/b/__init__.py regular file
+./test_foo_runfiles/a/b/no_module.py symlink file
+./test_foo_runfiles/c regular dir
+./test_foo_runfiles/c/__init__.py symlink file
+./test_foo_runfiles/c/d regular dir
+./test_foo_runfiles/c/d/__init__.py regular file
+./test_foo_runfiles/c/d/one_module.py symlink file
+./test_foo_runfiles/e regular dir
+./test_foo_runfiles/e/f symlink dir
+./test_foo_runfiles/foo symlink file
+./test_foo_runfiles/py symlink file
+./test_foo_runfiles/py.py symlink file
+./test_foo_runfiles/x regular dir
+./test_foo_runfiles/x/y regular dir
+./test_foo_runfiles/x/y/z.sh symlink file
+"
+  expected="$expected$(get_python_runtime_runfiles)"
+
   # For shell binary and python binary, we build both `bin` and `bin.exe`,
   # but on Linux we only build `bin`.
-  # That's why we have two more symlinks on Windows.
   if "$is_windows"; then
-    assert_equals 11 $(find ${WORKSPACE_NAME} -type l | wc -l)
-    assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
-    assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
-    assert_equals 24 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals 15 $(wc -l < MANIFEST)
-  else
-    assert_equals  9 $(find ${WORKSPACE_NAME} -type l | wc -l)
-    assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
-    assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
-    assert_equals 22 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals 13 $(wc -l < MANIFEST)
+    expected="${expected}
+./test_foo_runfiles/py.exe symlink file
+./test_foo_runfiles/foo.exe symlink file
+"
   fi
+
+  # Sort and delete empty lines. This makes it easier to append to the
+  # expected string and not have to worry about stray newlines from shell
+  # commands and quoting.
+  expected=$(sort <<<"$expected" | sed '/^$/d')
+  actual=$(recursive_path_info .)
+  assert_equals "$expected" "$actual"
+
+  # The manifest only records files and symlinks, not real directories
+  expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
+  actual_manifest_size=$(wc -l < ../MANIFEST)
+  assert_equals $expected_manifest_size $actual_manifest_size
+
+  # that accounts for everything
+  cd ..
 
   for i in $(find ${WORKSPACE_NAME} \! -type d); do
     target="$(readlink "$i" || true)"
