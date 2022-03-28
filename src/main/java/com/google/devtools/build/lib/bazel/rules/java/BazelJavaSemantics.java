@@ -568,7 +568,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
-      Artifact sharedArchive) {
+      Artifact sharedArchive,
+      boolean multiReleaseDeployJars) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,
@@ -578,7 +579,8 @@ public class BazelJavaSemantics implements JavaSemantics {
             classpath,
             includeBuildData,
             compression,
-            launcher)
+            launcher,
+            /* multiReleaseDeployJars= */ multiReleaseDeployJars)
         .build();
   }
 

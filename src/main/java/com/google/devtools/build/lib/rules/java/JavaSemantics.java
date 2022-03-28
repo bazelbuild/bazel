@@ -267,7 +267,8 @@ public interface JavaSemantics {
       Artifact launcher,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
-      Artifact sharedArchive);
+      Artifact sharedArchive,
+      boolean multiReleaseDeployJars);
 
   /**
    * Creates the action that writes the Java executable stub script.
