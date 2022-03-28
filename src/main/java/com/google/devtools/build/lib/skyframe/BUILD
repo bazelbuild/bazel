@@ -615,6 +615,16 @@ java_library(
 )
 
 java_library(
+    name = "source_directory_event",
+    srcs = ["SourceDirectoryEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "artifact_function",
     srcs = ["ArtifactFunction.java"],
     deps = [
@@ -625,6 +635,7 @@ java_library(
         ":metadata_consumer_for_metrics",
         ":recursive_filesystem_traversal",
         ":runfiles_artifact_value",
+        ":source_directory_event",
         ":track_source_directories_flag",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
