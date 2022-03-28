@@ -214,7 +214,10 @@ alias(
     }),
 )
 
-exports_files(["BUILD.java_tools"])
+exports_files([
+    "BUILD.java_tools",
+    "jdk.BUILD",
+])
 
 alias(
     name = "genclass",

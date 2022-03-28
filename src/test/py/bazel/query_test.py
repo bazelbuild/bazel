@@ -38,6 +38,13 @@ class QueryTest(test_base.TestBase):
     self._AssertQueryOutput('deps(//foo:top-rule, 1)', '//foo:top-rule',
                             '//foo:dep-rule')
 
+  def testQueryFilesUsedByRepositoryRules(self):
+    self.ScratchFile("WORKSPACE")
+    # TODO(linzhp): change //external:remotejdk11_linux to //external:* after
+    # https://github.com/bazelbuild/bazel/issues/8175 is fixed
+    self._AssertQueryOutputContains("kind('source file', deps(//external:remotejdk11_linux))",
+                                    "@bazel_tools//tools/jdk:jdk.BUILD")
+
   def testBuildFilesForExternalRepos_Simple(self):
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
