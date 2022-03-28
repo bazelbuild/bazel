@@ -62,7 +62,9 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
                 // targets. While this has the potential to use more memory than using a NestedSet,
                 // there are only a few `proto_lang_toolchain` targets in every build, so the impact
                 // on memory consumption should be neglectable.
-                providedProtoSources.build().toList()))
+                providedProtoSources.build().toList(),
+                ruleContext.getPrerequisite(":proto_compiler", FilesToRunProvider.class),
+                ruleContext.getConfiguration().getFragment(ProtoConfiguration.class).protocOpts()))
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();

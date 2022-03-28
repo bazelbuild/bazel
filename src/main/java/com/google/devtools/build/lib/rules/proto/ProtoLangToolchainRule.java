@@ -22,12 +22,25 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 
 /** Implements {code proto_lang_toolchain}. */
 public class ProtoLangToolchainRule implements RuleDefinition {
+  private static final Label DEFAULT_PROTO_COMPILER =
+      Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+  private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
+      Attribute.LabelLateBoundDefault.fromTargetConfiguration(
+          ProtoConfiguration.class,
+          DEFAULT_PROTO_COMPILER,
+          (rule, attributes, protoConfig) ->
+              protoConfig.protoCompiler() != null
+                  ? protoConfig.protoCompiler()
+                  : DEFAULT_PROTO_COMPILER);
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
@@ -78,6 +91,11 @@ public class ProtoLangToolchainRule implements RuleDefinition {
             attr("blacklisted_protos", LABEL_LIST)
                 .allowedFileTypes()
                 .mandatoryProviders(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))
+        .add(
+            attr(":proto_compiler", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .exec()
+                .value(PROTO_COMPILER))
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .advertiseProvider(ProtoLangToolchainProvider.class)
         .removeAttribute("data")

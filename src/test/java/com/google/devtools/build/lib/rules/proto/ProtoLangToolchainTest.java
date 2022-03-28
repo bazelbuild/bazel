@@ -36,6 +36,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void setUp() throws Exception {
     MockProtoSupport.setupWorkspace(scratch);
     MockProtoSupport.setup(mockToolsConfig);
+    useConfiguration("--protocopt=--myflag");
     invalidatePackages();
   }
 
@@ -54,6 +55,11 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
             "third_party/x/metadata.proto",
             "third_party/x/descriptor.proto",
             "third_party/x/any.proto");
+
+    assertThat(toolchain.protocOpts()).containsExactly("--myflag");
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+    assertThat(toolchain.protoc().getExecutable().prettyPrint())
+        .isEqualTo(protoc.toPathFragment().getPathString());
   }
 
   @Test

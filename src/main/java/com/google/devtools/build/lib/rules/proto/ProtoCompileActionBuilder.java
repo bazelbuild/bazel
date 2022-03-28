@@ -331,7 +331,7 @@ public class ProtoCompileActionBuilder {
             protoToolchain,
             ImmutableList.of(
                 createDescriptorSetToolchain(
-                    ruleContext.getFragment(ProtoConfiguration.class), output.getExecPathString())),
+                    ruleContext.getFragment(ProtoConfiguration.class), output.getExecPathString(), protoToolchain)),
             protoInfo,
             ruleContext.getLabel(),
             ImmutableList.of(output),
@@ -348,7 +348,7 @@ public class ProtoCompileActionBuilder {
   }
 
   private static ToolchainInvocation createDescriptorSetToolchain(
-      ProtoConfiguration configuration, CharSequence outReplacement) {
+      ProtoConfiguration configuration, CharSequence outReplacement, ProtoToolchainInfo protoToolchain) {
     ImmutableList.Builder<String> protocOpts = ImmutableList.builder();
     if (configuration.experimentalProtoDescriptorSetsIncludeSourceInfo()) {
       protocOpts.add("--include_source_info");
@@ -365,7 +365,9 @@ public class ProtoCompileActionBuilder {
             /* pluginFormatFlag = */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ null,
-            /* providedProtoSources= */ ImmutableList.of()),
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoCompiler= */ protoToolchain.getCompiler(),
+            /* protoCopts=*/ configuration.protocOpts()),
         outReplacement,
         protocOpts.build());
   }
