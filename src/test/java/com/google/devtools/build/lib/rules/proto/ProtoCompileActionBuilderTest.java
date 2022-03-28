@@ -127,14 +127,18 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of());
     ProtoLangToolchainProvider toolchainWithPlugin =
         ProtoLangToolchainProvider.create(
             "--PLUGIN_pluginName_out=param3,param4:%s",
             /* pluginFormatFlag= */ "--plugin=protoc-gen-PLUGIN_pluginName=%s",
             plugin,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of());
     useConfiguration("--strict_proto_deps=OFF");
 
     RuleContext ruleContext =
@@ -200,7 +204,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of());
 
     RuleContext ruleContext =
         getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);
@@ -236,7 +242,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of());
     useConfiguration("--strict_proto_deps=OFF");
 
     RuleContext ruleContext =
@@ -307,7 +315,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of());
 
     RuleContext ruleContext =
         getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);
@@ -341,14 +351,18 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of());
     ProtoLangToolchainProvider toolchain2 =
         ProtoLangToolchainProvider.create(
             "dontcare=%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of());
 
     RuleContext ruleContext =
         getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);

@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkList;
 
 // Note: AutoValue v1.4-rc1 has AutoValue.CopyAnnotations which makes it work with Starlark. No need
 // to un-AutoValue this class to expose it to Starlark.
@@ -32,11 +34,25 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvider {
+  @StarlarkMethod(
+      name = "out_replacement_format_flag",
+      doc = "Format string used when passing output to the plugin used by proto compiler.",
+      structField = true)
   public abstract String outReplacementFormatFlag();
 
+  @StarlarkMethod(
+      name = "plugin_format_flag",
+      doc = "Format string used when passing plugin to proto compiler.",
+      structField = true,
+      allowReturnNones = true)
   @Nullable
   public abstract String pluginFormatFlag();
 
+  @StarlarkMethod(
+      name = "plugin",
+      doc = "Proto compiler plugin.",
+      structField = true,
+      allowReturnNones = true)
   @Nullable
   public abstract FilesToRunProvider pluginExecutable();
 
@@ -48,6 +64,19 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
    * for which {@code <lang>_proto_library} should not generate bindings.
    */
   public abstract ImmutableList<ProtoSource> providedProtoSources();
+
+  @StarlarkMethod(name = "proto_compiler", doc = "Proto compiler.", structField = true)
+  public abstract FilesToRunProvider protoc();
+
+  @StarlarkMethod(
+      name = "protoc_opts",
+      doc = "Options to pass to proto compiler.",
+      structField = true)
+  public StarlarkList<String> protocOptsForStarlark() {
+    return StarlarkList.immutableCopyOf(protocOpts());
+  }
+
+  public abstract ImmutableList<String> protocOpts();
 
   /**
    * This makes the blacklisted_protos member available in the provider. It can be removed after
@@ -67,7 +96,9 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
       String pluginFormatFlag,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
-      ImmutableList<ProtoSource> providedProtoSources) {
+      ImmutableList<ProtoSource> providedProtoSources,
+      FilesToRunProvider protoc,
+      ImmutableList<String> protocOpts) {
     NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
     for (ProtoSource protoSource : providedProtoSources) {
       blacklistedProtos.add(protoSource.getOriginalSourceFile());
@@ -78,6 +109,8 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
         pluginExecutable,
         runtime,
         providedProtoSources,
+        protoc,
+        protocOpts,
         blacklistedProtos.build());
   }
 }
