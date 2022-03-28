@@ -367,7 +367,10 @@ public class ProtoCompileActionBuilder {
             /* runtime= */ null,
             /* providedProtoSources= */ ImmutableList.of(),
             /* protoCompiler= */ protoToolchain.getCompiler(),
-            /* protoCopts=*/ configuration.protocOpts()),
+            /* protoCopts=*/ configuration.protocOpts(),
+            /* progressMessage=*/ "",
+            /* mnemonic=*/ "GenProtoDescriptorSet"),
+
         outReplacement,
         protocOpts.build());
   }

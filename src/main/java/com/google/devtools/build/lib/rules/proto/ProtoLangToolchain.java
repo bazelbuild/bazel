@@ -64,7 +64,9 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
                 // on memory consumption should be neglectable.
                 providedProtoSources.build().toList(),
                 ruleContext.getPrerequisite(":proto_compiler", FilesToRunProvider.class),
-                ruleContext.getConfiguration().getFragment(ProtoConfiguration.class).protocOpts()))
+                ruleContext.getConfiguration().getFragment(ProtoConfiguration.class).protocOpts(),
+                ruleContext.attributes().get("progress_message", Type.STRING),
+                ruleContext.attributes().get("mnemonic", Type.STRING)))
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
