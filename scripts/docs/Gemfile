@@ -1,6 +1,0 @@
-gem 'jekyll', '~> 3.8.6'
-gem 'jekyll-paginate', '~> 1.0'
-gem 'pygments.rb', '~> 0.6.0'
-gem 'redcarpet', '~> 3.2', '>= 3.2.3'
-gem 'jekyll-toc', '~> 0.13.1'
-gem 'jekyll-sitemap', '~> 1.4.0'

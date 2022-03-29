@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.android.AndroidSdkProvider.AND
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -33,7 +34,7 @@ public final class BazelSdkToolchainRule implements RuleDefinition {
     Label toolchainType = env.getToolsLabel(TOOLCHAIN_LABEL);
 
     return builder
-        .addRequiredToolchains(toolchainType)
+        .addToolchainTypes(ToolchainTypeRequirement.builder(toolchainType).mandatory(true).build())
         .add(attr(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL).value(toolchainType))
         .build();
   }

@@ -428,8 +428,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         T dependency = getValueFromKey(key);
         Preconditions.checkState(
             dependency != null,
-            "query-requested node '%s' was unavailable in the query environment graph. If you"
-                + " come across this error, please ping b/150301500 or contact the blaze"
+            "query-requested node '%s' was unavailable in the query environment graph. If you come"
+                + " across this error, please add to"
+                + " https://github.com/bazelbuild/bazel/issues/15079 or contact the bazel"
                 + " configurability team.",
             key);
 

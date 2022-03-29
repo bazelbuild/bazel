@@ -70,16 +70,12 @@ public class TestTargetProperties {
   private final boolean isExternal;
   private final String language;
   private final ImmutableMap<String, String> executionInfo;
-  private final boolean isPersistentTestRunner;
 
   /**
    * Creates test target properties instance. Constructor expects that it will be called only for
    * test configured targets.
    */
-  TestTargetProperties(
-      RuleContext ruleContext,
-      ExecutionInfo executionRequirements,
-      boolean isPersistentTestRunner) {
+  TestTargetProperties(RuleContext ruleContext, ExecutionInfo executionRequirements) {
     Rule rule = ruleContext.getRule();
 
     Preconditions.checkState(TargetUtils.isTestRule(rule));
@@ -90,7 +86,6 @@ public class TestTargetProperties {
     // We need to use method on ruleConfiguredTarget to perform validation.
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
     isExternal = TargetUtils.isExternalTestRule(rule);
-    this.isPersistentTestRunner = isPersistentTestRunner;
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
@@ -156,10 +151,6 @@ public class TestTargetProperties {
 
   public boolean isExternal() {
     return isExternal;
-  }
-
-  public boolean isPersistentTestRunner() {
-    return isPersistentTestRunner;
   }
 
   public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)

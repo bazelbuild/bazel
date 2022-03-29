@@ -103,8 +103,8 @@ public class JavaProtoAspectCommon {
    * Registers an action that compiles the given {@code sourceJar} and archives the compiled classes
    * into {@code outputJar}, using {@code dep} as information about the dependencies compilation.
    *
-   * @return a {@JavaCompilationArgsProvider} wrapping information about the compilation action that
-   *     was registered.
+   * @return a {@link JavaCompilationArgsProvider} wrapping information about the compilation action
+   *     that was registered.
    */
   public JavaCompilationArgsProvider createJavaCompileAction(
       String injectingRuleKind,
@@ -159,14 +159,15 @@ public class JavaProtoAspectCommon {
   /** Returns the toolchain that specifies how to generate code from {@code .proto} files. */
   public ProtoLangToolchainProvider getProtoToolchainProvider() {
     return checkNotNull(
-        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.class));
+        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.PROVIDER));
   }
 
   /**
    * Returns the toolchain that specifies how to generate Java-lite code from {@code .proto} files.
    */
   static ProtoLangToolchainProvider getLiteProtoToolchainProvider(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+    return ruleContext.getPrerequisite(
+        LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
   }
 
   /**

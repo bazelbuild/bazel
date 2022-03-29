@@ -54,8 +54,10 @@ java_library(
     name = "memory-use-recorder",
     srcs = ["PostGCMemoryUseRecorder.java"],
     deps = [
+        ":garage-collection-metrics-util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/common/options",
@@ -64,4 +66,9 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "garage-collection-metrics-util",
+    srcs = ["GarbageCollectionMetricsUtils.java"],
 )

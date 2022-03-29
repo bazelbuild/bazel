@@ -150,15 +150,6 @@ final class DebuggerSerialization {
     return children.build();
   }
 
-  private static ImmutableList<Value> getDebugAttributes(
-      ThreadObjectMap objectMap, Debug.ValueWithDebugAttributes value) {
-    ImmutableList.Builder<Value> attributes = ImmutableList.builder();
-    for (Debug.DebugAttribute attr : value.getDebugAttributes()) {
-      attributes.add(getValueProto(objectMap, attr.name, attr.value));
-    }
-    return attributes.build();
-  }
-
   private static ImmutableList<Value> getChildren(
       ThreadObjectMap objectMap, Map.Entry<?, ?> entry) {
     return ImmutableList.of(
@@ -173,6 +164,15 @@ final class DebuggerSerialization {
       builder.add(getValueProto(objectMap, String.format("[%d]", index++), value));
     }
     return builder.build();
+  }
+
+  private static ImmutableList<Value> getDebugAttributes(
+      ThreadObjectMap objectMap, Debug.ValueWithDebugAttributes value) {
+    ImmutableList.Builder<Value> attributes = ImmutableList.builder();
+    for (Debug.DebugAttribute attr : value.getDebugAttributes()) {
+      attributes.add(getValueProto(objectMap, attr.name, attr.value));
+    }
+    return attributes.build();
   }
 
   private static ImmutableList<Value> getArrayChildren(ThreadObjectMap objectMap, Object array) {

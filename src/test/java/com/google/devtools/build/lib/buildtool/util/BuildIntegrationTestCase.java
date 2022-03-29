@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.buildtool.util;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -788,7 +791,8 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Writes a number of lines of text to a source file using Latin-1 encoding.
+   * Writes a number of lines of text to a source file using {@link
+   * java.nio.charset.StandardCharsets#UTF_8} encoding.
    *
    * @param relativePath the path relative to the workspace root.
    * @param lines the lines of text to write to the file.
@@ -804,7 +808,14 @@ public abstract class BuildIntegrationTestCase {
    * Same as {@link #write}, but with an absolute path.
    */
   protected Path writeAbsolute(Path path, String... lines) throws IOException {
-    FileSystemUtils.writeIsoLatin1(path, lines);
+    // Check that the path string encoding matches what is returned by NativePosixFiles. Otherwise,
+    // tests may lose fidelity.
+    String pathStr = path.getPathString();
+    checkArgument(
+        pathStr.equals(new String(pathStr.getBytes(ISO_8859_1), ISO_8859_1)),
+        "Path strings must be encoded as latin-1: %s",
+        path);
+    FileSystemUtils.writeLinesAs(path, UTF_8, lines);
     return path;
   }
 

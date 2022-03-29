@@ -229,9 +229,9 @@ line. Entries are relative to the workspace root.
 
 ### The global bazelrc file {:#global-bazelrc}
 
-In addition to your personal `.bazelrc` file, Bazel reads global bazelrc
-files in this order: `$workspace/tools/bazel.rc`, `.bazelrc` next to the
-Bazel binary, and `/etc/bazel.bazelrc`. (It's fine if any are missing.)
+Bazel reads optional bazelrc files in this order:
+- System rc-file located at `etc/bazel.bazelrc`.
+- Workspace rc-file located at `$workspace/tools/bazel.rc`.
+- Home rc-file localted at `$HOME/.bazelrc`
 
-You can make Bazel ignore the global bazelrcs by passing the
-`--nomaster_bazelrc` startup option.
+Each bazelrc file listed here has a corresponding flag which can be used to disable them (e.g. `--nosystem_rc`, `--noworkspace_rc`, `--nohome_rc`). You can also make Bazel ignore all bazelrcs by passing the `--ignore_all_rc_files` startup option.

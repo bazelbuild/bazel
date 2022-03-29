@@ -278,6 +278,11 @@ class MetricsCollector {
       memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
     }
 
+    PostGCMemoryUseRecorder.get()
+        .getPeakPostGcHeapTenuredSpace()
+        .map(PeakHeap::bytes)
+        .ifPresent(memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
+
     Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
     for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
       GarbageMetrics.Builder garbageMetrics = GarbageMetrics.newBuilder();

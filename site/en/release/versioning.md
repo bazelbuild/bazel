@@ -63,7 +63,7 @@ adapt to them in advance.
 
 Rolling releases are periodically cut from Bazel's main branch.
 This release cadence involves a continuous delivery of preview releases of the
-next major Bazel version, which are in sync with Google’s internal Bazel
+next major Bazel version, which are in sync with Google’s internal Blaze
 releases.
 
 Note that a new rolling release can contain breaking changes that are

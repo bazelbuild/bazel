@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -92,7 +92,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
                       "native_test",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("host_deps", LABEL_LIST)
-                          .cfg(HostTransition.createFactory())
+                          .cfg(ExecutionTransitionFactory.create())
                           .allowedFileTypes());
 
   private static final RuleDefinition NATIVE_LIB_RULE =
@@ -103,7 +103,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
                       "native_lib",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("host_deps", LABEL_LIST)
-                          .cfg(HostTransition.createFactory())
+                          .cfg(ExecutionTransitionFactory.create())
                           .allowedFileTypes());
 
   @Before

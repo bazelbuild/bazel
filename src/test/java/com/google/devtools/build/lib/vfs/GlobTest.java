@@ -293,7 +293,7 @@ public class GlobTest {
           }
 
           @Override
-          public Dirent.Type getType(Path path, Symlinks symlinks) {
+          public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
             throw new IllegalStateException();
           }
 
@@ -326,7 +326,7 @@ public class GlobTest {
           }
 
           @Override
-          public Dirent.Type getType(Path path, Symlinks symlinks) {
+          public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
             throw new IllegalStateException();
           }
 

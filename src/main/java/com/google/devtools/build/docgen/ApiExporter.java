@@ -22,6 +22,7 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Type;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
 import com.google.devtools.common.options.OptionsParser;
@@ -278,10 +279,10 @@ public class ApiExporter {
 
   private static void printUsage(OptionsParser parser) {
     System.err.println(
-        "Usage: api_exporter_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
+        "Usage: api_exporter_bin -m link_map_path -p rule_class_provider (-i input_dir)+\n"
             + "   -f outputFile [-b denylist] [-h]\n\n"
             + "Exports all Starlark builtins to a file including the embedded native rules.\n"
-            + "The product name (-n), rule class provider (-p), output file (-f) and at least \n"
+            + "The link map path (-m), rule class provider (-p), output file (-f) and at least \n"
             + " one input_dir (-i) must be specified.\n");
     System.err.println(
         parser.describeOptionsWithDeprecatedCategories(
@@ -299,7 +300,7 @@ public class ApiExporter {
       Runtime.getRuntime().exit(0);
     }
 
-    if (options.productName.isEmpty()
+    if (options.linkMapPath.isEmpty()
         || options.inputDirs.isEmpty()
         || options.provider.isEmpty()
         || options.outputFile.isEmpty()) {
@@ -308,9 +309,14 @@ public class ApiExporter {
     }
 
     try {
+      DocLinkMap linkMap = DocLinkMap.createFromFile(options.linkMapPath);
+      RuleLinkExpander ruleExpander = new RuleLinkExpander(true, linkMap);
       SymbolFamilies symbols =
           new SymbolFamilies(
-              options.productName, options.provider, options.inputDirs, options.denylist);
+              new StarlarkDocExpander(ruleExpander),
+              options.provider,
+              options.inputDirs,
+              options.denylist);
       Builtins.Builder builtins = Builtins.newBuilder();
 
       appendTypes(builtins, symbols.getTypes(), symbols.getNativeRules());

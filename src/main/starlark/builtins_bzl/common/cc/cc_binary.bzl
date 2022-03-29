@@ -23,6 +23,7 @@ ProtoInfo = _builtins.toplevel.ProtoInfo
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
+StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"
@@ -154,47 +155,6 @@ def _create_debug_packager_actions(ctx, cc_toolchain, dwp_output, dwo_files):
         outputs = packager["outputs"],
     )
 
-def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_configuration):
-    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_stripping"):
-        ctx.actions.symlink(
-            output = output,
-            target_file = input,
-            progress_message = "Symlinking original binary as stripped binary",
-        )
-        return
-
-    if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
-        fail("Expected action_config for 'strip' to be configured.")
-
-    variables = cc_common.create_compile_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        output_file = output.path,
-        input_file = input.path,
-        strip_opts = cpp_config.strip_opts(),
-    )
-    command_line = cc_common.get_memory_inefficient_command_line(
-        feature_configuration = feature_configuration,
-        action_name = "strip",
-        variables = variables,
-    )
-    execution_info = {}
-    for execution_requirement in cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = "strip"):
-        execution_info[execution_requirement] = ""
-    ctx.actions.run(
-        inputs = depset(
-            direct = [input],
-            transitive = [cc_toolchain.all_files],
-        ),
-        outputs = [output],
-        use_default_shell_env = True,
-        executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
-        execution_requirements = execution_info,
-        progress_message = "Stripping {} for {}".format(output.short_path, ctx.label),
-        mnemonic = "CcStrip",
-        arguments = command_line,
-    )
-
 def _is_stamping_enabled(ctx):
     if ctx.configuration.is_tool_configuration():
         return 0
@@ -267,7 +227,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
     )
     cc_info = CcInfo(
         compilation_context = compilation_context,
-        cc_native_library_info = cc_internal.collect_native_cc_libraries(deps = ctx.attr.deps, libraries_to_link = libraries),
+        cc_native_library_info = cc_helper.collect_native_cc_libraries(deps = ctx.attr.deps, libraries = libraries),
     )
     output_groups["_validation"] = compilation_context.validation_artifacts
     return (cc_info, instrumented_files_provider, output_groups)
@@ -295,6 +255,9 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
         runfiles_is_not_static.append(ctx.runfiles(transitive_files = _runfiles_function(ctx, transitive_info_collection, False)))
         runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, True).to_list())
         runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, False).to_list())
+
+    for dynamic_dep in ctx.attr.dynamic_deps:
+        builder = builder.merge(dynamic_dep[DefaultInfo].default_runfiles)
 
     builder = builder.merge_all(runfiles_is_static + runfiles_is_not_static)
     if linking_mode == _LINKING_DYNAMIC:
@@ -656,7 +619,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     Returns:
       Appropriate providers for cc_binary/cc_test.
     """
-    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary")
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
     common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 
@@ -692,10 +655,9 @@ def cc_binary_impl(ctx, additional_linkopts):
     if has_legacy_link_shared_name:
         binary = ctx.actions.declare_file(target_name)
     else:
-        binary = cc_internal.get_linked_artifact(
+        binary = cc_helper.get_linked_artifact(
             ctx = ctx,
             cc_toolchain = cc_toolchain,
-            config = ctx.configuration,
             is_dynamic_link_type = is_dynamic_link_type,
         )
     linking_mode = _get_link_staticness(ctx, cpp_config)
@@ -855,7 +817,7 @@ def cc_binary_impl(ctx, additional_linkopts):
 
     # Create the stripped binary but don't add it to filesToBuild; it's only built when requested.
     stripped_file = ctx.outputs.stripped_binary
-    _create_strip_action(ctx, cc_toolchain, cpp_config, binary, stripped_file, feature_configuration)
+    cc_helper.create_strip_action(ctx, cc_toolchain, cpp_config, binary, stripped_file, feature_configuration)
     dwo_files = _collect_transitive_dwo_artifacts(
         cc_compilation_outputs,
         cc_helper.merge_cc_debug_contexts(cc_compilation_outputs, _get_providers(ctx, cpp_config)),
@@ -970,7 +932,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         OutputGroupInfo(**output_groups),
     ]
     if "fully_static_link" in ctx.features:
-        result.append(cc_internal.statically_linked_marker_provider(is_linked_statically = True))
+        result.append(StaticallyLinkedMarkerInfo(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
     return binary_info, cc_info, result

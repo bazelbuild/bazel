@@ -1,4 +1,4 @@
-#set ($path = "/versions/{{ site.version }}/be")
+#set ($path = "/reference/be")
 #set ($bazelbuildGithub = "https://github.com/bazelbuild")
 
 **Build Encyclopedia**

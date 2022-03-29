@@ -63,11 +63,11 @@ test_does_not_glob_into_ignored_directory() {
 
     # This weird line tests whether .bazelignore also stops the Skyframe-based
     # glob. Globbing (as of 2019 Oct) is done in a hybrid fashion: we do the
-    # legacy globbing because it's faster and Skyframe globbing because it's
-    # more incremental. In the first run, we get the results of the legacy
-    # globbing, but if we invalidate the BUILD file, the result of the legacy
-    # glob is invalidated and but the better incrementality allows the result of
-    # the Skyframe glob to be cached.
+    # non-Skyframe globbing because it's faster and Skyframe globbing because
+    # it's more incremental. In the first run, we get the results of the
+    # non-Skyframe globbing, but if we invalidate the BUILD file, the result of
+    # the non-Skyframe glob is invalidated and but the better incrementality
+    # allows the result of the Skyframe glob to be cached.
     echo "# change" >> BUILD
     bazel query //:all-targets > "$TEST_TMPDIR/targets"
     assert_not_contains "//:ignored/file" "$TEST_TMPDIR/targets"

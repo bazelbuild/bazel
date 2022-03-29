@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.ResourceSet.ResourceSetConverter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -44,21 +44,18 @@ public class ResourceSetTest {
     assertThat(resources.getLocalTestCount()).isEqualTo(Integer.MAX_VALUE);
   }
 
-  @Test(expected = OptionsParsingException.class)
+  @Test
   public void testConverterThrowsWhenGivenInsufficientInputs() throws Exception {
-    converter.convert("0,0,");
-    fail();
+    assertThrows(OptionsParsingException.class, () -> converter.convert("0,0,"));
   }
 
-  @Test(expected = OptionsParsingException.class)
+  @Test
   public void testConverterThrowsWhenGivenTooManyInputs() throws Exception {
-    converter.convert("0,0,0,");
-    fail();
+    assertThrows(OptionsParsingException.class, () -> converter.convert("0,0,0,"));
   }
 
-  @Test(expected = OptionsParsingException.class)
+  @Test
   public void testConverterThrowsWhenGivenNegativeInputs() throws Exception {
-    converter.convert("-1,0,0");
-    fail();
+    assertThrows(OptionsParsingException.class, () -> converter.convert("-1,0,0"));
   }
 }

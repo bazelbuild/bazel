@@ -66,7 +66,7 @@ public final class ActionListenerRule implements RuleDefinition {
 
 <p>
   <b>WARNING:</b> Extra actions are deprecated. Use
-  <a href="https://docs.bazel.build/versions/main/skylark/aspects.html">aspects</a>
+  <a href="https://bazel.build/rules/aspects">aspects</a>
   instead.
 </p>
 
@@ -84,7 +84,7 @@ public final class ActionListenerRule implements RuleDefinition {
 </p>
 
 <p>
-  By specifying the option <a href="../user-manual.html#flag--experimental_action_listener">
+  By specifying the option <a href="${link user-manual#flag--experimental_action_listener}">
   <code>--experimental_action_listener=&lt;label&gt;</code></a>,
   the build will use the specified <code>action_listener</code> to insert
   <a href="${link extra_action}"><code>extra_action</code></a>s into the build graph.

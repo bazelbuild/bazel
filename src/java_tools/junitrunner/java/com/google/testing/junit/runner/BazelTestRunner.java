@@ -70,19 +70,9 @@ public class BazelTestRunner {
       System.exit(2);
     }
 
-    if (PersistentTestRunner.isPersistentTestRunner()) {
-      System.exit(
-          PersistentTestRunner.runPersistentTestRunner(
-              suiteClassName,
-              System.getenv("WORKSPACE_PREFIX"),
-              (suitClass, testArgs, classLoader, resolve) ->
-                  runTestsInSuite(suitClass, testArgs, classLoader, resolve)));
-    }
-
     int exitCode;
     try {
-      exitCode =
-          runTestsInSuite(suiteClassName, args, /* classLoader= */ null, /* resolve =*/ false);
+      exitCode = runTestsInSuite(suiteClassName, args);
     } catch (Throwable e) {
       // An exception was thrown by the runner. Print the error to the output stream so it will be
       // logged
@@ -137,9 +127,8 @@ public class BazelTestRunner {
    * Runs the tests in the specified suite. Looks for the suite class in the given classLoader, or
    * in the system classloader if none is specified.
    */
-  private static int runTestsInSuite(
-      String suiteClassName, String[] args, ClassLoader classLoader, boolean resolve) {
-    Class<?> suite = PersistentTestRunner.getTestClass(suiteClassName, classLoader, resolve);
+  private static int runTestsInSuite(String suiteClassName, String[] args) {
+    Class<?> suite = getTestClass(suiteClassName);
 
     if (suite == null) {
       // No class found corresponding to the system property passed in from Bazel
@@ -157,6 +146,18 @@ public class BazelTestRunner {
             .build()
             .runner();
     return runner.run().wasSuccessful() ? 0 : 1;
+  }
+
+  private static Class<?> getTestClass(String name) {
+    if (name == null) {
+      return null;
+    }
+
+    try {
+      return Class.forName(name);
+    } catch (ClassNotFoundException e) {
+      return null;
+    }
   }
 
   /**

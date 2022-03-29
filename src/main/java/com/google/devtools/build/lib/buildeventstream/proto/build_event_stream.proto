@@ -884,6 +884,10 @@ message BuildMetrics {
     // if there was no major GC during the build.
     int64 peak_post_gc_heap_size = 2;
 
+    // Size of the peak tenured space JVM heap size event in bytes post GC. Note
+    // that this reports 0 if there was no major GC during the build.
+    int64 peak_post_gc_tenured_space_heap_size = 4;
+
     message GarbageMetrics {
       // Type of garbage collected, e.g. G1 Old Gen.
       string type = 1;

@@ -31,15 +31,14 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -115,7 +114,6 @@ public final class AspectDefinition {
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
     this.requiredProvidersForAspects = requiredProvidersForAspects;
-
     this.attributes = attributes;
     this.toolchainTypes = toolchainTypes;
     this.useToolchainTransition = useToolchainTransition;
@@ -281,7 +279,7 @@ public final class AspectDefinition {
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
     private boolean applyToGeneratingRules = false;
-    private final List<ToolchainTypeRequirement> toolchainTypes = new ArrayList<>();
+    private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private boolean useToolchainTransition = false;
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
 
@@ -587,23 +585,14 @@ public final class AspectDefinition {
     }
 
     /** Adds the given toolchains as requirements for this aspect. */
-    public Builder addToolchainType(ToolchainTypeRequirement... toolchainTypes) {
-      return this.addToolchainType(ImmutableList.copyOf(toolchainTypes));
+    public Builder addToolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
+      return this.addToolchainTypes(ImmutableSet.copyOf(toolchainTypes));
     }
 
     /** Adds the given toolchains as requirements for this aspect. */
-    public Builder addToolchainType(List<ToolchainTypeRequirement> toolchainTypes) {
+    public Builder addToolchainTypes(Collection<ToolchainTypeRequirement> toolchainTypes) {
       this.toolchainTypes.addAll(toolchainTypes);
       return this;
-    }
-
-    /** Adds the given toolchains as requirements for this aspect. */
-    // TODO(katre): Remove this once all callers use addToolchainType.
-    public Builder addRequiredToolchains(List<Label> requiredToolchains) {
-      return addToolchainType(
-          requiredToolchains.stream()
-              .map(label -> ToolchainTypeRequirement.create(label))
-              .collect(Collectors.toList()));
     }
 
     public Builder useToolchainTransition(boolean useToolchainTransition) {

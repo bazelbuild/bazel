@@ -86,6 +86,12 @@ public final class WorkspaceBuilder {
     return (int) scaledMemory;
   }
 
+  public static PerBuildSyscallCache createPerBuildSyscallCache() {
+    return PerBuildSyscallCache.newBuilder()
+        .setInitialCapacity(getSyscallCacheInitialCapacity())
+        .build();
+  }
+
   BlazeWorkspace build(
       BlazeRuntime runtime,
       PackageFactory packageFactory,
@@ -95,10 +101,7 @@ public final class WorkspaceBuilder {
       skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
     }
     if (perCommandSyscallCache == null) {
-      perCommandSyscallCache =
-          PerBuildSyscallCache.newBuilder()
-              .setInitialCapacity(getSyscallCacheInitialCapacity())
-              .build();
+      perCommandSyscallCache = createPerBuildSyscallCache();
     }
 
     SkyframeExecutor skyframeExecutor =

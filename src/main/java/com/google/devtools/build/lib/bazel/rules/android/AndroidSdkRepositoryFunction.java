@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.stream;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -21,10 +22,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -43,7 +44,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -160,8 +161,8 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
   private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
   private static final AndroidRevision MIN_BUILD_TOOLS_REVISION = AndroidRevision.parse("30.0.0");
-  private static final String PATH_ENV_VAR = "ANDROID_HOME";
-  private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  private static final ImmutableList<String> PATH_ENV_VAR_CANDIDATES =
+      ImmutableList.of("ANDROID_HOME", "ANDROID_SDK_ROOT");
   private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
       ImmutableList.of(
           "extras/android/m2repository",
@@ -180,7 +181,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_LIST);
+    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_CANDIDATES);
   }
 
   @Override
@@ -193,7 +194,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     Map<String, String> environ =
-        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_CANDIDATES);
     if (environ == null) {
       return null;
     }
@@ -202,13 +203,16 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path androidSdkPath;
     String userDefinedPath = null;
+    String validAndroidHomeEnvironmentVar = disambiguateAndroidHomeEnvironmentVar(environ);
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       userDefinedPath = getPathAttr(rule);
       androidSdkPath = fs.getPath(getTargetPath(userDefinedPath, directories.getWorkspace()));
-    } else if (environ.get(PATH_ENV_VAR) != null) {
-      userDefinedPath = environ.get(PATH_ENV_VAR);
+    } else if (validAndroidHomeEnvironmentVar != null) {
+      userDefinedPath = environ.get(validAndroidHomeEnvironmentVar);
       androidSdkPath =
-          fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), environ));
+          fs.getPath(
+              getAndroidHomeEnvironmentVar(
+                  directories.getWorkspace(), environ, validAndroidHomeEnvironmentVar));
     } else {
       // Write an empty BUILD file that declares errors when referred to.
       String buildFile = getStringResource("android_sdk_repository_empty_template.txt");
@@ -346,9 +350,27 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     return AndroidSdkRepositoryRule.class;
   }
 
+  private static String disambiguateAndroidHomeEnvironmentVar(Map<String, String> env) {
+    // Returns empty string if none of the environment variable candidates
+    // were in the environment. Otherwise, returns the environment variable
+    // pointing to an SDK installation.
+    String disambiguatedAndroidHomeVariable = null;
+    for (String candidate : PATH_ENV_VAR_CANDIDATES) {
+      // Iterates through the environment variable candidates in order.
+      // Bails out once a single valid environment variable is found; earlier list entries have
+      // precedence over sequentially later ones.
+      if (env.get(candidate) != null) {
+        disambiguatedAndroidHomeVariable = candidate;
+        break;
+      }
+    }
+
+    return disambiguatedAndroidHomeVariable;
+  }
+
   private static PathFragment getAndroidHomeEnvironmentVar(
-      Path workspace, Map<String, String> env) {
-    return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
+      Path workspace, Map<String, String> env, String pathEnvVar) {
+    return workspace.getRelative(PathFragment.create(env.get(pathEnvVar))).asFragment();
   }
 
   private static String getStringResource(String name) {
@@ -481,13 +503,13 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   /**
    * Gets DirectoryListingValues for subdirectories of the directory or returns null.
    *
-   * Ignores all non-directory files.
+   * <p>Ignores all non-directory files.
    */
   private static ImmutableMap<PathFragment, DirectoryListingValue> getSubdirectoryListingValues(
       final Path root, final PathFragment path, DirectoryListingValue directory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     Map<PathFragment, SkyKey> skyKeysForSubdirectoryLookups =
-        Streams.stream(directory.getDirents())
+        stream(directory.getDirents())
             .filter(dirent -> dirent.getType().equals(Dirent.Type.DIRECTORY))
             .collect(
                 toImmutableMap(
@@ -498,16 +520,22 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
                                 Root.fromPath(root),
                                 root.getRelative(path).getRelative(input.getName())))));
 
-    Map<SkyKey, ValueOrException<InconsistentFilesystemException>> values =
-        env.getValuesOrThrow(
-            skyKeysForSubdirectoryLookups.values(), InconsistentFilesystemException.class);
+    SkyframeLookupResult values =
+        env.getValuesAndExceptions(skyKeysForSubdirectoryLookups.values());
+    boolean valuesMissing = env.valuesMissing();
 
     ImmutableMap.Builder<PathFragment, DirectoryListingValue> directoryListingValues =
         new ImmutableMap.Builder<>();
     for (PathFragment pathFragment : skyKeysForSubdirectoryLookups.keySet()) {
       try {
-        SkyValue skyValue = values.get(skyKeysForSubdirectoryLookups.get(pathFragment)).get();
+        SkyKey skyKey = skyKeysForSubdirectoryLookups.get(pathFragment);
+        SkyValue skyValue = values.getOrThrow(skyKey, InconsistentFilesystemException.class);
         if (skyValue == null) {
+          if (!valuesMissing) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "SkyValue " + skyKey + " was missing, this should never happern"));
+          }
           return null;
         }
         directoryListingValues.put(pathFragment, (DirectoryListingValue) skyValue);
@@ -524,10 +552,11 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     throw new RepositoryFunctionException(
         new IOException(
             String.format(
-                "%s Unable to read the Android SDK at %s, the path may be invalid. Is "
-                    + "the path in android_sdk_repository() or %s set correctly? If the path is "
-                    + "correct, the contents in the Android SDK directory may have been modified.",
-                e.getMessage(), path, PATH_ENV_VAR),
+                "%s Unable to read the Android SDK at %s, the path may be invalid. Is the path in"
+                    + " android_sdk_repository() or $ANDROID_SDK_ROOT (or the deprecated"
+                    + " $ANDROID_HOME) set correctly? If the path is correct, the contents in the"
+                    + " Android SDK directory may have been modified.",
+                e.getMessage(), path),
             e),
         Transience.PERSISTENT);
   }

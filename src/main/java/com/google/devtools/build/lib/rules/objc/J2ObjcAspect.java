@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -82,7 +81,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -153,7 +151,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             J2ObjcConfiguration.class,
             ObjcConfiguration.class,
             ProtoConfiguration.class)
-        .addToolchainType(
+        .addToolchainTypes(
             ToolchainTypeRequirement.builder(ccToolchainType)
                 // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can
                 // be optional.
@@ -173,22 +171,20 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_deploy.jar")))
         .add(
             attr("$j2objc_wrapper", LABEL)
-                .allowedFileTypes(FileType.of(".py"))
                 .cfg(ExecutionTransitionFactory.create())
                 .exec()
-                .singleArtifact()
+                .legacyAllowAnyFileType()
                 .value(
                     Label.parseAbsoluteUnchecked(
-                        toolsRepository + "//tools/j2objc:j2objc_wrapper")))
+                        toolsRepository + "//tools/j2objc:j2objc_wrapper_binary")))
         .add(
             attr("$j2objc_header_map", LABEL)
-                .allowedFileTypes(FileType.of(".py"))
                 .cfg(ExecutionTransitionFactory.create())
                 .exec()
-                .singleArtifact()
+                .legacyAllowAnyFileType()
                 .value(
                     Label.parseAbsoluteUnchecked(
-                        toolsRepository + "//tools/j2objc:j2objc_header_map")))
+                        toolsRepository + "//tools/j2objc:j2objc_header_map_binary")))
         .add(
             attr("$jre_emul_jar", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
@@ -396,7 +392,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
 
     ProtoLangToolchainProvider protoToolchain =
-        ruleContext.getPrerequisite(J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+        ruleContext.getPrerequisite(
+            J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
     // Avoid pulling in any generated files from forbidden protos.
     ProtoSourceFileExcludeList protoExcludeList =
         new ProtoSourceFileExcludeList(ruleContext, protoToolchain.forbiddenProtos());
@@ -585,8 +582,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     SpawnAction.Builder transpilationAction =
         new SpawnAction.Builder()
             .setMnemonic("TranspilingJ2objc")
-            .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper"))
-            .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper"))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_wrapper"))
             .addInput(j2ObjcDeployJar)
             .addInput(bootclasspathJar)
             .addInputs(moduleFiles)
@@ -628,8 +624,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .setMnemonic("GenerateJ2objcHeaderMap")
-              .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_header_map"))
-              .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_header_map"))
+              .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_header_map"))
               .addInputs(sources)
               .addInputs(sourceJars)
               .addCommandLine(
@@ -680,7 +675,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         protoInfo,
         outputs,
         "Generating j2objc proto_library %{label}",
-        Exports.DO_NOT_USE,
         shouldAllowProtoServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
 
     return new J2ObjcMappingFileProvider(

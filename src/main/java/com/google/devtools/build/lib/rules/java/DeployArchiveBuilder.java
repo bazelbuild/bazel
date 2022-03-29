@@ -69,6 +69,7 @@ public class DeployArchiveBuilder {
   private OneVersionEnforcementLevel oneVersionEnforcementLevel = OneVersionEnforcementLevel.OFF;
   @Nullable private Artifact oneVersionAllowlistArtifact;
   @Nullable private Artifact sharedArchive;
+  private boolean multiReleaseDeployJars;
 
   /** Type of compression to apply to output archive. */
   public enum Compression {
@@ -169,6 +170,11 @@ public class DeployArchiveBuilder {
     return this;
   }
 
+  public DeployArchiveBuilder setMultiReleaseDeployJars(boolean multiReleaseDeployJars) {
+    this.multiReleaseDeployJars = multiReleaseDeployJars;
+    return this;
+  }
+
   public DeployArchiveBuilder setSharedArchive(@Nullable Artifact sharedArchive) {
     this.sharedArchive = sharedArchive;
     return this;
@@ -183,7 +189,8 @@ public class DeployArchiveBuilder {
       NestedSet<Artifact> runtimeClasspath,
       boolean includeBuildData,
       Compression compress,
-      Artifact launcher) {
+      Artifact launcher,
+      boolean multiReleaseDeployJars) {
     return defaultSingleJarCommandLine(
         outputJar,
         javaMainClass,
@@ -195,7 +202,8 @@ public class DeployArchiveBuilder {
         compress,
         launcher,
         OneVersionEnforcementLevel.OFF,
-        null);
+        null,
+        /* multiReleaseDeployJars= */ multiReleaseDeployJars);
   }
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(
@@ -209,7 +217,8 @@ public class DeployArchiveBuilder {
       Compression compress,
       Artifact launcher,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      @Nullable Artifact oneVersionAllowlistArtifact) {
+      @Nullable Artifact oneVersionAllowlistArtifact,
+      boolean multiReleaseDeployJars) {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
@@ -252,6 +261,9 @@ public class DeployArchiveBuilder {
       if (oneVersionEnforcementLevel == OneVersionEnforcementLevel.WARNING) {
         args.add("--succeed_on_found_violations");
       }
+    }
+    if (multiReleaseDeployJars) {
+      args.add("--multi_release");
     }
     return args;
   }
@@ -361,7 +373,8 @@ public class DeployArchiveBuilder {
             launcher,
             oneVersionEnforcementLevel,
             oneVersionAllowlistArtifact,
-            sharedArchive);
+            sharedArchive,
+            /* multiReleaseDeployJars= */ multiReleaseDeployJars);
     if (checkDesugarDeps) {
       commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
     }

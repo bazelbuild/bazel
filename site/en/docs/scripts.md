@@ -46,6 +46,7 @@ Bazel execution can result in following exit codes:
 -   `2` - Command Line Problem, Bad or Illegal flags or command combination, or
     Bad Environment Variables. Your command line must be modified.
 -   `8` - Build Interrupted but we terminated with an orderly shutdown.
+-   `9` - The server lock is held and `--noblock_for_lock` was passed.
 -   `32` - External Environment Failure not on this machine.
 
 -   `33` - Bazel ran out of memory and crashed. You need to modify your command line.

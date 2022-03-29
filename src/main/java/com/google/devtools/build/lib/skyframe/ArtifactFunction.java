@@ -46,13 +46,15 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
@@ -69,7 +71,7 @@ import javax.annotation.Nullable;
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
-  private final SyscallCache syscallCache;
+  private final XattrProvider xattrProvider;
 
   static final class MissingArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
@@ -96,10 +98,10 @@ class ArtifactFunction implements SkyFunction {
   public ArtifactFunction(
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
-      SyscallCache syscallCache) {
+      XattrProvider xattrProvider) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
-    this.syscallCache = syscallCache;
+    this.xattrProvider = xattrProvider;
   }
 
   @Override
@@ -189,11 +191,11 @@ class ArtifactFunction implements SkyFunction {
       // The expanded actions are not yet available.
       return null;
     }
-    ActionTemplateExpansionValue expansionValue = actionTemplateExpansion.getValue();
     ImmutableList<ActionLookupData> expandedActionExecutionKeys =
         actionTemplateExpansion.getExpandedActionExecutionKeys();
 
-    Map<SkyKey, SkyValue> expandedActionValueMap = env.getValues(expandedActionExecutionKeys);
+    SkyframeIterableResult expandedActionValueMap =
+        env.getOrderedValuesAndExceptions(expandedActionExecutionKeys);
     if (env.valuesMissing()) {
       // The execution values of the expanded actions are not yet all available.
       return null;
@@ -208,13 +210,10 @@ class ArtifactFunction implements SkyFunction {
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {
       boolean sawTreeChild = false;
       ActionExecutionValue actionExecutionValue =
-          (ActionExecutionValue)
-              Preconditions.checkNotNull(
-                  expandedActionValueMap.get(actionKey),
-                  "Missing tree value: %s %s %s",
-                  artifactDependencies,
-                  expansionValue,
-                  expandedActionValueMap);
+          (ActionExecutionValue) expandedActionValueMap.next();
+      if (actionExecutionValue == null) {
+        return null;
+      }
 
       for (Map.Entry<Artifact, FileArtifactValue> entry :
           actionExecutionValue.getAllFileValues().entrySet()) {
@@ -276,10 +275,14 @@ class ArtifactFunction implements SkyFunction {
       return new MissingArtifactValue(artifact);
     }
 
+    if (fileValue.isDirectory()) {
+      env.getListener().post(SourceDirectoryEvent.create(artifact.getExecPath()));
+    }
+
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       FileArtifactValue metadata;
       try {
-        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue, syscallCache);
+        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue, xattrProvider);
       } catch (IOException e) {
         throw new ArtifactFunctionException(
             SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
@@ -358,12 +361,16 @@ class ArtifactFunction implements SkyFunction {
         ImmutableList.builder();
     // Avoid iterating over nested set twice.
     List<Artifact> inputs = action.getInputs().toList();
-    Map<SkyKey, SkyValue> values = env.getValues(Artifact.keys(inputs));
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(Artifact.keys(inputs));
     if (env.valuesMissing()) {
       return null;
     }
     for (Artifact input : inputs) {
-      SkyValue inputValue = Preconditions.checkNotNull(values.get(Artifact.key(input)), input);
+
+      SkyValue inputValue = values.next();
+      if (inputValue == null) {
+        return null;
+      }
       if (inputValue instanceof FileArtifactValue) {
         fileInputsBuilder.add(Pair.of(input, (FileArtifactValue) inputValue));
       } else if (inputValue instanceof ActionExecutionValue) {
@@ -446,15 +453,32 @@ class ArtifactFunction implements SkyFunction {
       // Discovered inputs may not have an owner. Directory source artifacts may be owned by a label
       // ':.' which will crash toPathFragment below.
       return String.format("%s '%s'", error, artifact.getExecPathString());
-    } else if (ownerLabel.toPathFragment().equals(artifact.getExecPath())) {
-      // No additional useful information from path.
-      return String.format("%s '%s'", error, ownerLabel);
-    } else {
-      // TODO(janakr): when is this hit?
-      BugReport.sendBugReport(
-          new IllegalStateException("Unexpected special owner? " + artifact + ", " + ownerLabel));
-      return String.format("%s '%s', owner: '%s'", error, artifact.getExecPathString(), ownerLabel);
     }
+
+    PathFragment labelFragment = ownerLabel.toPathFragment();
+    if (ownerLabel.getRepository().isMain()) {
+      if (labelFragment.equals(artifact.getExecPath())) {
+        // No additional useful information from path.
+        return String.format("%s '%s'", error, ownerLabel);
+      }
+    } else {
+      // Not worth threading sibling repository layout config value all the way here: if either
+      // match, we know the label isn't useful.
+      for (boolean siblingRepositoryLayout : ImmutableList.of(Boolean.FALSE, Boolean.TRUE)) {
+        if (ownerLabel
+            .getRepository()
+            .getExecPath(siblingRepositoryLayout)
+            .getRelative(labelFragment)
+            .equals(artifact.getExecPath())) {
+          return String.format("%s '%s'", error, ownerLabel);
+        }
+      }
+    }
+
+    // TODO(bazel-team): when is this hit?
+    BugReport.sendBugReport(
+        new IllegalStateException("Unexpected special owner? " + artifact + ", " + ownerLabel));
+    return String.format("%s '%s', owner: '%s'", error, artifact.getExecPathString(), ownerLabel);
   }
 
   /** Describes dependencies of derived artifacts. */

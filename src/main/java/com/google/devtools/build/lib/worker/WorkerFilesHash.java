@@ -32,14 +32,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Calculates the hash based on the files, which should be unchanged on disk for a worker to get
  * reused.
  */
-class WorkerFilesHash {
+public class WorkerFilesHash {
 
-  static HashCode getCombinedHash(SortedMap<PathFragment, byte[]> workerFilesMap) {
+  private WorkerFilesHash() {}
+
+  public static HashCode getCombinedHash(SortedMap<PathFragment, byte[]> workerFilesMap) {
     Hasher hasher = Hashing.sha256().newHasher();
     workerFilesMap.forEach(
         (execPath, digest) -> {
@@ -52,8 +55,10 @@ class WorkerFilesHash {
   /**
    * Return a map that contains the execroot relative path and hash of each tool and runfiles
    * artifact of the given spawn.
+   *
+   * @throws MissingInputException if metadata is missing for any of the worker files.
    */
-  static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
+  public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
       Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
       throws IOException {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
@@ -61,6 +66,10 @@ class WorkerFilesHash {
     List<ActionInput> tools =
         ActionInputHelper.expandArtifacts(spawn.getToolFiles(), artifactExpander);
     for (ActionInput tool : tools) {
+      @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(tool);
+      if (metadata == null) {
+        throw new MissingInputException(tool);
+      }
       workerFilesMap.put(tool.getExecPath(), actionInputFileCache.getMetadata(tool).getDigest());
     }
 
@@ -71,7 +80,10 @@ class WorkerFilesHash {
       for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
-          FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
+          @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
+          if (metadata == null) {
+            throw new MissingInputException(localArtifact);
+          }
           if (metadata.getType().isFile()) {
             workerFilesMap.put(root.getRelative(mapping.getKey()), metadata.getDigest());
           }
@@ -80,5 +92,12 @@ class WorkerFilesHash {
     }
 
     return workerFilesMap;
+  }
+
+  /** Exception thrown when the metadata for a tool/runfile is missing. */
+  public static final class MissingInputException extends RuntimeException {
+    private MissingInputException(ActionInput input) {
+      super(String.format("Missing input metadata for: '%s'", input.getExecPathString()));
+    }
   }
 }

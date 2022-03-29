@@ -1,14 +1,16 @@
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
+package(default_testonly = True)
+
 filegroup(
     name = "srcs",
+    testonly = False,
     srcs = glob(["**"]),
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 filegroup(
     name = "git-repos",
-    testonly = 1,
     srcs = [
         "outer-planets-repo.tar.gz",
         "pluto-repo.tar.gz",
@@ -20,7 +22,6 @@ filegroup(
 
 filegroup(
     name = "embedded_tools_deps_test_data",
-    testonly = 1,
     srcs = [
         "//src/test/shell/bazel/testdata:embedded_tools_srcs_deps",
     ],
@@ -29,7 +30,6 @@ filegroup(
 
 filegroup(
     name = "jdk_http_archives_filegroup",
-    testonly = 1,
     srcs = [
         "//src/test/shell/bazel/testdata:jdk_http_archives",
     ],
@@ -60,7 +60,14 @@ gen_workspace_stanza(
         "openjdk17_darwin_aarch64_archive",
         "openjdk17_windows_archive",
         "openjdk17_windows_arm64_archive",
+        "openjdk18_linux_archive",
+        "openjdk18_darwin_archive",
+        "openjdk18_darwin_aarch64_archive",
+        "openjdk18_windows_archive",
+        "openjdk18_windows_arm64_archive",
     ],
     template = "jdk_http_archives.tmpl",
     visibility = ["//:__pkg__"],
 )
+
+exports_files(["zstd_test_archive.tar.zst"])

@@ -394,13 +394,13 @@ public final class UiEventHandler implements EventHandler {
       return null;
     }
 
-    if (size < maxStdoutErrBytes) {
+    if (size <= maxStdoutErrBytes) {
       return getContent.get();
     } else {
       return String.format(
-              "%s (%s) exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
+              "%s (%s) %d exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
                   + " skipping\n",
-              name, getPath.get(), maxStdoutErrBytes)
+              name, getPath.get(), size, maxStdoutErrBytes)
           .getBytes(StandardCharsets.ISO_8859_1);
     }
   }

@@ -22,6 +22,7 @@ import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -52,6 +53,15 @@ public class StarlarkDocumentationTest {
   private static final ImmutableList<String> DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
       ImmutableList.of("Actions");
 
+  private static final StarlarkDocExpander expander =
+      new StarlarkDocExpander(null) {
+
+        @Override
+        public String expand(String docString) {
+          return docString;
+        }
+      };
+
   @Test
   public void testStarlarkRuleClassBuiltInItemsAreDocumented() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
@@ -63,7 +73,7 @@ public class StarlarkDocumentationTest {
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, StarlarkBuiltinDoc> modules =
-        new TreeMap<>(StarlarkDocumentationCollector.getAllModules());
+        new TreeMap<>(StarlarkDocumentationCollector.getAllModules(expander));
     StarlarkBuiltinDoc topLevel =
         modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
     for (StarlarkMethodDoc method : topLevel.getMethods()) {
@@ -429,7 +439,7 @@ public class StarlarkDocumentationTest {
   @Test
   public void testStarlarkGlobalLibraryCallable() throws Exception {
     StarlarkBuiltinDoc topLevel =
-        StarlarkDocumentationCollector.getAllModules()
+        StarlarkDocumentationCollector.getAllModules(expander)
             .get(StarlarkDocumentationCollector.getTopLevelModule().name());
 
     boolean foundGlobalLibrary = false;
@@ -535,7 +545,7 @@ public class StarlarkDocumentationTest {
   }
 
   private Map<String, StarlarkBuiltinDoc> collect(Iterable<Class<?>> classObjects) {
-    return StarlarkDocumentationCollector.collectModules(classObjects);
+    return StarlarkDocumentationCollector.collectModules(classObjects, expander);
   }
 
   private Map<String, StarlarkBuiltinDoc> collect(Class<?> classObject) {

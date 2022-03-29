@@ -111,7 +111,7 @@ public final class OptionsUsageTest {
                 + "=&lt;a string&gt</code> default: \"test string default\"</dt>\n"
                 + "<dd>\n"
                 + "a string-valued option to test simple option operations\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -162,7 +162,7 @@ public final class OptionsUsageTest {
                 + "=&lt;an integer&gt</code> default: \"12\"</dt>\n"
                 + "<dd>\n"
                 + "an int-value&#39;d flag used to test expansion logic\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -255,7 +255,7 @@ public final class OptionsUsageTest {
                 + "multiple uses are accumulated</dt>\n"
                 + "<dd>\n"
                 + "a repeatable string-valued flag with its own unhelpful help text\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -312,7 +312,7 @@ public final class OptionsUsageTest {
                 + "<dd>\n"
                 + "a repeatable flag that accepts lists, but doesn&#39;t want to have lists of "
                 + "lists as a final type\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -385,7 +385,7 @@ public final class OptionsUsageTest {
                 + "&nbsp;&nbsp;<code><a href=\"#flag42\">42</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a href=\"#flag--expanded_d\">--expanded_d</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a href=\"#flagbar\">bar</a></code><br/>\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -457,7 +457,7 @@ public final class OptionsUsageTest {
                 + " href=\"#flag--test_recursive_expansion_middle1\">--test_recursive_expansion_middle1</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a"
                 + " href=\"#flag--test_recursive_expansion_middle2\">--test_recursive_expansion_middle2</a></code><br/>\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a></dd>\n");
   }
 
@@ -521,7 +521,7 @@ public final class OptionsUsageTest {
                 + " href=\"#flag--test_multiple_string\">--test_multiple_string=expandedFirstValue</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a"
                 + " href=\"#flag--test_multiple_string\">--test_multiple_string=expandedSecondValue</a></code><br/>\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a></dd>\n");
   }
 
@@ -577,7 +577,7 @@ public final class OptionsUsageTest {
                 + "default: \"direct implicit\"</dt>\n"
                 + "<dd>\n"
                 + "this option really needs that other one, isolation of purpose has failed.\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }

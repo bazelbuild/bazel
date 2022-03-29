@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -82,7 +83,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
   }
 
   public void setSyscallCache(SyscallCache syscallCache) {
-    this.syscallCache = syscallCache;
+    this.syscallCache = checkNotNull(syscallCache);
   }
 
   static String describeSemantics(StarlarkSemantics semantics) {
@@ -138,8 +139,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    Map<String, String> resolvedHashes =
-        Preconditions.checkNotNull(resolvedHashesValue).getHashes();
+    Map<String, String> resolvedHashes = checkNotNull(resolvedHashesValue).getHashes();
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
@@ -151,8 +151,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> ignoredPatterns =
-        Preconditions.checkNotNull(ignoredPackagesValue).getPatterns();
+    ImmutableSet<PathFragment> ignoredPatterns = checkNotNull(ignoredPackagesValue).getPatterns();
 
     try (Mutability mu = Mutability.create("Starlark repository")) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);

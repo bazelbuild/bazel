@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""objc_library Starlark implementation replacing native"""
+"""apple_static_library Starlark implementation"""
 
-load("@_builtins//:common/objc/semantics.bzl", "semantics")
-load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
+load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
+load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
 
 objc_internal = _builtins.internal.objc_internal
@@ -33,65 +33,10 @@ def _apple_static_library_impl(ctx):
     platform_type = getattr(apple_common.platform_type, ctx.attr.platform_type)
     platform = ctx.fragments.apple.multi_arch_platform(platform_type)
 
-    cpu_to_deps_map = ctx.split_attr.deps
-    cpu_to_avoid_deps_map = ctx.split_attr.avoid_deps
-    child_configs_and_toolchains = ctx.split_attr._child_configuration_dummmy
+    linking_outputs = linking_support.link_multi_arch_static_library(ctx = ctx)
+    libraries_to_lipo = [output.library for output in linking_outputs.outputs]
+
     rule_intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
-
-    libraries_to_lipo = []
-    files_to_build = [rule_intermediate_artifacts.combined_architecture_archive]
-    sdk_dylib = []
-    sdk_framework = []
-    weak_sdk_framework = []
-
-    for key, child_toolchain in ctx.split_attr._child_configuration_dummmy.items():
-        intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
-
-        deps = cpu_to_deps_map[key]
-
-        common_variables = compilation_support.build_common_variables(
-            ctx = ctx,
-            toolchain = child_toolchain[cc_common.CcToolchainInfo],
-            use_pch = True,
-            deps = cpu_to_deps_map[key],
-        )
-
-        avoid_objc_providers = []
-        avoid_cc_providers = []
-
-        if len(cpu_to_avoid_deps_map.keys()):
-            for dep in cpu_to_avoid_deps_map[key]:
-                if apple_common.Objc in dep:
-                    avoid_objc_providers.append(dep[apple_common.Objc])
-                if CcInfo in dep:
-                    avoid_cc_providers.append(dep[CcInfo])
-
-        objc_provider = common_variables.objc_provider.subtract_subtrees(avoid_objc_providers = avoid_objc_providers, avoid_cc_providers = avoid_cc_providers)
-
-        name = ctx.label.name + "-" + key + "-fl"
-
-        linking_outputs = compilation_support.register_fully_link_action(common_variables, objc_provider, name)
-
-        libraries_to_lipo.append(linking_outputs.library_to_link.static_library)
-
-        sdk_dylib.append(objc_provider.sdk_dylib)
-        sdk_framework.append(objc_provider.sdk_framework)
-        weak_sdk_framework.append(objc_provider.weak_sdk_framework)
-
-    objc_provider = apple_common.new_objc_provider(
-        sdk_dylib = depset(transitive = sdk_dylib),
-        sdk_framework = depset(transitive = sdk_framework),
-        weak_sdk_framework = depset(transitive = weak_sdk_framework),
-    )
-
-    header_tokens = []
-    for key, deps in cpu_to_deps_map.items():
-        for dep in deps:
-            if CcInfo in dep:
-                header_tokens.append(dep[CcInfo].compilation_context.validation_artifacts)
-
-    output_groups = {"_validation": depset(transitive = header_tokens)}
-
     output_archive = rule_intermediate_artifacts.combined_architecture_archive
     _register_combine_architectures_action(
         ctx,
@@ -100,13 +45,21 @@ def _apple_static_library_impl(ctx):
         platform,
     )
 
-    runfiles = ctx.runfiles(files = files_to_build, collect_default = True, collect_data = True)
+    files_to_build = [output_archive]
+    runfiles = ctx.runfiles(
+        files = files_to_build,
+        collect_default = True,
+        collect_data = True,
+    )
 
     return [
         DefaultInfo(files = depset(files_to_build), runfiles = runfiles),
-        objc_provider,
-        OutputGroupInfo(**output_groups),
-        apple_common.AppleStaticLibrary(archive = output_archive, objc = objc_provider),
+        linking_outputs.objc,
+        linking_outputs.output_groups,
+        apple_common.AppleStaticLibrary(
+            archive = output_archive,
+            objc = linking_outputs.objc,
+        ),
     ]
 
 def _validate_minimum_os(ctx):
@@ -116,7 +69,7 @@ def _validate_minimum_os(ctx):
         else:
             return
 
-    minimum_os_version = apple_common.dotted_version(ctx.attr.minimum_os_version)
+    apple_common.dotted_version(ctx.attr.minimum_os_version)
     components = ctx.attr.minimum_os_version.split(".")
     for i in range(len(components) - 1, 0, -1):
         if components[i] == "0":
@@ -179,8 +132,11 @@ apple_static_library = rule(
                 allow_rules = ["cc_library", "cc_inc_library"],
             ),
             "linkopts": attr.string_list(),
-            "additional_linker_inputs": attr.label_list(flags = ["DIRECT_COMPILE_TIME_INPUT"], allow_files = True),
-            "_child_configuration_dummmy": attr.label(
+            "additional_linker_inputs": attr.label_list(
+                flags = ["DIRECT_COMPILE_TIME_INPUT"],
+                allow_files = True,
+            ),
+            "_child_configuration_dummy": attr.label(
                 cfg = apple_common.multi_arch_split,
                 default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
             ),

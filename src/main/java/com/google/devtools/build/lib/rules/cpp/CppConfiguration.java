@@ -859,9 +859,8 @@ public final class CppConfiguration extends Fragment
     return cppOptions.objcGenerateDotdFiles;
   }
 
-  // TODO(plf): Change in separate CL where Starlark cc_library.implementation_deps is renamed.
   @StarlarkMethod(
-      name = "experimental_cc_implementation_deps",
+      name = "experimental_cc_interface_deps",
       documented = false,
       useStarlarkThread = true)
   public boolean experimentalCcInterfaceDepsForStarlark(StarlarkThread thread)

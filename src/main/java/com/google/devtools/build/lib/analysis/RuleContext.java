@@ -279,8 +279,9 @@ public final class RuleContext extends TargetContext
     return getConfiguration().getBinDirectory(getLabel().getRepository());
   }
 
-  public ArtifactRoot getIncludeDirectory() {
-    return getConfiguration().getIncludeDirectory(getLabel().getRepository());
+  @SuppressWarnings("Unused") // Goal is to migrate here.
+  public ArtifactRoot getBuildInfoDirectory() {
+    return getConfiguration().getBuildInfoDirectory(getLabel().getRepository());
   }
 
   public ArtifactRoot getGenfilesDirectory() {

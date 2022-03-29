@@ -21,7 +21,7 @@ int_setting(<a href="#int_setting-name">name</a>)
     <tr id="int_setting-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>
@@ -52,7 +52,7 @@ string_flag(<a href="#string_flag-name">name</a>)
     <tr id="string_flag-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>

@@ -139,7 +139,7 @@ public class PlatformRule implements RuleDefinition {
 which part of the build may run.
 
 For more details, see the
-<a href="https://docs.bazel.build/versions/main/platforms.html">Platforms</a> page.
+<a href="https://bazel.build/docs/platforms">Platforms</a> page.
 
 <h4 id="platform_examples">Example</h4>
 <p>
@@ -155,7 +155,7 @@ platform(
 )
 </pre>
 
-<h3 id="platform_inheritance">Platform Inheritance</h4>
+<h3 id="platform_inheritance">Platform Inheritance</h3>
 <p>
   Platforms may use the <code>parents</code> attribute to specify another platform that they will
   inherit constraint values from. Although the <code>parents</code> attribute takes a list, no

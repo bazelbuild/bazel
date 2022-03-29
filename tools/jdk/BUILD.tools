@@ -396,6 +396,15 @@ default_java_toolchain(
     target_version = "17",
 )
 
+# A toolchain that targets java 18.
+default_java_toolchain(
+    name = "toolchain_jdk_18",
+    configuration = dict(),
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_18",
+    source_version = "18",
+    target_version = "18",
+)
+
 # Deprecated, do not use.
 # It will be removed after migration to Java toolchain resolution.
 default_java_toolchain(
@@ -453,6 +462,11 @@ _JDKS = [
     "remotejdk17_win",
     "remotejdk17_win_arm64",
     "remotejdk17_linux",
+    "remotejdk18_macos",
+    "remotejdk18_macos_aarch64",
+    "remotejdk18_win",
+    "remotejdk18_win_arm64",
+    "remotejdk18_linux",
 ]
 
 [
@@ -486,6 +500,12 @@ java_runtime_version_alias(
 java_runtime_version_alias(
     name = "remotejdk_17",
     runtime_version = "remotejdk_17",
+    visibility = ["//visibility:public"],
+)
+
+java_runtime_version_alias(
+    name = "remotejdk_18",
+    runtime_version = "remotejdk_18",
     visibility = ["//visibility:public"],
 )
 

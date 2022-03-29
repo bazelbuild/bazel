@@ -20,12 +20,12 @@ import java.util.IdentityHashMap;
  * An object that manages the capability to mutate Starlark objects and their {@link
  * StarlarkThread}s. Collectively, the managed objects are called {@link Freezable}s.
  *
- * <p>Each {@code StarlarkThread}, and each of the mutable Starlark values (i.e., {@link
- * StarlarkMutable}s) that are created in that {@code StarlarkThread}, holds a pointer to the same
- * {@code Mutability} instance. Once the {@code StarlarkThread} is done evaluating, its {@code
- * Mutability} is irreversibly closed ("frozen"). At that point, it is no longer possible to change
- * either the bindings in that {@code StarlarkThread} or the state of its objects. This protects
- * each {@code StarlarkThread} from unintentional and unsafe modification.
+ * <p>Each {@code StarlarkThread}, and each of the mutable Starlark values that are created in that
+ * {@code StarlarkThread}, holds a pointer to the same {@code Mutability} instance. Once the {@code
+ * StarlarkThread} is done evaluating, its {@code Mutability} is irreversibly closed ("frozen"). At
+ * that point, it is no longer possible to change either the bindings in that {@code StarlarkThread}
+ * or the state of its objects. This protects each {@code StarlarkThread} from unintentional and
+ * unsafe modification.
  *
  * <p>{@code Mutability}s enforce isolation between {@code StarlarkThread}s; it is illegal for an
  * evaluation in one {@code StarlarkThread} to affect the bindings or values of another. In
@@ -78,8 +78,7 @@ import java.util.IdentityHashMap;
  * </ol>
  *
  * It follows that, if these invariants hold, an unfrozen value cannot appear as the child of a
- * value whose {@code Mutability} is already frozen. This knowledge is used by {@link
- * StarlarkMutable#isImmutable} to prune traversals of a compound value.
+ * value whose {@code Mutability} is already frozen.
  *
  * <p>There is a special API for freezing individual values rather than whole {@code
  * StarlarkThread}s. Because this API makes it easier to violate the above invariants, you should
@@ -203,7 +202,8 @@ public final class Mutability implements AutoCloseable {
   public interface Freezable {
     /**
      * Returns the {@link Mutability} associated with this {@code Freezable}. This should not change
-     * over the lifetime of the object, except by calling {@link #shallowFreeze} if applicable.
+     * over the lifetime of the object, except by calling {@link #unsafeShallowFreeze} if
+     * applicable.
      */
     Mutability mutability();
 
@@ -234,17 +234,16 @@ public final class Mutability implements AutoCloseable {
     /**
      * Freezes this object (and not its contents). Use with care.
      *
-     * <p>This method is optional (i.e. may throw {@link NotImplementedException}).
+     * <p>This method is optional (i.e. may throw {@link UnsupportedOperationException}).
      *
      * <p>If this object's {@link Mutability} is 1) not frozen, and 2) has {@link
-     * #allowUnsafeShallowFreeze} return true, then the object's {@code Mutability} reference is
+     * #allowsUnsafeShallowFreeze} return true, then the object's {@code Mutability} reference is
      * updated to point to {@link #IMMUTABLE}. Otherwise, this method throws {@link
      * IllegalArgumentException}.
      *
      * <p>It is up to the caller to ensure that any contents of this {@code Freezable} are also
      * frozen in order to preserve/restore the invariant that an immutable value cannot contain a
-     * mutable one. Note that {@link StarlarkMutable#isImmutable} correctness and thread-safety are
-     * not guaranteed otherwise.
+     * mutable one. Note that thread-safety is not guaranteed otherwise.
      */
     default void unsafeShallowFreeze() {
       throw new UnsupportedOperationException();

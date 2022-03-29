@@ -315,7 +315,7 @@ public final class AndroidRuleClasses {
           <code>res</code> directory.
           <br/>
           Generated files (from genrules) can be referenced by
-          <a href="../build-ref.html#labels">Label</a> here as well. The only restriction is that
+          <a href="${link build-ref#labels}">Label</a> here as well. The only restriction is that
           the generated outputs must be under the same "<code>res</code>" directory as any other
           resource files that are included.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -591,7 +591,7 @@ public final class AndroidRuleClasses {
             <li><code>shrink_resources = 1</code>: Turns on Android resource shrinking</li>
             <li><code>shrink_resources = 0</code>: Turns off Android resource shrinking</li>
             <li><code>shrink_resources = -1</code>: Shrinking is controlled by the
-                <a href="../user-manual.html#flag--android_resource_shrinking">
+                <a href="${link user-manual#flag--android_resource_shrinking}">
                 --android_resource_shrinking</a> flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

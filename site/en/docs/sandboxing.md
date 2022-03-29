@@ -23,36 +23,85 @@ affect the reproducibility of the build.
 More specifically, Bazel constructs an `execroot/` directory for each action,
 which acts as the action's work directory at execution time. `execroot/`
 contains all input files to the action and serves as the container for any
-generated outputs. Bazel then uses an operating-system-provided
-technique, containers on Linux and `sandbox-exec` on macOS, to constrain the
-action within `execroot/`.
+generated outputs. Bazel then uses an operating-system-provided technique,
+containers on Linux and `sandbox-exec` on macOS, to constrain the action within
+`execroot/`.
 
 ## Reasons for sandboxing {:#sandboxing-reasons}
 
-- Without action sandboxing, Bazel will not know if a tool uses undeclared input
-  files (files that are not explicitly listed in the dependencies of an action).
-  When one of the undeclared input files changes, Bazel still believes that the
-  build is up-to-date and won’t rebuild the action-resulting in an incorrect
-  incremental build.
+-   Without action sandboxing, Bazel doesn't know if a tool uses undeclared
+    input files (files that are not explicitly listed in the dependencies of an
+    action). When one of the undeclared input files changes, Bazel still
+    believes that the build is up-to-date and won’t rebuild the action. This can
+    result in an incorrect incremental build.
 
-- Incorrect reuse of cache entries creates problems during remote caching. A bad
-  cache entry in a shared cache affects every developer on the project, and
-  wiping the entire remote cache is not a feasible solution.
+-   Incorrect reuse of cache entries creates problems during remote caching. A
+    bad cache entry in a shared cache affects every developer on the project,
+    and wiping the entire remote cache is not a feasible solution.
 
-- Sandboxing is closely related to remote execution. If a build works well with
-  sandboxing, it will likely work well with remote execution. Uploading all
-  necessary files (including local tools) can significantly reduce maintenance
-  costs for compile clusters compared to having to install the tools on every
-  machine in the cluster every time you want to try out a new compiler or make
-  a change to an existing tool.
+-   Sandboxing mimics the behavior of remote execution — if a build works well
+    with sandboxing, it will likely also work with remote execution. By making
+    remote execution upload all necessary files (including local tools), you can
+    significantly reduce maintenance costs for compile clusters compared to
+    having to install the tools on every machine in the cluster every time you
+    want to try out a new compiler or make a change to an existing tool.
+
+## What sandbox strategy to use {:#sandboxing-strategies}
+
+You can choose which kind of sandboxing to use, if any, with the
+[strategy flags](user-manual.html#strategy-options). Using the `sandboxed`
+strategy makes Bazel pick one of the sandbox implementations listed below,
+preferring an OS-specific sandbox to the less hermetic generic one.
+[Persistent workers](persistent-workers.md) run in a generic sandbox if you pass
+the `--worker_sandboxing` flag.
+
+The `local` (a.k.a. `standalone`) strategy does not do any kind of sandboxing.
+It simply executes the action's command line with the working directory set to
+the execroot of your workspace.
+
+`processwrapper-sandbox` is a sandboxing strategy that does not require any
+"advanced" features - it should work on any POSIX system out of the box. It
+builds a sandbox directory consisting of symlinks that point to the original
+source files, executes the action's command line with the working directory set
+to this directory instead of the execroot, then moves the known output artifacts
+out of the sandbox into the execroot and deletes the sandbox. This prevents the
+action from accidentally using any input files that are not declared and from
+littering the execroot with unknown output files.
+
+`linux-sandbox` goes one step further and builds on top of the
+`processwrapper-sandbox`. Similar to what Docker does under the hood, it uses
+Linux Namespaces (User, Mount, PID, Network and IPC namespaces) to isolate the
+action from the host. That is, it makes the entire filesystem read-only except
+for the sandbox directory, so the action cannot accidentally modify anything on
+the host filesystem. This prevents situations like a buggy test accidentally rm
+-rf'ing your $HOME directory. Optionally, you can also prevent the action from
+accessing the network. `linux-sandbox` uses PID namespaces to prevent the action
+from seeing any other processes and to reliably kill all processes (even daemons
+spawned by the action) at the end.
+
+`darwin-sandbox` is similar, but for macOS. It uses Apple's `sandbox-exec` tool
+to achieve roughly the same as the Linux sandbox.
+
+Both the `linux-sandbox` and the `darwin-sandbox` do not work in a "nested"
+scenario due to restrictions in the mechanisms provided by the operating
+systems. Because Docker also uses Linux namespaces for its container magic, you
+cannot easily run `linux-sandbox` inside a Docker container, unless you use
+`docker run --privileged`. On macOS, you cannot run `sandbox-exec` inside a
+process that's already being sandboxed. Thus, in these cases, Bazel
+automatically falls back to using `processwrapper-sandbox`.
+
+If you would rather get a build error — such as to not accidentally build with a
+less strict execution strategy — explicitly modify the list of execution
+strategies that Bazel tries to use (for example, `bazel build
+--spawn_strategy=worker,linux-sandbox`).
 
 ## sandboxfs {:#sandboxfs}
 
 `sandboxfs` is a FUSE file system that exposes an arbitrary view of the
 underlying file system without time penalties. Bazel uses `sandboxfs` to
-generate `execroot/` instantaneously for each action, avoiding the cost
-of issuing thousands of system calls. Note that further I/O within `execroot/`
-may be slower due to FUSE overhead.
+generate `execroot/` instantaneously for each action, avoiding the cost of
+issuing thousands of system calls. Note that further I/O within `execroot/` may
+be slower due to FUSE overhead.
 
 ### Install sandboxfs {:#install-sandboxfs}
 

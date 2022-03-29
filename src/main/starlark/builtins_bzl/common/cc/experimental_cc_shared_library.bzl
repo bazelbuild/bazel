@@ -147,7 +147,10 @@ def _build_link_once_static_libs_map(merged_shared_library_infos):
     return link_once_static_libs_map
 
 def _is_dynamic_only(library_to_link):
-    if library_to_link.static_library == None and library_to_link.pic_static_library == None:
+    if (library_to_link.static_library == None and
+        library_to_link.pic_static_library == None and
+        (library_to_link.objects == None or len(library_to_link.objects) == 0) and
+        (library_to_link.pic_objects == None or len(library_to_link.pic_objects) == 0)):
         return True
     return False
 
@@ -238,7 +241,7 @@ def _filter_inputs(
         preloaded_deps_direct_labels,
         link_once_static_libs_map):
     linker_inputs = []
-    link_once_static_libs = []
+    curr_link_once_static_libs_map = {}
 
     graph_structure_aspect_nodes = []
     dependency_linker_inputs = []
@@ -307,7 +310,7 @@ def _filter_inputs(
                 )
 
                 if not link_statically_labels[owner]:
-                    link_once_static_libs.append(owner)
+                    curr_link_once_static_libs_map[owner] = True
                 linker_inputs.append(wrapped_library)
             else:
                 can_be_linked_statically = False
@@ -329,7 +332,7 @@ def _filter_inputs(
 
                 if can_be_linked_statically:
                     if not link_statically_labels[owner]:
-                        link_once_static_libs.append(owner)
+                        curr_link_once_static_libs_map[owner] = True
                     linker_inputs.append(linker_input)
                 else:
                     unaccounted_for_libs.append(linker_input.owner)
@@ -343,7 +346,7 @@ def _filter_inputs(
         fail(message)
 
     _throw_error_if_unaccounted_libs(unaccounted_for_libs)
-    return (exports, linker_inputs, link_once_static_libs, precompiled_only_dynamic_libraries)
+    return (exports, linker_inputs, curr_link_once_static_libs_map.keys(), precompiled_only_dynamic_libraries)
 
 def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
     if not unaccounted_for_libs:
@@ -388,7 +391,8 @@ def _get_permissions(ctx):
     return None
 
 def _cc_shared_library_impl(ctx):
-    cc_common.check_experimental_cc_shared_library()
+    semantics.check_experimental_cc_shared_library(ctx)
+
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -479,6 +483,7 @@ def _cc_shared_library_impl(ctx):
         linking_contexts = [linking_context],
         user_link_flags = user_link_flags,
         additional_inputs = additional_inputs,
+        grep_includes = ctx.executable._grep_includes,
         name = ctx.label.name,
         output_type = "dynamic_library",
         main_output = main_output,
@@ -496,6 +501,17 @@ def _cc_shared_library_impl(ctx):
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
         transitive_debug_files.append(dep[OutputGroupInfo].rule_impl_debug_files)
+
+    precompiled_only_dynamic_libraries_runfiles = []
+    for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
+        # precompiled_dynamic_library.dynamic_library could be None if the library to link just contains
+        # an interface library which is valid if the actual library is obtained from the system.
+        if precompiled_dynamic_library.dynamic_library != None:
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+        if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
+
+    runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
     for export in ctx.attr.roots:
         exports[str(export.label)] = True
@@ -593,6 +609,12 @@ cc_shared_library = rule(
         "user_link_flags": attr.string_list(),
         "_def_parser": semantics.get_def_parser(),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+        "_grep_includes": attr.label(
+            allow_files = True,
+            executable = True,
+            cfg = "exec",
+            default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
+        ),
     },
     toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],  # copybara-use-repo-external-label
     fragments = ["google_cpp", "cpp"],

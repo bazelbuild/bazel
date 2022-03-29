@@ -35,15 +35,18 @@ public class DocgenConsts {
   public static final String OVERVIEW_TEMPLATE = BE_TEMPLATE_DIR + "/overview.vm";
   public static final String RULES_TEMPLATE = BE_TEMPLATE_DIR + "/rules.vm";
   public static final String BE_NAV_TEMPLATE = BE_TEMPLATE_DIR + "/be-nav.vm";
+  public static final String BE_TOC_TEMPLATE = BE_TEMPLATE_DIR + "/be-toc.vm";
 
   public static final String STARLARK_LIBRARY_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-library.vm";
+      "com/google/devtools/build/docgen/templates/starlark-library.vm";
   public static final String STARLARK_NAV_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-nav.vm";
+      "com/google/devtools/build/docgen/templates/starlark-nav.vm";
   public static final String STARLARK_MODULE_CATEGORY_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-category.vm";
+      "com/google/devtools/build/docgen/templates/starlark-category.vm";
   public static final String STARLARK_OVERVIEW_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-overview.vm";
+      "com/google/devtools/build/docgen/templates/starlark-overview.vm";
+  public static final String STARLARK_TOC_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/starlark-toc.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 
@@ -105,8 +108,8 @@ public class DocgenConsts {
   public static final Pattern BLAZE_RULE_LINK = Pattern.compile(
       "\\$\\{link (([a-zA-Z_-]+)(\\.([a-zA-Z_\\.-]+))?)\\}");
 
-  public static final Pattern BLAZE_RULE_HEADING_LINK = Pattern.compile(
-      "\\$\\{link (([a-zA-Z_-]+)\\#([a-zA-Z_\\.-]+))\\}");
+  public static final Pattern BLAZE_RULE_HEADING_LINK =
+      Pattern.compile("\\$\\{link (([a-zA-Z_-]+)\\#([a-zA-Z0-9_\\.-]+))\\}");
 
   /**
    * i.e.
@@ -176,12 +179,10 @@ public class DocgenConsts {
 
   // The following variables are not constants as they can be overridden from
   // StarlarkDocumentationProcessor#parseOptions
+  // Their purpose is to allow generated Starlark documentation to link into the build encyclopedia.
 
-  // Build Encyclopedia documentation root
-  public static String BeDocsRoot = "/versions/main/be";
-
-  // Documentation files extension
-  public static String documentationExtension = "html";
+  // Root directory of *narrative* Starlark documentation files such as rules.md
+  public static String starlarkDocsRoot = "/rules";
 
   static String toCommandLineFormat(String cmdDoc) {
     // Replace html <br> tags with line breaks

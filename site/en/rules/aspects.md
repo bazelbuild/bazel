@@ -19,7 +19,7 @@ and actions. Some typical scenarios when aspects can be useful:
 
 ## Aspect basics
 
-Bazel `BUILD` files provide a description of a project’s source code: what source
+`BUILD` files provide a description of a project’s source code: what source
 files are part of the project, what artifacts (_targets_) should be built from
 those files, what the dependencies between those files are, etc. Bazel uses
 this information to perform a build, that is, it figures out the set of actions

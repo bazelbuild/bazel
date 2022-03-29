@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
@@ -364,12 +362,11 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
   private static void establishDependencyOnNinjaFiles(
       Environment env, Artifact mainFile, ImmutableList<Artifact> ninjaSrcs)
       throws InterruptedException {
-    ArrayList<SkyKey> depKeys = Lists.newArrayList();
-    depKeys.add(getArtifactRootedPath(mainFile));
-    for (Artifact artifact : ninjaSrcs) {
-      depKeys.add(getArtifactRootedPath(artifact));
-    }
-    env.getValues(depKeys);
+    Iterable<SkyKey> depKeys =
+        Iterables.concat(
+            ImmutableSet.of(getArtifactRootedPath(mainFile)),
+            Iterables.transform(ninjaSrcs, NinjaGraph::getArtifactRootedPath));
+    env.getOrderedValuesAndExceptions(depKeys);
   }
 
   private static SkyKey getArtifactRootedPath(Artifact artifact) {

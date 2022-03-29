@@ -57,12 +57,12 @@ public class LocalRepositoryRule implements RuleDefinition {
 /*<!-- #FAMILY_SUMMARY -->
 
 <p>
-Workspace rules are used to pull in <a href="../external.html">external dependencies</a>, typically
+Workspace rules are used to pull in <a href="/docs/external">external dependencies</a>, typically
 source code located outside the main repository.
 </p>
 
 <p><em>Note:</em> besides the native workspace rules, Bazel also embeds various
-<a href="../repo/index.html">Starlark workspace rules</a>, in particular those to deal
+<a href="/rules/lib/repo/index">Starlark workspace rules</a>, in particular those to deal
 with git repositories or archives hosted on the web.
 </p>
 

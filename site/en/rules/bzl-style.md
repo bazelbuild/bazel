@@ -83,7 +83,10 @@ fields, should be documented using the `doc` argument.
 
 As in `BUILD` files, there is no strict line length limit as labels can be long.
 When possible, try to use at most 79 characters per line (following Python's
-style guide, [PEP 8](https://www.python.org/dev/peps/pep-0008/)).
+style guide, [PEP 8](https://www.python.org/dev/peps/pep-0008/)). This guideline
+should not be enforced strictly: editors should display more than 80 columns,
+automated changes will frequently introduce longer lines, and humans shouldn't
+spend time splitting lines that are already readable.
 
 ### Keyword arguments {:#keyword-arguments}
 

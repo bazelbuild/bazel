@@ -61,8 +61,7 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       if (!(options.contains(ConfigFeatureFlagOptions.class)
           && options.get(ConfigFeatureFlagOptions.class)
-              .enforceTransitiveConfigsForConfigFeatureFlag
-          && options.get(CoreOptions.class).useDistinctHostConfiguration)) {
+              .enforceTransitiveConfigsForConfigFeatureFlag)) {
         return options.underlying();
       }
       return FeatureFlagValue.trimFlagValues(options.underlying(), flags);

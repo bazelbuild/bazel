@@ -132,7 +132,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       BuildInfoPropertiesTranslator translator,
       boolean includeVolatile,
       boolean includeNonVolatile) {
-    ArtifactRoot outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
+    ArtifactRoot outputPath = config.getBuildInfoDirectory(RepositoryName.MAIN);
     final Artifact output =
         context.getBuildInfoArtifact(
             propertyFileName,

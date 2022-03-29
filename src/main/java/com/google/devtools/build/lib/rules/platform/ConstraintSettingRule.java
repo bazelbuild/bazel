@@ -63,7 +63,7 @@ For instance, you might define a <code>constraint_setting</code> named "glibc_ve
 the capability for platforms to have different versions of the glibc library installed.
 
 For more details, see the
-<a href="https://docs.bazel.build/versions/main/platforms.html">Platforms</a> page.
+<a href="https://bazel.build/docs/platforms">Platforms</a> page.
 
 <p>Each <code>constraint_setting</code> has an extensible set of associated
 <code>constraint_value</code>s. Usually these are defined in the same package, but sometimes a

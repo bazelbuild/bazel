@@ -14,9 +14,8 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,8 +23,7 @@ import org.junit.runners.JUnit4;
 /** A test for {@link Converters.CommaSeparatedOptionListConverter}. */
 @RunWith(JUnit4.class)
 public class CommaSeparatedOptionListConverterTest {
-
-  private Converter<List<String>> converter =
+  private final Converter<ImmutableList<String>> converter =
       new Converters.CommaSeparatedOptionListConverter();
 
   @Test
@@ -65,13 +63,4 @@ public class CommaSeparatedOptionListConverterTest {
   public void spaceIsIgnored() throws Exception {
     assertThat(converter.convert("one two three")).containsExactly("one two three");
   }
-
-  @Test
-  public void valueisUnmodifiable() throws Exception {
-    assertThrows(
-        "could modify value",
-        UnsupportedOperationException.class,
-        () -> converter.convert("value").add("other"));
-  }
-
 }

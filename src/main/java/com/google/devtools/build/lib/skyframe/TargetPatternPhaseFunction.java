@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -52,9 +53,10 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatt
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -127,7 +129,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         }
       }
     }
-    Map<SkyKey, SkyValue> expandedTests = env.getValues(testExpansionKeys.values());
+    SkyframeLookupResult expandedTests = env.getValuesAndExceptions(testExpansionKeys.values());
     if (env.valuesMissing()) {
       return null;
     }
@@ -197,13 +199,16 @@ final class TargetPatternPhaseFunction implements SkyFunction {
 
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
     ImmutableMap.Builder<Label, ImmutableSet<Label>> testSuiteExpansions =
-        ImmutableMap.builderWithExpectedSize(expandedTests.size());
+        ImmutableMap.builderWithExpectedSize(testExpansionKeys.size());
     for (Target target : targets.getTargets()) {
       Label label = target.getLabel();
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey = Preconditions.checkNotNull(testExpansionKeys.get(label));
-        ResolvedTargets<Label> testExpansion =
-            ((TestsForTargetPatternValue) expandedTests.get(expansionKey)).getLabels();
+        var value = (TestsForTargetPatternValue) expandedTests.get(expansionKey);
+        if (value == null) {
+          return null;
+        }
+        ResolvedTargets<Label> testExpansion = value.getLabels();
         expandedLabelsBuilder.merge(testExpansion);
         testSuiteExpansions.put(label, testExpansion.getTargets());
       } else {
@@ -315,14 +320,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
-    Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
-        env.getValuesOrThrow(patternSkyKeys, TargetParsingException.class);
+    SkyframeIterableResult resolvedPatterns = env.getOrderedValuesAndExceptions(patternSkyKeys);
     List<ExpandedPattern> expandedPatterns = new ArrayList<>(patternSkyKeys.size());
 
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
+        value = (TargetPatternValue) resolvedPatterns.nextOrThrow(TargetParsingException.class);
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
@@ -419,8 +423,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // Skip.
       }
     }
-    Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
-        env.getValuesOrThrow(patternSkyKeys, TargetParsingException.class);
+    SkyframeLookupResult resolvedPatterns = env.getValuesAndExceptions(patternSkyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -429,14 +432,20 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     for (TargetPatternKey key : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(key).get();
+        value = (TargetPatternValue) resolvedPatterns.getOrThrow(key, TargetParsingException.class);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "TargetPatternValue " + key + " was missing, this should never happen"));
+          return null;
+        }
       } catch (TargetParsingException e) {
         // Skip.
         continue;
       }
       expandedSuiteKeys.add(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
     }
-    Map<SkyKey, SkyValue> expandedSuites = env.getValues(expandedSuiteKeys);
+    SkyframeIterableResult expandedSuites = env.getOrderedValuesAndExceptions(expandedSuiteKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -445,15 +454,27 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
+        value =
+            (TargetPatternValue) resolvedPatterns.getOrThrow(pattern, TargetParsingException.class);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "TargetPatternValue " + pattern + " was missing, this should never happen"));
+          return null;
+        }
       } catch (TargetParsingException e) {
         // This was already reported in getTargetsToBuild (maybe merge the two code paths?).
         continue;
       }
 
       TestsForTargetPatternValue expandedSuitesValue =
-          (TestsForTargetPatternValue)
-              expandedSuites.get(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
+          (TestsForTargetPatternValue) expandedSuites.next();
+      if (expandedSuitesValue == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "expandedSuitesValue " + pattern + " was missing, this should never happen"));
+        return null;
+      }
       if (pattern.isNegative()) {
         ResolvedTargets<Target> negativeTargets =
             TestsForTargetPatternFunction.labelsToTargets(

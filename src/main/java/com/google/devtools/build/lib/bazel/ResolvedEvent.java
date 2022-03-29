@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 
 /** Interface for events reporting information to be added to a resolved file. */
 public interface ResolvedEvent extends ExtendedEventHandler.ProgressLike {
@@ -23,5 +23,5 @@ public interface ResolvedEvent extends ExtendedEventHandler.ProgressLike {
   String getName();
 
   /** The entry for the list of resolved Information. */
-  Object getResolvedInformation(SyscallCache syscallCache);
+  Object getResolvedInformation(XattrProvider xattrProvider);
 }

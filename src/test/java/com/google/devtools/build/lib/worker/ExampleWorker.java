@@ -81,6 +81,7 @@ public final class ExampleWorker {
     }
 
     @Override
+    @SuppressWarnings("SystemExitOutsideMain")
     public void processRequests() throws IOException {
       while (true) {
         WorkRequest request = messageProcessor.readWorkRequest();
@@ -99,15 +100,7 @@ public final class ExampleWorker {
         if (request.getCancel()) {
           respondToCancelRequest(request);
         } else {
-          try {
-            startResponseThread(request);
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            // We don't expect interrupts at this level, only inside the individual request
-            // handling threads, so here we just abort on interrupt.
-            e.printStackTrace();
-            return;
-          }
+          startResponseThread(request);
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);

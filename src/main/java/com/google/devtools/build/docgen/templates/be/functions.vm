@@ -1,34 +1,27 @@
 #if (!$singlePage)
----
-layout: documentation
-title: Functions
----
-
-<div style="background-color: #EFCBCB; color: #AE2B2B;  border: 1px solid #AE2B2B; border-radius: 5px; border-left: 10px solid #AE2B2B; padding: 0.5em;">
-<b>IMPORTANT:</b> The Bazel docs have moved! Please update your bookmark to <a href="https://bazel.build/reference/be/functions" style="color: #0000EE;">https://bazel.build/reference/be/functions</a>
-<p/>
-You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html" style="color: #0000EE;">read about</a> the migration, and let us <a href="https://forms.gle/onkAkr2ZwBmcbWXj7" style="color: #0000EE;">know what you think</a>.
-</div>
-
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 #end
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 #end
 
-<h1>Functions</h1>
+<h1 class="page-title">Functions</h1>
 
 #if (!$singlePage)
-<div class="toc">
-  <h1>Contents</h1>
-  <ul>
-    <li><a href="#package">package</a></li>
-    <li><a href="#package_group">package_group</a></li>
-    <li><a href="#exports_files">exports_files</a></li>
-    <li><a href="#glob">glob</a></li>
-    <li><a href="#select">select</a></li>
-    <li><a href="#subpackages">subpackages</a></li>
-  </ul>
-</div>
+<h2>Contents</h2>
+<ul>
+  <li><a href="#package">package</a></li>
+  <li><a href="#package_group">package_group</a></li>
+  <li><a href="#exports_files">exports_files</a></li>
+  <li><a href="#glob">glob</a></li>
+  <li><a href="#select">select</a></li>
+  <li><a href="#subpackages">subpackages</a></li>
+</ul>
 #end
 <!-- =================================================================
                               package()
@@ -63,12 +56,12 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
-        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
         <p>The default visibility of the rules in this package.</p>
         <p>Every rule in this package has the visibility specified in this
         attribute, unless otherwise specified in the <code>visibility</code>
         attribute of the rule. For detailed information about the syntax of this
-        attribute, see the documentation of <a href="../visibility.md">visibility</a>.
+        attribute, see the documentation of <a href="$expander.expandRef("visibility")">visibility</a>.
         The package default visibility does not apply to
         <a href="#exports_files">exports_files</a>, which is
         public by default.</p>
@@ -151,14 +144,14 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
     <tr>
       <td id="package_group.name"><code>name</code></td>
       <td>
-        <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+        <p><code><a href="$expander.expandRef("build-ref#name")">Name</a>; required</code></p>
         <p>A unique name for this target.</p>
       </td>
     </tr>
     <tr>
       <td id="package_group.packages"><code>packages</code></td>
       <td>
-        <p><code>List of <a href="../build-ref.html#packages">Package</a>; optional</code></p>
+        <p><code>List of <a href="$expander.expandRef("build-ref#packages")">Package</a>; optional</code></p>
         <p>A complete enumeration of packages in this group.</p>
 
         <p>Packages should be referred to using their full names,
@@ -187,7 +180,7 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
     <tr>
       <td id="package_group.includes"><code>includes</code></td>
       <td>
-        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
         <p>Other package groups that are included in this one.</p>
 
         <p>The labels in this attribute must refer to other package
@@ -267,7 +260,7 @@ package_group(
   The BUILD file for a package may only refer directly to source files belonging
   to another package if they are explicitly exported with an
   <code>exports_files()</code> statement. Read more about
-  <a href="../visibility.md#visibility-of-a-file">visibility of files</a>.
+  <a href="$expander.expandRef("visibility#visibility-of-a-file")">visibility of files</a>.
 </p>
    <p>
   As a legacy behaviour, also files mentioned as input to a rule are exported
@@ -427,7 +420,7 @@ There are several important limitations and caveats:
     existence of BUILD files &mdash; that is, the same glob expression would
     include <code>x/y/z.cc</code> if there was no package called
     <code>x/y</code> or it was marked as deleted using the
-    <a href="../user-manual.html#flag--deleted_packages">--deleted_packages</a>
+    <a href="$expander.expandRef("user-manual#flag--deleted_packages")">--deleted_packages</a>
     flag.
     </p>
 
@@ -657,7 +650,7 @@ sh_binary(
   <code>subpackages()</code> is a helper function, similar to <code>glob()</code>
   that lists subpackages instead of files and directories.  It uses the same
   path patterns as <code>glob()</code> and can match any subpackage that is a
-  direct decendant of the currently loading BUILD file.  See <a
+  direct descendant of the currently loading BUILD file.  See <a
   href="#glob">glob</a> for a detailed explanation and examples of include and
   exclude patterns.
 </p>
@@ -695,4 +688,6 @@ subs = subpackages(include = ["**"])
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+</body>
+</html>
 #end

@@ -14,7 +14,7 @@ program. `BUILD` files are evaluated using an imperative language,
 They are interpreted as a sequential list of statements.
 
 In general, order does matter: variables must be defined before they are
-used, for example. However, most `BUILD` files consist only declarations of
+used, for example. However, most `BUILD` files consist only of declarations of
 build rules, and the relative order of these statements is immaterial; all
 that matters is _which_ rules were declared, and with what values, by the
 time package evaluation completes.
@@ -41,7 +41,7 @@ technically they are interpreted using the Latin-1 character set.
 
 Because `BUILD` files need to be updated whenever the dependencies of the
 underlying code change, they are typically maintained by multiple people on a
-team. `BUILD` file authors are should comments liberally to document the role
+team. `BUILD` file authors should comment liberally to document the role
 of each build target, whether or not it is intended for public use, and to
 document the role of the package itself.
 

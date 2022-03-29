@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -312,7 +313,12 @@ public class ObjcRuleClasses {
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
-          .addRequiredToolchains(ImmutableList.of(CppRuleClasses.ccToolchainTypeAttribute(env)))
+          // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+          // optional.
+          .addToolchainTypes(
+              ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                  .mandatory(true)
+                  .build())
           .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }
@@ -658,12 +664,15 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .allowedFileTypes(FileTypeSet.ANY_FILE))
           .add(
+              // This attribute definition must be kept in sync with
+              // third_party/bazel_rules/rules_apple/apple/internal/rule_factory.bzl
               attr("$j2objc_dead_code_pruner", LABEL)
-                  .allowedFileTypes(FileType.of(".py"))
                   .cfg(ExecutionTransitionFactory.create())
                   .exec()
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
+                  // Allow arbitrary executable files; this gives more flexibility for the
+                  // implementation of the underlying tool.
+                  .legacyAllowAnyFileType()
+                  .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner_binary")))
           .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
           .build();
     }

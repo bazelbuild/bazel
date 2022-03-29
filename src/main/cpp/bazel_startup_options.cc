@@ -27,11 +27,8 @@ BazelStartupOptions::BazelStartupOptions(
       user_bazelrc_(""),
       use_system_rc(true),
       use_workspace_rc(true),
-      use_home_rc(true),
-      use_master_bazelrc_(true) {
+      use_home_rc(true) {
   RegisterNullaryStartupFlagNoRc("home_rc", &use_home_rc);
-  RegisterNullaryStartupFlagNoRc("master_bazelrc", &use_master_bazelrc_);
-  OverrideOptionSourcesKey("master_bazelrc", "blazerc");
   RegisterNullaryStartupFlagNoRc("system_rc", &use_system_rc);
   RegisterNullaryStartupFlagNoRc("workspace_rc", &use_workspace_rc);
   RegisterUnaryStartupFlag("bazelrc");

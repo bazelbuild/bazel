@@ -17,15 +17,15 @@
 # Android
 
 # android/ directory anywhere in the repository
-android/ @ahumesky
+android/ @ahumesky @ted-xie
 
-/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @ted-xie @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
+/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @ted-xie @kevin1e100
 
-/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @ted-xie @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
+/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @ted-xie @kevin1e100
 
 # Apple
 

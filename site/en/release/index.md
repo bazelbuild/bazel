@@ -50,7 +50,7 @@ be released after two business days.
 ## Testing {:#testing}
 
 A nightly build of all projects running on
-[ci.bazel.build](https://ci.bazel.build/){: .external} is run, using Bazel
+[ci.bazel.build](https://github.com/bazelbuild/continuous-integration/blob/master/buildkite/README.md){: .external} is run, using Bazel
 binaries built at head, and release binaries. Projects going to be impacted by a
 breaking change are notified.
 

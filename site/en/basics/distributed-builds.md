@@ -116,7 +116,8 @@ user. Serving file contents on-demand greatly reduces both network and disk
 usage, and the system is able to build twice as fast compared to when we stored
 all build output on the developer’s local disk.
 
-Google’s remote execution system is called Forge. A Forge client in Bazel called
+Google’s remote execution system is called Forge. A Forge client in Blaze
+(Bazel's internal equivalent) called
 the Distributor sends requests for each action to a job running in our
 datacenters called the Scheduler. The Scheduler maintains a cache of action
 results, allowing it to return a response immediately if the action has already

@@ -168,7 +168,10 @@ public final class MockObjcSupport {
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
         "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
-        "filegroup(name = 'j2objc_dead_code_pruner', srcs = ['j2objc_dead_code_pruner.py'])",
+        "py_binary(",
+        "  name = 'j2objc_dead_code_pruner_binary',",
+        "  srcs = ['j2objc_dead_code_pruner_binary.py']",
+        ")",
         "xcode_config(name = 'host_xcodes',",
         "  default = ':version7_3_1',",
         "  versions = [':version7_3_1', ':version5_0', ':version7_3', ':version5_8', ':version5'])",
@@ -208,7 +211,6 @@ public final class MockObjcSupport {
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/foo.mobileprovision", "No such luck");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest.plist");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
     setupCcToolchainConfig(config);
   }
 

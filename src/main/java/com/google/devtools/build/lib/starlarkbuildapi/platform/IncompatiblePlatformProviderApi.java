@@ -23,7 +23,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "IncompatiblePlatformProvider",
     doc =
         "A provider for targets that are incompatible with the target platform. See "
-            + "<a href='../../platforms.html#detecting-incompatible-targets-using-bazel-cquery'>"
+            + "<a href='${link platforms#detecting-incompatible-targets-using-bazel-cquery}'>"
             + "Detecting incompatible targets using <code>bazel cquery</code></a> for more "
             + "information.",
     category = DocCategory.PROVIDER)

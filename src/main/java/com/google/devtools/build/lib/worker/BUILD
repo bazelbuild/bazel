@@ -13,6 +13,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "WorkerFilesHash.java",
             "WorkerSpawnRunner.java",
             "WorkerModule.java",
             "WorkerParser.java",
@@ -25,10 +26,7 @@ java_library(
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
@@ -49,6 +47,20 @@ java_library(
 )
 
 java_library(
+    name = "worker_files_hash",
+    srcs = ["WorkerFilesHash.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "worker_spawn_runner",
     srcs = [
         "WorkerParser.java",
@@ -56,6 +68,7 @@ java_library(
     ],
     deps = [
         ":worker",
+        ":worker_files_hash",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",

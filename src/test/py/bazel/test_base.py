@@ -70,6 +70,11 @@ class TestBase(unittest.TestCase):
       'remotejdk17_macos_aarch64_for_testing',
       'remotejdk17_win_for_testing',
       'remotejdk17_win_arm64_for_testing',
+      'remotejdk18_linux_for_testing',
+      'remotejdk18_macos_for_testing',
+      'remotejdk18_macos_aarch64_for_testing',
+      'remotejdk18_win_for_testing',
+      'remotejdk18_win_arm64_for_testing',
       'remote_java_tools_for_testing',
       'remote_java_tools_darwin_for_testing',
       'remote_java_tools_linux_for_testing',
@@ -351,8 +356,7 @@ class TestBase(unittest.TestCase):
     """
     return self.RunProgram([
         self.Rlocation('io_bazel/src/bazel'),
-        '--bazelrc=' + self._test_bazelrc,
-        '--nomaster_bazelrc',
+        '--bazelrc=' + self._test_bazelrc
     ] + args, env_remove, env_add, False, cwd, allow_failure)
 
   def StartRemoteWorker(self):

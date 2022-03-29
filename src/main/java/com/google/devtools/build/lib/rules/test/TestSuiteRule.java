@@ -61,7 +61,7 @@ public final class TestSuiteRule implements RuleDefinition {
           The <code>manual</code> tag keyword is treated differently than the above by the
           "test_suite expansion" performed by the <code>blaze test</code> command on invocations
           involving wildcard
-          <a href="https://docs.bazel.build/versions/main/guide.html#specifying-targets-to-build">target patterns</a>.
+          <a href="https://bazel.build/docs/build#specifying-build-targets">target patterns</a>.
           There, <code>test_suite</code> targets tagged "manual" are filtered out (and thus not
           expanded). This behavior is consistent with how <code>blaze build</code> and
           <code>blaze test</code> handle wildcard target patterns in general. Note that this is

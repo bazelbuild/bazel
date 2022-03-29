@@ -17,15 +17,20 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 
 /** Tests for {@link RetainedHeapLimiter}. */
 @RunWith(JUnit4.class)
@@ -63,18 +68,19 @@ public final class RetainedHeapLimiterTest {
 
   @Test
   public void overThreshold_oom() throws Exception {
-    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
+    BugReporter bugReporter = mock(BugReporter.class);
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(bugReporter);
 
     underTest.setThreshold(/*listening=*/ true, 90);
 
     // Triggers GC, and tells RetainedHeapLimiter to OOM if too much memory used next time.
     underTest.handle(percentUsedAfterOtherGc(91));
 
-    assertThrows(
-        SecurityException.class, // From attempt to halt jvm in test.
-        () -> underTest.handle(percentUsedAfterForcedGc(91)));
-    OutOfMemoryError oom =
-        assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    underTest.handle(percentUsedAfterForcedGc(91));
+
+    ArgumentCaptor<Crash> crashArgument = ArgumentCaptor.forClass(Crash.class);
+    verify(bugReporter).handleCrash(crashArgument.capture(), ArgumentMatchers.any());
+    OutOfMemoryError oom = (OutOfMemoryError) crashArgument.getValue().getThrowable();
 
     assertThat(oom).hasMessageThat().contains("forcing exit due to GC thrashing");
     assertThat(oom).hasMessageThat().contains("tenured space is more than 90% occupied");
@@ -110,16 +116,18 @@ public final class RetainedHeapLimiterTest {
 
   @Test
   public void triggerRaceWithOtherGc() throws Exception {
-    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
+    BugReporter bugReporter = mock(BugReporter.class);
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(bugReporter);
 
     underTest.setThreshold(/*listening=*/ true, 90);
 
     underTest.handle(percentUsedAfterOtherGc(91));
     underTest.handle(percentUsedAfterOtherGc(91));
-    assertThrows(
-        SecurityException.class, // From attempt to halt jvm in test.
-        () -> underTest.handle(percentUsedAfterForcedGc(91)));
-    assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    underTest.handle(percentUsedAfterForcedGc(91));
+
+    ArgumentCaptor<Crash> crashArgument = ArgumentCaptor.forClass(Crash.class);
+    verify(bugReporter).handleCrash(crashArgument.capture(), ArgumentMatchers.any());
+    assertThat(crashArgument.getValue().getThrowable()).isInstanceOf(OutOfMemoryError.class);
   }
 
   private static MemoryPressureEvent percentUsedAfterForcedGc(int percentUsed) {

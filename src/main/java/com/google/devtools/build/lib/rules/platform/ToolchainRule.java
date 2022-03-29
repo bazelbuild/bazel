@@ -113,7 +113,7 @@ public class ToolchainRule implements RuleDefinition {
 
 <p>This rule declares a specific toolchain's type and constraints so that it can be selected
 during toolchain resolution. See the
-<a href="https://docs.bazel.build/versions/main/toolchains.html">Toolchains</a> page for more
+<a href="https://bazel.build/docs/toolchains">Toolchains</a> page for more
 details.
 
 <!-- #END_BLAZE_RULE -->*/

@@ -250,7 +250,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/android/desugar/scan/..."
       - "-//src/test/java/com/google/devtools/build/android/desugar/typeannotation/..."
       - "-//src/test/java/com/google/devtools/build/android/r8/..."
-      - "-//src/test/java/com/google/devtools/build/lib/analysis/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."

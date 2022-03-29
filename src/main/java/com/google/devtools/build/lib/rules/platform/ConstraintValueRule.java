@@ -60,7 +60,7 @@ public class ConstraintValueRule implements RuleDefinition {
 This rule introduces a new value for a given constraint type.
 
 For more details, see the
-<a href="https://docs.bazel.build/versions/main/platforms.html">Platforms</a> page.
+<a href="https://bazel.build/docs/platforms">Platforms</a> page.
 
 <h4 id="constraint_value_examples">Example</h4>
 <p>The following creates a new possible value for the predefined <code>constraint_value</code>
