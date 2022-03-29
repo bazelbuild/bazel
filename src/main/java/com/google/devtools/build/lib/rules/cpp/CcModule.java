@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
@@ -1954,17 +1956,12 @@ public abstract class CcModule
 
   private static boolean isStampingEnabled(int stamp, BuildConfigurationValue config)
       throws EvalException {
-    if (stamp == 0) {
-      return false;
-    } else if (stamp == 1) {
-      return true;
-    } else if (stamp == -1) {
-      return config.stampBinaries();
-    } else {
-      throw Starlark.errorf(
-          "stamp value %d is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)",
-          stamp);
+    if (stamp == 0 || stamp == 1 || stamp == -1) {
+      return AnalysisUtils.isStampingEnabled(TriState.fromInt(stamp), config);
     }
+    throw Starlark.errorf(
+        "stamp value %d is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)",
+        stamp);
   }
 
   protected Label getCallerLabel(StarlarkActionFactory actions, String name) throws EvalException {
