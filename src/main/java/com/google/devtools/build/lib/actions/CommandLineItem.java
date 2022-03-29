@@ -65,7 +65,7 @@ public interface CommandLineItem {
    * <p>Each instance needs to return a fingerprint of parameters it depends on.</p>
    */
   interface DefinedParamsCacheMapFn<T> extends MapFn<T> {
-    // Returns UUID common to all instances of DefinedParamsCacheMapFn.
+    // Returns UUID common to all instances of a given implementation of DefinedParamsCacheMapFn.
     UUID getUUID();
 
     // Returns bytes representing parameters of this instance.
