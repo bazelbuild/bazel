@@ -369,9 +369,6 @@ class ArtifactFunction implements SkyFunction {
 
       SkyValue inputValue = values.next();
       if (inputValue == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "SkyValue " + input + " was missing, this should never happen"));
         return null;
       }
       if (inputValue instanceof FileArtifactValue) {
