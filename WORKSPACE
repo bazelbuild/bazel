@@ -571,94 +571,17 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_linux_archive",
-    build_file_content = """
+[
+    dist_http_archive(
+        name = "openjdk%s_%s_archive" % (version, os),
+        build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_darwin_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_darwin_aarch64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_windows_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_windows_arm64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk18_linux_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk18_darwin_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk18_darwin_aarch64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk18_windows_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk18_windows_arm64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
+    )
+    for version in ("17", "18")
+    for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
+]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 

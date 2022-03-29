@@ -654,16 +654,6 @@ filegroup(
         "@openjdk11_linux_archive//:WORKSPACE",
         "@openjdk11_windows_archive//:WORKSPACE",
         "@openjdk11_windows_arm64_archive//:WORKSPACE",
-        "@openjdk17_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk17_darwin_archive//:WORKSPACE",
-        "@openjdk17_linux_archive//:WORKSPACE",
-        "@openjdk17_windows_archive//:WORKSPACE",
-        "@openjdk17_windows_arm64_archive//:WORKSPACE",
-        "@openjdk18_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk18_darwin_archive//:WORKSPACE",
-        "@openjdk18_linux_archive//:WORKSPACE",
-        "@openjdk18_windows_archive//:WORKSPACE",
-        "@openjdk18_windows_arm64_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_aarch64_minimal//file",
@@ -686,20 +676,18 @@ filegroup(
         "@remotejdk11_macos_for_testing//:WORKSPACE",
         "@remotejdk11_win_arm64_for_testing//:WORKSPACE",
         "@remotejdk11_win_for_testing//:WORKSPACE",
-        "@remotejdk17_linux_for_testing//:WORKSPACE",
-        "@remotejdk17_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk17_macos_for_testing//:WORKSPACE",
-        "@remotejdk17_win_arm64_for_testing//:WORKSPACE",
-        "@remotejdk17_win_for_testing//:WORKSPACE",
-        "@remotejdk18_linux_for_testing//:WORKSPACE",
-        "@remotejdk18_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk18_macos_for_testing//:WORKSPACE",
-        "@remotejdk18_win_arm64_for_testing//:WORKSPACE",
-        "@remotejdk18_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
         "@rules_proto//:WORKSPACE",
         "@rules_python//:WORKSPACE",
+    ] + [
+        "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
+        for os in ("darwin", "darwin_aarch64", "linux", "windows", "windows_arm64")
+        for version in ("17", "18")
+    ] + [
+        "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
+        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
+        for version in ("17", "18")
     ],
 )

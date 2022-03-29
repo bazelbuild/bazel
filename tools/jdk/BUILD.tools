@@ -457,16 +457,10 @@ _JDKS = [
     "remotejdk11_linux",
     "remotejdk11_linux_ppc64le",
     "remotejdk11_linux_s390x",
-    "remotejdk17_macos",
-    "remotejdk17_macos_aarch64",
-    "remotejdk17_win",
-    "remotejdk17_win_arm64",
-    "remotejdk17_linux",
-    "remotejdk18_macos",
-    "remotejdk18_macos_aarch64",
-    "remotejdk18_win",
-    "remotejdk18_win_arm64",
-    "remotejdk18_linux",
+] + [
+    "remotejdk%s_%s" % (version, os)
+    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+    for version in ("17", "18")
 ]
 
 [
