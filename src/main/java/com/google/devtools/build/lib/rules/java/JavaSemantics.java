@@ -82,7 +82,6 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy-src.jar");
 
   SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE = fromTemplates("%{name}_classpaths_file");
-  String TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER = "%test_runtime_classpath_file%";
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
