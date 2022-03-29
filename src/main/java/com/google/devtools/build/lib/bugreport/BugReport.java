@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bugreport;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -55,7 +56,10 @@ public final class BugReport {
 
   private static BlazeRuntimeInterface runtime = null;
 
-  @Nullable private static volatile Throwable unprocessedThrowableInTest = null;
+  @SuppressWarnings("StaticAssignmentOfThrowable")
+  @Nullable
+  private static volatile Throwable unprocessedThrowableInTest = null;
+
   private static final Object LOCK = new Object();
 
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
@@ -94,6 +98,7 @@ public final class BugReport {
    * In tests, Runtime#halt is disabled. Thus, the main thread should call this method whenever it
    * is about to block on thread completion that might hang because of a failed halt below.
    */
+  @SuppressWarnings("StaticAssignmentOfThrowable")
   public static void maybePropagateUnprocessedThrowableIfInTest() {
     if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
@@ -164,6 +169,7 @@ public final class BugReport {
    * Otherwise, for {@link CrashContext#keepAlive}, returns {@code null}, in which case the caller
    * is responsible for shutting down the server.
    */
+  @SuppressWarnings("StaticAssignmentOfThrowable")
   public static void handleCrash(Crash crash, CrashContext ctx) {
     int numericExitCode = crash.getDetailedExitCode().getExitCode().getNumericExitCode();
     Throwable throwable = crash.getThrowable();
@@ -198,39 +204,7 @@ public final class BugReport {
         ctx.getEventHandler().handle(Event.fatal(crashMsg));
 
         try {
-          // Writing the exit code status file is only necessary if we are halting. Otherwise, the
-          // caller is responsible for an orderly shutdown with the proper exit code.
-          if (ctx.shouldHaltJvm()) {
-            if (CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode)) {
-              logger.atInfo().log("Wrote exit status file.");
-            } else {
-              logger.atWarning().log("Did not write exit status file; check stderr for errors.");
-            }
-          }
-
-          if (CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
-              crash.getDetailedExitCode().getFailureDetail())) {
-            logger.atInfo().log("Wrote failure detail file.");
-          } else {
-            logger.atWarning().log("Did not write failure detail file; check stderr for errors.");
-          }
-
-          if (heapDumpPath != null) {
-            logger.atInfo().log("Attempting to dump heap to %s", heapDumpPath);
-            try {
-              dumpHeap(heapDumpPath);
-              logger.atInfo().log("Heap dump complete");
-            } catch (Throwable t) { // Catch anything so we don't forgo the OOM.
-              logger.atWarning().withCause(t).log("Heap dump failed");
-            }
-          }
-
-          if (runtime != null) {
-            runtime.cleanUpForCrash(crash.getDetailedExitCode());
-            logger.atInfo().log("Cleaned up runtime.");
-          } else {
-            logger.atInfo().log("No runtime to clean.");
-          }
+          emitExitData(crash, ctx, numericExitCode, heapDumpPath);
         } finally {
           if (ctx.shouldHaltJvm()) {
             // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
@@ -266,6 +240,49 @@ public final class BugReport {
     }
     logger.atSevere().log("Failed to crash in handleCrash");
     throw new IllegalStateException("Should have halted", throwable);
+  }
+
+  /**
+   * Writes exit status files, dumps heap if requested, and calls {@link
+   * BlazeRuntimeInterface#cleanUpForCrash}. Should <i>never</i> be called from production code
+   * outside this class, only exposed for use in tests.
+   */
+  @VisibleForTesting
+  public static void emitExitData(
+      Crash crash, CrashContext ctx, int numericExitCode, @Nullable String heapDumpPath) {
+    // Writing the exit code status file is only necessary if we are halting. Otherwise, the
+    // caller is responsible for an orderly shutdown with the proper exit code.
+    if (ctx.shouldHaltJvm()) {
+      if (CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode)) {
+        logger.atInfo().log("Wrote exit status file.");
+      } else {
+        logger.atWarning().log("Did not write exit status file; check stderr for errors.");
+      }
+    }
+
+    if (CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
+        crash.getDetailedExitCode().getFailureDetail())) {
+      logger.atInfo().log("Wrote failure detail file.");
+    } else {
+      logger.atWarning().log("Did not write failure detail file; check stderr for errors.");
+    }
+
+    if (heapDumpPath != null) {
+      logger.atInfo().log("Attempting to dump heap to %s", heapDumpPath);
+      try {
+        dumpHeap(heapDumpPath);
+        logger.atInfo().log("Heap dump complete");
+      } catch (Throwable t) { // Catch anything so we don't forgo the OOM.
+        logger.atWarning().withCause(t).log("Heap dump failed");
+      }
+    }
+
+    if (runtime != null) {
+      runtime.cleanUpForCrash(crash.getDetailedExitCode());
+      logger.atInfo().log("Cleaned up runtime.");
+    } else {
+      logger.atInfo().log("No runtime to clean.");
+    }
   }
 
   public static String constructOomExitMessage(@Nullable String extraInfo) {
