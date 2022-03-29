@@ -108,8 +108,8 @@ public class DocgenConsts {
   public static final Pattern BLAZE_RULE_LINK = Pattern.compile(
       "\\$\\{link (([a-zA-Z_-]+)(\\.([a-zA-Z_\\.-]+))?)\\}");
 
-  public static final Pattern BLAZE_RULE_HEADING_LINK = Pattern.compile(
-      "\\$\\{link (([a-zA-Z_-]+)\\#([a-zA-Z_\\.-]+))\\}");
+  public static final Pattern BLAZE_RULE_HEADING_LINK =
+      Pattern.compile("\\$\\{link (([a-zA-Z_-]+)\\#([a-zA-Z0-9_\\.-]+))\\}");
 
   /**
    * i.e.
