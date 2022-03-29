@@ -1,3 +1,21 @@
+## Release 6.0.0-pre.20220324.1 (2022-03-29)
+
+```
+Baseline: 77cd575685f405a2f2a9a6549b20ec439dc4ba5f
+```
+
+Important changes:
+
+  - android_sdk_repository read $ANDROID_SDK_ROOT in addition to
+    $ANDROID_HOME.
+  - The default dexer is now d8. dx can be optionally enabled using:
+      --define=android_dexmerger_tool=dx_dexmerger \
+      --define=android_incremental_dexing_tool=dx_dexbuilder \
+      --define=android_standalone_dexing_tool=dx_compat_dx \
+      --use_workers_with_dexbuilder
+
+This release contains contributions from many people at Google, as well as Andreas Herrmann, arunkumar9t2, Benjamin Lee, Benjamin Peterson, Fabian Meumertzheim, gkgoat1, Jan, Jay Bazuzi, Keith Smiley, Nick Korostelev, Oscar Bonilla, Yannic Bonenberger.
+
 ## Release 6.0.0-pre.20220315.4 (2022-03-25)
 
 ```
