@@ -656,7 +656,7 @@ public final class SkyframeBuildView {
         continue;
       }
       buildDriverCTKeys.add(
-          new BuildDriverKey(
+          BuildDriverKey.ofConfiguredTarget(
               ctKey,
               topLevelArtifactContext,
               strictConflictCheck,
@@ -677,7 +677,10 @@ public final class SkyframeBuildView {
     }
     List<BuildDriverKey> buildDriverAspectKeys =
         topLevelAspectsKeys.stream()
-            .map(k -> new BuildDriverKey(k, topLevelArtifactContext, strictConflictCheck))
+            .map(
+                k ->
+                    BuildDriverKey.ofTopLevelAspect(
+                        k, topLevelArtifactContext, strictConflictCheck))
             .collect(Collectors.toList());
 
     try (SilentCloseable c =

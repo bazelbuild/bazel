@@ -18,13 +18,17 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
+import com.google.devtools.build.lib.skyframe.TopLevelAspectsValue;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -36,6 +40,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -120,6 +125,19 @@ public final class ExecutionProgressReceiver
       // Remember all completed actions, even those in error, regardless of having been cached or
       // really executed.
       actionCompleted((ActionLookupData) skyKey.argument());
+    } else if (type.equals(SkyFunctions.BUILD_DRIVER)) {
+      if (evaluationSuccessState.get().succeeded() && newValue != null) {
+        BuildDriverKey buildDriverKey = (BuildDriverKey) skyKey;
+        if (buildDriverKey.isTopLevelAspectDriver()) {
+          builtAspects.addAll(
+              ((TopLevelAspectsValue) ((BuildDriverValue) newValue).getWrappedSkyValue())
+                  .getTopLevelAspectsValues().stream()
+                      .map(x -> ((AspectValue) x).getKey())
+                      .collect(Collectors.toUnmodifiableSet()));
+        } else {
+          builtTargets.add((ConfiguredTargetKey) buildDriverKey.getActionLookupKey());
+        }
+      }
     }
   }
 
