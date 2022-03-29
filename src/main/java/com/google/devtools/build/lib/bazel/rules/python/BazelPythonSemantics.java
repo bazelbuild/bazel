@@ -370,10 +370,9 @@ public class BazelPythonSemantics implements PythonSemantics {
     for (Artifact artifact : runfilesSupport.getRunfilesArtifacts().toList()) {
       if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
         argv.addDynamicString(
-            (getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName, legacyExternalRunfiles)
-                    + "="
-                    + artifact.getExecPathString())
-                .intern());
+            getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName, legacyExternalRunfiles)
+                + "="
+                + artifact.getExecPathString());
         inputsBuilder.add(artifact);
       }
     }
