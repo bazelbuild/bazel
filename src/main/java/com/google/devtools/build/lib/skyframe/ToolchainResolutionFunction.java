@@ -570,20 +570,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
 
     private static String getMessage(List<Label> missingToolchainTypes) {
-      if (missingToolchainTypes.size() == 1
-          && Iterables.getOnlyElement(missingToolchainTypes)
-              .toString()
-              .equals("@bazel_tools//tools/cpp:toolchain_type")) {
-        return "No matching toolchains found for types @bazel_tools//tools/cpp:toolchain_type. "
-            + "Maybe --incompatible_use_cc_configure_from_rules_cc has been flipped and there "
-            + "is no default C++ toolchain added in the WORKSPACE file? See "
-            + "https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
-            + "instructions.";
-      }
-
+      List<String> labelStrings =
+          missingToolchainTypes.stream().map(Label::toString).collect(Collectors.toList());
       return String.format(
-          "no matching toolchains found for types %s",
-          missingToolchainTypes.stream().map(Label::toString).collect(joining(", ")));
+          "No matching toolchains found for types %s. "
+          + "To debug, rerun with --toolchain_resolution_debug='%s'",
+          String.join(", ", labelStrings), String.join("|", labelStrings));
     }
   }
 
