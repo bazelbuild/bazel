@@ -639,15 +639,14 @@ if [[ "$UNAME" == "linux" ]] || [[ "$UNAME" =~ msys_nt* ]]; then
     function timestamp() {
       echo $(($(date +%s%N)/1000000))
     }
-elif [[ "$UNAME" = "openbsd" ]]; then
-    function timestamp() {
-      # OpenBSD does not have %N, so Python is the best we can do.
-      python3 -c 'import time; print(int(round(time.time() * 1000)))'
-    }
 else
     function timestamp() {
-      # OS X and FreeBSD do not have %N, so Python is the best we can do.
-      python -c 'import time; print(int(round(time.time() * 1000)))'
+      # macOS and BSDs do not have %N, so Python is the best we can do.
+      # LC_ALL=C works around python 3.8 and 3.9 crash on macOS when the
+      # filesystem encoding is unspecified (e.g. when LANG=en_US).
+      local PYTHON=python
+      command -v python3 &> /dev/null && PYTHON=python3
+      LC_ALL=C "${PYTHON}" -c 'import time; print(int(round(time.time() * 1000)))'
     }
 fi
 
