@@ -78,7 +78,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   @Nullable
   public <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
       throws E, InterruptedException {
-    return getValueOrThrow(depKey, exceptionClass, null, null, null);
+    SkyFunctionException.validateExceptionType(exceptionClass);
+    return getValueOrThrowHelper(depKey, exceptionClass, null, null, null);
   }
 
   @Override
@@ -86,7 +87,9 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   public <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(
       SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
       throws E1, E2, InterruptedException {
-    return getValueOrThrow(depKey, exceptionClass1, exceptionClass2, null, null);
+    SkyFunctionException.validateExceptionType(exceptionClass1);
+    SkyFunctionException.validateExceptionType(exceptionClass2);
+    return getValueOrThrowHelper(depKey, exceptionClass1, exceptionClass2, null, null);
   }
 
   @Override
@@ -98,19 +101,39 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3)
           throws E1, E2, E3, InterruptedException {
-    return getValueOrThrow(depKey, exceptionClass1, exceptionClass2, exceptionClass3, null);
+    SkyFunctionException.validateExceptionType(exceptionClass1);
+    SkyFunctionException.validateExceptionType(exceptionClass2);
+    SkyFunctionException.validateExceptionType(exceptionClass3);
+    return getValueOrThrowHelper(depKey, exceptionClass1, exceptionClass2, exceptionClass3, null);
   }
 
   @Override
+  @Nullable
   public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       SkyValue getValueOrThrow(
           SkyKey depKey,
           Class<E1> exceptionClass1,
+          Class<E2> exceptionClass2,
+          Class<E3> exceptionClass3,
+          Class<E4> exceptionClass4)
+          throws E1, E2, E3, E4, InterruptedException {
+    SkyFunctionException.validateExceptionType(exceptionClass1);
+    SkyFunctionException.validateExceptionType(exceptionClass2);
+    SkyFunctionException.validateExceptionType(exceptionClass3);
+    SkyFunctionException.validateExceptionType(exceptionClass4);
+    return getValueOrThrowHelper(
+        depKey, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
+  }
+
+  @Nullable
+  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+      SkyValue getValueOrThrowHelper(
+          SkyKey depKey,
+          @Nullable Class<E1> exceptionClass1,
           @Nullable Class<E2> exceptionClass2,
           @Nullable Class<E3> exceptionClass3,
           @Nullable Class<E4> exceptionClass4)
           throws E1, E2, E3, E4, InterruptedException {
-    SkyFunctionException.validateExceptionType(exceptionClass1);
     SkyframeIterableResult result = getOrderedValuesAndExceptions(ImmutableSet.of(depKey));
     return result.nextOrThrow(exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
   }
