@@ -25,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -63,12 +64,20 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
             topLevelAspectsDetails.getAspectsDetails(),
             topLevelAspectsKey.getBaseConfiguredTargetKey());
 
-    Map<SkyKey, SkyValue> result = env.getValues(aspectsKeys);
+    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(aspectsKeys);
     if (env.valuesMissing()) {
       return null; // some aspects keys are not evaluated
     }
-
-    return new TopLevelAspectsValue(result.values());
+    ImmutableList.Builder<SkyValue> values =
+        ImmutableList.builderWithExpectedSize(aspectsKeys.size());
+    while (result.hasNext()) {
+      SkyValue value = result.next();
+      if (value == null) {
+        return null;
+      }
+      values.add(value);
+    }
+    return new TopLevelAspectsValue(values.build());
   }
 
   private static Collection<AspectKey> getTopLevelAspectsKeys(

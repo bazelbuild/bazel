@@ -116,4 +116,45 @@ public final class GraphTraversingHelperTest {
         .hasMessageThat()
         .isEqualTo("Value for: 'keyB' was missing, this should never happen");
   }
+
+  @Test
+  public void declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions_beforeCompute()
+      throws Exception {
+    when(mockEnv.valuesMissing()).thenReturn(true);
+    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyB))).thenReturn(null);
+
+    assertThat(
+            GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+                mockEnv, ImmutableSet.of(keyB)))
+        .isTrue();
+  }
+
+  @Test
+  public void declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions_valuesMissing()
+      throws Exception {
+    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyA)))
+        .thenReturn(
+            new SkyframeIterableResult(
+                () -> {}, ImmutableSet.of(ValueOrUntypedException.ofExn(exn)).iterator()));
+
+    assertThat(
+            GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+                mockEnv, ImmutableSet.of(keyA)))
+        .isTrue();
+  }
+
+  @Test
+  public void declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions_notValuesMissing()
+      throws Exception {
+    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyB)))
+        .thenReturn(
+            new SkyframeIterableResult(
+                () -> {},
+                ImmutableSet.of(ValueOrUntypedException.ofValueUntyped(value)).iterator()));
+
+    assertThat(
+            GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+                mockEnv, ImmutableSet.of(keyB)))
+        .isFalse();
+  }
 }

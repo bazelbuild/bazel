@@ -18,9 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -60,10 +58,10 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -230,7 +228,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       }
 
       // We are free to traverse this directory.
-      Collection<RecursiveFilesystemTraversalValue> subdirTraversals =
+      ImmutableList<RecursiveFilesystemTraversalValue> subdirTraversals =
           traverseChildren(env, traversal);
       if (subdirTraversals == null) {
         return null;
@@ -595,7 +593,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   private static RecursiveFilesystemTraversalValue resultForDirectory(
       TraversalRequest traversal,
       FileInfo rootInfo,
-      Collection<RecursiveFilesystemTraversalValue> subdirTraversals) {
+      ImmutableList<RecursiveFilesystemTraversalValue> subdirTraversals) {
     // Collect transitive closure of files in subdirectories.
     NestedSetBuilder<ResolvedFile> paths = NestedSetBuilder.stableOrder();
     for (RecursiveFilesystemTraversalValue child : subdirTraversals) {
@@ -635,7 +633,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
   /** Requests Skyframe to compute the dependent values and returns them. */
   @Nullable
-  private Collection<RecursiveFilesystemTraversalValue> traverseChildren(
+  private ImmutableList<RecursiveFilesystemTraversalValue> traverseChildren(
       Environment env, TraversalRequest traversal)
       throws InterruptedException, RecursiveFilesystemTraversalFunctionException, IOException {
     // Use the traversal's path, even if it's a symlink. The contents of the directory, as listed
@@ -677,21 +675,33 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     if (keys == null) {
       return null;
     }
-    Map<SkyKey, SkyValue> values = Maps.newHashMapWithExpectedSize(keys.size());
+    ImmutableList.Builder<RecursiveFilesystemTraversalValue> values =
+        ImmutableList.builderWithExpectedSize(keys.size());
     if (traversal.isRootGenerated) {
       // Don't create Skyframe nodes for a recursive traversal over the output tree.
       // Instead, inline the recursion in the top-level request.
       for (TraversalRequest traversalRequest : keys) {
-        values.put(traversalRequest, compute(traversalRequest, env));
+        SkyValue computeValue = compute(traversalRequest, env);
+        if (computeValue == null) {
+          continue;
+        }
+        values.add((RecursiveFilesystemTraversalValue) computeValue);
       }
     } else {
-      values = env.getValues(keys);
+      SkyframeIterableResult result = env.getOrderedValuesAndExceptions(keys);
+      while (result.hasNext()) {
+        var iterateValue = (RecursiveFilesystemTraversalValue) result.next();
+        if (iterateValue == null) {
+          break;
+        }
+        values.add(iterateValue);
+      }
     }
     if (env.valuesMissing()) {
       return null;
     }
 
-    return Collections2.transform(values.values(), RecursiveFilesystemTraversalValue.class::cast);
+    return values.build();
   }
 
 }

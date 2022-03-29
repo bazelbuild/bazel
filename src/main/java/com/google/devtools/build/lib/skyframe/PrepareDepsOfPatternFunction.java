@@ -339,8 +339,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
       for (Root root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
-        env.getValues(getDeps(repository, repositoryIgnoredSubdirectories, policy, rootedPath));
-        if (env.valuesMissing()) {
+        if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, getDeps(repository, repositoryIgnoredSubdirectories, policy, rootedPath))) {
           throw new MissingDepException();
         }
       }

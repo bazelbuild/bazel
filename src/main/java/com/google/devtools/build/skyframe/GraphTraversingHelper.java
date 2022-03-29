@@ -102,5 +102,29 @@ public final class GraphTraversingHelper {
     return false;
   }
 
+  /**
+   * Returns false iff for each key in {@code skyKeys}, the corresponding node is done with values
+   * in the Skyframe graph, and every node evaluated successfully without an exception.
+   *
+   * <p>Prefer {@link #declareDependenciesAndCheckIfValuesMissing} when possible. This method is for
+   * {@link SkyFunction} callers that don't handle child exceptions themselves, and just want to
+   * propagate child exceptions upwards via Skyframe.
+   */
+  public static <E extends Exception>
+      boolean declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+          SkyFunction.Environment env, Iterable<? extends SkyKey> skyKeys)
+          throws InterruptedException {
+    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(skyKeys);
+    if (env.valuesMissing()) {
+      return true;
+    }
+    while (result.hasNext()) {
+      if (result.next() == null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private GraphTraversingHelper() {}
 }

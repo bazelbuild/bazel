@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue.TestsFo
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -48,7 +50,7 @@ final class TestsForTargetPatternFunction implements SkyFunction {
         testsInSuitesKeys.add(TestExpansionValue.key(target, true));
       }
     }
-    Map<SkyKey, SkyValue> testsInSuites = env.getValues(testsInSuitesKeys);
+    SkyframeIterableResult testsInSuites = env.getOrderedValuesAndExceptions(testsInSuitesKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -59,18 +61,15 @@ final class TestsForTargetPatternFunction implements SkyFunction {
       if (TargetUtils.isTestRule(target)) {
         result.add(target.getLabel());
       } else if (TargetUtils.isTestSuiteRule(target)) {
-        TestExpansionValue value =
-            (TestExpansionValue) testsInSuites.get(TestExpansionValue.key(target, true));
-        if (value != null) {
-          result.addAll(value.getLabels().getTargets());
-          hasError |= value.getLabels().hasError();
+        TestExpansionValue value = (TestExpansionValue) testsInSuites.next();
+        if (value == null) {
+          return null;
         }
+        result.addAll(value.getLabels().getTargets());
+        hasError |= value.getLabels().hasError();
       } else {
         result.add(target.getLabel());
       }
-    }
-    if (env.valuesMissing()) {
-      return null;
     }
     // We use ResolvedTargets in order to associate an error flag; the result should never contain
     // any filtered targets.
@@ -83,8 +82,8 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     for (Label label : labels) {
       pkgIdentifiers.add(label.getPackageIdentifier());
     }
-    // Don't bother to check for exceptions - the incoming list should only contain valid targets.
-    Map<SkyKey, SkyValue> packages = env.getValues(PackageValue.keys(pkgIdentifiers));
+    List<SkyKey> packagesKeys = PackageValue.keys(pkgIdentifiers);
+    SkyframeIterableResult packages = env.getOrderedValuesAndExceptions(packagesKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -92,10 +91,16 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     builder.mergeError(hasError);
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (Map.Entry<SkyKey, SkyValue> entry : packages.entrySet()) {
-      packageMap.put(
-          (PackageIdentifier) entry.getKey().argument(),
-          ((PackageValue) entry.getValue()).getPackage());
+    for (SkyKey packagesKey : packagesKeys) {
+      // Don't bother to check for exceptions - the incoming list should only contain valid targets.
+      PackageValue packagesValue = (PackageValue) packages.next();
+      if (packagesValue == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "PackageValue " + packagesKey + " was missing, this should never happen"));
+        return null;
+      }
+      packageMap.put((PackageIdentifier) packagesKey.argument(), packagesValue.getPackage());
     }
 
     for (Label label : labels) {

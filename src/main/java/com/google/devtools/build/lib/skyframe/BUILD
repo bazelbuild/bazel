@@ -2513,6 +2513,7 @@ java_library(
         ":package_value",
         ":test_expansion_value",
         ":tests_for_target_pattern_value",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
