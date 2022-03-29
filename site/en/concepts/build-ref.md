@@ -49,7 +49,7 @@ can be used to produce output artifacts.
 A package is defined as a directory containing a file named `BUILD`
 (or `BUILD.bazel`).  A package includes all files in its directory, plus
 all subdirectories beneath it, except those which themselves contain a
-`BUILD` file. From this definition, no file or directory my be a part of
+`BUILD` file. From this definition, no file or directory may be a part of
 two different packages.
 
 For example, in the following directory tree
