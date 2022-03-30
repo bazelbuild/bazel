@@ -412,7 +412,10 @@ The initial environment block shall be composed as follows:
   <tr>
     <td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td>
     <td>absolute path to a private writable directory (used to write undeclared
-      test outputs)</td>
+      test outputs). Any files written to the
+      <code>TEST_UNDECLARED_OUTPUTS_DIR</code> directory will be zipped up and
+      added to an <code>outputs.zip</code> file under
+      <code>bazel-testlogs</code>.</td>
     <td>optional</td>
   </tr>
   <tr>
