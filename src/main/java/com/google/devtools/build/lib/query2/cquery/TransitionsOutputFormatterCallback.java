@@ -115,7 +115,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       Iterable<ResolvedTransition> dependencies;
       try {
         dependencies = new TransitionResolver(eventHandler, knownTargetsDependencyResolver, accessor, this, trimmingTransitionFactory).dependencies(keyedConfiguredTarget);
-      } catch(DependencyResolver.Failure | InconsistentAspectOrderException e){
+      } catch (DependencyResolver.Failure | InconsistentAspectOrderException e) {
         // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }

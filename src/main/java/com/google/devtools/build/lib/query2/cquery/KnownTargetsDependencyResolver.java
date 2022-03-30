@@ -13,6 +13,11 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * KnownTargetsDependencyResolver is a DependencyResolver which resolves statically over a known
+ * set of targets. It can be useful when performing queries over a known pre-resolved universe of
+ * targets.
+ */
 public class KnownTargetsDependencyResolver extends DependencyResolver {
 
   private final Map<Label, Target> knownTargets;

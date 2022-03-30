@@ -30,8 +30,17 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import javax.annotation.Nullable;
 
+/**
+ * TransitionResolver resolves the dependencies of a ConfiguredTarget, reporting which
+ * configurations its dependencies are actually needed in according to the transitions applied to
+ * them.
+ */
 public class TransitionResolver {
 
+  /**
+   * ResolvedTransition represents a single edge in the dependency graph, between some target
+   * and a target it depends on, reachable via a single attribute.
+   */
   @AutoValue
   @Immutable
   public abstract static class ResolvedTransition {
@@ -40,12 +49,30 @@ public class TransitionResolver {
       return new AutoValue_TransitionResolver_ResolvedTransition(label, configurationChecksum, attributeName, transitionName);
     }
 
+    /**
+     * The label of the target being depended on.
+     */
     abstract Label label();
 
+    /**
+     * The configuration(s) this edge results in. This is a collection because a split transition
+     * may lead to a single attribute requesting a dependency in multiple configurations.
+     *
+     * If a target is depended on via two attributes, separate ResolvedTransitions should be used,
+     * rather than combining the two into a single ResolvedTransition with multiple options.
+     *
+     * If no transition was applied to an attribute, this collection will be empty.
+     */
     abstract Collection<BuildOptions> options();
 
+    /**
+     * The name of the attribute via which the dependency was requested.
+     */
     abstract String attributeName();
 
+    /**
+     * The name of the transition applied to the attribute.
+     */
     abstract String transitionName();
   }
 
@@ -68,6 +95,14 @@ public class TransitionResolver {
     this.trimmingTransitionFactory = trimmingTransitionFactory;
   }
 
+  /**
+   * Return the set of dependencies of a KeyedConfiguredTarget, including information about the
+   * configuration transitions applied to the dependencies.
+   *
+   * @see ResolvedTransition for more details.
+   *
+   * @param keyedConfiguredTarget the configured target whose dependencies are being looked up.
+   */
   public LinkedHashSet<ResolvedTransition> dependencies(KeyedConfiguredTarget keyedConfiguredTarget) throws DependencyResolver.Failure, InconsistentAspectOrderException, InterruptedException {
     LinkedHashSet<ResolvedTransition> resolved = new LinkedHashSet<>();
 
