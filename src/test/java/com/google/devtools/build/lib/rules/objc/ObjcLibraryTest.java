@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -2443,5 +2444,97 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
 
     assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isEmpty();
+  }
+
+  private ImmutableList<String> getCcInfoUserLinkFlagsFromTarget(String target)
+      throws LabelSyntaxException {
+    return getConfiguredTarget(target)
+        .get(CcInfo.PROVIDER)
+        .getCcLinkingContext()
+        .getUserLinkFlags()
+        .toList()
+        .stream()
+        .map(CcLinkingContext.LinkOptions::get)
+        .flatMap(List::stream)
+        .collect(toImmutableList());
+  }
+
+  @Test
+  public void testSdkUserLinkFlagsFromSdkFieldsAndLinkoptsArePropagatedOnCcInfo() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'foo',",
+        "    linkopts = [",
+        "        '-lxml2',",
+        "        '-framework AVFoundation',",
+        "    ],",
+        "    sdk_dylibs = ['libz'],",
+        "    sdk_frameworks = ['CoreData'],",
+        "    deps = [':bar', ':car'],",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    linkopts = [",
+        "        '-lsqlite3',",
+        "    ],",
+        "    sdk_frameworks = ['Foundation'],",
+        ")",
+        "objc_library(",
+        "    name = 'car',",
+        "    linkopts = [",
+        "        '-framework UIKit',",
+        "    ],",
+        "    sdk_dylibs = ['libc++'],",
+        ")");
+
+    ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
+    assertThat(userLinkFlags).isNotEmpty();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "AVFoundation").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-lz", "-lc++", "-lxml2", "-lsqlite3");
+  }
+
+  @Test
+  public void testNoDuplicateSdkUserLinkFlagsFromMultipleDepsOnCcInfo() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'foo',",
+        "    linkopts = [",
+        "        '-lsqlite3',",
+        "        '-framework UIKit',",
+        "    ],",
+        "    sdk_dylibs = ['libc++'],",
+        "    sdk_frameworks = ['Foundation'],",
+        "    deps = [':bar', ':car'],",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    linkopts = [",
+        "        '-lsqlite3',",
+        "        '-framework CoreData',",
+        "    ],",
+        "    sdk_frameworks = ['Foundation'],",
+        ")",
+        "objc_library(",
+        "    name = 'car',",
+        "    linkopts = [",
+        "        '-framework UIKit',",
+        "        '-framework CoreData',",
+        "    ],",
+        "    sdk_dylibs = ['libc++'],",
+        ")");
+    ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
+    assertThat(userLinkFlags).isNotEmpty();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-lc++", "-lsqlite3");
+    ImmutableList<String> userLinkFlagsWithoutFrameworkFlags =
+        userLinkFlags.stream().filter(s -> !s.equals("-framework")).collect(toImmutableList());
+    assertThat(userLinkFlagsWithoutFrameworkFlags).containsNoDuplicates();
   }
 }

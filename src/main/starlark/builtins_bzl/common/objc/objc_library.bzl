@@ -26,9 +26,6 @@ cc_common = _builtins.toplevel.cc_common
 coverage_common = _builtins.toplevel.coverage_common
 apple_common = _builtins.toplevel.apple_common
 
-def _rule_error(msg):
-    fail(msg)
-
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
 
@@ -71,10 +68,10 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
 
     libraries.extend(objc_provider.cc_library.to_list())
 
-    sdk_frameworks = objc_provider.sdk_framework.to_list()
-    user_link_flags = []
-    for sdk_framework in sdk_frameworks:
-        user_link_flags.append(["-framework", sdk_framework])
+    user_link_flags = _user_link_flags(
+        cc_info = merged_objc_library_cc_infos,
+        objc_provider = objc_provider,
+    )
 
     direct_linker_inputs = []
     if len(user_link_flags) != 0 or len(libraries) != 0 or objc_provider.linkstamp:
@@ -105,6 +102,41 @@ def _static_library(
         static_library = library,
         alwayslink = alwayslink,
     )
+
+def _user_link_flags(*, cc_info, objc_provider):
+    """Builds objc_library CcInfo user link flags for frameworks and dylibs.
+
+    Args:
+        cc_info: Merged CcInfo provider from objc_library target deps.
+        objc_provider: Current objc_library ObjC provider.
+    Returns:
+        List of user link flags for frameworks and dylibs.
+    """
+
+    sdk_dylibs = objc_provider.sdk_dylib.to_list()
+    sdk_frameworks = objc_provider.sdk_framework.to_list()
+
+    all_user_link_flags = []
+    all_user_link_flags.extend(objc_provider.linkopt.to_list())
+
+    for linker_input in cc_info.linking_context.linker_inputs.to_list():
+        all_user_link_flags.extend(linker_input.user_link_flags)
+
+    for i, user_link_flag in enumerate(all_user_link_flags):
+        if user_link_flag.startswith("-l"):
+            sdk_dylibs.append("lib" + user_link_flag[2:])
+        elif user_link_flag == "-framework":
+            sdk_frameworks.append(all_user_link_flags[i + 1])
+
+    sdk_user_link_flags = []
+    for sdk_framework in depset(sdk_frameworks).to_list():
+        sdk_user_link_flags.append(["-framework", sdk_framework])
+    for sdk_dylib in depset(sdk_dylibs).to_list():
+        if sdk_dylib.startswith("lib"):
+            sdk_dylib = sdk_dylib[3:]
+        sdk_user_link_flags.append(["-l" + sdk_dylib])
+
+    return sdk_user_link_flags
 
 def _objc_library_impl(ctx):
     _validate_attributes(ctx)
