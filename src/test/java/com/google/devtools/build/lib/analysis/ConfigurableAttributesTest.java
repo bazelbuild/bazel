@@ -966,6 +966,50 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void dictsWithSameKey() throws Exception {
+    writeConfigRules();
+    scratch.file("java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    outputs = []",
+        "    for target, value in ctx.attr.deps.items():",
+        "        output = ctx.actions.declare_file(target.label.name + value)",
+        "        ctx.actions.write(content = value, output = output)",
+        "        outputs.append(output)",
+        "    return [DefaultInfo(files=depset(outputs))]",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
+    scratch.file("java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "    }) | select({",
+        "        '//conditions:a': {':a': 'a2'},",
+        "    })",
+        ")",
+        "java_library(",
+        "    name = 'a',",
+        "    srcs = ['a.java']",
+        ")",
+        "filegroup(",
+        "    name = 'group',",
+        "    srcs = [':mytarget'],",
+        ")");
+
+    checkRule(
+        "//java/foo:group",
+        "srcs",
+        ImmutableList.of("--foo=a"),
+        /*expected:*/ ImmutableList.of("bin java/foo/aa2"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/aa"));
+  }
+
+  @Test
   public void selectConcatenatedWithNonSupportingType() throws Exception {
     writeConfigRules();
     scratch.file("foo/BUILD",
