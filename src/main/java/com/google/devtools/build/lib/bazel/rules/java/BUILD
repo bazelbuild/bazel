@@ -103,16 +103,10 @@ gen_workspace_stanza(
         "remotejdk11_macos_aarch64",
         "remotejdk11_win",
         "remotejdk11_win_arm64",
-        "remotejdk17_linux",
-        "remotejdk17_macos",
-        "remotejdk17_macos_aarch64",
-        "remotejdk17_win",
-        "remotejdk17_win_arm64",
-        "remotejdk18_linux",
-        "remotejdk18_macos",
-        "remotejdk18_macos_aarch64",
-        "remotejdk18_win",
-        "remotejdk18_win_arm64",
+    ] + [
+        "remotejdk%s_%s" % (version, os)
+        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
+        for version in ("17", "18")
     ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],

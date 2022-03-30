@@ -55,16 +55,10 @@ gen_workspace_stanza(
         "openjdk11_darwin_aarch64_archive",
         "openjdk11_windows_archive",
         "openjdk11_windows_arm64_archive",
-        "openjdk17_linux_archive",
-        "openjdk17_darwin_archive",
-        "openjdk17_darwin_aarch64_archive",
-        "openjdk17_windows_archive",
-        "openjdk17_windows_arm64_archive",
-        "openjdk18_linux_archive",
-        "openjdk18_darwin_archive",
-        "openjdk18_darwin_aarch64_archive",
-        "openjdk18_windows_archive",
-        "openjdk18_windows_arm64_archive",
+    ] + [
+        "openjdk%s_%s_archive" % (version, os)
+        for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
+        for version in ("17", "18")
     ],
     template = "jdk_http_archives.tmpl",
     visibility = ["//:__pkg__"],
