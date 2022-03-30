@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bugreport;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -110,6 +111,28 @@ public final class BugReport {
           throw new RuntimeException(lastUnprocessedThrowableInTest);
         }
       }
+    }
+  }
+
+  /**
+   * Used when an unexpected state is encountered that is not a problem in itself: the program can
+   * continue running with no issues for the user, but some assumption of the programmer was wrong.
+   * Use this instead of {@link #sendBugReport} if the issue will not be a high priority to debug
+   * (such as an improperly transformed exception in Skyframe).
+   *
+   * <p>Since this is an unexpected state, it will fail if called during a test: either this state
+   * can be reached and the call to this method should be deleted, or this points to a separate bug
+   * that should be fixed so that this state isn't reached.
+   */
+  @FormatMethod
+  public static void logUnexpected(@FormatString String message, Object... args) {
+    if (SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST) {
+      sendBugReport(message, args);
+    } else {
+      logger
+          .atWarning()
+          .atMostEvery(50, MILLISECONDS)
+          .logVarargs("Unexpected state: " + message, args);
     }
   }
 

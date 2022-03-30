@@ -84,7 +84,6 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link ParallelEvaluator}. */
 @RunWith(TestParameterInjector.class)
@@ -2297,12 +2296,8 @@ public class ParallelEvaluatorTest {
               return null;
             });
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));
-    ArgumentCaptor<IllegalStateException> exceptionCaptor =
-        ArgumentCaptor.forClass(IllegalStateException.class);
-    verify(mockReporter).sendBugReport(exceptionCaptor.capture());
-    assertThat(exceptionCaptor.getValue())
-        .hasMessageThat()
-        .matches("Value for: '.*' was missing, this should never happen");
+    verify(mockReporter)
+        .logUnexpected("Value for: '%s' was missing, this should never happen", childKey);
     verifyNoMoreInteractions(mockReporter);
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)

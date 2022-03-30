@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.bugreport;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.util.List;
 
 /**
@@ -27,6 +29,18 @@ public interface BugReporter {
 
   static BugReporter defaultInstance() {
     return BugReport.REPORTER_INSTANCE;
+  }
+
+  /** Reports an unexpected state, see {@link BugReport#logUnexpected}. */
+  @FormatMethod
+  default void logUnexpected(@FormatString String message, Object... args) {
+    BugReport.logUnexpected(message, args);
+  }
+
+  /** Reports an exception, see {@link BugReport#sendBugReport(String, Object...)}. */
+  @FormatMethod
+  default void sendBugReport(@FormatString String message, Object... args) {
+    sendBugReport(new IllegalStateException(String.format(message, args)));
   }
 
   /** Reports an exception, see {@link BugReport#sendBugReport(Throwable)}. */

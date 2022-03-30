@@ -82,11 +82,9 @@ public final class GraphTraversingHelper {
       try {
         SkyValue value = result.nextOrThrow(exceptionClass1, exceptionClass2);
         if (value == null) {
-          bugReporter.sendBugReport(
-              new IllegalStateException(
-                  String.format(
-                      "Value for: '%s' was missing, this should never happen",
-                      Iterables.get(skyKeys, index))));
+          bugReporter.logUnexpected(
+              "Value for: '%s' was missing, this should never happen",
+              Iterables.get(skyKeys, index));
           return true;
         }
       } catch (Exception e) {

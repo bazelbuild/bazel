@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link GraphTraversingHelper}. */
 @RunWith(JUnit4.class)
@@ -66,12 +65,8 @@ public final class GraphTraversingHelperTest {
             SomeOtherErrorException.class,
             /*exceptionClass2=*/ null,
             mockReporter);
-    ArgumentCaptor<IllegalStateException> exceptionCaptor =
-        ArgumentCaptor.forClass(IllegalStateException.class);
-    verify(mockReporter).sendBugReport(exceptionCaptor.capture());
-    assertThat(exceptionCaptor.getValue())
-        .hasMessageThat()
-        .matches("Value for: 'keyA' was missing, this should never happen");
+    verify(mockReporter)
+        .logUnexpected("Value for: '%s' was missing, this should never happen", keyA);
     verifyNoMoreInteractions(mockReporter);
     assertThat(valuesMissing).isTrue();
   }
@@ -109,12 +104,9 @@ public final class GraphTraversingHelperTest {
             mockEnv, ImmutableList.of(keyA, keyB), SomeErrorException.class, null, mockReporter);
 
     assertThat(valuesMissing).isTrue();
-    ArgumentCaptor<IllegalStateException> exceptionCaptor =
-        ArgumentCaptor.forClass(IllegalStateException.class);
-    verify(mockReporter).sendBugReport(exceptionCaptor.capture());
-    assertThat(exceptionCaptor.getValue())
-        .hasMessageThat()
-        .isEqualTo("Value for: 'keyB' was missing, this should never happen");
+    verify(mockReporter)
+        .logUnexpected("Value for: '%s' was missing, this should never happen", keyB);
+    verifyNoMoreInteractions(mockReporter);
   }
 
   @Test
