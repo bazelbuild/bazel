@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -40,7 +42,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -133,7 +134,7 @@ public final class ExecutionProgressReceiver
               ((TopLevelAspectsValue) ((BuildDriverValue) newValue).getWrappedSkyValue())
                   .getTopLevelAspectsValues().stream()
                       .map(x -> ((AspectValue) x).getKey())
-                      .collect(Collectors.toUnmodifiableSet()));
+                      .collect(toImmutableSet()));
         } else {
           builtTargets.add((ConfiguredTargetKey) buildDriverKey.getActionLookupKey());
         }
