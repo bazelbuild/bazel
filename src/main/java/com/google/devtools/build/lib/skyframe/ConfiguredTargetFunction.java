@@ -738,127 +738,140 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       BuildConfigurationValue hostConfiguration)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
           AspectCreationException, InterruptedException {
-    if (state.computeDependenciesResult != null) {
-      state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
-      return state.computeDependenciesResult;
-    }
+    try {
+      if (state.computeDependenciesResult != null) {
+        state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
+        return state.computeDependenciesResult;
+      }
 
-    OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
-    if (state.resolveConfigurationsResult != null) {
-      depValueNames = state.resolveConfigurationsResult;
-    } else {
-      // Create the map from attributes to set of (target, transition) pairs.
-      OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
-      if (state.dependentNodeMapResult != null) {
-        initialDependencies = state.dependentNodeMapResult;
+      OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
+      if (state.resolveConfigurationsResult != null) {
+        depValueNames = state.resolveConfigurationsResult;
       } else {
-        BuildConfigurationValue configuration = ctgValue.getConfiguration();
-        Label label = ctgValue.getLabel();
+        // Create the map from attributes to set of (target, transition) pairs.
+        OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
+        if (state.dependentNodeMapResult != null) {
+          initialDependencies = state.dependentNodeMapResult;
+        } else {
+          BuildConfigurationValue configuration = ctgValue.getConfiguration();
+          Label label = ctgValue.getLabel();
+          try {
+            initialDependencies =
+                resolver.dependentNodeMap(
+                    ctgValue,
+                    aspects,
+                    configConditions,
+                    toolchainContexts,
+                    useToolchainTransition,
+                    transitiveRootCauses,
+                    ((ConfiguredRuleClassProvider) ruleClassProvider)
+                        .getTrimmingTransitionFactory());
+          } catch (DependencyResolver.Failure e) {
+            env.getListener()
+                .post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
+            throw new DependencyEvaluationException(
+                new ConfiguredValueCreationException(
+                    e.getLocation(), e.getMessage(), label, configuration.getEventId(), null, null),
+                // These errors occur within DependencyResolver, which is attached to the current
+                // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
+                // error.
+                /*depReportedOwnError=*/ false);
+          } catch (InconsistentAspectOrderException e) {
+            throw new DependencyEvaluationException(e);
+          }
+          if (!env.valuesMissing()) {
+            state.dependentNodeMapResult = initialDependencies;
+          }
+        }
+        // Trim each dep's configuration so it only includes the fragments needed by its transitive
+        // closure.
+        ConfigurationResolver configResolver =
+            new ConfigurationResolver(env, ctgValue, hostConfiguration, configConditions);
+        StoredEventHandler storedEventHandler = new StoredEventHandler();
         try {
-          initialDependencies =
-              resolver.dependentNodeMap(
-                  ctgValue,
-                  aspects,
-                  configConditions,
-                  toolchainContexts,
-                  useToolchainTransition,
-                  transitiveRootCauses,
-                  ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
-        } catch (DependencyResolver.Failure e) {
-          env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
-          throw new DependencyEvaluationException(
-              new ConfiguredValueCreationException(
-                  e.getLocation(), e.getMessage(), label, configuration.getEventId(), null, null),
-              // These errors occur within DependencyResolver, which is attached to the current
-              // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
-              // error.
-              /*depReportedOwnError=*/ false);
-        } catch (InconsistentAspectOrderException e) {
-          throw new DependencyEvaluationException(e);
+          depValueNames =
+              configResolver.resolveConfigurations(initialDependencies, storedEventHandler);
+        } catch (ConfiguredValueCreationException e) {
+          storedEventHandler.replayOn(env.getListener());
+          throw e;
         }
         if (!env.valuesMissing()) {
-          state.dependentNodeMapResult = initialDependencies;
+          state.resolveConfigurationsResult = depValueNames;
+          state.storedEventHandlerFromResolveConfigurations = storedEventHandler;
+
+          // We won't need this anymore.
+          state.dependentNodeMapResult = null;
         }
       }
-      // Trim each dep's configuration so it only includes the fragments needed by its transitive
-      // closure.
-      ConfigurationResolver configResolver =
-          new ConfigurationResolver(env, ctgValue, hostConfiguration, configConditions);
-      StoredEventHandler storedEventHandler = new StoredEventHandler();
+
+      // Return early in case packages were not loaded yet. In theory, we could start configuring
+      // dependent targets in loaded packages. However, that creates an artificial sync boundary
+      // between loading all dependent packages (fast) and configuring some dependent targets (can
+      // have a long tail).
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      // Resolve configured target dependencies and handle errors.
+      Map<SkyKey, ConfiguredTargetAndData> depValues;
+      if (state.resolveConfiguredTargetDependenciesResult != null) {
+        depValues = state.resolveConfiguredTargetDependenciesResult;
+      } else {
+        depValues =
+            resolveConfiguredTargetDependencies(
+                env,
+                ctgValue,
+                depValueNames.values(),
+                transitivePackagesForPackageRootResolution,
+                transitiveRootCauses);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        state.resolveConfiguredTargetDependenciesResult = depValues;
+      }
+
+      // Resolve required aspects.
+      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects;
+      if (state.resolveAspectDependenciesResult != null) {
+        depAspects = state.resolveAspectDependenciesResult;
+      } else {
+        depAspects =
+            AspectResolver.resolveAspectDependencies(
+                env, depValues, depValueNames.values(), transitivePackagesForPackageRootResolution);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        state.resolveAspectDependenciesResult = depAspects;
+      }
+
+      // Merge the dependent configured targets and aspects into a single map.
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> mergeAspectsResult;
       try {
-        depValueNames =
-            configResolver.resolveConfigurations(initialDependencies, storedEventHandler);
-      } catch (ConfiguredValueCreationException e) {
-        storedEventHandler.replayOn(env.getListener());
-        throw e;
+        mergeAspectsResult = AspectResolver.mergeAspects(depValueNames, depValues, depAspects);
+      } catch (DuplicateException e) {
+        throw new DependencyEvaluationException(
+            new ConfiguredValueCreationException(ctgValue, e.getMessage()),
+            /*depReportedOwnError=*/ false);
       }
-      if (!env.valuesMissing()) {
-        state.resolveConfigurationsResult = depValueNames;
-        state.storedEventHandlerFromResolveConfigurations = storedEventHandler;
+      state.computeDependenciesResult = mergeAspectsResult;
+      state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
 
-        // We won't need this anymore.
-        state.dependentNodeMapResult = null;
-      }
-    }
+      // We won't need these anymore.
+      state.resolveConfigurationsResult = null;
+      state.resolveConfiguredTargetDependenciesResult = null;
+      state.resolveAspectDependenciesResult = null;
 
-    // Return early in case packages were not loaded yet. In theory, we could start configuring
-    // dependent targets in loaded packages. However, that creates an artificial sync boundary
-    // between loading all dependent packages (fast) and configuring some dependent targets (can
-    // have a long tail).
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    // Resolve configured target dependencies and handle errors.
-    Map<SkyKey, ConfiguredTargetAndData> depValues;
-    if (state.resolveConfiguredTargetDependenciesResult != null) {
-      depValues = state.resolveConfiguredTargetDependenciesResult;
-    } else {
-      depValues =
-          resolveConfiguredTargetDependencies(
-              env,
-              ctgValue,
-              depValueNames.values(),
-              transitivePackagesForPackageRootResolution,
-              transitiveRootCauses);
-      if (env.valuesMissing()) {
+      return mergeAspectsResult;
+    } catch (InterruptedException e) {
+      // In practice, this comes from resolveConfigurations: other InterruptedExceptions are
+      // declared for Skyframe value retrievals, which don't throw in reality.
+      if (!transitiveRootCauses.isEmpty()) {
+        // Allow caller to throw, don't prioritize interrupt: we may be error bubbling.
+        Thread.currentThread().interrupt();
         return null;
       }
-      state.resolveConfiguredTargetDependenciesResult = depValues;
+      throw e;
     }
-
-    // Resolve required aspects.
-    OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects;
-    if (state.resolveAspectDependenciesResult != null) {
-      depAspects = state.resolveAspectDependenciesResult;
-    } else {
-      depAspects =
-          AspectResolver.resolveAspectDependencies(
-              env, depValues, depValueNames.values(), transitivePackagesForPackageRootResolution);
-      if (env.valuesMissing()) {
-        return null;
-      }
-      state.resolveAspectDependenciesResult = depAspects;
-    }
-
-    // Merge the dependent configured targets and aspects into a single map.
-    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> mergeAspectsResult;
-    try {
-      mergeAspectsResult = AspectResolver.mergeAspects(depValueNames, depValues, depAspects);
-    } catch (DuplicateException e) {
-      throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(ctgValue, e.getMessage()),
-          /*depReportedOwnError=*/ false);
-    }
-    state.computeDependenciesResult = mergeAspectsResult;
-    state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
-
-    // We won't need these anymore.
-    state.resolveConfigurationsResult = null;
-    state.resolveConfiguredTargetDependenciesResult = null;
-    state.resolveAspectDependenciesResult = null;
-
-    return mergeAspectsResult;
   }
 
   /**
@@ -988,6 +1001,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         Iterables.concat(
             Iterables.transform(deps, Dependency::getConfiguredTargetKey), packageKeys);
     SkyframeLookupResult depValuesOrExceptions = env.getValuesAndExceptions(depKeys);
+    boolean depValuesMissingForDebugging = env.valuesMissing();
     Map<SkyKey, ConfiguredTargetAndData> result = Maps.newHashMapWithExpectedSize(deps.size());
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
     List<Dependency> aliasDepsToRedo = new ArrayList<>();
@@ -1012,6 +1026,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           continue;
         }
         if (depValue == null) {
+          if (!depValuesMissingForDebugging) {
+            BugReport.logUnexpected(
+                "Unexpected exception: dep %s had null value, even though there were no values"
+                    + " missing in the initial fetch. That means it had an unexpected exception"
+                    + " type (not ConfiguredValueCreationException)",
+                dep);
+            depValuesMissingForDebugging = true;
+          }
           missedValues = true;
           continue;
         }
@@ -1215,7 +1237,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * the user. Callers (like {@link BuildTool}) won't also report the error.
    */
   private static class ReportedException extends SkyFunctionException {
-    private ReportedException(ConfiguredValueCreationException e) {
+    ReportedException(ConfiguredValueCreationException e) {
       super(withoutMessage(e), Transience.PERSISTENT);
     }
 
@@ -1237,7 +1259,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * user. Callers (like {@link BuildTool}) are responsible for reporting the error.
    */
   private static class UnreportedException extends SkyFunctionException {
-    private UnreportedException(ConfiguredValueCreationException e) {
+    UnreportedException(ConfiguredValueCreationException e) {
       super(e, Transience.PERSISTENT);
     }
   }

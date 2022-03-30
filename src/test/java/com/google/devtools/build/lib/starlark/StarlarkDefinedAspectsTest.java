@@ -1211,6 +1211,83 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertContainsEvent("Every .bzl file must have a corresponding package");
   }
 
+  /**
+   * Tests that a loading-level error (missing bzl file) is properly transformed by the configured
+   * target that requested the relevant package, and doesn't bubble up to a higher configured
+   * target/aspect that wasn't expecting a loading-level error. The complication is that the
+   * configured target that depends directly on the error tries to do configuration resolution after
+   * noticing the error, and configuration resolution is interruptible, so it is interrupted. It
+   * needs to then throw the error, rather than the interruption.
+   *
+   * <p>This test covers error propagation up to both the configured target that depends on the one
+   * in error, as well as the aspect on that configured target, since the error goes through both.
+   */
+  @Test
+  public void aspectBaseConfiguredTargetTransitivelyDependingOnPackageInError() throws Exception {
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(name = 'function_transition_allowlist', packages = ['//aspect/...'])");
+    scratch.file(
+        "aspect/aspect.bzl",
+        "def _setting_impl(ctx):",
+        "  return []",
+        "",
+        "string_flag = rule(",
+        "  implementation = _setting_impl,",
+        "  build_setting = config.string(flag=True),",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "",
+        "def _transition_impl(settings, attr):",
+        "  return {'//aspect:formation': 'mesa'}",
+        "",
+        "formation_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['//aspect:formation'],",
+        "  outputs = ['//aspect:formation'],",
+        ")",
+        "",
+        "def _aspect_impl(target, ctx):",
+        "  pass",
+        "",
+        "myaspect = aspect(implementation = _aspect_impl)",
+        "",
+        "cfgrule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "    'to': attr.label(),",
+        "    'innocent': attr.label(cfg = formation_transition),",
+        "  }",
+        ")");
+    scratch.file(
+        "aspect/BUILD",
+        "load('aspect.bzl', 'cfgrule', 'string_flag')",
+        "string_flag(name = 'formation', build_setting_default = 'canyon')",
+        "sh_library(name = 'innocent')",
+        "cfgrule(name = 'top', to = '//baz:baz', innocent = ':innocent')");
+    scratch.file("bar/BUILD", "sh_library(name = 'bar', deps = ['//baz:baz'])");
+    scratch.file(
+        "baz/BUILD", "load('//baz/subdir:missing.bzl', 'sym')", "sh_library(name = 'baz')");
+    scratch.file("baz/subdir/missing.bzl");
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result =
+          update(ImmutableList.of("//aspect:aspect.bzl%myaspect"), "//aspect:top");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+      assertThat(keepGoing()).isFalse();
+    }
+    assertContainsEvent("Label '//baz/subdir:missing.bzl' is invalid");
+  }
+
   @Test
   public void aspectParametersUncovered() throws Exception {
     scratch.file(
