@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -172,6 +173,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("shrink_resources")
         && dataContext.throwOnShrinkResources()) {
       ruleContext.throwWithAttributeError("shrink_resources", "This attribute is not supported");
+    }
+
+    if (Allowlist.hasAllowlist(ruleContext, "android_multidex_off_allowlist")
+        && !Allowlist.isAvailable(ruleContext, "android_multidex_off_allowlist")
+        && AndroidBinary.getMultidexMode(ruleContext) == MultidexMode.OFF) {
+      ruleContext.attributeError("multidex", "Multidex must be enabled");
     }
 
     if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()
