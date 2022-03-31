@@ -20,12 +20,12 @@ bind(
 
 bind(
     name = "android_sdk_for_testing",
-    actual = "//:dummy",
+    actual = "@bazel_tools//tools/android:empty",
 )
 
 bind(
     name = "android_ndk_for_testing",
-    actual = "//:dummy",
+    actual = "@bazel_tools//tools/android:empty",
 )
 
 bind(

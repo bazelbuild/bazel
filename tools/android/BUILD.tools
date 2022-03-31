@@ -417,7 +417,7 @@ alias(
 )
 
 # This is the default value of databinding_annotation_processor if the user does
-# not provide one.
+# not provide one. Also used by the bind rules in android.WORKSPACE.
 filegroup(name = "empty")
 
 alias(
