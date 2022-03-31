@@ -3609,10 +3609,31 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       //a:foo >& $TEST_log && fail "Should failed to build"
 
+  expect_log "Invalid action cache"
   remote_cas_files="$(count_remote_cas_files)"
   [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
   remote_ac_files="$(count_remote_ac_files)"
   [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+}
+
+function test_failed_action_dont_check_declared_outputs() {
+  # Test that if action failed, outputs are not checked
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "exit 1",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log && fail "Should failed to build"
+
+  expect_not_log "Invalid action cache"
+  expect_log "failed: (Exit 1):"
 }
 
 run_suite "Remote execution and remote cache tests"
