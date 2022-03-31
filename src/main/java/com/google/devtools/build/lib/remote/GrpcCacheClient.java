@@ -37,6 +37,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.io.CountingOutputStream;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -67,10 +68,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import org.apache.commons.compress.utils.CountingOutputStream;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
@@ -298,7 +297,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     if (digest.getSizeBytes() == 0) {
-      return Futures.immediateFuture(null);
+      return Futures.immediateVoidFuture();
     }
 
     @Nullable Supplier<Digest> digestSupplier = null;
@@ -308,18 +307,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       out = digestOut;
     }
 
-    CountingOutputStream outputStream;
-    if (options.cacheCompression) {
-      try {
-        outputStream = new ZstdDecompressingOutputStream(out);
-      } catch (IOException e) {
-        return Futures.immediateFailedFuture(e);
-      }
-    } else {
-      outputStream = new CountingOutputStream(out);
-    }
-
-    return downloadBlob(context, digest, outputStream, digestSupplier);
+    return downloadBlob(context, digest, new CountingOutputStream(out), digestSupplier);
   }
 
   private ListenableFuture<Void> downloadBlob(
@@ -327,7 +315,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       Digest digest,
       CountingOutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
-    AtomicLong offset = new AtomicLong(0);
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
     ListenableFuture<Long> downloadFuture =
         Utils.refreshIfUnauthenticatedAsync(
@@ -338,7 +325,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                             channel ->
                                 requestRead(
                                     context,
-                                    offset,
                                     progressiveBackoff,
                                     digest,
                                     out,
@@ -365,20 +351,25 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   private ListenableFuture<Long> requestRead(
       RemoteActionExecutionContext context,
-      AtomicLong offset,
       ProgressiveBackoff progressiveBackoff,
       Digest digest,
-      CountingOutputStream out,
+      CountingOutputStream rawOut,
       @Nullable Supplier<Digest> digestSupplier,
       Channel channel) {
     String resourceName =
         getResourceName(options.remoteInstanceName, digest, options.cacheCompression);
     SettableFuture<Long> future = SettableFuture.create();
+    OutputStream out;
+    try {
+      out = options.cacheCompression ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
+    }
     bsAsyncStub(context, channel)
         .read(
             ReadRequest.newBuilder()
                 .setResourceName(resourceName)
-                .setReadOffset(offset.get())
+                .setReadOffset(rawOut.getCount())
                 .build(),
             new StreamObserver<ReadResponse>() {
 
@@ -387,7 +378,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                 ByteString data = readResponse.getData();
                 try {
                   data.writeTo(out);
-                  offset.set(out.getBytesWritten());
                 } catch (IOException e) {
                   // Cancel the call.
                   throw new RuntimeException(e);
@@ -398,7 +388,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
               @Override
               public void onError(Throwable t) {
-                if (offset.get() == digest.getSizeBytes()) {
+                if (rawOut.getCount() == digest.getSizeBytes()) {
                   // If the file was fully downloaded, it doesn't matter if there was an error at
                   // the end of the stream.
                   logger.atInfo().withCause(t).log(
@@ -406,6 +396,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                   onCompleted();
                   return;
                 }
+                releaseOut();
                 Status status = Status.fromThrowable(t);
                 if (status.getCode() == Status.Code.NOT_FOUND) {
                   future.setException(new CacheNotFoundException(digest));
@@ -421,12 +412,24 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                     Utils.verifyBlobContents(digest, digestSupplier.get());
                   }
                   out.flush();
-                  future.set(offset.get());
+                  future.set(rawOut.getCount());
                 } catch (IOException e) {
                   future.setException(e);
                 } catch (RuntimeException e) {
                   logger.atWarning().withCause(e).log("Unexpected exception");
                   future.setException(e);
+                } finally {
+                  releaseOut();
+                }
+              }
+
+              private void releaseOut() {
+                if (out instanceof ZstdDecompressingOutputStream) {
+                  try {
+                    ((ZstdDecompressingOutputStream) out).closeShallow();
+                  } catch (IOException e) {
+                    logger.atWarning().withCause(e).log("failed to cleanly close output stream");
+                  }
                 }
               }
             });
