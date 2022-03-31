@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bugreport;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -267,11 +266,9 @@ public final class BugReport {
 
   /**
    * Writes exit status files, dumps heap if requested, and calls {@link
-   * BlazeRuntimeInterface#cleanUpForCrash}. Should <i>never</i> be called from production code
-   * outside this class, only exposed for use in tests.
+   * BlazeRuntimeInterface#cleanUpForCrash}.
    */
-  @VisibleForTesting
-  public static void emitExitData(
+  private static void emitExitData(
       Crash crash, CrashContext ctx, int numericExitCode, @Nullable String heapDumpPath) {
     // Writing the exit code status file is only necessary if we are halting. Otherwise, the
     // caller is responsible for an orderly shutdown with the proper exit code.
