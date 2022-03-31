@@ -38,6 +38,11 @@ class QueryTest(test_base.TestBase):
     self._AssertQueryOutput('deps(//foo:top-rule, 1)', '//foo:top-rule',
                             '//foo:dep-rule')
 
+  def testQueryFilesUsedByRepositoryRules(self):
+    self.ScratchFile('WORKSPACE')
+    self._AssertQueryOutputContains("kind('source file', deps(//external:*))",
+                                    '@bazel_tools//tools/jdk:jdk.BUILD')
+
   def testBuildFilesForExternalRepos_Simple(self):
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
