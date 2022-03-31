@@ -33,8 +33,10 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Globber;
+import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -182,7 +184,8 @@ public abstract class GlobFunctionTest {
             SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
-
+    skyFunctions.put(
+        FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     AnalysisMock analysisMock = AnalysisMock.get();
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(
@@ -678,6 +681,27 @@ public abstract class GlobFunctionTest {
   @Test
   public void testDoubleStarUnderFile() throws Exception {
     assertGlobMatches("foo/bar/wiz/file/**" /* => nothing */);
+  }
+
+  /** Regression test for b/225434889: Value with exception will not crash. */
+  @Test
+  public void symlinkFileValueWithError() throws Exception {
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("self"), "self");
+
+    IOException ioException =
+        assertThrows(IOException.class, () -> runGlob("self", Operation.FILES_AND_DIRS));
+    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
+  }
+
+  @Test
+  public void symlinkSubdirValueWithError() throws Exception {
+    Path cycle = pkgPath.getChild("cycle");
+    FileSystemUtils.ensureSymbolicLink(cycle.getChild("self"), "self");
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("symlink"), cycle);
+
+    IOException ioException =
+        assertThrows(IOException.class, () -> runGlob("symlink/self", Operation.FILES_AND_DIRS));
+    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
   }
 
   /** Regression test for b/13319874: Directory listing crash. */

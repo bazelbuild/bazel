@@ -24,8 +24,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import javax.annotation.Nullable;
 
 /**
@@ -93,16 +92,15 @@ public class ConfiguredTargetAndData {
     } else {
       packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
     }
-    Map<SkyKey, SkyValue> packageAndMaybeConfigurationValues =
-        env.getValues(packageAndMaybeConfiguration);
+    SkyframeIterableResult packageAndMaybeConfigurationValues =
+        env.getOrderedValuesAndExceptions(packageAndMaybeConfiguration);
     // Don't test env.valuesMissing(), because values may already be missing from the caller.
-    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
+    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.next();
     if (packageValue == null) {
       return null;
     }
     if (configurationKeyMaybe != null) {
-      configuration =
-          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
+      configuration = (BuildConfigurationValue) packageAndMaybeConfigurationValues.next();
       if (configuration == null) {
         return null;
       }
