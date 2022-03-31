@@ -2334,21 +2334,27 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRuleAddToolchain_duplicate() throws Exception {
-    ev.setFailFast(false);
     evalAndExport(
         ev,
         "def impl(ctx): return None",
         "r1 = rule(impl,",
         "    toolchains=[",
-        "        '//test:my_toolchain_type',",
-        "        config_common.toolchain_type('//test:my_toolchain_type'),",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type1'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type2', mandatory = False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type2', mandatory = True),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory = False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory = False),",
         "    ],",
         ")");
 
-    assertThat(ev.getEventCollector()).hasSize(1);
-    Event event = ev.getEventCollector().iterator().next();
-    assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
-    assertThat(event.getMessage()).contains("Duplicate toolchain type //test:my_toolchain_type");
+    RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(c).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(c).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(c).toolchainType("//test:my_toolchain_type3").isOptional();
   }
 
   @Test

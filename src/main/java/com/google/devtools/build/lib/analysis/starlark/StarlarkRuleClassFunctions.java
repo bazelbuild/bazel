@@ -101,10 +101,9 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -1039,21 +1038,21 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(
       Sequence<?> rawToolchains, StarlarkThread thread) throws EvalException {
-    ImmutableSet.Builder<ToolchainTypeRequirement> toolchainTypes = new ImmutableSet.Builder<>();
-    Set<Label> toolchainTypesSeen = new HashSet<>();
+    Map<Label, ToolchainTypeRequirement> toolchainTypes = new HashMap<>();
     LabelConverter converter = LabelConverter.forThread(thread);
 
     for (Object rawToolchain : rawToolchains) {
       ToolchainTypeRequirement toolchainType = parseToolchainType(converter, rawToolchain);
-      if (toolchainTypesSeen.contains(toolchainType.toolchainType())) {
-        // throw an error for duplicates.
-        throw Starlark.errorf("Duplicate toolchain type %s", toolchainType.toolchainType());
+      Label typeLabel = toolchainType.toolchainType();
+      ToolchainTypeRequirement previous = toolchainTypes.get(typeLabel);
+      if (previous != null) {
+        // Keep the one with the strictest requirements.
+        toolchainType = ToolchainTypeRequirement.strictest(previous, toolchainType);
       }
-      toolchainTypes.add(toolchainType);
-      toolchainTypesSeen.add(toolchainType.toolchainType());
+      toolchainTypes.put(typeLabel, toolchainType);
     }
 
-    return toolchainTypes.build();
+    return ImmutableSet.copyOf(toolchainTypes.values());
   }
 
   private static ToolchainTypeRequirement parseToolchainType(
