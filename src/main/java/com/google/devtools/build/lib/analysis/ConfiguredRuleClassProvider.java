@@ -106,26 +106,34 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   /** An InMemoryFileSystem for bundled builtins .bzl files. */
   public static class BundledFileSystem extends InMemoryFileSystem {
-
-    private static final byte[] EMPTY_DIGEST = new byte[0];
-
     public BundledFileSystem() {
       super(DigestHashFunction.SHA256);
     }
 
-    // Bundled files are guaranteed to not change throughout the lifetime of the Bazel server, so it
-    // is permissible to use a fake digest. This helps avoid peculiarities in the interaction of
-    // InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion, including of
-    // possible (but unlikely) future caveats of this approach.
+    // Pretend the digest of a bundled file is uniquely determined by its name, not its contents.
+    //
+    // The contents bundled files are guaranteed to not change throughout the lifetime of the Bazel
+    // server, we do not need to detect changes to a bundled file's contents. Not needing to worry
+    // about get the actual digest and detect changes to that digest helps avoid peculiarities in
+    // the interaction of InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion,
+    // including of possible (but unlikely) future caveats of this approach.
+    //
+    // On the other hand, we do need to want different bundled files to have different digests. That
+    // way the bzl environment hashes for bzl rule classes defined in two different bundled files
+    // are guaranteed to be different, even if their set of transitive load statements is the same.
+    // This is important because it's possible for bzl rule classes defined in different files to
+    // have the same name string, and various part of Blaze rely on the pair of
+    // "rule class name string" and "bzl environment hash" to uniquely identify a bzl rule class.
+    // See b/226379109 for details.
 
     @Override
     protected synchronized byte[] getFastDigest(PathFragment path) {
-      return EMPTY_DIGEST;
+      return getDigest(path);
     }
 
     @Override
-    protected synchronized byte[] getDigest(PathFragment path) throws IOException {
-      return EMPTY_DIGEST;
+    protected synchronized byte[] getDigest(PathFragment path) {
+      return getDigestFunction().getHashFunction().hashString(path.toString(), UTF_8).asBytes();
     }
   }
 
