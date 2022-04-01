@@ -296,7 +296,8 @@ public class JavaHeaderCompileActionBuilder {
     }
 
     ActionEnvironment actionEnvironment =
-        ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
+        ruleContext.getConfiguration().getActionEnvironment()
+            .withAdditionalFixedVariables(UTF8_ENVIRONMENT);
 
     OnDemandString progressMessage =
         new ProgressMessage(

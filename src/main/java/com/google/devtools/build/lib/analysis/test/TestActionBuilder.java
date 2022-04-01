@@ -413,7 +413,7 @@ public final class TestActionBuilder {
                 testProperties,
                 runfilesSupport
                     .getActionEnvironment()
-                    .addVariables(extraTestEnv, extraInheritedEnv),
+                    .withAdditionalVariables(extraTestEnv, extraInheritedEnv),
                 executionSettings,
                 shard,
                 run,
