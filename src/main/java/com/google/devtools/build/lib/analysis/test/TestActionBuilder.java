@@ -411,7 +411,7 @@ public final class TestActionBuilder {
                 coverageArtifact,
                 coverageDirectory,
                 testProperties,
-                runfilesSupport.getActionEnvironment().addVariables(extraTestEnv, extraInheritedEnv),
+                runfilesSupport.getActionEnvironment().withAdditionalVariables(extraTestEnv, extraInheritedEnv),
                 executionSettings,
                 shard,
                 run,
