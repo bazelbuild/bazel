@@ -85,8 +85,8 @@ public final class ActionEnvironment {
 
     static EnvironmentVariables create(Map<String, String> fixedVars, Set<String> inheritedVars,
         EnvironmentVariables base) {
-      if (fixedVars.isEmpty() && inheritedVars.isEmpty() && base.isEmpty()) {
-        return EMPTY_ENVIRONMENT_VARIABLES;
+      if (fixedVars.isEmpty() && inheritedVars.isEmpty()) {
+        return base;
       }
       return new CompoundEnvironmentVariables(fixedVars, inheritedVars, base);
     }
@@ -234,8 +234,12 @@ public final class ActionEnvironment {
    */
   public ActionEnvironment withAdditionalVariables(Map<String, String> fixedVars,
       Set<String> inheritedVars) {
-    return ActionEnvironment.create(
-        CompoundEnvironmentVariables.create(fixedVars, inheritedVars, vars));
+    EnvironmentVariables newVars = CompoundEnvironmentVariables.create(fixedVars, inheritedVars,
+        vars);
+    if (newVars == vars) {
+      return this;
+    }
+    return ActionEnvironment.create(newVars);
   }
 
   /**

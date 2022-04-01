@@ -44,6 +44,19 @@ public final class ActionEnvironmentTest {
   }
 
   @Test
+  public void emptyEnvironmentInterning() {
+    ActionEnvironment emptyEnvironment = ActionEnvironment.create(ImmutableMap.of(),
+        ImmutableSet.of());
+    assertThat(emptyEnvironment).isSameInstanceAs(ActionEnvironment.EMPTY);
+
+    ActionEnvironment base = ActionEnvironment.create(ImmutableMap.of("FOO", "foo1"),
+        ImmutableSet.of("baz"));
+    assertThat(base.withAdditionalFixedVariables(ImmutableMap.of())).isSameInstanceAs(base);
+    assertThat(base.withAdditionalVariables(ImmutableMap.of(), ImmutableSet.of())).isSameInstanceAs(
+        base);
+  }
+
+  @Test
   public void fixedInheritedInteraction() {
     ActionEnvironment env = ActionEnvironment.create(
             ImmutableMap.of("FIXED_ONLY", "fixed"),
