@@ -481,6 +481,13 @@ public final class JavaToolchainProvider extends NativeInfo
     return getTimezoneData();
   }
 
+  @Override
+  public ImmutableList<String> getCompatibleJavacOptionsForStarlark(
+      String key, StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getCompatibleJavacOptions(key);
+  }
+
   @AutoValue
   abstract static class JspecifyInfo {
 

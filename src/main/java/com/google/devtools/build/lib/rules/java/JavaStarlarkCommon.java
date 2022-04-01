@@ -91,6 +91,7 @@ public class JavaStarlarkCommon
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
+      boolean createOutputSourceJar,
       Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -131,6 +132,7 @@ public class JavaStarlarkCommon
     // checks for private API access
     if (!enableCompileJarAction
         || !enableJSpecify
+        || !createOutputSourceJar
         || !classpathResources.isEmpty()
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
@@ -166,6 +168,7 @@ public class JavaStarlarkCommon
             enableAnnotationProcessing,
             enableCompileJarAction,
             enableJSpecify,
+            createOutputSourceJar,
             javaSemantics,
             injectingRuleKind,
             thread);

@@ -236,6 +236,12 @@ public interface JavaCommonApi<
             defaultValue = "True",
             documented = false),
         @Param(
+            name = "create_output_source_jar",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            documented = false),
+        @Param(
             name = "injecting_rule_kind",
             documented = false,
             positional = false,
@@ -272,6 +278,7 @@ public interface JavaCommonApi<
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
+      boolean createOutputSourceJar,
       Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

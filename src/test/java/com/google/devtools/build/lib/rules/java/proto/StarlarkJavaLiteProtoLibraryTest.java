@@ -339,67 +339,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that a java_lite_proto_library only provides direct jars corresponding on the
-   * proto_library rules it directly depends on, excluding anything that the proto_library rules
-   * depends on themselves. This does not concern strict-deps in the compilation of the generated
-   * Java code itself, only compilation of regular code in java_library/java_binary and similar
-   * rules.
-   */
-  @Test
-  public void jplCorrectlyDefinesDirectJars_strictDepsEnabled() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "java_lite_proto_library(name = 'foo_lite_pb2', deps = [':foo'])",
-        "proto_library(",
-        "    name = 'foo',",
-        "    srcs = [ 'foo.proto' ],",
-        "    deps = [ ':bar' ],",
-        ")",
-        "java_lite_proto_library(name = 'bar_lite_pb2', deps = [':bar'])",
-        "proto_library(",
-        "    name = 'bar',",
-        "    srcs = [ 'bar.proto' ],",
-        "    deps = [ ':baz' ],",
-        ")",
-        "proto_library(",
-        "    name = 'baz',",
-        "    srcs = [ 'baz.proto' ],",
-        ")");
-
-    {
-      JavaCompilationArgsProvider compilationArgsProvider =
-          getProvider(JavaCompilationArgsProvider.class, getConfiguredTarget("//x:foo_lite_pb2"));
-
-      Iterable<String> directJars =
-          prettyArtifactNames(compilationArgsProvider.getDirectCompileTimeJars());
-
-      assertThat(directJars).containsExactly("x/libfoo-lite-hjar.jar");
-
-      JavaSourceJarsProvider sourceJarsProvider =
-          getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:foo_lite_pb2"));
-      assertThat(sourceJarsProvider).isNotNull();
-      assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/libfoo-lite-src.jar");
-    }
-
-    {
-      JavaCompilationArgsProvider compilationArgsProvider =
-          getProvider(JavaCompilationArgsProvider.class, getConfiguredTarget("//x:bar_lite_pb2"));
-
-      Iterable<String> directJars =
-          prettyArtifactNames(compilationArgsProvider.getDirectCompileTimeJars());
-
-      assertThat(directJars).containsExactly("x/libbar-lite-hjar.jar");
-
-      JavaSourceJarsProvider sourceJarsProvider =
-          getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:bar_lite_pb2"));
-      assertThat(sourceJarsProvider).isNotNull();
-      assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/libbar-lite-src.jar");
-    }
-  }
-
-  /**
    * Tests that a java_proto_library only provides direct jars corresponding on the proto_library
    * rules it directly depends on, excluding anything that the proto_library rules depends on
    * themselves. This does not concern strict-deps in the compilation of the generated Java code
