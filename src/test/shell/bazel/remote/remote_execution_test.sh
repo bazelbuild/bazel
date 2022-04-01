@@ -3609,7 +3609,6 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       //a:foo >& $TEST_log && fail "Should failed to build"
 
-  expect_log "Invalid action cache"
   remote_cas_files="$(count_remote_cas_files)"
   [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
   remote_ac_files="$(count_remote_ac_files)"
@@ -3632,8 +3631,7 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:foo >& $TEST_log && fail "Should failed to build"
 
-  expect_not_log "Invalid action cache"
-  expect_log "failed: (Exit 1):"
+  expect_log "Executing genrule .* failed: (Exit 1):"
 }
 
 run_suite "Remote execution and remote cache tests"
