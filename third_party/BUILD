@@ -16,6 +16,7 @@ filegroup(
         "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
+        "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
         "//third_party/java/android_databinding:srcs",
