@@ -118,7 +118,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -129,6 +131,7 @@ import javax.annotation.Nullable;
 public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final int MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE = 100;
 
   /**
    * If false, the graph will not store state useful for incremental builds, saving memory but
@@ -149,9 +152,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
-  private int modifiedFiles;
-  private int outputDirtyFiles;
-  private int modifiedFilesDuringPreviousBuild;
+  private final AtomicInteger modifiedFiles = new AtomicInteger();
+  private final AtomicInteger outputDirtyFiles = new AtomicInteger();
+  private final ArrayBlockingQueue<String> outputDirtyFilesExecPathSample =
+      new ArrayBlockingQueue<>(MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE);
+  private final AtomicInteger modifiedFilesDuringPreviousBuild = new AtomicInteger();
+
   private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
   private int numSourceFilesCheckedBecauseOfMissingDiffs;
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
@@ -359,7 +365,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
-    modifiedFiles = 0;
+    modifiedFiles.set(0);
     numSourceFilesCheckedBecauseOfMissingDiffs = 0;
 
     boolean managedDirectoriesChanged =
@@ -521,8 +527,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
 
       FilesystemValueChecker fsvc =
-          new FilesystemValueChecker(
-              tsgm, perCommandSyscallCache, /*lastExecutionTimeRange=*/ null, fsvcThreads);
+          new FilesystemValueChecker(tsgm, perCommandSyscallCache, fsvcThreads);
       // We need to manually check for changes to known files. This entails finding all dirty file
       // system values under package roots for which we don't have diff information. If at least
       // one path entry doesn't have diff information, then we're going to have to iterate over
@@ -596,8 +601,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           "About to scan %d external files",
           externalFilesKnowledge.nonOutputExternalFilesSeen.size());
       FilesystemValueChecker fsvc =
-          new FilesystemValueChecker(
-              tsgm, perCommandSyscallCache, /*lastExecutionTimeRange=*/ null, fsvcThreads);
+          new FilesystemValueChecker(tsgm, perCommandSyscallCache, fsvcThreads);
       ImmutableBatchDirtyResult batchDirtyResult;
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
         Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
@@ -656,8 +660,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     recordingDiffer.invalidate(keysToBeChangedLaterInThisBuild);
     recordingDiffer.inject(changedKeysWithNewValues);
-    modifiedFiles += getNumberOfModifiedFiles(keysToBeChangedLaterInThisBuild);
-    modifiedFiles += getNumberOfModifiedFiles(changedKeysWithNewValues.keySet());
+    modifiedFiles.addAndGet(
+        getNumberOfModifiedFiles(keysToBeChangedLaterInThisBuild)
+            + getNumberOfModifiedFiles(changedKeysWithNewValues.keySet()));
     numSourceFilesCheckedBecauseOfMissingDiffs += numSourceFilesCheckedIfDiffWasMissing;
     incrementalBuildMonitor.accrue(keysToBeChangedLaterInThisBuild);
     incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
@@ -783,7 +788,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           new FilesystemValueChecker(
                   tsgm,
                   perCommandSyscallCache,
-                  /*lastExecutionTimeRange=*/ null,
                   /*numThreads=*/ 200)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
@@ -813,7 +817,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         new FilesystemValueChecker(
             Preconditions.checkNotNull(tsgm.get()),
             perCommandSyscallCache,
-            lastExecutionTimeRange,
             fsvcThreads);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
@@ -821,11 +824,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             memoizingEvaluator.getValues(),
             batchStatter,
             modifiedOutputFiles,
-            trustRemoteArtifacts));
-    modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
-    outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
-    modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
-    logger.atInfo().log("Found %d modified files from last build", modifiedFiles);
+            trustRemoteArtifacts,
+            (maybeModifiedTime, artifact) -> {
+              modifiedFiles.incrementAndGet();
+              int dirtyOutputsCount = outputDirtyFiles.incrementAndGet();
+              if (lastExecutionTimeRange != null
+                  && lastExecutionTimeRange.contains(maybeModifiedTime)) {
+                modifiedFilesDuringPreviousBuild.incrementAndGet();
+              }
+              if (dirtyOutputsCount <= MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE) {
+                outputDirtyFilesExecPathSample.offer(artifact.getExecPathString());
+              }
+            }));
+    logger.atInfo().log("Found %d modified files from last build", modifiedFiles.get());
     long stopTime = System.nanoTime();
     Profiler.instance()
         .logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "detectModifiedOutputFiles");
@@ -954,14 +965,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   protected ExecutionFinishedEvent.Builder createExecutionFinishedEventInternal() {
     ExecutionFinishedEvent.Builder builder =
         ExecutionFinishedEvent.builder()
-            .setOutputDirtyFiles(outputDirtyFiles)
-            .setOutputModifiedFilesDuringPreviousBuild(modifiedFilesDuringPreviousBuild)
+            .setOutputDirtyFiles(outputDirtyFiles.getAndSet(0))
+            .setOutputDirtyFileExecPathSample(ImmutableList.copyOf(outputDirtyFilesExecPathSample))
+            .setOutputModifiedFilesDuringPreviousBuild(
+                modifiedFilesDuringPreviousBuild.getAndSet(0))
             .setSourceDiffCheckingDuration(sourceDiffCheckingDuration)
             .setNumSourceFilesCheckedBecauseOfMissingDiffs(
                 numSourceFilesCheckedBecauseOfMissingDiffs)
             .setOutputTreeDiffCheckingDuration(outputTreeDiffCheckingDuration);
-    outputDirtyFiles = 0;
-    modifiedFilesDuringPreviousBuild = 0;
+    outputDirtyFilesExecPathSample.clear();
     sourceDiffCheckingDuration = Duration.ZERO;
     outputTreeDiffCheckingDuration = Duration.ZERO;
     return builder;

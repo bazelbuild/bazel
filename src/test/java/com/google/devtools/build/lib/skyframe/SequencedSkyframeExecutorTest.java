@@ -676,7 +676,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         new FilesystemValueChecker(
                 new TimestampGranularityMonitor(BlazeClock.instance()),
                 SyscallCache.NO_CACHE,
-                /* lastExecutionTimeRange= */ null,
                 /* numThreads= */ 20)
             .getDirtyKeys(
                 skyframeExecutor.getEvaluator().getValues(), new BasicFilesystemDirtinessChecker());

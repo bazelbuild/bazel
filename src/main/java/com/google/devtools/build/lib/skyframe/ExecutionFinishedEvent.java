@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import java.time.Duration;
 
@@ -28,6 +29,7 @@ public abstract class ExecutionFinishedEvent {
     ArtifactMetrics.FilesMetric emptyFilesMetric = ArtifactMetrics.FilesMetric.getDefaultInstance();
     return builder()
         .setOutputDirtyFiles(0)
+        .setOutputDirtyFileExecPathSample(ImmutableList.of())
         .setOutputModifiedFilesDuringPreviousBuild(0)
         .setSourceDiffCheckingDuration(Duration.ZERO)
         .setNumSourceFilesCheckedBecauseOfMissingDiffs(0)
@@ -39,6 +41,8 @@ public abstract class ExecutionFinishedEvent {
   }
 
   public abstract int outputDirtyFiles();
+
+  public abstract ImmutableList<String> outputDirtyFileExecPathSample();
 
   public abstract int outputModifiedFilesDuringPreviousBuild();
 
@@ -63,6 +67,9 @@ public abstract class ExecutionFinishedEvent {
   @AutoValue.Builder
   abstract static class Builder {
     abstract Builder setOutputDirtyFiles(int outputDirtyFiles);
+
+    abstract Builder setOutputDirtyFileExecPathSample(
+        ImmutableList<String> outputDirtyFileExecPathSample);
 
     abstract Builder setOutputModifiedFilesDuringPreviousBuild(
         int outputModifiedFilesDuringPreviousBuild);

@@ -1276,6 +1276,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
