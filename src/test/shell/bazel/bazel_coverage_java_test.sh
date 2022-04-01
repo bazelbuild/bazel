@@ -89,6 +89,25 @@ EOF
     cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
+# Returns 0 if gcov is not installed or if a version before 7.0 was found.
+# Returns 1 otherwise.
+function is_gcov_missing_or_wrong_version() {
+  local -r gcov_location=$(which gcov)
+  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
+    echo "gcov not installed."
+    return 0
+  fi
+
+  "$gcov_location" -version | grep "LLVM" && \
+      echo "gcov LLVM version not supported." && return 0
+  # gcov -v | grep "gcov" outputs a line that looks like this:
+  # gcov (Debian 7.3.0-5) 7.3.0
+  local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
+  [ "$gcov_version" -lt 7 ] \
+      && echo "gcov versions before 7.0 is not supported." && return 0
+  return 1
+}
+
 # Asserts if the given expected coverage result is included in the given output
 # file.
 #
@@ -988,6 +1007,140 @@ BRDA:18,0,1,0
 BRF:8
 BRH:5"
   assert_coverage_result "$expected_result" "$coverage_file_path"
+}
+
+function test_java_test_coverage_cc_binary() {
+  if is_gcov_missing_or_wrong_version; then
+    echo "Skipping test." && return
+  fi
+
+  ########### Setup source files and BUILD file ###########
+  cat <<EOF > BUILD
+java_test(
+    name = "NumJava",
+    srcs = ["NumJava.java"],
+    data = ["//examples/cpp:num-world"],
+    main_class = "main.NumJava",
+    use_testrunner = False,
+)
+EOF
+  cat <<EOF > NumJava.java
+package main;
+
+public class NumJava {
+  public static void main(String[] args) throws java.io.IOException {
+    Runtime.getRuntime().exec("examples/cpp/num-world");
+  }
+}
+EOF
+
+  mkdir -p examples/cpp
+
+  cat <<EOF > examples/cpp/BUILD
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "num-world",
+    srcs = ["num-world.cc"],
+    deps = [":num-lib"],
+)
+
+cc_library(
+    name = "num-lib",
+    srcs = ["num-lib.cc"],
+    hdrs = ["num-lib.h"]
+)
+EOF
+
+  cat <<EOF > examples/cpp/num-world.cc
+#include "examples/cpp/num-lib.h"
+
+using num::NumLib;
+
+int main(int argc, char** argv) {
+  NumLib lib(30);
+  int value = 42;
+  if (argc > 1) {
+    value = 43;
+  }
+  lib.add_number(value);
+  return 0;
+}
+EOF
+
+  cat <<EOF > examples/cpp/num-lib.h
+#ifndef EXAMPLES_CPP_NUM_LIB_H_
+#define EXAMPLES_CPP_NUM_LIB_H_
+
+namespace num {
+
+class NumLib {
+ public:
+  explicit NumLib(int number);
+
+  int add_number(int value);
+
+ private:
+  int number_;
+};
+
+}  // namespace num
+
+#endif  // EXAMPLES_CPP_NUM_LIB_H_
+EOF
+
+  cat <<EOF > examples/cpp/num-lib.cc
+#include "examples/cpp/num-lib.h"
+
+namespace num {
+
+NumLib::NumLib(int number) : number_(number) {
+}
+
+int NumLib::add_number(int value) {
+  return number_ + value;
+}
+
+}  // namespace num
+EOF
+
+  ########### Run bazel coverage ###########
+  bazel coverage  --test_output=all \
+      //:NumJava &>$TEST_log || fail "Coverage for //:NumJava failed"
+
+  ########### Assert coverage results. ###########
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result_num_lib="SF:examples/cpp/num-lib.cc
+FN:8,_ZN3num6NumLib10add_numberEi
+FN:5,_ZN3num6NumLibC2Ei
+FNDA:1,_ZN3num6NumLib10add_numberEi
+FNDA:1,_ZN3num6NumLibC2Ei
+FNF:2
+FNH:2
+DA:5,1
+DA:6,1
+DA:8,1
+DA:9,1
+LH:4
+LF:4
+end_of_record"
+  assert_coverage_result "$expected_result_num_lib" "$coverage_file_path"
+  local coverage_result_num_lib_header="SF:examples/cpp/num-world.cc
+FN:5,main
+FNDA:1,main
+FNF:1
+FNH:1
+DA:5,1
+DA:6,1
+DA:7,1
+DA:8,1
+DA:9,0
+DA:11,1
+DA:12,1
+LH:6
+LF:7
+end_of_record"
+  assert_coverage_result "$coverage_result_num_lib_header" "$coverage_file_path"
 }
 
 run_suite "test tests"
