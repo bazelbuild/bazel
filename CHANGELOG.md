@@ -1,3 +1,16 @@
+## Release 6.0.0-pre.20220328.1 (2022-04-01)
+
+```
+Baseline: 99ac541409be5fedfc8a615dbd440d463d447e66
+```
+
+Important changes:
+
+  - Packaging support for deploy JAR embedded JDK files (hermetic
+    Java).
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jan, Rifqi Mulya Fahmi, Thomas Zayouna, Timothe Peignier.
+
 ## Release 6.0.0-pre.20220324.1 (2022-03-29)
 
 ```
