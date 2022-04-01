@@ -14,12 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//tools/distributions:distribution_rules.bzl", "distrib_cc_binary", "distrib_jar_filegroup", "distrib_java_import")
-
 licenses(["notice"])  # Apache v2
 
 exports_files([
-    "grpc_1.31.1.patch",
     "grpc_1.41.0.patch",
     "grpc_1.41.0.win_arm64.patch"
 ])
@@ -33,45 +30,22 @@ filegroup(
     ],
 )
 
-distrib_jar_filegroup(
-    name = "bootstrap-grpc-jars",
-    srcs = [
-        "grpc-api-1.41.0.jar",
-        "grpc-auth-1.41.0.jar",
-        "grpc-context-1.41.0.jar",
-        "grpc-core-1.41.0.jar",
-        "grpc-netty-1.41.0.jar",
-        "grpc-protobuf-1.41.0.jar",
-        "grpc-protobuf-lite-1.41.0.jar",
-        "grpc-stub-1.41.0.jar",
-    ],
-    enable_distributions = ["debian"],
+# TODO: Remove after migrating non-third-party imports to use `third_party/grpc-java` directly.
+alias(
+   name = "bootstrap-grpc-jars",
+   actual = "//third_party/grpc-java:bootstrap-grpc-jars",
 )
 
-distrib_java_import(
-    name = "grpc-jar",
-    enable_distributions = ["debian"],
-    jars = [":bootstrap-grpc-jars"],
-    runtime_deps = [
-        "//third_party:netty",
-        "//third_party:opencensus-api",
-        "//third_party:perfmark-api",
-    ],
-    deps = [
-        "//third_party:guava",
-    ],
+# TODO: Remove after migrating non-third-party imports to use `third_party/grpc-java` directly.
+alias(
+   name = "grpc-jar",
+   actual = "//third_party/grpc-java:grpc-jar",
 )
 
-distrib_cc_binary(
-    name = "grpc-java-plugin",
-    srcs = [
-        "compiler/src/java_plugin/cpp/java_generator.cpp",
-        "compiler/src/java_plugin/cpp/java_generator.h",
-        "compiler/src/java_plugin/cpp/java_plugin.cpp",
-    ],
-    copts = ["-w"],
-    enable_distributions = ["debian"],
-    deps = ["//third_party/protobuf:protoc_lib"],
+# TODO: Remove after migrating non-third-party imports to use `third_party/grpc-java` directly.
+alias(
+   name = "grpc-java-plugin",
+   actual = "//third_party/grpc-java:grpc-java-plugin",
 )
 
 alias(
