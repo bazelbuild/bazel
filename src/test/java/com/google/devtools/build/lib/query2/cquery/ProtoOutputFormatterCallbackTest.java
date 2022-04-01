@@ -95,7 +95,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")");
 
     AnalysisProtosV2.ConfiguredTarget myRuleProto =
-        (Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList()));
+        Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
     List<Build.Attribute> attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
       if (!attribute.getName().equals("deps")) {
