@@ -37,6 +37,12 @@ public interface BugReporter {
     BugReport.logUnexpected(message, args);
   }
 
+  /** See {@link BugReport#logUnexpected}. */
+  @FormatMethod
+  default void logUnexpected(Exception e, @FormatString String message, Object... args) {
+    BugReport.logUnexpected(e, message, args);
+  }
+
   /** Reports an exception, see {@link BugReport#sendBugReport(String, Object...)}. */
   @FormatMethod
   default void sendBugReport(@FormatString String message, Object... args) {

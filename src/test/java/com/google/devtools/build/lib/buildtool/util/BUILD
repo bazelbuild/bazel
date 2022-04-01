@@ -98,6 +98,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

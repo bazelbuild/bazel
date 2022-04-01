@@ -245,9 +245,8 @@ public final class CompletionFunction<
         }
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
-          bugReporter.sendBugReport(
-              new IllegalStateException(
-                  "Non-source artifact had SourceArtifactException: " + input, e));
+          bugReporter.logUnexpected(
+              e, "Non-source artifact had SourceArtifactException: %s", input);
         }
         handleSourceFileError(input, e.getDetailedExitCode(), rootCausesBuilder, env, value, key);
       }

@@ -135,6 +135,20 @@ public final class BugReport {
     }
   }
 
+  /** See {@link #logUnexpected(String, Object...)}. */
+  @FormatMethod
+  public static void logUnexpected(Exception e, @FormatString String message, Object... args) {
+    if (SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST) {
+      sendBugReport(new IllegalStateException(String.format(message, args), e));
+    } else {
+      logger
+          .atWarning()
+          .atMostEvery(50, MILLISECONDS)
+          .withCause(e)
+          .logVarargs("Unexpected state: " + message, args);
+    }
+  }
+
   /**
    * Convenience method for {@link #sendBugReport(Throwable)}, sending a bug report with a default
    * {@link IllegalStateException}.

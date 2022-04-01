@@ -120,6 +120,7 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -991,6 +992,18 @@ public abstract class BuildIntegrationTestCase {
     public synchronized void sendBugReport(
         Throwable exception, List<String> args, String... values) {
       exceptions.add(exception);
+    }
+
+    @FormatMethod
+    @Override
+    public void logUnexpected(String message, Object... args) {
+      sendBugReport(new IllegalStateException(String.format(message, args)));
+    }
+
+    @FormatMethod
+    @Override
+    public void logUnexpected(Exception e, String message, Object... args) {
+      sendBugReport(new IllegalStateException(String.format(message, args), e));
     }
 
     @Override

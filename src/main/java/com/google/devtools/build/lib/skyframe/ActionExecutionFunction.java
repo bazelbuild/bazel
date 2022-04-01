@@ -1302,11 +1302,9 @@ public class ActionExecutionFunction implements SkyFunction {
       Label actionLabel,
       BugReporter bugReporter) {
     if (!input.isSourceArtifact()) {
-      bugReporter.sendBugReport(
-          new IllegalStateException(
-              String.format(
-                  "Unexpected exit code %s for generated artifact %s (%s)",
-                  detailedExitCode, input, actionLabel)));
+      bugReporter.logUnexpected(
+          "Unexpected exit code %s for generated artifact %s (%s)",
+          detailedExitCode, input, actionLabel);
     }
     return new LabelCause(
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
@@ -1533,9 +1531,8 @@ public class ActionExecutionFunction implements SkyFunction {
 
     private void handleSourceArtifactExceptionFromSkykey(SkyKey key, SourceArtifactException e) {
       if (!(key instanceof Artifact) || !((Artifact) key).isSourceArtifact()) {
-        bugReporter.sendBugReport(
-            new IllegalStateException(
-                "Unexpected SourceArtifactException for key: " + key + ", " + action, e));
+        bugReporter.logUnexpected(
+            e, "Unexpected SourceArtifactException for key: %s, %s", key, action.prettyPrint());
         missingArtifactCauses.add(
             new LabelCause(action.getOwner().getLabel(), e.getDetailedExitCode()));
         return;
