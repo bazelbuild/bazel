@@ -93,6 +93,11 @@ if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
 fi
 export GCOV_PREFIX="${COVERAGE_DIR}"
 export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
+if [[ -n "$LLVM_PROFILE_CONTINUOUS_MODE" ]]; then
+  # %c enables continuous mode but expands out to nothing, so the position
+  # within LLVM_PROFILE_FILE does not matter.
+  export LLVM_PROFILE_FILE="${LLVM_PROFILE_FILE}%c"
+fi
 
 # In coverage mode for Java, we need to merge the runtime classpath before
 # running the tests. JacocoCoverageRunner uses this merged jar in order
