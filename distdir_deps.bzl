@@ -137,6 +137,7 @@ DIST_DEPS = {
         "patches": [
             "//third_party/grpc:grpc_1.41.0.patch",
             "//third_party/grpc:grpc_1.41.0.win_arm64.patch",
+            "//third_party/grpc:grpc_1.41.0.macos_compile.patch",
         ],
         "used_in": [
             "additional_distfiles",

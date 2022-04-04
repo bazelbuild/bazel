@@ -1,0 +1,38 @@
+diff -Nur before/bazel/grpc_deps.bzl after/bazel/grpc_deps.bzl
+--- before/bazel/grpc_deps.bzl	2021-09-25 03:33:41.000000000 +0100
++++ after/bazel/grpc_deps.bzl	2022-04-04 12:19:10.000000000 +0100
+@@ -289,6 +289,9 @@
+                 "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+                 "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+             ],
++            patches = ["@com_github_grpc_grpc//third_party:absl_macos_compilefix.patch"],
++            patch_args = ["-p1"],
++
+         )
+ 
+     if "bazel_toolchains" not in native.existing_rules():
+diff -Nur before/third_party/BUILD after/third_party/BUILD
+--- before/third_party/BUILD	2021-09-25 03:33:41.000000000 +0100
++++ after/third_party/BUILD	2022-04-04 12:17:15.000000000 +0100
+@@ -12,4 +12,5 @@
+     "futures.BUILD",
+     "libuv.BUILD",
+     "protobuf.patch",
++    "absl_macos_compilefix.patch",
+ ])
+diff -Nur before/third_party/absl_macos_compilefix.patch after/third_party/absl_macos_compilefix.patch
+--- before/third_party/absl_macos_compilefix.patch	1970-01-01 01:00:00.000000000 +0100
++++ after/third_party/absl_macos_compilefix.patch	2022-04-04 12:15:20.000000000 +0100
+@@ -0,0 +1,12 @@
++diff --git a/absl/functional/function_ref.h b/absl/functional/function_ref.h
++index 6e03ac2e..5790a652 100644
++--- a/absl/functional/function_ref.h
+++++ b/absl/functional/function_ref.h
++@@ -122,6 +122,7 @@ class FunctionRef<R(Args...)> {
++   // To help prevent subtle lifetime bugs, FunctionRef is not assignable.
++   // Typically, it should only be used as an argument type.
++   FunctionRef& operator=(const FunctionRef& rhs) = delete;
+++  FunctionRef(const FunctionRef& rhs) = default;
++ 
++   // Call the underlying object.
++   R operator()(Args... args) const {
