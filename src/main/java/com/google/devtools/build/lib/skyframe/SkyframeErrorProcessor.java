@@ -166,8 +166,7 @@ public final class SkyframeErrorProcessor {
     // turns out to be with execution.
     boolean hasAnalysisError = true;
     ViewCreationFailedException noKeepGoingAnalysisExceptionAspect = null;
-    DetailedExitCode detailedExitCode = null;
-    Throwable undetailedCause = null;
+    DetailedExitCode representativeExecutionDetailedExitCode = null;
     Map<ActionAnalysisMetadata, ConflictException> actionConflicts = new HashMap<>();
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       SkyKey errorKey = getErrorKey(errorEntry);
@@ -275,17 +274,21 @@ public final class SkyframeErrorProcessor {
         actionConflicts.putAll(tlce.getTransitiveActionConflicts());
         continue;
       } else if (isExecutionException(cause)) {
-        detailedExitCode =
+        DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(cause);
+        if (detailedExitCode == null) {
+          detailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
+        }
+        representativeExecutionDetailedExitCode =
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
+                representativeExecutionDetailedExitCode, detailedExitCode);
         rootCauses =
             cause instanceof ActionExecutionException
                 ? ((ActionExecutionException) cause).getRootCauses()
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
         hasAnalysisError = false;
       } else {
-        // TODO(ulfjack): Report something!
-        undetailedCause = cause;
+        BugReport.logUnexpected(
+            cause, "Unexpected cause encountered while evaluating: %s", errorKey);
       }
 
       if (!inTest) {
@@ -325,12 +328,11 @@ public final class SkyframeErrorProcessor {
       throw noKeepGoingAnalysisExceptionAspect;
     }
 
-    if (includeExecutionPhase && detailedExitCode == null) {
-      detailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, undetailedCause);
-    }
-
     return ErrorProcessingResult.create(
-        hasLoadingError, hasAnalysisError, ImmutableMap.copyOf(actionConflicts), detailedExitCode);
+        hasLoadingError,
+        hasAnalysisError,
+        ImmutableMap.copyOf(actionConflicts),
+        representativeExecutionDetailedExitCode);
   }
 
   private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
@@ -631,14 +633,14 @@ public final class SkyframeErrorProcessor {
 
   private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCause(
       EvaluationResult<?> result, Throwable undetailedCause) {
-    // TODO(b/227660368): These warning logs should be a bug report, but tests currently fail.
     if (undetailedCause == null) {
-      logger.atWarning().log("No exceptions found despite error in %s", result);
+      BugReport.sendBugReport("No exceptions found despite error in %s", result);
       return createDetailedExecutionExitCode(
           "keep_going execution failed without an action failure",
           Execution.Code.NON_ACTION_EXECUTION_FAILURE);
     }
-    logger.atWarning().withCause(undetailedCause).log("No detailed exception found in %s", result);
+    BugReport.sendBugReport(
+        new IllegalStateException("No detailed exception found in " + result, undetailedCause));
     return createDetailedExecutionExitCode(
         "keep_going execution failed without an action failure: "
             + undetailedCause.getMessage()
