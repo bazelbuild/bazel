@@ -435,7 +435,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.queryTransitivePackagePreloader =
         new QueryTransitivePackagePreloader(
-            () -> memoizingEvaluator, this::newEvaluationContextBuilder);
+            () -> memoizingEvaluator, this::newEvaluationContextBuilder, bugReporter);
     this.packageManager =
         new SkyframePackageManager(
             new SkyframePackageLoader(),

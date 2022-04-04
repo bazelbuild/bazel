@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.common;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -42,12 +44,15 @@ import javax.annotation.Nullable;
 public class QueryTransitivePackagePreloader {
   private final Supplier<MemoizingEvaluator> memoizingEvaluatorSupplier;
   private final Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier;
+  private final BugReporter bugReporter;
 
   public QueryTransitivePackagePreloader(
       Supplier<MemoizingEvaluator> memoizingEvaluatorSupplier,
-      Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier) {
+      Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier,
+      BugReporter bugReporter) {
     this.memoizingEvaluatorSupplier = memoizingEvaluatorSupplier;
     this.evaluationContextBuilderSupplier = evaluationContextBuilderSupplier;
+    this.bugReporter = bugReporter;
   }
 
   /**
@@ -60,9 +65,21 @@ public class QueryTransitivePackagePreloader {
       QueryExpression caller,
       String operation)
       throws QueryException {
+    maybeThrowQueryExceptionForResultWithError(
+        result, roots, caller, operation, BugReporter.defaultInstance());
+  }
+
+  @VisibleForTesting
+  static void maybeThrowQueryExceptionForResultWithError(
+      EvaluationResult<SkyValue> result,
+      Iterable<? extends SkyKey> roots,
+      QueryExpression caller,
+      String operation,
+      BugReporter bugReporter)
+      throws QueryException {
     Exception exception = result.getCatastrophe();
     if (exception != null) {
-      throw throwException(exception, caller, operation, result);
+      throw throwException(exception, caller, operation, result, bugReporter);
     }
 
     // Catastrophe not present: look at top-level keys now.
@@ -79,7 +96,7 @@ public class QueryTransitivePackagePreloader {
     }
 
     if (exception != null) {
-      throw throwException(exception, caller, operation, result);
+      throw throwException(exception, caller, operation, result, bugReporter);
     }
     Preconditions.checkState(
         foundCycle, "No cycle or exception found in result with error: %s %s", result, roots);
@@ -89,11 +106,12 @@ public class QueryTransitivePackagePreloader {
       Exception exception,
       QueryExpression caller,
       String operation,
-      EvaluationResult<SkyValue> resultForDebugging)
+      EvaluationResult<SkyValue> resultForDebugging,
+      BugReporter bugReporter)
       throws QueryException {
     FailureDetails.FailureDetail failureDetail;
     if (!(exception instanceof DetailedException)) {
-      BugReport.sendBugReport(
+      bugReporter.sendBugReport(
           new IllegalStateException(
               "Non-detailed exception found for " + operation + ": " + resultForDebugging,
               exception));
@@ -132,9 +150,25 @@ public class QueryTransitivePackagePreloader {
             .build();
     EvaluationResult<SkyValue> result =
         memoizingEvaluatorSupplier.get().evaluate(valueNames, evaluationContext);
-    if (callerForError != null && result.hasError()) {
-      maybeThrowQueryExceptionForResultWithError(
-          result, labelsToVisit, callerForError, "preloading transitive closure");
+    if (!result.hasError()) {
+      return;
     }
+    if (callerForError != null) {
+      maybeThrowQueryExceptionForResultWithError(
+          result, labelsToVisit, callerForError, "preloading transitive closure", bugReporter);
+      return;
+    }
+    if (keepGoing && result.getCatastrophe() == null) {
+      // keep-going must have completed every in-flight node if there was no catastrophe.
+      return;
+    }
+
+    // At the beginning of every Skyframe evaluation, the evaluator first deletes nodes that were
+    // incomplete in the previous evaluation. The query may do later Skyframe evaluations (possibly
+    // because this pre-evaluation failed!), so we prevent the first such evaluation from doing
+    // unexpected deletions, which can lead to subtle threadpool issues.
+    //
+    // This is unnecessary in case there is a cycle, but not worth optimizing for.
+    memoizingEvaluatorSupplier.get().evaluate(ImmutableList.of(), evaluationContext);
   }
 }
