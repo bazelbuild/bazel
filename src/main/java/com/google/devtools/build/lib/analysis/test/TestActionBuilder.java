@@ -54,7 +54,9 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -94,10 +96,12 @@ public final class TestActionBuilder {
   private InstrumentedFilesInfo instrumentedFiles;
   private int explicitShardCount;
   private final Map<String, String> extraEnv;
+  private final Set<String> extraInheritedEnv;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.extraEnv = new TreeMap<>();
+    this.extraInheritedEnv = new TreeSet<>();
     this.additionalTools = new ImmutableList.Builder<>();
   }
 
@@ -144,6 +148,11 @@ public final class TestActionBuilder {
 
   public TestActionBuilder addExtraEnv(Map<String, String> extraEnv) {
     this.extraEnv.putAll(extraEnv);
+    return this;
+  }
+
+  public TestActionBuilder addExtraInheritedEnv(List<String> extraInheritedEnv) {
+    this.extraInheritedEnv.addAll(extraInheritedEnv);
     return this;
   }
 
@@ -402,7 +411,9 @@ public final class TestActionBuilder {
                 coverageArtifact,
                 coverageDirectory,
                 testProperties,
-                runfilesSupport.getActionEnvironment().addFixedVariables(extraTestEnv),
+                runfilesSupport
+                    .getActionEnvironment()
+                    .addVariables(extraTestEnv, extraInheritedEnv),
                 executionSettings,
                 shard,
                 run,

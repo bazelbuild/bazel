@@ -615,7 +615,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
     // requires first updating all subclasses and callers to actually handle environments correctly,
     // so it's not a small change.
-    return env.getFixedEnv().toMap();
+    return env.getFixedEnv();
   }
 
   @Override

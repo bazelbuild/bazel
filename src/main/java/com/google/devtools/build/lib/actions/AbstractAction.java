@@ -699,7 +699,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Dict<String, String> getEnv() {
-    return Dict.immutableCopyOf(env.getFixedEnv().toMap());
+    return Dict.immutableCopyOf(env.getFixedEnv());
   }
 
   @Override
