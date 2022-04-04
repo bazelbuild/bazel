@@ -45,8 +45,8 @@ import java.util.TreeSet;
 public final class ActionEnvironment {
 
   /**
-   * A map of environment variables together with a list of variables to inherit from the shell
-   * environment.
+   * A map of environment variables and their values together with a list of variables whose values
+   * should be inherited from the client environment.
    */
   public interface EnvironmentVariables {
 
@@ -77,7 +77,7 @@ public final class ActionEnvironment {
 
   /**
    * An {@link EnvironmentVariables} that combines variables from two different environments without
-   * allocation a new map.
+   * allocating a new map.
    */
   static class CompoundEnvironmentVariables implements EnvironmentVariables {
 
@@ -167,8 +167,6 @@ public final class ActionEnvironment {
    * given map. Returns these two parts as a new {@link ActionEnvironment} instance.
    */
   public static ActionEnvironment split(Map<String, String> env) {
-    // Care needs to be taken that the two sets don't overlap - the order in which the two parts are
-    // combined later is undefined.
     Map<String, String> fixedEnv = new TreeMap<>();
     Set<String> inheritedEnv = new TreeSet<>();
     for (Map.Entry<String, String> entry : env.entrySet()) {
@@ -189,9 +187,11 @@ public final class ActionEnvironment {
   }
 
   /**
-   * Creates a new action environment. The order in which the environments are combined is
-   * undefined, so callers need to take care that the key set of the {@code fixedEnv} map and the
-   * set of {@code inheritedEnv} elements are disjoint.
+   * Creates a new action environment. If an environment variable is contained in both {@link
+   * EnvironmentVariables#getFixedEnvironment()} and {@link
+   * EnvironmentVariables#getInheritedEnvironment()}, the result of {@link
+   * ActionEnvironment#resolve(Map, Map)} will contain the value inherited from the client
+   * environment.
    */
   private static ActionEnvironment create(EnvironmentVariables vars) {
     if (vars.isEmpty()) {
@@ -200,6 +200,12 @@ public final class ActionEnvironment {
     return new ActionEnvironment(vars);
   }
 
+  /**
+   * Creates a new action environment. If an environment variable is contained both as a key in
+   * {@code fixedEnv} and in {@code inheritedEnv}, the result of {@link
+   * ActionEnvironment#resolve(Map, Map)} will contain the value inherited from the client
+   * environment.
+   */
   public static ActionEnvironment create(
       Map<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
     return ActionEnvironment.create(SimpleEnvironmentVariables.create(fixedEnv, inheritedEnv));
@@ -227,7 +233,11 @@ public final class ActionEnvironment {
         CompoundEnvironmentVariables.create(fixedVars, inheritedVars, vars));
   }
 
-  /** Returns the combined size of the fixed and inherited environments. */
+  /**
+   * Returns an upper bound on the combined size of the fixed and inherited environments. A call to
+   * {@link ActionEnvironment#resolve(Map, Map)} may add less entries than this number if
+   * environment variables are contained in both the fixed and the inherited environment.
+   */
   public int size() {
     return vars.size();
   }
