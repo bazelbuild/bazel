@@ -58,7 +58,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setToolchainTypes(ImmutableSet.of(testToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
@@ -110,7 +110,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setToolchainTypes(ImmutableSet.of(testToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
@@ -152,14 +152,12 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setToolchainTypes(ImmutableSet.of(testToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
-                    .put(
-                        testToolchainTypeInfo,
-                        Label.parseAbsoluteUnchecked("//foo:not_a_toolchain"))
+                    .put(testToolchainTypeInfo, Label.parseAbsoluteUnchecked("//foo:not_a_toolchain"))
                     .build())
             .build();
 
@@ -216,7 +214,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setToolchainTypes(ImmutableSet.of(variableToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(variableToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(variableToolchainTypeLabel, variableToolchainTypeInfo))
             .setToolchainTypeToResolved(
