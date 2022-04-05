@@ -398,8 +398,17 @@ public class JacocoCoverageRunner {
         field.setAccessible(true);
         Unsafe unsafe = (Unsafe) field.get(null);
 
-        // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
-        Field ucpField = classLoader.getClass().getDeclaredField("ucp");
+        Field ucpField;
+        try {
+          // Java 9-15:
+          // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
+          ucpField = classLoader.getClass().getDeclaredField("ucp");
+        } catch (NoSuchFieldException e) {
+          // Java 16+:
+          // jdk.internal.loader.BuiltinClassLoader.ucp
+          // https://github.com/openjdk/jdk/commit/03a4df0acd103702e52dcd01c3f03fda4d7b04f5#diff-32cc12c0e3172fe5f2da1f65a75fa1cb920c39040d06323c83ad2c4d84e095aaL147
+          ucpField = classLoader.getClass().getSuperclass().getDeclaredField("ucp");
+        }
         long ucpFieldOffset = unsafe.objectFieldOffset(ucpField);
         Object ucpObject = unsafe.getObject(classLoader, ucpFieldOffset);
 
