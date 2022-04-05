@@ -167,17 +167,18 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
-    "abseil-cpp": {
-        "archive": "997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
-        "sha256": "35f22ef5cb286f09954b7cc4c85b5a3f6221c9d4df6b8c4a1e9d399555b366ee",
+    "com_google_absl": {
+        "archive": "20211102.0.tar.gz",
+        "sha256": "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
         "urls": [
-            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
-            "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "strip_prefix": "abseil-cpp-20211102.0",
     },
     "zstd-jni": {
         "archive": "v1.5.0-4.zip",
