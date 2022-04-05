@@ -625,6 +625,12 @@ dist_http_archive(
     name = "com_github_grpc_grpc",
 )
 
+# Override the abseil-cpp version defined in grpc_deps(), which doesn't work on latest macOS
+# Fixes https://github.com/bazelbuild/bazel/issues/15168
+dist_http_archive(
+    name = "com_google_absl",
+)
+
 # Projects using gRPC as an external dependency must call both grpc_deps() and
 # grpc_extra_deps().
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
