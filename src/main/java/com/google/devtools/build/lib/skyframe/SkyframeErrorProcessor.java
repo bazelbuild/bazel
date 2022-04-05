@@ -628,7 +628,7 @@ public final class SkyframeErrorProcessor {
     String message =
         "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
     throw new BuildFailedException(
-        message, createDetailedExecutionExitCode(message, UNKONW_EXECUTION));
+        message, createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION));
   }
 
   private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCause(
@@ -652,7 +652,7 @@ public final class SkyframeErrorProcessor {
 
   private static final DetailedExitCode CYCLE_CODE =
       createDetailedExecutionExitCode("cycle found during execution", Execution.Code.CYCLE);
-  private static final Execution UNKONW_EXECUTION =
+  private static final Execution UNKNOWN_EXECUTION =
       Execution.newBuilder().setCode(Execution.Code.UNEXPECTED_EXCEPTION).build();
 
   private static DetailedExitCode createDetailedExecutionExitCode(
