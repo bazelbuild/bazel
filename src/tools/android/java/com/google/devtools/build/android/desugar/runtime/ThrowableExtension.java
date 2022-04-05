@@ -175,7 +175,7 @@ public final class ThrowableExtension {
    * The strategy to desugar try-with-resources statements. A strategy handles the behavior of an
    * exception in terms of suppressed exceptions and stack trace printing.
    */
-  abstract static class AbstractDesugaringStrategy {
+  public abstract static class AbstractDesugaringStrategy {
 
     protected static final Throwable[] EMPTY_THROWABLE_ARRAY = new Throwable[0];
 
@@ -191,7 +191,7 @@ public final class ThrowableExtension {
   }
 
   /** This strategy just delegates all the method calls to java.lang.Throwable. */
-  static final class ReuseDesugaringStrategy extends AbstractDesugaringStrategy {
+  public static final class ReuseDesugaringStrategy extends AbstractDesugaringStrategy {
 
     @Override
     public void addSuppressed(Throwable receiver, Throwable suppressed) {
@@ -220,7 +220,7 @@ public final class ThrowableExtension {
   }
 
   /** This strategy mimics the behavior of suppressed exceptions with a map. */
-  static final class MimicDesugaringStrategy extends AbstractDesugaringStrategy {
+  public static final class MimicDesugaringStrategy extends AbstractDesugaringStrategy {
 
     static final String SUPPRESSED_PREFIX = "Suppressed: ";
     private final ConcurrentWeakIdentityHashMap map = new ConcurrentWeakIdentityHashMap();
@@ -304,7 +304,7 @@ public final class ThrowableExtension {
   }
 
   /** A hash map, that is concurrent, weak-key, and identity-hashing. */
-  static final class ConcurrentWeakIdentityHashMap {
+  public static final class ConcurrentWeakIdentityHashMap {
 
     private final ConcurrentHashMap<WeakKey, List<Throwable>> map =
         new ConcurrentHashMap<>(16, 0.75f, 10);
