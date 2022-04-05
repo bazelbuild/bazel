@@ -163,8 +163,10 @@ distrib_java_import(
     jars = [
         "api_client/google-api-client-1.22.0.jar",
         "api_client/google-api-client-jackson2-1.22.0.jar",
+        "api_client/google-api-client-gson-1.22.0.jar",
         "api_client/google-http-client-1.22.0-SNAPSHOT.jar",
         "api_client/google-http-client-jackson2-1.22.0.jar",
+        "api_client/google-http-client-gson-1.22.0.jar",
     ],
     runtime_deps = [
         ":jackson2",
