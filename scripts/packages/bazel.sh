@@ -170,7 +170,7 @@ fi
 # (defaults to tools/bazel), we assume that they know what they're doing and
 # have their own way of versioning Bazel. Thus, we don't have to print our
 # helpful messages or error out in case we couldn't find a binary.
-BAZEL_WRAPPER=${"$BAZEL_WRAPPER":-"tools/bazel"}
+BAZEL_WRAPPER=${BAZEL_WRAPPER:-"tools/bazel"}
 readonly wrapper="${workspace_dir}/${BAZEL_WRAPPER}"
 if [[ -x "$wrapper" && -f "$wrapper" ]]; then
   export BAZEL_REAL

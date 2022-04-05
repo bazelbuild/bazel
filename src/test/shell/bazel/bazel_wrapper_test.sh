@@ -256,6 +256,26 @@ EOF
   expect_log "My args: build //src:bazel"
 }
 
+test_bazel_wrapper_envvar() {
+  setup_mock
+
+  mkdir tooling
+  cat > tooling/bazel <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "Hello from the wrapper tooling/bazel!"
+echo "BAZEL_REAL = ${BAZEL_REAL}"
+echo "My args: $@"
+exit 0
+EOF
+  chmod +x tooling/bazel
+
+  BAZEL_WRAPPER="tooling/bazel" USE_BAZEL_VERSION="3.0.0" ../bin/bazel build //src:bazel &> "$TEST_log"
+  expect_log "Hello from the wrapper tooling/bazel!"
+  expect_log "BAZEL_REAL = .*/bin/bazel-3.0.0"
+  expect_log "My args: build //src:bazel"
+}
+
 test_gracefully_handles_bogus_bazelversion() {
   setup_mock
 
