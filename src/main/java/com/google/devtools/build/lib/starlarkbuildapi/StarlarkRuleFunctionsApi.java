@@ -334,13 +334,14 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "Starlark rules. This flag may be removed in the future."),
         @Param(
             name = TOOLCHAINS_PARAM,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
             named = true,
             defaultValue = "[]",
             doc =
-                "If set, the set of toolchains this rule requires. Toolchains will be "
-                    + "found by checking the current platform, and provided to the rule "
-                    + "implementation via <code>ctx.toolchain</code>."),
+                "If set, the set of toolchains this rule requires. The list can contain String,"
+                    + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
+                    + " will be found by checking the current platform, and provided to the rule"
+                    + " implementation via <code>ctx.toolchain</code>."),
         @Param(
             name = "incompatible_use_toolchain_transition",
             defaultValue = "False",
@@ -610,13 +611,14 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in host configuration."),
         @Param(
             name = TOOLCHAINS_PARAM,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
             named = true,
             defaultValue = "[]",
             doc =
-                "If set, the set of toolchains this rule requires. Toolchains will be "
-                    + "found by checking the current platform, and provided to the rule "
-                    + "implementation via <code>ctx.toolchain</code>."),
+                "If set, the set of toolchains this rule requires. The list can contain String,"
+                    + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
+                    + " will be found by checking the current platform, and provided to the rule"
+                    + " implementation via <code>ctx.toolchain</code>."),
         @Param(
             name = "incompatible_use_toolchain_transition",
             defaultValue = "False",
@@ -690,11 +692,13 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       parameters = {
         @Param(
             name = TOOLCHAINS_PARAM,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
             named = true,
             positional = false,
             defaultValue = "[]",
-            doc = "The set of toolchains this execution group requires."),
+            doc =
+                "The set of toolchains this execution group requires. The list can contain String,"
+                    + " Label, or StarlarkToolchainTypeApi objects, in any combination."),
         @Param(
             name = EXEC_COMPATIBLE_WITH_PARAM,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},

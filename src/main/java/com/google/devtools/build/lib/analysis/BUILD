@@ -1837,6 +1837,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:starlark_toolchain_type_requirement",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 

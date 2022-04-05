@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.StarlarkDefinedAspectSubject.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -25,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -656,15 +656,26 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testAspectAddToolchain() throws Exception {
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        ev, "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
+        ev,
+        "def _impl(ctx): pass",
+        "a1 = aspect(_impl,",
+        "    toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "    ],",
+        ")");
     StarlarkDefinedAspect a = (StarlarkDefinedAspect) ev.lookup("a1");
-    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
-    assertThat(a.getToolchainTypes())
-        .containsExactly(
-            ToolchainTypeRequirement.create(
-                Label.parseAbsoluteUnchecked("//test:my_toolchain_type")));
+    assertThat(a).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(a).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(a).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(a).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(a).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(a).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(a).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(a).toolchainType("//test:my_toolchain_type4").isMandatory();
   }
 
   @Test
@@ -2299,25 +2310,60 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRuleAddToolchain() throws Exception {
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "def impl(ctx): return None",
-        "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
-    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+        "r1 = rule(impl,",
+        "    toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "    ],",
+        ")");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c).hasToolchainType("//test:my_toolchain_type");
+    assertThat(c).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(c).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(c).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(c).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(c).toolchainType("//test:my_toolchain_type4").isMandatory();
+  }
+
+  @Test
+  public void testRuleAddToolchain_duplicate() throws Exception {
+    evalAndExport(
+        ev,
+        "def impl(ctx): return None",
+        "r1 = rule(impl,",
+        "    toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type1'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type2', mandatory = False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type2', mandatory = True),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory = False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory = False),",
+        "    ],",
+        ")");
+
+    RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(c).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(c).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(c).toolchainType("//test:my_toolchain_type3").isOptional();
   }
 
   @Test
   public void testRuleAddExecutionConstraints() throws Exception {
     registerDummyStarlarkFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "r1 = rule(",
         "  implementation = impl,",
-        "  toolchains=['//test:my_toolchain_type'],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
@@ -2330,28 +2376,37 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testRuleAddExecGroup() throws Exception {
     registerDummyStarlarkFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "plum = rule(",
         "  implementation = impl,",
         "  exec_groups = {",
         "    'group': exec_group(",
-        "      toolchains=['//test:my_toolchain_type'],",
+        "      toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "      ],",
         "      exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         "    ),",
         "  },",
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getToolchainTypes()).isEmpty();
-    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
-    assertThat(plum.getExecGroups().get("group")).hasToolchainType("//test:my_toolchain_type");
-    assertThat(plum.getExecGroups().get("group"))
-        .toolchainType("//test:my_toolchain_type")
-        .isMandatory();
+    ExecGroup execGroup = plum.getExecGroups().get("group");
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type4").isMandatory();
+
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
-    assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv1");
-    assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv2");
+    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test
@@ -2390,17 +2445,27 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateExecGroup() throws Exception {
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "group = exec_group(",
-        "  toolchains=['//test:my_toolchain_type'],",
+        "  toolchains=[",
+        "    '//test:my_toolchain_type1',",
+        "    config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "    config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "    config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "  ],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
-    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
-    assertThat(group).hasToolchainType("//test:my_toolchain_type");
-    assertThat(group).toolchainType("//test:my_toolchain_type").isMandatory();
+    assertThat(group).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(group).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(group).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(group).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(group).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(group).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(group).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(group).toolchainType("//test:my_toolchain_type4").isMandatory();
+
     assertThat(group).hasExecCompatibleWith("//constraint:cv1");
     assertThat(group).hasExecCompatibleWith("//constraint:cv2");
   }
