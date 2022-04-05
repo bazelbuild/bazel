@@ -18,7 +18,11 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.Path;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Date;
 import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream;
@@ -64,10 +68,8 @@ public class ArFunction implements Decompressor {
                         ByteStreams.copy(arStream, out);
                     }
                     filePath.chmod(entry.getMode());
-
-                    Date lastModified = entry.getLastModifiedDate();
-                    filePath.setLastModifiedTime(lastModified.getTime());
-                    }
+                    filePath.setLastModifiedTime(entry.getLastModified());
+                }
                 if (Thread.interrupted()) {
                     throw new InterruptedException();
                 }
