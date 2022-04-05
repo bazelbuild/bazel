@@ -1,4 +1,15 @@
 upper_tabs:
+- name: Versions
+  menu:
+  - column:
+    - links:
+      - include: /versions/_toc.yaml
+  - column:
+    - links:
+      - label: "Nightly"
+        path: /
+      - label: "More…"
+        path: /versions/
 - name: Getting started
   heading: Getting started with Bazel
   lower_tabs:
