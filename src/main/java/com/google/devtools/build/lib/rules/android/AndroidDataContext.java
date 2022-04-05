@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Wraps common tools and settings used for working with Android assets, resources, and manifests.
@@ -205,6 +206,11 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public AndroidConfiguration getAndroidConfig() {
     return ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
+  }
+
+  @Nullable
+  public BazelAndroidConfiguration getBazelAndroidConfig() {
+    return ruleContext.getConfiguration().getFragment(BazelAndroidConfiguration.class);
   }
 
   /** Indicates whether Busybox actions should be passed the "--debug" flag */
