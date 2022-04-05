@@ -1,3 +1,5 @@
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
 licenses(["notice"])
 
 exports_files(
@@ -6,12 +8,23 @@ exports_files(
         "versions/_toc.yaml",
     ],
     visibility = [
+        "//scripts/docs:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/packages:__pkg__",
     ],
 )
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//:__pkg__"],
+    srcs = glob(["**"], exclude=["**/BUILD"]),
+    visibility = [
+        "//:__pkg__",
+        "//scripts/docs:__pkg__",
+    ],
+)
+
+pkg_tar(
+    name = "docs",
+    srcs = [":srcs"],
+    strip_prefix = "/site/en",
+    visibility = ["//scripts/docs:__pkg__"],
 )

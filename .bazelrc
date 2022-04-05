@@ -36,3 +36,5 @@ build --tool_java_language_version=11
 
 # User-specific .bazelrc
 try-import user.bazelrc
+
+build:docs --workspace_status_command=scripts/docs/get_workspace_status.sh

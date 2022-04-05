@@ -297,9 +297,11 @@ http_archive(
     build_file_content = """
 java_library(
     name = "snakeyaml",
-    testonly = True,
     srcs = glob(["src/main/**/*.java"]),
-    visibility = ["@com_google_testparameterinjector//:__pkg__"],
+    visibility = [
+        "@io_bazel//src/main/java/com/google/devtools/build/docgen:__pkg__",
+        "@com_google_testparameterinjector//:__pkg__",
+    ],
 )
 """,
     sha256 = "fd0e0cc6c5974fc8f08be3a15fb4a59954c7dd958b5b68186a803de6420b6e40",

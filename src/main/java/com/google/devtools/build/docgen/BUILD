@@ -16,9 +16,11 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+_TOC_SRCS = ["TableOfContentsOptions.java", "TableOfContentsUpdater.java"]
+
 java_library(
     name = "docgen_javalib",
-    srcs = glob(["**/*.java"]),
+    srcs = glob(["**/*.java"], exclude = _TOC_SRCS),
     resources = [":template_files"],
     runtime_deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
@@ -82,6 +84,18 @@ java_binary(
         "//src/main/protobuf:builtin_java_proto",
         "//third_party:guava",
     ],
+)
+
+java_binary(
+    name = "toc_updater",
+    srcs = _TOC_SRCS,
+    main_class = "com.google.devtools.build.docgen.TableOfContentsUpdater",
+    deps = [
+        ":docgen_javalib",
+        "//src/main/java/com/google/devtools/common/options",
+        "@org_snakeyaml//:snakeyaml",
+    ],
+    visibility = ["//scripts/docs:__pkg__"],
 )
 
 filegroup(
