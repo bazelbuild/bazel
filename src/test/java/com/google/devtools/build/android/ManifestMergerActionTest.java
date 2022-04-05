@@ -159,7 +159,8 @@ public class ManifestMergerActionTest {
             false, /* isLibrary */
             ImmutableMap.of("applicationId", "com.google.android.apps.testapp"),
             "", /* custom_package */
-            mergedManifest);
+            mergedManifest,
+            /* mergeManifestPermissions */ false);
     ManifestMergerAction.main(args.toArray(new String[0]));
 
     assertThat(
@@ -167,6 +168,64 @@ public class ManifestMergerActionTest {
             .join(Files.readAllLines(mergedManifest, UTF_8))
             .replaceAll("\\s+", " ")
             .trim())
+        .isEqualTo(
+            Joiner.on(" ")
+                .join(Files.readAllLines(expectedManifest, UTF_8))
+                .replaceAll("\\s+", " ")
+                .trim());
+  }
+
+  @Test
+  public void testMergeWithMergePermissionsEnabled() throws Exception {
+    // Largely copied from testMerge() above. Perhaps worth combining the two test methods into one
+    // method in the future?
+    String dataDir =
+        Paths.get(System.getenv("TEST_WORKSPACE"), System.getenv("TEST_BINARY"))
+            .resolveSibling("testing/manifestmerge")
+            .toString()
+            .replace("\\", "/");
+
+    final Path mergerManifest = rlocation(dataDir + "/merger/AndroidManifest.xml");
+    final Path mergeeManifestOne = rlocation(dataDir + "/mergeeOne/AndroidManifest.xml");
+    final Path mergeeManifestTwo = rlocation(dataDir + "/mergeeTwo/AndroidManifest.xml");
+    assertThat(mergerManifest.toFile().exists()).isTrue();
+    assertThat(mergeeManifestOne.toFile().exists()).isTrue();
+    assertThat(mergeeManifestTwo.toFile().exists()).isTrue();
+
+    // The following code retrieves the path of the only AndroidManifest.xml in the
+    // expected-merged-permission/manifests directory. Unfortunately, this test runs
+    // internally and externally and the files have different names.
+    final File expectedManifestDirectory =
+        mergerManifest.getParent().resolveSibling("expected-merged-permissions").toFile();
+    assertThat(expectedManifestDirectory.exists()).isTrue();
+    final String[] debug =
+        expectedManifestDirectory.list(new PatternFilenameFilter(".*AndroidManifest\\.xml$"));
+    assertThat(debug).isNotNull();
+    final File[] expectedManifestDirectoryManifests =
+        expectedManifestDirectory.listFiles((File dir, String name) -> true);
+    assertThat(expectedManifestDirectoryManifests).isNotNull();
+    assertThat(expectedManifestDirectoryManifests).hasLength(1);
+    final Path expectedManifest = expectedManifestDirectoryManifests[0].toPath();
+
+    Files.createDirectories(working.resolve("output"));
+    final Path mergedManifest = working.resolve("output/mergedManifest.xml");
+
+    List<String> args =
+        generateArgs(
+            mergerManifest,
+            ImmutableMap.of(mergeeManifestOne, "mergeeOne", mergeeManifestTwo, "mergeeTwo"),
+            false, /* isLibrary */
+            ImmutableMap.of("applicationId", "com.google.android.apps.testapp"),
+            "", /* custom_package */
+            mergedManifest,
+            /* mergeManifestPermissions */ true);
+    ManifestMergerAction.main(args.toArray(new String[0]));
+
+    assertThat(
+            Joiner.on(" ")
+                .join(Files.readAllLines(mergedManifest, UTF_8))
+                .replaceAll("\\s+", " ")
+                .trim())
         .isEqualTo(
             Joiner.on(" ")
                 .join(Files.readAllLines(expectedManifest, UTF_8))
@@ -198,8 +257,15 @@ public class ManifestMergerActionTest {
         .getManifest();
 
     // libFoo manifest merging
-    List<String> args = generateArgs(libFooManifest, ImmutableMap.<Path, String>of(), true,
-        ImmutableMap.<String, String>of(), "", libFooOutput);
+    List<String> args =
+        generateArgs(
+            libFooManifest,
+            ImmutableMap.<Path, String>of(),
+            true,
+            ImmutableMap.<String, String>of(),
+            "",
+            libFooOutput,
+            false);
     ManifestMergerAction.main(args.toArray(new String[0]));
     assertThat(Joiner.on(" ")
         .join(Files.readAllLines(libFooOutput, UTF_8))
@@ -211,8 +277,15 @@ public class ManifestMergerActionTest {
             + "</manifest>");
 
     // libBar manifest merging
-    args = generateArgs(libBarManifest, ImmutableMap.<Path, String>of(), true,
-        ImmutableMap.<String, String>of(), "com.google.libbar", libBarOutput);
+    args =
+        generateArgs(
+            libBarManifest,
+            ImmutableMap.<Path, String>of(),
+            true,
+            ImmutableMap.<String, String>of(),
+            "com.google.libbar",
+            libBarOutput,
+            false);
     ManifestMergerAction.main(args.toArray(new String[0]));
     assertThat(Joiner.on(" ")
         .join(Files.readAllLines(libBarOutput, UTF_8))
@@ -235,7 +308,8 @@ public class ManifestMergerActionTest {
                 "applicationId", "com.google.android.app",
                 "foo", "this \\\\: is \"a, \"bad string"),
             /* customPackage= */ "",
-            binaryOutput);
+            binaryOutput,
+            /* mergeManifestPermissions */ false);
     ManifestMergerAction.main(args.toArray(new String[0]));
     assertThat(Joiner.on(" ")
         .join(Files.readAllLines(binaryOutput, UTF_8))
@@ -255,14 +329,26 @@ public class ManifestMergerActionTest {
       boolean library,
       Map<String, String> manifestValues,
       String customPackage,
-      Path manifestOutput) {
-    return ImmutableList.of(
+      Path manifestOutput,
+      boolean mergeManifestPermissions) {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    builder.add(
         "--manifest", manifest.toString(),
-        "--mergeeManifests", mapToDictionaryString(mergeeManifests),
-        "--mergeType", library ? "LIBRARY" : "APPLICATION",
-        "--manifestValues", mapToDictionaryString(manifestValues),
-        "--customPackage", customPackage,
-        "--manifestOutput", manifestOutput.toString());
+        "--mergeeManifests", mapToDictionaryString(mergeeManifests));
+    if (mergeManifestPermissions) {
+      builder.add("--mergeManifestPermissions");
+    }
+
+    builder.add(
+        "--mergeType",
+        library ? "LIBRARY" : "APPLICATION",
+        "--manifestValues",
+        mapToDictionaryString(manifestValues),
+        "--customPackage",
+        customPackage,
+        "--manifestOutput",
+        manifestOutput.toString());
+    return builder.build();
   }
 
   private <K, V> String mapToDictionaryString(Map<K, V> map) {

@@ -183,6 +183,18 @@ public class AndroidManifest {
     this.exported = exported;
   }
 
+  /** Checks if manifest permission merging is enabled. */
+  private boolean getMergeManifestPermissionsEnabled(AndroidDataContext dataContext) {
+    // Only enable manifest merging if BazelAndroidConfiguration exists. If the class does not
+    // exist, then return false immediately. Otherwise, return the user-specified value of
+    // mergeAndroidManifestPermissions.
+    BazelAndroidConfiguration bazelAndroidConfig = dataContext.getBazelAndroidConfig();
+    if (bazelAndroidConfig == null) {
+      return false;
+    }
+    return bazelAndroidConfig.getMergeAndroidManifestPermissions();
+  }
+
   /** If needed, stamps the manifest with the correct Java package */
   public StampedAndroidManifest stamp(AndroidDataContext dataContext) {
     Artifact outputManifest = getManifest();
@@ -191,6 +203,7 @@ public class AndroidManifest {
       new ManifestMergerActionBuilder()
           .setManifest(manifest)
           .setLibrary(true)
+          .setMergeManifestPermissions(getMergeManifestPermissionsEnabled(dataContext))
           .setCustomPackage(pkg)
           .setManifestOutput(outputManifest)
           .build(dataContext);
@@ -235,6 +248,7 @@ public class AndroidManifest {
           .setManifest(manifest)
           .setMergeeManifests(mergeeManifests)
           .setLibrary(false)
+          .setMergeManifestPermissions(getMergeManifestPermissionsEnabled(dataContext))
           .setManifestValues(manifestValues)
           .setCustomPackage(pkg)
           .setManifestOutput(newManifest)

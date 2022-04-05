@@ -62,6 +62,7 @@ import org.xml.sax.SAXException;
  *       --manifestValues key value pairs of manifest overrides
  *       --customPackage package to write for library manifest
  *       --manifestOutput path to write output manifest
+ *       --mergeManifestPermissions merge manifest uses-permissions
  * </pre>
  */
 public class ManifestMergerAction {
@@ -152,6 +153,15 @@ public class ManifestMergerAction {
       help = "Path to where the merger log should be written."
     )
     public Path log;
+
+    @Option(
+        name = "mergeManifestPermissions",
+        defaultValue = "false",
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "If enabled, manifest permissions will be merged.")
+    public boolean mergeManifestPermissions;
   }
 
   private static final String[] PERMISSION_TAGS =
@@ -194,13 +204,17 @@ public class ManifestMergerAction {
       Path mergedManifest;
       AndroidManifestProcessor manifestProcessor = AndroidManifestProcessor.with(stdLogger);
 
-      // Remove uses-permission tags from mergees before the merge.
       Path tmp = Files.createTempDirectory("manifest_merge_tmp");
       tmp.toFile().deleteOnExit();
       ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
       for (Map.Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
-        mergeeManifests.put(
-            removePermissions(mergeeManifest.getKey(), tmp), mergeeManifest.getValue());
+        if (!options.mergeManifestPermissions) {
+          // Remove uses-permission tags from mergees before the merge.
+          mergeeManifests.put(
+              removePermissions(mergeeManifest.getKey(), tmp), mergeeManifest.getValue());
+        } else {
+          mergeeManifests.put(mergeeManifest);
+        }
       }
 
       Path manifest = options.manifest;
