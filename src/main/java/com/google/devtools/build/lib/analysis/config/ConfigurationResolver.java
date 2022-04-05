@@ -227,7 +227,8 @@ public final class ConfigurationResolver {
       if (depConfig == null) {
         // Instead of returning immediately, give the loop a chance to queue up every missing
         // dependency, then return all at once. That prevents re-executing this code an unnecessary
-        // number of times. i.e. this is equivalent to calling env.getValues() once over all deps.
+        // number of times. i.e. this is equivalent to calling env.getOrderedValuesAndExceptions()
+        // once over all deps.
         needConfigsFromSkyframe = true;
       } else {
         resolvedDeps.putAll(dependencyKind, depConfig);

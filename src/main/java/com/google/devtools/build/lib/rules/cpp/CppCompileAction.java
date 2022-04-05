@@ -1809,10 +1809,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Nullable
   private static ImmutableMap<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Set<DerivedArtifact> usedModules) throws InterruptedException {
-    // Because this env.getValues call does not specify any exceptions, it is impossible for input
-    // discovery to recover from exceptions thrown by spurious module deps (for instance, if a
-    // commented-out include references a header file with an error in it). However, we generally
-    // don't try to recover from errors around spurious includes discovered in the current build.
+    // Because SkyframeIterableResult.next call does not specify any exceptions where
+    // SkyframeIterableResult is returned by env.getOrderedValuesAndExceptions, it is
+    // impossible for input discovery to recover from exceptions thrown by spurious module deps (for
+    // instance, if a commented-out include references a header file with an error in it). However,
+    // we generally don't try to recover from errors around spurious includes discovered in the
+    // current build.
     // TODO(janakr): Can errors be aggregated here at least?
     Collection<SkyKey> skyKeys =
         Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey);

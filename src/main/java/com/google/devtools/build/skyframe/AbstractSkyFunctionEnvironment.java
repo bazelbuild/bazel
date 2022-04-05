@@ -15,15 +15,9 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.flogger.GoogleLogger;
-import com.google.common.flogger.StackSize;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.util.GroupedList;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +29,6 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Environment {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected boolean valuesMissing = false;
   // Hack for the common case that there are no errors in the retrieved values. In that case, we
@@ -71,7 +64,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   @Override
   @Nullable
   public SkyValue getValue(SkyKey depKey) throws InterruptedException {
-    return getValues(ImmutableSet.of(depKey)).get(depKey);
+    return getValueOrThrowHelper(depKey, null, null, null, null);
   }
 
   @Override
@@ -139,63 +132,10 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, null, null, null, null);
-    return Collections.unmodifiableMap(
-        Maps.transformValues(valuesOrExceptions, ValueOrUntypedException::getValue));
-  }
-
-  @Override
   public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
     return new SkyframeLookupResult(() -> valuesMissing = true, valuesOrExceptions::get);
-  }
-
-  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-      void checkValuesMissingBecauseOfFilteredError(
-          Map<SkyKey, ValueOrUntypedException> voes,
-          @Nullable Class<E1> exceptionClass1,
-          @Nullable Class<E2> exceptionClass2,
-          @Nullable Class<E3> exceptionClass3,
-          @Nullable Class<E4> exceptionClass4) {
-    checkValuesMissingBecauseOfFilteredError(
-        voes.values(), exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
-  }
-
-  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-      void checkValuesMissingBecauseOfFilteredError(
-          Collection<ValueOrUntypedException> voes,
-          @Nullable Class<E1> exceptionClass1,
-          @Nullable Class<E2> exceptionClass2,
-          @Nullable Class<E3> exceptionClass3,
-          @Nullable Class<E4> exceptionClass4) {
-    if (!errorMightHaveBeenFound) {
-      // Short-circuit in the common case of no errors.
-      return;
-    }
-    for (ValueOrUntypedException voe : voes) {
-      SkyValue value = voe.getValue();
-      if (value == null) {
-        Exception e = voe.getException();
-        if (e == null
-            || ((exceptionClass1 == null || !exceptionClass1.isInstance(e))
-                && (exceptionClass2 == null || !exceptionClass2.isInstance(e))
-                && (exceptionClass3 == null || !exceptionClass3.isInstance(e))
-                && (exceptionClass4 == null || !exceptionClass4.isInstance(e)))) {
-          valuesMissing = true;
-          // TODO(b/166268889): Remove when debugged.
-          if (e instanceof IOException) {
-            logger.atInfo().withStackTrace(StackSize.SMALL).withCause(e).log(
-                "IOException suppressed by lack of Skyframe declaration (%s %s %s %s)",
-                exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
-          }
-          return;
-        }
-      }
-    }
   }
 
   @Override

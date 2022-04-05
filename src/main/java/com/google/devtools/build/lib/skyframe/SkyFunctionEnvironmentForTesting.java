@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -71,7 +74,12 @@ public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionE
   @Override
   protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
-    throw new UnsupportedOperationException();
+    EvaluationResult<SkyValue> evaluationResult =
+        skyframeExecutor.evaluateSkyKeys(eventHandler, depKeys, true);
+    return stream(depKeys)
+        .map(evaluationResult::get)
+        .map(ValueOrUntypedException::ofValueUntyped)
+        .collect(toImmutableList());
   }
 
   @Override
