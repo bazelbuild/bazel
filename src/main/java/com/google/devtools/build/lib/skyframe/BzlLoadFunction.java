@@ -496,7 +496,9 @@ public class BzlLoadFunction implements SkyFunction {
       if (!loadStack.add(key)) {
         ImmutableList<BzlLoadValue.Key> cycle =
             CycleUtils.splitIntoPathAndChain(Predicates.equalTo(key), loadStack).second;
-        throw new BzlLoadFailedException("Starlark load cycle: " + cycle, Code.CYCLE);
+        throw new BzlLoadFailedException(
+            "Starlark load cycle: " + Lists.transform(cycle, BzlLoadValue.Key::getLabel),
+            Code.CYCLE);
       }
     }
 
