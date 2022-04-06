@@ -1,3 +1,15 @@
+## Release 6.0.0-pre.20220331.1 (2022-04-06)
+
+```
+Baseline: 203f2c52cfe51152a997cf1c77e1e0dd7f8e2783
+```
+
+Important changes:
+
+  - Don't stamp cc_common.link actions for tool dependencies.
+
+This release contains contributions from many people at Google, as well as ckiffel, Thi Doan.
+
 ## Release 6.0.0-pre.20220328.1 (2022-04-01)
 
 ```
