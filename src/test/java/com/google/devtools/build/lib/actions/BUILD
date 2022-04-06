@@ -25,6 +25,9 @@ java_library(
             "cache/*.java",
         ],
     ),
+    javacopts = [
+        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",

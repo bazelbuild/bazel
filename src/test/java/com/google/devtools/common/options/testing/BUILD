@@ -19,6 +19,9 @@ filegroup(
 java_library(
     name = "OptionsTesterTest_lib",
     srcs = glob(["*.java"]),
+    javacopts = [
+        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
+    ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/testing",
