@@ -67,7 +67,9 @@ ExitCode PythonBinaryLauncher::Launch() {
   }
 
   // Replace the first argument with python file path
-  args[0] = python_file;
+  // Escaping it, as the python file might contain a " " (eg. When the file is
+  // located under C:\Program Files\...)
+  args[0] = bazel::windows::WindowsEscapeArg(python_file);
 
   for (int i = 1; i < args.size(); i++) {
     args[i] = bazel::windows::WindowsEscapeArg(args[i]);
