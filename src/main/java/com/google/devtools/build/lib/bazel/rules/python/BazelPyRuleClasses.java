@@ -64,8 +64,8 @@ public final class BazelPyRuleClasses {
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           See general comments about <code>deps</code> at
-          <a href="${link common-definitions#common-attributes}">
-          Attributes common to all build rules</a>.
+          <a href="${link common-definitions#typical-attributes}">
+          Typical attributes defined by most build rules</a>.
           These are generally
           <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
