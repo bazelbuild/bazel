@@ -1,3 +1,28 @@
+## Release 6.0.0-pre.20220331.1 (2022-04-06)
+
+```
+Baseline: 203f2c52cfe51152a997cf1c77e1e0dd7f8e2783
+```
+
+Important changes:
+
+  - Don't stamp cc_common.link actions for tool dependencies.
+
+This release contains contributions from many people at Google, as well as ckiffel, Thi Doan.
+
+## Release 6.0.0-pre.20220328.1 (2022-04-01)
+
+```
+Baseline: 99ac541409be5fedfc8a615dbd440d463d447e66
+```
+
+Important changes:
+
+  - Packaging support for deploy JAR embedded JDK files (hermetic
+    Java).
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jan, Rifqi Mulya Fahmi, Thomas Zayouna, Timothe Peignier.
+
 ## Release 6.0.0-pre.20220324.1 (2022-03-29)
 
 ```
