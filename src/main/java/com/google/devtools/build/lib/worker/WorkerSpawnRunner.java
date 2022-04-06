@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandleWithWorker;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -243,9 +242,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                       .setSpawnExitCode(exitCode))
               .build());
     }
-    SpawnResult result = builder.build();
-    reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
-    return result;
+    return builder.build();
   }
 
   private WorkRequest createWorkRequest(

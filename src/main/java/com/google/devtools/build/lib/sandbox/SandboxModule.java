@@ -24,7 +24,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -58,7 +57,6 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -489,15 +487,11 @@ public final class SandboxModule extends BlazeModule {
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
         throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-      Instant spawnExecutionStartInstant = Instant.now();
-      SpawnResult spawnResult;
       if (sandboxSpawnRunner.canExec(spawn)) {
-        spawnResult = sandboxSpawnRunner.exec(spawn, context);
+        return sandboxSpawnRunner.exec(spawn, context);
       } else {
-        spawnResult = fallbackSpawnRunner.exec(spawn, context);
+        return fallbackSpawnRunner.exec(spawn, context);
       }
-      reporter.post(new SpawnExecutedEvent(spawn, spawnResult, spawnExecutionStartInstant));
-      return spawnResult;
     }
 
     @Override
