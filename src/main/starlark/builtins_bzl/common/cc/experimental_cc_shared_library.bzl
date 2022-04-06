@@ -397,10 +397,7 @@ def _cc_shared_library_impl(ctx):
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
-        # This features enables behavior which creates a def file automatically
-        # for exporting all the symbols in a shared libary on Windows. If a
-        # custom def file is passed, this behavior doesn't apply.
-        requested_features = ctx.features + ["windows_export_all_symbols"],
+        requested_features = ctx.features,
         unsupported_features = ctx.disabled_features,
     )
 
