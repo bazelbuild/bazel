@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -87,6 +89,28 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       srcJars = ImmutableList.of(srcJar);
     }
 
+    Artifact jdepsArtifact = null;
+    JavaToolchainProvider toolchain = JavaToolchainProvider.from(ruleContext);
+    Artifact depsChecker = toolchain.depsChecker();
+    if (Allowlist.hasAllowlist(ruleContext, "java_import_deps_checking")
+        && !Allowlist.isAvailable(ruleContext, "java_import_deps_checking")
+        && !jars.isEmpty()
+        && depsChecker != null) {
+      jdepsArtifact =
+          ruleContext.getUniqueDirectoryArtifact(
+              "_java_import", "jdeps.proto", ruleContext.getBinOrGenfilesDirectory());
+      ImportDepsCheckActionBuilder.newBuilder()
+          .importDepsChecker(depsChecker)
+          .bootclasspath(toolchain.getBootclasspath().bootclasspath())
+          .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
+          .transitiveDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ false))
+          .checkJars(NestedSetBuilder.wrap(Order.STABLE_ORDER, jars))
+          .importDepsCheckingLevel(ImportDepsCheckingLevel.ERROR)
+          .jdepsOutputArtifact(jdepsArtifact)
+          .ruleLabel(ruleContext.getLabel())
+          .buildAndRegister(ruleContext);
+    }
+
     // The "neverlink" attribute is transitive, so if it is enabled, we don't add any
     // runfiles from this target or its dependencies.
     Runfiles runfiles =
@@ -141,6 +165,10 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .setNeverlink(neverLink)
             .build();
 
+    if (jdepsArtifact != null) {
+      ruleBuilder.addOutputGroup(OutputGroupInfo.VALIDATION, jdepsArtifact);
+    }
+
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaInfo)
@@ -152,6 +180,12 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()))
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs)
         .build();
+  }
+
+  private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
+      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
+    JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
+    return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }
 
   private NestedSet<Artifact> collectTransitiveJavaSourceJars(

@@ -107,6 +107,7 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable Artifact oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
+      @Nullable Artifact depsChecker,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
@@ -132,6 +133,7 @@ public final class JavaToolchainProvider extends NativeInfo
         oneVersion,
         oneVersionAllowlist,
         genClass,
+        depsChecker,
         resourceJarBuilder,
         timezoneData,
         ijar,
@@ -163,6 +165,7 @@ public final class JavaToolchainProvider extends NativeInfo
   @Nullable private final Artifact oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
+  @Nullable private final Artifact depsChecker;
   @Nullable private final Artifact resourceJarBuilder;
   @Nullable private final Artifact timezoneData;
   private final FilesToRunProvider ijar;
@@ -194,6 +197,7 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable Artifact oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
+      @Nullable Artifact depsChecker,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
@@ -224,6 +228,7 @@ public final class JavaToolchainProvider extends NativeInfo
     this.oneVersion = oneVersion;
     this.oneVersionAllowlist = oneVersionAllowlist;
     this.genClass = genClass;
+    this.depsChecker = depsChecker;
     this.resourceJarBuilder = resourceJarBuilder;
     this.timezoneData = timezoneData;
     this.ijar = ijar;
@@ -335,6 +340,12 @@ public final class JavaToolchainProvider extends NativeInfo
   /** Returns the {@link Artifact} of the GenClass deploy jar */
   public Artifact getGenClass() {
     return genClass;
+  }
+
+  /** Returns the {@link Artifact} of the ImportDepsChecker deploy jar */
+  @Nullable
+  public Artifact depsChecker() {
+    return depsChecker;
   }
 
   @Nullable
