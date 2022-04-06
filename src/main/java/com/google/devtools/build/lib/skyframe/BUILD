@@ -1720,34 +1720,6 @@ java_library(
 )
 
 java_library(
-    name = "path_casing_lookup_function",
-    srcs = ["PathCasingLookupFunction.java"],
-    deps = [
-        ":directory_listing_value",
-        ":path_casing_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "path_casing_lookup_value",
-    srcs = ["PathCasingLookupValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "pattern_expanding_error",
     srcs = ["PatternExpandingError.java"],
     deps = [
