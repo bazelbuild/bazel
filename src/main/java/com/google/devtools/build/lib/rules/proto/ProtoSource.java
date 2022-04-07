@@ -56,7 +56,12 @@ final class ProtoSource implements StarlarkValue {
   }
 
   /** Returns the original source file. Only for forbidding protos! */
-  @Deprecated
+  @StarlarkMethod(name = "original_source_file", documented = false, useStarlarkThread = true)
+  public Artifact getOriginalSourceFileForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return originalSourceFile;
+  }
+
   Artifact getOriginalSourceFile() {
     return originalSourceFile;
   }

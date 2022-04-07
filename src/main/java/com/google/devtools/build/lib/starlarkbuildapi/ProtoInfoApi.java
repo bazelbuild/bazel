@@ -64,6 +64,9 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   ImmutableList<FileT> getDirectProtoSources();
 
+  @StarlarkMethod(name = "direct_proto_sources", documented = false, useStarlarkThread = true)
+  ImmutableList<?> getDirectProtoSourcesForStarlark(StarlarkThread thread) throws EvalException;
+
   @StarlarkMethod(
       name = "check_deps_sources",
       doc =

@@ -113,6 +113,13 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return directProtoSources;
   }
 
+  @Override
+  public ImmutableList<ProtoSource> getDirectProtoSourcesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return directSources;
+  }
+
   /**
    * The source root of the current library.
    *

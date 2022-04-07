@@ -38,11 +38,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** Utility functions for proto_library and proto aspect implementations. */
 public class ProtoCommon {
@@ -205,5 +207,52 @@ public class ProtoCommon {
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput),
         ImmutableMap.of("experimental_progress_message", progressMessage));
+  }
+
+  public static boolean shouldGenerateCode(
+      RuleContext ruleContext,
+      ConfiguredTarget protoTarget,
+      ProtoLangToolchainProvider protoLangToolchainInfo,
+      String ruleName)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction shouldGenerateCode =
+        (StarlarkFunction)
+            ruleContext.getStarlarkDefinedBuiltin("proto_common_experimental_should_generate_code");
+    ruleContext.initStarlarkRuleContext();
+    return (Boolean)
+        ruleContext.callStarlarkOrThrowRuleError(
+            shouldGenerateCode,
+            ImmutableList.of(
+                /* proto_library_target */ protoTarget,
+                /* proto_lang_toolchain_info */ protoLangToolchainInfo,
+                /* rule_name */ ruleName),
+            ImmutableMap.of());
+  }
+
+  public static Sequence<Artifact> filterSources(
+      RuleContext ruleContext,
+      ConfiguredTarget protoTarget,
+      ProtoLangToolchainProvider protoLangToolchainInfo)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction filterSources =
+        (StarlarkFunction)
+            ruleContext.getStarlarkDefinedBuiltin("proto_common_experimental_filter_sources");
+    ruleContext.initStarlarkRuleContext();
+    try {
+      return Sequence.cast(
+          ((Tuple)
+                  ruleContext.callStarlarkOrThrowRuleError(
+                      filterSources,
+                      ImmutableList.of(
+                          /* proto_library_target */ protoTarget,
+                          /* proto_lang_toolchain_info */ protoLangToolchainInfo),
+                      ImmutableMap.of()))
+              .get(0),
+          Artifact.class,
+          "included");
+    } catch (EvalException e) {
+
+      throw new RuleErrorException(e.getMessageWithStack());
+    }
   }
 }

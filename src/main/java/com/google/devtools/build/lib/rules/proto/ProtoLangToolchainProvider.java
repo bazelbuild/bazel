@@ -81,6 +81,10 @@ public abstract class ProtoLangToolchainProvider extends NativeInfo {
    * Returns a list of {@link ProtoSource}s that are already provided by the protobuf runtime (i.e.
    * for which {@code <lang>_proto_library} should not generate bindings.
    */
+  @StarlarkMethod(
+      name = "provided_proto_sources",
+      doc = "Proto sources provided by the toolchain.",
+      structField = true)
   public abstract ImmutableList<ProtoSource> providedProtoSources();
 
   @StarlarkMethod(name = "proto_compiler", doc = "Proto compiler.", structField = true)

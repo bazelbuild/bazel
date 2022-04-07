@@ -167,11 +167,84 @@ def _compile(
         resource_set = resource_set,
     )
 
+_BAZEL_TOOLS_PREFIX = "external/bazel_tools/"
+
+def _experimental_filter_sources(proto_library_target, proto_lang_toolchain_info):
+    proto_info = proto_library_target[_builtins.toplevel.ProtoInfo]
+    if not proto_info.direct_sources:
+        return [], []
+
+    # Collect a set of provided protos
+    provided_proto_sources = proto_lang_toolchain_info.provided_proto_sources
+    provided_paths = {}
+    for src in provided_proto_sources:
+        path = src.original_source_file().path
+
+        # For listed protos bundled with the Bazel tools repository, their exec paths start
+        # with external/bazel_tools/. This prefix needs to be removed first, because the protos in
+        # user repositories will not have that prefix.
+        if path.startswith(_BAZEL_TOOLS_PREFIX):
+            provided_paths[path[len(_BAZEL_TOOLS_PREFIX):]] = None
+        else:
+            provided_paths[path] = None
+
+    # Filter proto files
+    proto_files = [src.original_source_file() for src in proto_info.direct_proto_sources()]
+    excluded = []
+    included = []
+    for proto_file in proto_files:
+        if proto_file.path in provided_paths:
+            excluded.append(proto_file)
+        else:
+            included.append(proto_file)
+    return included, excluded
+
+def _experimental_should_generate_code(
+        proto_library_target,
+        proto_lang_toolchain_info,
+        rule_name):
+    """Checks if the code should be generated for the given proto_library.
+
+    The code shouldn't be generated only when the toolchain already provides it
+    to the language through its runtime dependency.
+
+    It fails when the proto_library contains mixed proto files, that should and
+    shouldn't generate code.
+
+    Args:
+      proto_library_target:
+        (Target) The proto_library to generate the sources for.
+        Obtained as the `target` parameter from an aspect's implementation.
+      proto_lang_toolchain_info:
+        (ProtoLangToolchainInfo) The proto lang toolchain info.
+        Obtained from a `proto_lang_toolchain` target or constructed ad-hoc.
+      rule_name: (str) Name of the rule used in the failure message.
+
+    Returns:
+      (bool) True when the code should be generated.
+    """
+    included, excluded = _experimental_filter_sources(proto_library_target, proto_lang_toolchain_info)
+
+    if included and excluded:
+        fail(("The 'srcs' attribute of '%s' contains protos for which '%s' " +
+              "shouldn't generate code (%s), in addition to protos for which it should (%s).\n" +
+              "Separate '%s' into 2 proto_library rules.") % (
+            proto_library_target.label,
+            rule_name,
+            ", ".join([f.short_path for f in excluded]),
+            ", ".join([f.short_path for f in included]),
+            proto_library_target.label,
+        ))
+
+    return bool(included)
+
 proto_common = struct(
     create_proto_compile_action = _create_proto_compile_action,
 )
 
 proto_common_do_not_use = struct(
     compile = _compile,
+    experimental_should_generate_code = _experimental_should_generate_code,
+    experimental_filter_sources = _experimental_filter_sources,
     ProtoLangToolchainInfo = _builtins.internal.ProtoLangToolchainInfo,
 )
