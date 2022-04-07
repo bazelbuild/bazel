@@ -16,19 +16,32 @@ package com.google.devtools.build.lib.rules.proto;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Utility functions for proto_library and proto aspect implementations. */
@@ -136,5 +149,61 @@ public class ProtoCommon {
     if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
+  }
+
+  public static void compile(
+      RuleContext ruleContext,
+      ConfiguredTarget protoTarget,
+      ProtoLangToolchainProvider protoLangToolchainInfo,
+      Iterable<Artifact> generatedFiles,
+      @Nullable Object pluginOutput,
+      @Nullable Args additionalArgs,
+      Iterable<FilesToRunProvider> additionalTools,
+      Iterable<Artifact> additionalInputs,
+      @Nullable StarlarkCallable resourceSet,
+      String progressMessage)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction compile =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("proto_common_compile");
+    ruleContext.initStarlarkRuleContext();
+    ruleContext.callStarlarkOrThrowRuleError(
+        compile,
+        ImmutableList.of(
+            /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+            /* proto_library_target */ protoTarget,
+            /* proto_lang_toolchain_info */ protoLangToolchainInfo,
+            /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
+            /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput,
+            /* additional_args */ additionalArgs == null ? Starlark.NONE : additionalArgs,
+            /* additional_tools */ StarlarkList.immutableCopyOf(additionalTools),
+            /* additional_inputs */ additionalInputs == null
+                ? Depset.of(ElementType.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+                : Depset.of(
+                    Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs)),
+            /* resource_set */ resourceSet == null ? Starlark.NONE : resourceSet,
+            /* experimental_progress_message */ progressMessage),
+        ImmutableMap.of());
+  }
+
+  public static void compile(
+      RuleContext ruleContext,
+      ConfiguredTarget protoTarget,
+      ProtoLangToolchainProvider protoLangToolchainInfo,
+      Iterable<Artifact> generatedFiles,
+      @Nullable Object pluginOutput,
+      String progressMessage)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction compile =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("proto_common_compile");
+    ruleContext.initStarlarkRuleContext();
+    ruleContext.callStarlarkOrThrowRuleError(
+        compile,
+        ImmutableList.of(
+            /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+            /* proto_library_target */ protoTarget,
+            /* proto_lang_toolchain_info */ protoLangToolchainInfo,
+            /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
+            /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput),
+        ImmutableMap.of("experimental_progress_message", progressMessage));
   }
 }
