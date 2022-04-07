@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.proto.ProtoToolchainInfo;
 import com.google.devtools.build.lib.rules.python.PyInfo;
@@ -298,6 +299,8 @@ public class BazelRuleClassProvider {
                   new StarlarkAspectStub(),
                   new ProviderStub());
           builder.addStarlarkBootstrap(bootstrap);
+          builder.addStarlarkBuiltinsInternal(
+              "ProtoLangToolchainInfo", ProtoLangToolchainProvider.PROVIDER);
         }
 
         @Override
