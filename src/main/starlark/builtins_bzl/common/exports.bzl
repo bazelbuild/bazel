@@ -23,7 +23,7 @@ load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
-load("@_builtins//:common/proto/proto_common.bzl", "proto_common")
+load("@_builtins//:common/proto/proto_common.bzl", "proto_common", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
@@ -33,6 +33,7 @@ exported_toplevels = {
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
+    "proto_common_do_not_use": proto_common_do_not_use,
 }
 
 # A list of Starlarkified native rules.
