@@ -110,11 +110,11 @@ public class ProtoCompileActionBuilder {
   }
 
   public ProtoCompileActionBuilder(
-      ProtoInfo protoInfo,
+      ConfiguredTarget protoTarget,
       FilesToRunProvider protoCompiler,
       String progressMessage,
       Iterable<Artifact> outputs) {
-    this.protoInfo = protoInfo;
+    this.protoInfo = protoTarget.get(ProtoInfo.PROVIDER);
     this.protoCompiler = protoCompiler;
     this.progressMessage = progressMessage;
     this.outputs = outputs;
