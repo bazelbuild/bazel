@@ -38,8 +38,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** Utility functions for proto_library and proto aspect implementations. */
 public class ProtoCommon {

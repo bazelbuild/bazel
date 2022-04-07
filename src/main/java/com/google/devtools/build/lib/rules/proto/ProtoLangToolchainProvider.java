@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
@@ -69,7 +70,10 @@ public abstract class ProtoLangToolchainProvider {
    * Returns a list of {@link ProtoSource}s that are already provided by the protobuf runtime (i.e.
    * for which {@code <lang>_proto_library} should not generate bindings.
    */
-  // Proto sources provided by the toolchain.
+  @StarlarkMethod(
+      name = "provided_proto_sources",
+      doc = "Proto sources provided by the toolchain.",
+      structField = true)
   public abstract ImmutableList<ProtoSource> providedProtoSources();
 
   // Proto compiler.

@@ -18,6 +18,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a single {@code .proto} source file. */
@@ -50,7 +53,12 @@ final class ProtoSource implements StarlarkValue {
   }
 
   /** Returns the original source file. Only for forbidding protos! */
-  @Deprecated
+  @StarlarkMethod(name = "original_source_file", documented = false, useStarlarkThread = true)
+  public Artifact getOriginalSourceFileForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return originalSourceFile;
+  }
+
   Artifact getOriginalSourceFile() {
     return originalSourceFile;
   }
