@@ -56,6 +56,11 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    if (exportError(ruleContext)) {
+      ruleContext.ruleError(
+          "java_import.exports is no longer supported; use java_import.deps instead");
+    }
+
     ImmutableList<TransitiveInfoCollection> targets =
         ImmutableList.<TransitiveInfoCollection>builder()
             .addAll(ruleContext.getPrerequisites("deps"))
@@ -186,6 +191,17 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
     JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
     return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
+  }
+
+  private static boolean exportError(RuleContext ruleContext) {
+    if (!ruleContext.attributes().isAttributeValueExplicitlySpecified("exports")) {
+      return false;
+    }
+    if (ruleContext.getFragment(JavaConfiguration.class).disallowJavaImportExports()) {
+      return true;
+    }
+    return Allowlist.hasAllowlist(ruleContext, "java_import_exports")
+        && !Allowlist.isAvailable(ruleContext, "java_import_exports");
   }
 
   private NestedSet<Artifact> collectTransitiveJavaSourceJars(
