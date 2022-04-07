@@ -23,7 +23,7 @@ load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
-load("@_builtins//:common/proto/proto_common.bzl", "proto_common", "proto_common_do_not_use")
+load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
@@ -59,7 +59,6 @@ exported_rules = {
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
-    "create_proto_compile_action": proto_common.create_proto_compile_action,
     "proto_common_compile": proto_common_do_not_use.compile,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
 }

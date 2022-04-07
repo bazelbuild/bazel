@@ -28,9 +28,6 @@ public class ProtoBootstrap implements Bootstrap {
   /** The name of the proto info provider in Starlark. */
   public static final String PROTO_INFO_STARLARK_NAME = "ProtoInfo";
 
-  /** The name of the proto toolchain info provider in Starlark. */
-  public static final String PROTO_TOOLCHAIN_INFO_STARLARK_NAME = "ProtoToolchainInfo";
-
   /** The name of the proto namespace in Starlark. */
   public static final String PROTO_COMMON_NAME = "proto_common";
 
