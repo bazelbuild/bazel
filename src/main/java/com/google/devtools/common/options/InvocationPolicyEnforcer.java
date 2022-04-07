@@ -434,10 +434,7 @@ public final class InvocationPolicyEnforcer {
 
     // Flag value from the expansion, overridability from the original policy, unless the flag is
     // repeatable, in which case we care about appendability, not overridability.
-    SetValue.Builder setValueExpansion = SetValue.newBuilder();
-    for (String value : subflagValue) {
-      setValueExpansion.addFlagValue(value);
-    }
+    SetValue.Builder setValueExpansion = SetValue.newBuilder().addAllFlagValue(subflagValue);
 
     switch (originalPolicy.policy.getSetValue().getBehavior()) {
       case UNDEFINED:
