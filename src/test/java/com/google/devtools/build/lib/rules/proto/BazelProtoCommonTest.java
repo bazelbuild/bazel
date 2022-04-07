@@ -22,6 +22,10 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
@@ -39,6 +43,11 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   private static final Correspondence<String, String> MATCHES_REGEX =
       Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
 
+  private static final StarlarkProviderIdentifier boolProviderId =
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(
+              Label.parseAbsoluteUnchecked("//foo:should_generate.bzl"), "BoolProvider"));
+
   @Before
   public final void setup() throws Exception {
     MockProtoSupport.setupWorkspace(scratch);
@@ -53,6 +62,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
         "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
         "filegroup(name = 'any', srcs = ['any.proto'])",
+        "filegroup(name = 'something', srcs = ['something.proto'])",
+        "proto_library(name = 'mixed', srcs = [':descriptors', ':something'])",
         "proto_library(name = 'denied', srcs = [':descriptors', ':any'])");
     scratch.file(
         "foo/BUILD",
@@ -114,6 +125,21 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "     'additional_inputs': attr.label_list(allow_files = True),",
         "     'use_resource_set': attr.bool(),",
         "     'progress_message': attr.string(),",
+        "  })");
+
+    scratch.file(
+        "foo/should_generate.bzl",
+        "BoolProvider = provider()",
+        "def _impl(ctx):",
+        "  result = proto_common_do_not_use.experimental_should_generate_code(",
+        "    ctx.attr.proto_dep,",
+        "    ctx.attr.toolchain[proto_common_do_not_use.ProtoLangToolchainInfo],",
+        "    'MyRule')",
+        "  return [BoolProvider(value = result)]",
+        "should_generate_rule = rule(_impl,",
+        "  attrs = {",
+        "     'proto_dep': attr.label(),",
+        "     'toolchain': attr.label(default = '//foo:toolchain'),",
         "  })");
   }
 
@@ -488,5 +514,56 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .inOrder();
     assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
     assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");
+  }
+
+  /** Verifies <code>proto_common.should_generate_code</code> call. */
+  @Test
+  public void shouldGenerateCode_basic() throws Exception {
+    scratch.file(
+        "bar/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('//foo:should_generate.bzl', 'should_generate_rule')",
+        "proto_library(name = 'proto', srcs = ['A.proto'])",
+        "should_generate_rule(name = 'simple', proto_dep = ':proto')");
+
+    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
+
+    StarlarkInfo boolProvider = (StarlarkInfo) target.get(boolProviderId);
+    assertThat(boolProvider.getValue("value", Boolean.class)).isTrue();
+  }
+
+  /** Verifies <code>proto_common.should_generate_code</code> call. */
+  @Test
+  public void shouldGenerateCode_dontGenerate() throws Exception {
+    scratch.file(
+        "bar/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('//foo:should_generate.bzl', 'should_generate_rule')",
+        "should_generate_rule(name = 'simple', proto_dep = '//third_party/x:denied')");
+
+    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
+
+    StarlarkInfo boolProvider = (StarlarkInfo) target.get(boolProviderId);
+    assertThat(boolProvider.getValue("value", Boolean.class)).isFalse();
+  }
+
+  /** Verifies <code>proto_common.should_generate_code</code> call. */
+  @Test
+  public void shouldGenerateCode_mixed() throws Exception {
+    scratch.file(
+        "bar/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('//foo:should_generate.bzl', 'should_generate_rule')",
+        "should_generate_rule(name = 'simple', proto_dep = '//third_party/x:mixed')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bar:simple");
+
+    assertContainsEvent(
+        "The 'srcs' attribute of '//third_party/x:mixed' contains protos for which 'MyRule'"
+            + " shouldn't generate code (third_party/x/metadata.proto,"
+            + " third_party/x/descriptor.proto), in addition to protos for which it should"
+            + " (third_party/x/something.proto).\n"
+            + "Separate '//third_party/x:mixed' into 2 proto_library rules.");
   }
 }
