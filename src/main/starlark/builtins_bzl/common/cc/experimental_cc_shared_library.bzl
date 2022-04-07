@@ -359,7 +359,7 @@ def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
             libs_message.append(str(unaccounted_lib))
 
     if len(unaccounted_for_libs) > 10:
-        libs_message = "(and " + str(len(unaccounted_for_libs) - 10) + " others)\n"
+        libs_message.append("(and " + str(len(unaccounted_for_libs) - 10) + " others)\n")
 
     static_deps_message = []
     for repo in different_repos:
