@@ -76,22 +76,36 @@ def _impl(ctx):
     providers.extend(test_providers)
     return _handle_legacy_return(ctx, cc_info, providers)
 
-cc_test = rule(
-    implementation = _impl,
-    attrs = _cc_test_attrs,
-    outputs = {
-        # TODO(b/198254254): Handle case for windows.
-        "stripped_binary": "%{name}.stripped",
-        "dwp_file": "%{name}.dwp",
-    },
-    fragments = ["google_cpp", "cpp"],
-    exec_groups = {
-        "cpp_link": exec_group(copy_from_rule = True),
-    },
-    toolchains = [
-        "@//tools/cpp:toolchain_type",
-        "@//tools/cpp:test_runner_toolchain_type",
-    ],
-    incompatible_use_toolchain_transition = True,
-    test = True,
-)
+def make_cc_test(with_linkstatic = False):
+    _cc_test_attrs.update(
+        _linkstatic_explicitly_set = attr.bool(default = with_linkstatic),
+    )
+    return rule(
+        name = "cc_test",
+        implementation = _impl,
+        attrs = _cc_test_attrs,
+        outputs = {
+            # TODO(b/198254254): Handle case for windows.
+            "stripped_binary": "%{name}.stripped",
+            "dwp_file": "%{name}.dwp",
+        },
+        fragments = ["google_cpp", "cpp"],
+        exec_groups = {
+            "cpp_link": exec_group(copy_from_rule = True),
+        },
+        toolchains = [
+            "@//tools/cpp:toolchain_type",
+            "@//tools/cpp:test_runner_toolchain_type",
+        ],
+        incompatible_use_toolchain_transition = True,
+        test = True,
+    )
+
+cc_test_explicit_linkstatic = make_cc_test(with_linkstatic = True)
+cc_test_default_linkstatic = make_cc_test(with_linkstatic = False)
+
+def cc_test_wrapper(**kwargs):
+    if "linkstatic" in kwargs:
+        cc_test_explicit_linkstatic(**kwargs)
+    else:
+        cc_test_default_linkstatic(**kwargs)
