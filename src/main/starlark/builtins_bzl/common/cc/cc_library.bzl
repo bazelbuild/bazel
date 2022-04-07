@@ -29,7 +29,6 @@ def _cc_library_impl(ctx):
 
     cc_toolchain = common.toolchain
 
-    cc_internal.init_make_variables(ctx = ctx, cc_toolchain = cc_toolchain)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
@@ -54,12 +53,15 @@ def _cc_library_impl(ctx):
     if not _is_stl(ctx.attr.tags) and ctx.attr._stl != None:
         interface_deps.append(ctx.attr._stl[CcInfo].compilation_context)
 
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, common, cc_toolchain))
+
     (compilation_context, srcs_compilation_outputs) = cc_common.compile(
         actions = ctx.actions,
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = common.copts,
+        user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
         local_defines = common.local_defines,
         loose_includes = common.loose_include_dirs,

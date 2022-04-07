@@ -204,6 +204,11 @@ public final class CcCommon implements StarlarkValue {
     return mergedOutputGroups;
   }
 
+  @StarlarkMethod(name = "copts", structField = true, documented = false)
+  public Sequence<String> getCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getCopts());
+  }
+
   @StarlarkMethod(name = "linkopts", structField = true, documented = false)
   public Sequence<String> getLinkoptsForStarlark() {
     return StarlarkList.immutableCopyOf(getLinkopts());
@@ -225,11 +230,6 @@ public final class CcCommon implements StarlarkValue {
     return ImmutableList.copyOf(result);
   }
 
-  @StarlarkMethod(name = "copts", structField = true, documented = false)
-  public Sequence<String> getCoptsForStarlark() {
-    return StarlarkList.immutableCopyOf(getCopts());
-  }
-
   public ImmutableList<String> getCopts() {
     if (!getCoptsFilter(ruleContext).passesFilter("-Wno-future-warnings")) {
       ruleContext.attributeWarning(
@@ -246,6 +246,14 @@ public final class CcCommon implements StarlarkValue {
         .addAll(CppHelper.getPackageCopts(ruleContext))
         .addAll(CppHelper.getAttributeCopts(ruleContext))
         .build();
+  }
+
+  // TODO(gnish): Delete this method once package default copts are gone.
+  // All of the package default copts will be included in rule attribute
+  // after the migration.
+  @StarlarkMethod(name = "unexpanded_package_copts", structField = true, documented = false)
+  public Sequence<String> getUnexpandedPackageCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(ruleContext.getRule().getPackage().getDefaultCopts());
   }
 
   private boolean hasAttribute(String name, Type<?> type) {
@@ -1172,6 +1180,19 @@ public final class CcCommon implements StarlarkValue {
     }
 
     return sysrootFlag;
+  }
+
+  @StarlarkMethod(
+      name = "compute_cc_flags_from_feature_config",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true)
+      })
+  public List<String> computeCcFlagsFromFeatureConfigForStarlark(
+      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain)
+      throws RuleErrorException {
+    return computeCcFlagsFromFeatureConfig(starlarkRuleContext.getRuleContext(), ccToolchain);
   }
 
   private static List<String> computeCcFlagsFromFeatureConfig(

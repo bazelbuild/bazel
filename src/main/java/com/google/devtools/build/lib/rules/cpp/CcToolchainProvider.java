@@ -843,6 +843,13 @@ public final class CcToolchainProvider extends NativeInfo
     return legacyCcFlagsMakeVariable;
   }
 
+  @Override
+  public String getLegacyCcFlagsMakeVariableForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return legacyCcFlagsMakeVariable;
+  }
+
   public FdoContext getFdoContext() {
     return fdoContext;
   }

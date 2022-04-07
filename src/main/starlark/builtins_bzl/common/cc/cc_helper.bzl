@@ -41,6 +41,8 @@ artifact_category = struct(
     CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
 )
 
+SYSROOT_FLAG = "--sysroot="
+
 def _check_src_extension(file, allowed_src_files, allow_versioned_shared_libraries):
     extension = "." + file.extension
     if _matches_extension(extension, allowed_src_files) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
@@ -571,6 +573,244 @@ def _collect_native_cc_libraries(deps, libraries):
     transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
+def _get_toolchain_global_make_variables(cc_toolchain):
+    result = {
+        "CC": cc_toolchain.tool_path(tool = "GCC"),
+        "AR": cc_toolchain.tool_path(tool = "AR"),
+        "NM": cc_toolchain.tool_path(tool = "NM"),
+        "LD": cc_toolchain.tool_path(tool = "LD"),
+        "STRIP": cc_toolchain.tool_path(tool = "STRIP"),
+        "C_COMPILER": cc_toolchain.compiler,
+    }
+    obj_copy_tool = cc_toolchain.tool_path(tool = "OBJCOPY")
+    if obj_copy_tool != None:
+        # objcopy is optional in Crostool.
+        result["OBJCOPY"] = obj_copy_tool
+    gcov_tool = cc_toolchain.tool_path(tool = "GCOVTOOL")
+    if gcov_tool != None:
+        # gcovtool is optional in Crostool.
+        result["GCOVTOOL"] = gcov_tool
+
+    libc = cc_toolchain.libc
+    if libc.startswith("glibc-"):
+        # Strip "glibc-" prefix.
+        result["GLIBC_VERSION"] = libc[6:]
+    else:
+        result["GLIBC_VERSION"] = libc
+
+    return result
+
+def _contains_sysroot(original_cc_flags, feature_config_cc_flags):
+    if SYSROOT_FLAG in original_cc_flags:
+        return True
+    for flag in feature_config_cc_flags:
+        if SYSROOT_FLAG in flag:
+            return True
+
+    return False
+
+def _lookup_var(ctx, additional_vars, var):
+    expanded_make_var_ctx = ctx.var.get(var)
+    expanded_make_var_additional = additional_vars.get(var)
+    if expanded_make_var_additional != None:
+        return expanded_make_var_additional
+    if expanded_make_var_ctx != None:
+        return expanded_make_var_ctx
+    fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
+
+def _get_cc_flags_make_variable(ctx, common, cc_toolchain):
+    original_cc_flags = cc_toolchain.legacy_cc_flags_make_variable()
+    sysroot_cc_flag = ""
+    if cc_toolchain.sysroot != None:
+        sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
+    feature_config_cc_flags = common.compute_cc_flags_from_feature_config(ctx = ctx, cc_toolchain = cc_toolchain)
+    cc_flags = [original_cc_flags]
+
+    # Only add sysroots flag if nothing else adds sysroot, BUT it must appear
+    # before the feature config flags.
+    if not _contains_sysroot(original_cc_flags, feature_config_cc_flags):
+        cc_flags.append(sysroot_cc_flag)
+    cc_flags.extend(feature_config_cc_flags)
+    return {"CC_FLAGS": " ".join(cc_flags)}
+
+def _expand_nested_variable(ctx, additional_vars, exp):
+    # If make variable is predefined path variable(like $(location ...))
+    # we will expand it first.
+    if exp.find(" ") != -1:
+        return ctx.expand_location("$({})".format(exp))
+
+    # Recursively expand nested make variables, but since there is no recursion
+    # in Starlark we will do it via for loop.
+    unbounded_recursion = True
+
+    # The only way to check if the unbounded recursion is happening or not
+    # is to have a look at the depth of the recursion.
+    # 10 seems to be a reasonable number, since it is highly unexpected
+    # to have nested make variables which are expanding more than 10 times.
+    for _ in range(10):
+        exp = _lookup_var(ctx, additional_vars, exp)
+        if len(exp) >= 3 and exp[0] == "$" and exp[1] == "(" and exp[len(exp) - 1] == ")":
+            # Try to expand once more.
+            exp = exp[2:len(exp) - 1]
+            continue
+        unbounded_recursion = False
+        break
+
+    if unbounded_recursion:
+        fail("potentially unbounded recursion during expansion of {}".format(exp))
+    return exp
+
+def _expand(ctx, expression, additional_make_variable_substitutions):
+    idx = 0
+    last_make_var_end = 0
+    result = []
+    n = len(expression)
+    for _ in range(n):
+        if idx >= n:
+            break
+        if expression[idx] != "$":
+            idx += 1
+            continue
+
+        idx += 1
+
+        # We've met $$ pattern, so $ is escaped.
+        if idx < n and expression[idx] == "$":
+            idx += 1
+            result.append(expression[last_make_var_end:idx - 1])
+            last_make_var_end = idx
+            # We might have found a potential start for Make Variable.
+
+        elif idx < n and expression[idx] == "(":
+            # Try to find the closing parentheses.
+            make_var_start = idx
+            make_var_end = make_var_start
+            for j in range(idx + 1, n):
+                if expression[j] == ")":
+                    make_var_end = j
+                    break
+
+            # Note we cannot go out of string's bounds here,
+            # because of this check.
+            # If start of the variable is different from the end,
+            # we found a make variable.
+            if make_var_start != make_var_end:
+                # Some clarifications:
+                # *****$(MAKE_VAR_1)*******$(MAKE_VAR_2)*****
+                #                   ^       ^          ^
+                #                   |       |          |
+                #   last_make_var_end  make_var_start make_var_end
+                result.append(expression[last_make_var_end:make_var_start - 1])
+                make_var = expression[make_var_start + 1:make_var_end]
+                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var)
+                result.append(exp)
+
+                # Update indexes.
+                idx = make_var_end + 1
+                last_make_var_end = idx
+
+    # Add the last substring which would be skipped by for loop.
+    if last_make_var_end < n:
+        result.append(expression[last_make_var_end:n])
+
+    return "".join(result)
+
+# Implementation of Bourne shell tokenization.
+# Tokenizes str and appends result to the options list.
+def _tokenize(options, options_string):
+    token = []
+    force_token = False
+    quotation = "\0"
+    length = len(options_string)
+
+    # Since it is impossible to modify loop variable inside loop
+    # in Starlark, and also there is no while loop, I have to
+    # use this ugly hack.
+    i = -1
+    for _ in range(length):
+        i += 1
+        if i >= length:
+            break
+        c = options_string[i]
+        if quotation != "\0":
+            # In quotation.
+            if c == quotation:
+                # End quotation.
+                quotation = "\0"
+            elif c == "\\" and quotation == "\"":
+                i += 1
+                if i == length:
+                    fail("backslash at the end of the string: {}".format(options_string))
+                c = options_string[i]
+                if c != "\\" and c != "\"":
+                    token.append("\\")
+                token.append(c)
+            else:
+                # Regular char, in quotation.
+                token.append(c)
+        else:
+            # Not in quotation.
+            if c == "'" or c == "\"":
+                # Begin single double quotation.
+                quotation = c
+                force_token = True
+            elif c == " " or c == "\t":
+                # Space not quoted.
+                if force_token or len(token) > 0:
+                    options.append("".join(token))
+                    token = []
+                    force_token = False
+            elif c == "\\":
+                # Backslash not quoted.
+                i += 1
+                if i == length:
+                    fail("backslash at the end of the string: {}".format(options_string))
+                token.append(options_string[i])
+            else:
+                # Regular char, not quoted.
+                token.append(c)
+    if quotation != "\0":
+        fail("unterminated quotation at the end of the string: {}".format(options_string))
+
+    if force_token or len(token) > 0:
+        options.append("".join(token))
+
+# Tries to expand a single make variable from token.
+# If token has additional characters other than ones
+# corresponding to make variable returns None.
+def _expand_single_make_variable(ctx, token, additional_make_variable_substitutions):
+    if len(token) < 3:
+        return None
+    if token[0] != "$" or token[1] != "(" or token[len(token) - 1] != ")":
+        return None
+    unexpanded_var = token[2:len(token) - 1]
+    expanded_var = _expand_nested_variable(ctx, additional_make_variable_substitutions, unexpanded_var)
+    return expanded_var
+
+def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, additional_make_variable_substitutions):
+    tokens = []
+    for token in unexpanded_tokens:
+        if tokenization:
+            expanded_token = _expand(ctx, token, additional_make_variable_substitutions)
+            _tokenize(tokens, expanded_token)
+        else:
+            exp = _expand_single_make_variable(ctx, token, additional_make_variable_substitutions)
+            if exp != None:
+                _tokenize(tokens, exp)
+            else:
+                tokens.append(_expand(ctx, token, additional_make_variable_substitutions))
+    return tokens
+
+def _get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions):
+    if not hasattr(ctx.attr, "copts"):
+        fail("could not find rule attribute named: 'copts'")
+    package_copts = common.unexpanded_package_copts
+    attribute_copts = ctx.attr.copts
+    tokenization = not (cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_copts_tokenization") or "no_copts_tokenization" in ctx.features)
+    expanded_package_copts = _expand_make_variables_for_copts(ctx, tokenization, package_copts, additional_make_variable_substitutions)
+    expanded_attribute_copts = _expand_make_variables_for_copts(ctx, tokenization, attribute_copts, additional_make_variable_substitutions)
+    return expanded_package_copts + expanded_attribute_copts
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -603,4 +843,7 @@ cc_helper = struct(
     collect_compilation_prerequisites = _collect_compilation_prerequisites,
     collect_native_cc_libraries = _collect_native_cc_libraries,
     create_strip_action = _create_strip_action,
+    get_toolchain_global_make_variables = _get_toolchain_global_make_variables,
+    get_cc_flags_make_variable = _get_cc_flags_make_variable,
+    get_copts = _get_copts,
 )
