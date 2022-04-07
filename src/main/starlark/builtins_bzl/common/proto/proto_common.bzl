@@ -97,7 +97,8 @@ def _compile(
         additional_args = None,
         additional_tools = [],
         additional_inputs = depset(),
-        resource_set = None):
+        resource_set = None,
+        experimental_progress_message = None):
     """Creates proto compile action for compiling *.proto files to language specific sources.
 
     Args:
@@ -120,6 +121,8 @@ def _compile(
         (func) A callback function that is passed to the created action.
         See `ctx.actions.run`, `resource_set` parameter for full definition of
         the callback.
+      experimental_progress_message: Overrides progres_message from the toolchain.
+        Don't use this parameter. It's only intended for the transition.
     """
     proto_info = proto_library_target[_builtins.toplevel.ProtoInfo]
 
@@ -154,7 +157,7 @@ def _compile(
 
     actions.run(
         mnemonic = proto_lang_toolchain_info.mnemonic,
-        progress_message = proto_lang_toolchain_info.progress_message,
+        progress_message = experimental_progress_message if experimental_progress_message else proto_lang_toolchain_info.progress_message,
         executable = proto_lang_toolchain_info.proto_compiler,
         arguments = [additional_args, args] if additional_args else [args],
         inputs = depset(transitive = [proto_info.transitive_sources, additional_inputs]),

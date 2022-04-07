@@ -95,6 +95,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "    kwargs['additional_inputs'] = depset(ctx.files.additional_inputs)",
         "  if ctx.attr.use_resource_set:",
         "    kwargs['resource_set'] = _resource_set_callback",
+        "  if ctx.attr.progress_message:",
+        "    kwargs['experimental_progress_message'] = ctx.attr.progress_message",
         "  proto_common_do_not_use.compile(",
         "    ctx.actions,",
         "    ctx.attr.proto_dep,",
@@ -111,6 +113,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "     'additional_tools': attr.label_list(cfg = 'exec'),",
         "     'additional_inputs': attr.label_list(allow_files = True),",
         "     'use_resource_set': attr.bool(),",
+        "     'progress_message': attr.string(),",
         "  })");
   }
 
@@ -460,5 +463,30 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
             expectedFlags.get(1),
             "bar/A.proto")
         .inOrder();
+  }
+
+  /** Verifies <code>experimental_progress_message</code> parameters. */
+  @Test
+  public void generateCode_overrideProgressMessage() throws Exception {
+    scratch.file(
+        "bar/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "proto_library(name = 'proto', srcs = ['A.proto'])",
+        "generate_rule(name = 'simple', proto_dep = ':proto', progress_message = 'My %{label}')");
+
+    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
+
+    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
+    List<String> cmdLine = spawnAction.getRemainingArguments();
+    assertThat(cmdLine)
+        .comparingElementsUsing(MATCHES_REGEX)
+        .containsExactly(
+            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "-Ibar/A.proto=bar/A.proto",
+            "bar/A.proto")
+        .inOrder();
+    assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
+    assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");
   }
 }
