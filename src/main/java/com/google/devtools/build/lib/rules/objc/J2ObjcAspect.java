@@ -72,8 +72,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -662,18 +660,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     String genfilesPath = getProtoOutputRoot(ruleContext).getPathString();
 
-    ImmutableList.Builder<ProtoCompileActionBuilder.ToolchainInvocation> invocations =
-        ImmutableList.builder();
-    invocations.add(
-        new ProtoCompileActionBuilder.ToolchainInvocation(
-            "j2objc", checkNotNull(protoToolchain), genfilesPath));
-    ProtoCompileActionBuilder.registerActions(
+    ProtoCommon.compile(
         ruleContext,
-        invocations.build(),
         base,
+        checkNotNull(protoToolchain),
         outputs,
-        "Generating j2objc proto_library %{label}",
-        shouldAllowProtoServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
+        genfilesPath,
+        "Generating j2objc proto_library %{label}");
 
     return new J2ObjcMappingFileProvider(
         NestedSetBuilder.<Artifact>stableOrder().addAll(outputHeaderMappingFiles).build(),
