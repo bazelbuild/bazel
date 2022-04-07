@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp.proto;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
@@ -64,9 +63,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -462,17 +458,15 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       } else {
         genfilesPath = genfilesFragment.getRelative(protoRootFragment).getPathString();
       }
-
-      ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
-      invocations.add(
-          new ToolchainInvocation("C++", checkNotNull(getProtoToolchainProvider()), genfilesPath));
-      ProtoCompileActionBuilder.registerActions(
-          ruleContext,
-          invocations.build(),
-          protoTarget,
-          outputs,
-          "Generating C++ proto_library %{label}",
-          Services.ALLOW);
+      if (!outputs.isEmpty()) {
+        ProtoCommon.compile(
+            ruleContext,
+            protoTarget,
+            getProtoToolchainProvider(),
+            outputs,
+            genfilesPath,
+            "Generating C++ proto_library %{label}");
+      }
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {
