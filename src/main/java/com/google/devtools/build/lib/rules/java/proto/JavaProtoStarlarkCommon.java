@@ -25,8 +25,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
+import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
@@ -47,17 +46,13 @@ public class JavaProtoStarlarkCommon
       String flavour)
       throws EvalException, InterruptedException {
     try {
-      ProtoCompileActionBuilder.registerActions(
+      ProtoCommon.compile(
           starlarkRuleContext.getRuleContext(),
-          ImmutableList.of(
-              new ProtoCompileActionBuilder.ToolchainInvocation(
-                  flavour,
-                  getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
-                  sourceJar.getExecPathString())),
           target,
+          getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
           ImmutableList.of(sourceJar),
-          "Generating JavaLite proto_library %{label}",
-          Services.ALLOW);
+          sourceJar.getExecPathString(),
+          "Generating JavaLite proto_library %{label}");
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }

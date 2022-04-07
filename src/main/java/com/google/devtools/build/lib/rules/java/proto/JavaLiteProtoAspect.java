@@ -48,8 +48,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
+import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -245,17 +244,13 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
     private void createProtoCompileAction(Artifact sourceJar)
         throws RuleErrorException, InterruptedException {
-      ProtoCompileActionBuilder.registerActions(
+      ProtoCommon.compile(
           ruleContext,
-          ImmutableList.of(
-              new ProtoCompileActionBuilder.ToolchainInvocation(
-                  "javalite",
-                  aspectCommon.getProtoToolchainProvider(),
-                  sourceJar.getExecPathString())),
           protoTarget,
+          aspectCommon.getProtoToolchainProvider(),
           ImmutableList.of(sourceJar),
-          "Generating JavaLite proto_library %{label}",
-          Services.ALLOW);
+          sourceJar.getExecPathString(),
+          "Generating JavaLite proto_library %{label}");
     }
   }
 }
