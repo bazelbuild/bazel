@@ -16,7 +16,7 @@ body:
     id: problem
     attributes:
       label: >
-        Wwhat underlying problem are you trying to solve with this feature?
+        What underlying problem are you trying to solve with this feature?
   - type: input
     id: os
     attributes:
@@ -48,7 +48,7 @@ body:
 
          * StackOverflow: http://stackoverflow.com/questions/tagged/bazel
          * GitHub issues: https://github.com/bazelbuild/bazel/issues
-         * email threads on https://groups.google.com/forum/#!forum/bazel-discuss
+         * Email threads on https://groups.google.com/forum/#!forum/bazel-discuss
   - type: textarea
     id: extras
     attributes:
