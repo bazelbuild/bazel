@@ -23,12 +23,14 @@ load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/proto/proto_lang_toolchain_wrapper.bzl", "proto_lang_toolchain")
+load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
+    "proto_common_do_not_use": proto_common_do_not_use,
 }
 exported_rules = {
     "+cc_import": cc_import,
