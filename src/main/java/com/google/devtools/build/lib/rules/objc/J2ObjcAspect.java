@@ -662,8 +662,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     String genfilesPath = getProtoOutputRoot(ruleContext).getPathString();
 
-    ProtoInfo protoInfo = base.get(ProtoInfo.PROVIDER);
-
     ImmutableList.Builder<ProtoCompileActionBuilder.ToolchainInvocation> invocations =
         ImmutableList.builder();
     invocations.add(
@@ -672,7 +670,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ProtoCompileActionBuilder.registerActions(
         ruleContext,
         invocations.build(),
-        protoInfo,
+        base,
         outputs,
         "Generating j2objc proto_library %{label}",
         shouldAllowProtoServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);

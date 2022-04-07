@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.Args;
@@ -254,7 +255,7 @@ public class ProtoCompileActionBuilder {
   public static void registerActions(
       RuleContext ruleContext,
       List<ToolchainInvocation> toolchainInvocations,
-      ProtoInfo protoInfo,
+      ConfiguredTarget protoTarget,
       Iterable<Artifact> outputs,
       String progressMessage,
       Services allowServices)
@@ -329,7 +330,7 @@ public class ProtoCompileActionBuilder {
         createProtoCompileAction,
         ImmutableList.of(
             /* ctx */ ruleContext.getStarlarkRuleContext(),
-            /* proto_info */ protoInfo,
+            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
             /* proto_compiler */ protoToolchain.getCompiler(),
             /* progress_message */ progressMessage,
             /* outputs */ StarlarkList.immutableCopyOf(outputs),

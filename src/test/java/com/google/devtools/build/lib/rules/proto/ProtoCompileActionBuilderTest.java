@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -36,6 +38,8 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
@@ -92,26 +96,32 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
     return new ProtoSource(protoSource, sourceRoot);
   }
 
-  private ProtoInfo protoInfo(
+  private ConfiguredTarget protoInfo(
       ImmutableList<ProtoSource> directProtoSources,
       ImmutableList<ProtoSource> transitiveProtoSources,
       ImmutableList<ProtoSource> publicImportProtoSources,
       ImmutableList<ProtoSource> strictImportableSources) {
-    return new ProtoInfo(
-        /* directSources */ directProtoSources,
-        /* directProtoSourceRoot */ PathFragment.EMPTY_FRAGMENT,
-        /* transitiveSources */ NestedSetBuilder.wrap(Order.STABLE_ORDER, transitiveProtoSources),
-        /* transitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* transitiveProtoSourceRoots */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* strictImportableProtoSourcesForDependents */ NestedSetBuilder.emptySet(
-            Order.STABLE_ORDER),
-        /* directDescriptorSet */ artifact("//:direct-descriptor-set", "direct-descriptor-set"),
-        /* transitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* exportedSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* strictImportableSources */ NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, strictImportableSources),
-        /* publicImportSources */ NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, publicImportProtoSources));
+    return new EmptyConfiguredTarget(null, null) {
+      @Override
+      protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
+        return new ProtoInfo(
+            /* directSources */ directProtoSources,
+            /* directProtoSourceRoot */ PathFragment.EMPTY_FRAGMENT,
+            /* transitiveSources */ NestedSetBuilder.wrap(
+                Order.STABLE_ORDER, transitiveProtoSources),
+            /* transitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* transitiveProtoSourceRoots */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* strictImportableProtoSourcesForDependents */ NestedSetBuilder.emptySet(
+                Order.STABLE_ORDER),
+            /* directDescriptorSet */ artifact("//:direct-descriptor-set", "direct-descriptor-set"),
+            /* transitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* exportedSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* strictImportableSources */ NestedSetBuilder.wrap(
+                Order.STABLE_ORDER, strictImportableSources),
+            /* publicImportSources */ NestedSetBuilder.wrap(
+                Order.STABLE_ORDER, publicImportProtoSources));
+      }
+    };
   }
 
   @Test

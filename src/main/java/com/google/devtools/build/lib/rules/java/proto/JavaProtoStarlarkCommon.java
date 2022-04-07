@@ -46,7 +46,6 @@ public class JavaProtoStarlarkCommon
       String protoToolchainAttr,
       String flavour)
       throws EvalException, InterruptedException {
-    ProtoInfo protoInfo = target.get(ProtoInfo.PROVIDER);
     try {
       ProtoCompileActionBuilder.registerActions(
           starlarkRuleContext.getRuleContext(),
@@ -55,7 +54,7 @@ public class JavaProtoStarlarkCommon
                   flavour,
                   getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
                   sourceJar.getExecPathString())),
-          protoInfo,
+          target,
           ImmutableList.of(sourceJar),
           "Generating JavaLite proto_library %{label}",
           Services.ALLOW);

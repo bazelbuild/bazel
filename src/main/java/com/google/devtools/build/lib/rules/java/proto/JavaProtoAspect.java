@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -96,12 +97,13 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       return aspect.build();
     }
 
-    ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
+    ConfiguredTarget protoTarget = ctadBase.getConfiguredTarget();
 
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
     try {
-      Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport, additionalProtocOpts);
+      Impl impl =
+          new Impl(ruleContext, protoTarget, aspectCommon, rpcSupport, additionalProtocOpts);
       impl.addProviders(aspect);
       return aspect.build();
     } catch (RuleErrorException e) {
@@ -161,6 +163,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
   private static class Impl {
 
     private final RuleContext ruleContext;
+    private final ConfiguredTarget protoTarget;
     private final ProtoInfo protoInfo;
 
     private final RpcSupport rpcSupport;
@@ -181,12 +184,13 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     Impl(
         RuleContext ruleContext,
-        ProtoInfo protoInfo,
+        ConfiguredTarget protoTarget,
         JavaProtoAspectCommon aspectCommon,
         RpcSupport rpcSupport,
         Iterable<String> additionalProtocOpts) {
       this.ruleContext = ruleContext;
-      this.protoInfo = protoInfo;
+      this.protoTarget = protoTarget;
+      this.protoInfo = protoTarget.get(ProtoInfo.PROVIDER);
       this.rpcSupport = rpcSupport;
       this.aspectCommon = aspectCommon;
       this.additionalProtocOpts = ImmutableList.copyOf(additionalProtocOpts);
@@ -294,7 +298,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
           invocations.build(),
-          protoInfo,
+          protoTarget,
           ImmutableList.of(sourceJar),
           "Generating Java (Immutable) proto_library %{label}",
           rpcSupport.allowServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
