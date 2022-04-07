@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -287,13 +286,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       }
     }
 
-    private boolean areSrcsExcluded() {
-      return !new ProtoSourceFileExcludeList(
-              ruleContext, getProtoToolchainProvider().forbiddenProtos())
-          .checkSrcs(protoInfo.getDirectSources(), "cc_proto_library");
+    private boolean areSrcsExcluded() throws RuleErrorException, InterruptedException {
+      return !ProtoCommon.shouldGenerateCode(
+          ruleContext, protoTarget, getProtoToolchainProvider(), "cc_proto_library");
     }
 
-    private FeatureConfiguration getFeatureConfiguration() throws RuleErrorException {
+    private FeatureConfiguration getFeatureConfiguration()
+        throws RuleErrorException, InterruptedException {
       ImmutableSet.Builder<String> requestedFeatures = new ImmutableSet.Builder<>();
       requestedFeatures.addAll(ruleContext.getFeatures());
       ImmutableSet.Builder<String> unsupportedFeatures = new ImmutableSet.Builder<>();

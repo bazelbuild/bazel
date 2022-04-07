@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -386,41 +385,38 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private ConfiguredAspect proto(ConfiguredTarget base, RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
-    ProtoInfo protoInfo = base.get(ProtoInfo.PROVIDER);
-    ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
-
     ProtoLangToolchainProvider protoToolchain =
         ruleContext.getPrerequisite(
             J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
-    // Avoid pulling in any generated files from forbidden protos.
-    ProtoSourceFileExcludeList protoExcludeList =
-        new ProtoSourceFileExcludeList(ruleContext, protoToolchain.forbiddenProtos());
 
-    ImmutableList<Artifact> filteredProtoSources =
-        ImmutableList.copyOf(protoExcludeList.filter(protoSources));
-    J2ObjcSource j2ObjcSource = protoJ2ObjcSource(ruleContext, filteredProtoSources);
+    try {
+      // Avoid pulling in any generated files from forbidden protos.
+      ImmutableList<Artifact> filteredProtoSources =
+          ImmutableList.copyOf(ProtoCommon.filterSources(ruleContext, base, protoToolchain));
 
-    J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider;
-    if (j2ObjcSource.getObjcSrcs().isEmpty()) {
-      directJ2ObjcMappingFileProvider = new J2ObjcMappingFileProvider.Builder().build();
-    } else {
-      try {
+      J2ObjcSource j2ObjcSource = protoJ2ObjcSource(ruleContext, filteredProtoSources);
+
+      J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider;
+      if (j2ObjcSource.getObjcSrcs().isEmpty()) {
+        directJ2ObjcMappingFileProvider = new J2ObjcMappingFileProvider.Builder().build();
+      } else {
+
         directJ2ObjcMappingFileProvider =
             createJ2ObjcProtoCompileActions(
                 base, protoToolchain, ruleContext, filteredProtoSources, j2ObjcSource);
-      } catch (RuleErrorException e) {
-        ruleContext.ruleError(e.getMessage());
-        return null;
       }
-    }
 
-    return buildAspect(
-        base,
-        ruleContext,
-        j2ObjcSource,
-        directJ2ObjcMappingFileProvider,
-        PROTO_DEPENDENT_ATTRIBUTES,
-        ImmutableList.of(protoToolchain.runtime()));
+      return buildAspect(
+          base,
+          ruleContext,
+          j2ObjcSource,
+          directJ2ObjcMappingFileProvider,
+          PROTO_DEPENDENT_ATTRIBUTES,
+          ImmutableList.of(protoToolchain.runtime()));
+    } catch (RuleErrorException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
   }
 
   private static J2ObjcMappingFileProvider exportedJ2ObjcMappingFileProvider(

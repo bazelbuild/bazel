@@ -167,7 +167,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     private final RuleContext ruleContext;
     private final ConfiguredTarget protoTarget;
-    private final ProtoInfo protoInfo;
 
     private final RpcSupport rpcSupport;
     private final JavaProtoAspectCommon aspectCommon;
@@ -193,7 +192,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         Iterable<String> additionalProtocOpts) {
       this.ruleContext = ruleContext;
       this.protoTarget = protoTarget;
-      this.protoInfo = protoTarget.get(ProtoInfo.PROVIDER);
       this.rpcSupport = rpcSupport;
       this.aspectCommon = aspectCommon;
       this.additionalProtocOpts = ImmutableList.copyOf(additionalProtocOpts);
@@ -223,7 +221,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         transitiveOutputJars.addTransitive(provider.getJars());
       }
 
-      if (aspectCommon.shouldGenerateCode(protoInfo, "java_proto_library")) {
+      if (ProtoCommon.shouldGenerateCode(
+          ruleContext,
+          protoTarget,
+          aspectCommon.getProtoToolchainProvider(),
+          "java_proto_library")) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
         Artifact outputJar = aspectCommon.getOutputJarArtifact();

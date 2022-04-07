@@ -131,7 +131,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
     private final RuleContext ruleContext;
     private final ConfiguredTarget protoTarget;
-    private final ProtoInfo protoInfo;
 
     /**
      * Compilation-args from all dependencies, merged together. This is typically the input to a
@@ -149,7 +148,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         RuleContext ruleContext, ConfiguredTarget protoTarget, JavaProtoAspectCommon aspectCommon) {
       this.ruleContext = ruleContext;
       this.protoTarget = protoTarget;
-      this.protoInfo = protoTarget.get(ProtoInfo.PROVIDER);
       this.aspectCommon = aspectCommon;
       this.javaProtoLibraryAspectProviders =
           ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
@@ -177,7 +175,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         transitiveOutputJars.addTransitive(provider.getJars());
       }
 
-      if (aspectCommon.shouldGenerateCode(protoInfo, "java_lite_proto_library")) {
+      if (aspectCommon.shouldGenerateCode(protoTarget, "java_lite_proto_library")) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
         Artifact outputJar = aspectCommon.getOutputJarArtifact();
