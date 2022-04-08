@@ -1451,7 +1451,6 @@ EOF
   touch pkg/dep.h
 
   bazel build --experimental_unsupported_and_brittle_include_scanning --features=cc_include_scanning //pkg:bin &>"$TEST_log" && fail 'include scanning did not (wrongly) remove dependency' || true
-  expect_log "Include scanning enabled. This feature is unsupported."
   expect_log "fatal error: '\?dep.h'\?"
 }
 

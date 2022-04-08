@@ -122,11 +122,6 @@ public class IncludeScanningModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
-    if (cppOptions != null && cppOptions.experimentalIncludeScanning) {
-      env.getReporter()
-          .handle(Event.warn("Include scanning enabled. This feature is unsupported."));
-    }
     artifactFactory.set(env.getSkyframeBuildView().getArtifactFactory());
   }
 
