@@ -1,3 +1,18 @@
+## Release 6.0.0-pre.20220405.2 (2022-04-08)
+
+```
+Baseline: a25dea6096a1a1965ffe8ce023b5121ec4d18422
+```
+
+Important changes:
+
+  - Starlark test rules can use the new inherited_environment
+    parameter of testing.TestEnvironment to specify environment
+    variables
+    whose values should be inherited from the shell environment.
+
+This release contains contributions from many people at Google, as well as Benjamin Lee, Benjamin Peterson, Fabian Meumertzheim, Mikhail Balabin, Ted Kaplan, Zhongpeng Lin.
+
 ## Release 6.0.0-pre.20220331.1 (2022-04-06)
 
 ```
