@@ -176,20 +176,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         .getShareableArtifact(PathFragment.create(path), ruleContext.getBinDirectory());
   }
 
-  @StarlarkMethod(
-      name = "dll_hash_suffix",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "feature_configuration", named = true, positional = false),
-      })
-  public String getDLLHashSuffix(
-      StarlarkRuleContext starlarkRuleContext,
-      FeatureConfigurationForStarlark featureConfiguration) {
-    return CppHelper.getDLLHashSuffix(
-        starlarkRuleContext.getRuleContext(), featureConfiguration.getFeatureConfiguration());
-  }
-
   static class DefParserComputedDefault extends ComputedDefault
       implements NativeComputedDefaultApi {
     @Override

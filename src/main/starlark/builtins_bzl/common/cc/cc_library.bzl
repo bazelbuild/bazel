@@ -138,7 +138,7 @@ def _cc_library_impl(ctx):
             feature_configuration = feature_configuration,
             feature_name = "targets_windows",
         ):
-            dll_name_suffix = cc_helper.dll_hash_suffix(ctx = ctx, feature_configuration = feature_configuration)
+            dll_name_suffix = cc_helper.dll_hash_suffix(ctx, feature_configuration, ctx.fragments.cpp)
             generated_def_file = None
 
             def_parser = ctx.file._def_parser

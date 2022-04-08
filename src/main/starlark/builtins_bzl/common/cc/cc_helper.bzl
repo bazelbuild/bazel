@@ -229,8 +229,15 @@ def _build_output_groups_for_emitting_compile_providers(
 
     return output_groups_builder
 
-def _dll_hash_suffix(ctx, feature_configuration):
-    return cc_internal.dll_hash_suffix(ctx = ctx, feature_configuration = feature_configuration)
+def _dll_hash_suffix(ctx, feature_configuration, cpp_config):
+    if cpp_config.dynamic_mode() != "OFF":
+        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
+            if not hasattr(ctx.attr, "win_def_file") or ctx.file.win_def_file == None:
+                # Note: ctx.label.workspace_name strips leading @,
+                # which is different from the native behavior.
+                string_to_hash = ctx.label.workspace_name + ctx.label.package
+                return "_%x" % hash(string_to_hash)
+    return ""
 
 def _gen_empty_def_file(ctx):
     trivial_def_file = ctx.actions.declare_file(ctx.label.name + ".gen.empty.def")
