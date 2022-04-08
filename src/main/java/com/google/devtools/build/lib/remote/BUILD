@@ -104,7 +104,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party:rxjava3",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
@@ -124,7 +124,7 @@ java_library(
     srcs = ["ExecutionStatusException.java"],
     deps = [
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "@googleapis//:google_rpc_status_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
@@ -141,7 +141,7 @@ java_library(
         "//third_party:guava",
         "//third_party:netty",
         "//third_party:rxjava3",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
     ],
 )
 
@@ -157,6 +157,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
     ],
 )
