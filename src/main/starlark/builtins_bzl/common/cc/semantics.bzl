@@ -37,6 +37,9 @@ def _get_stl():
 def _get_repo():
     return "bazel_tools"
 
+def _get_platforms_root():
+    return "platforms//"
+
 def _additional_fragments():
     return []
 
@@ -93,6 +96,7 @@ semantics = struct(
     determine_headers_checking_mode = _determine_headers_checking_mode,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
+    get_platforms_root = _get_platforms_root,
     additional_fragments = _additional_fragments,
     get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,

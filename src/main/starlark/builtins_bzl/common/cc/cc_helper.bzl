@@ -20,6 +20,7 @@ CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
+platform_common = _builtins.toplevel.platform_common
 
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",
@@ -818,6 +819,14 @@ def _get_copts(ctx, common, feature_configuration, additional_make_variable_subs
     expanded_attribute_copts = _expand_make_variables_for_copts(ctx, tokenization, attribute_copts, additional_make_variable_substitutions)
     return expanded_package_copts + expanded_attribute_copts
 
+def _has_target_constraints(ctx, constraints):
+    # Constraints is a label_list
+    for constraint in constraints:
+        constraint_value = constraint[platform_common.ConstraintValueInfo]
+        if ctx.target_platform_has_constraint(constraint_value):
+            return True
+    return False
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -853,4 +862,5 @@ cc_helper = struct(
     get_toolchain_global_make_variables = _get_toolchain_global_make_variables,
     get_cc_flags_make_variable = _get_cc_flags_make_variable,
     get_copts = _get_copts,
+    has_target_constraints = _has_target_constraints,
 )
