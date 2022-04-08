@@ -12,26 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.rewinding;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlanStats;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionDescription;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlanStats;
 
 /** Event that encapsulates data about action rewinding during a build. */
-public class ActionRewindingStats implements ExtendedEventHandler.Postable {
+public final class ActionRewindingStats implements ExtendedEventHandler.Postable {
+
   private final int lostInputsCount;
   private final ImmutableList<ActionRewindEvent> actionRewindEvents;
 
   ActionRewindingStats(int lostInputsCount, ImmutableList<ActionRewindEvent> actionRewindEvents) {
     this.lostInputsCount = lostInputsCount;
-    this.actionRewindEvents = actionRewindEvents;
+    this.actionRewindEvents = checkNotNull(actionRewindEvents);
   }
 
   public int lostInputsCount() {
@@ -42,7 +44,7 @@ public class ActionRewindingStats implements ExtendedEventHandler.Postable {
     return actionRewindEvents;
   }
 
-  public static ActionRewindEvent toActionRewindEventProto(RewindPlanStats rewindPlanStats) {
+  static ActionRewindEvent toActionRewindEventProto(RewindPlanStats rewindPlanStats) {
     ActionOwner failedActionOwner = rewindPlanStats.failedAction().getOwner();
     return ActionRewindEvent.newBuilder()
         .setActionDescription(

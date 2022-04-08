@@ -8,6 +8,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -88,7 +89,6 @@ java_library(
         ":action_input_map_helper",
         ":action_lookup_conflict_finding_value",
         ":action_metadata_handler",
-        ":action_rewind_strategy",
         ":action_template_expansion_function",
         ":action_template_expansion_value",
         ":action_utils",
@@ -312,6 +312,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -485,35 +486,6 @@ java_library(
 )
 
 java_library(
-    name = "action_rewind_strategy",
-    srcs = [
-        "ActionRewindStrategy.java",
-        "ActionRewindingStats.java",
-    ],
-    deps = [
-        ":action_utils",
-        ":artifact_function",
-        ":artifact_nested_set_key",
-        ":skyframe_aware_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "action_template_expansion_function",
     srcs = ["ActionTemplateExpansionFunction.java"],
     deps = [
@@ -641,7 +613,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",

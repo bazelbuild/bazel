@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.rewinding;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -23,7 +23,6 @@ import static java.util.Comparator.comparing;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,6 +52,10 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.ActionUtils;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependencies;
+import com.google.devtools.build.lib.skyframe.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -73,7 +76,8 @@ import javax.annotation.Nullable;
  * actions, this finds the actions which generated them and the set of Skyframe nodes which must be
  * restarted in order to recreate the lost inputs.
  */
-public class ActionRewindStrategy {
+public final class ActionRewindStrategy {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   @VisibleForTesting public static final int MAX_REPEATED_LOST_INPUTS = 20;
   @VisibleForTesting public static final int MAX_ACTION_REWIND_EVENTS = 5;
@@ -91,8 +95,9 @@ public class ActionRewindStrategy {
    * <ol>
    *   <li>the Skyframe nodes to restart to recreate the lost inputs specified by {@code
    *       lostInputsException}
-   *   <li>the actions whose execution state (in {@link SkyframeActionExecutor}) must be reset
-   *       (aside from failedAction, which the caller already knows must be reset)
+   *   <li>the actions whose execution state (in {@link
+   *       com.google.devtools.build.lib.skyframe.SkyframeActionExecutor}) must be reset (aside from
+   *       failedAction, which the caller already knows must be reset)
    * </ol>
    *
    * <p>Note that all Skyframe nodes between the currently executing (failed) action's node and the
@@ -103,7 +108,7 @@ public class ActionRewindStrategy {
    * @throws ActionExecutionException if any lost inputs have been seen by this action as lost
    *     before, or if any lost inputs are not the outputs of previously executed actions
    */
-  RewindPlan getRewindPlan(
+  public RewindPlan getRewindPlan(
       Action failedAction,
       ActionLookupData actionLookupData,
       Set<SkyKey> failedActionDeps,
@@ -136,7 +141,7 @@ public class ActionRewindStrategy {
             inputDepOwners,
             ImmutableSet.<SkyKey>builder()
                 .addAll(failedActionDeps)
-                .addAll(Collections2.transform(nestedSetKeys.keySet(), Artifact::key))
+                .addAll(Artifact.keys(nestedSetKeys.keySet()))
                 .build(),
             failedAction,
             lostInputsException);
@@ -182,7 +187,7 @@ public class ActionRewindStrategy {
    * Log the top N action rewind events and clear the history of failed actions' lost inputs and
    * rewind plans.
    */
-  void reset(ExtendedEventHandler eventHandler) {
+  public void reset(ExtendedEventHandler eventHandler) {
     ImmutableList<ActionRewindEvent> topActionRewindEvents =
         rewindPlansStats.stream()
             .collect(
@@ -535,8 +540,8 @@ public class ActionRewindStrategy {
     if (!lostInput.isTreeArtifact()) {
       return ImmutableSet.of(lostInput.getGeneratingActionKey());
     }
-    ArtifactFunction.ArtifactDependencies artifactDependencies =
-        ArtifactFunction.ArtifactDependencies.discoverDependencies(lostInput, env);
+    ArtifactDependencies artifactDependencies =
+        ArtifactDependencies.discoverDependencies(lostInput, env);
     if (artifactDependencies == null) {
       return null;
     }
@@ -544,14 +549,15 @@ public class ActionRewindStrategy {
     if (!artifactDependencies.isTemplateActionForTreeArtifact()) {
       return ImmutableSet.of(lostInput.getGeneratingActionKey());
     }
-    ArtifactFunction.ActionTemplateExpansion actionTemplateExpansion =
-        artifactDependencies.getActionTemplateExpansion(env);
-    if (actionTemplateExpansion == null) {
-      return null;
-    }
+
     // This ignores the ActionTemplateExpansionKey dependency of the template artifact because we
     // expect to never need to rewind that.
-    return ImmutableSet.copyOf(actionTemplateExpansion.getExpandedActionExecutionKeys());
+    ImmutableList<ActionLookupData> actionTemplateExpansionKeys =
+        artifactDependencies.getActionTemplateExpansionKeys(env);
+    if (actionTemplateExpansionKeys == null) {
+      return null;
+    }
+    return ImmutableSet.copyOf(actionTemplateExpansionKeys);
   }
 
   private static void assertSkyframeAwareRewindingGraph(
@@ -614,20 +620,24 @@ public class ActionRewindStrategy {
                 .build()));
   }
 
-  static class RewindPlan {
+  /**
+   * Specifies the Skyframe nodes and actions that need to be restarted in order to recreate lost
+   * inputs.
+   */
+  public static final class RewindPlan {
     private final Restart nodesToRestart;
     private final ImmutableList<Action> additionalActionsToRestart;
 
-    RewindPlan(Restart nodesToRestart, ImmutableList<Action> additionalActionsToRestart) {
+    private RewindPlan(Restart nodesToRestart, ImmutableList<Action> additionalActionsToRestart) {
       this.nodesToRestart = nodesToRestart;
       this.additionalActionsToRestart = additionalActionsToRestart;
     }
 
-    Restart getNodesToRestart() {
+    public Restart getNodesToRestart() {
       return nodesToRestart;
     }
 
-    ImmutableList<Action> getAdditionalActionsToRestart() {
+    public ImmutableList<Action> getAdditionalActionsToRestart() {
       return additionalActionsToRestart;
     }
   }
@@ -701,9 +711,10 @@ public class ActionRewindStrategy {
    * <p>More formally, a key-value pair {@code (Artifact k, ArtifactNestedSetKey v)} is present in
    * the returned map iff {@code deps.contains(v) && v.getSet().toList().contains(k)}.
    *
-   * <p>When {@link ActionExecutionFunction} requests input deps, it unwraps a single layer of
-   * {@linkplain Action#getInputs the action's inputs}, thus requesting an {@link
-   * ArtifactNestedSetKey} for each of {@code action.getInputs().getNonLeaves()}.
+   * <p>When {@link com.google.devtools.build.lib.skyframe.ActionExecutionFunction} requests input
+   * deps, it unwraps a single layer of {@linkplain Action#getInputs the action's inputs}, thus
+   * requesting an {@link ArtifactNestedSetKey} for each of {@code
+   * action.getInputs().getNonLeaves()}.
    */
   private static Multimap<Artifact, ArtifactNestedSetKey> expandNestedSetKeys(Set<SkyKey> deps) {
     Multimap<Artifact, ArtifactNestedSetKey> map =
