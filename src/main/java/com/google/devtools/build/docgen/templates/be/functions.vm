@@ -616,10 +616,8 @@ sh_binary(
   </li>
   <li>If multiple conditions match and one is a specialization of the others,
     the specialization takes precedence. Condition B is considered a
-    specialization of condition A if B has all the same flags as A plus some
-    additional flags. However, the number of constraint values that A and B have
-    are not considered in this comparison -- one condition cannot match a
-    platform <i>more than</i> another condition does.
+    specialization of condition A if B has all the same flags and constraint
+    values as A plus some additional flags and constraint values.
   </li>
   <li>If multiple conditions match and one is not a specialization of all the
     others, Bazel fails with an error.

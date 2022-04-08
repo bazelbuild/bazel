@@ -50,9 +50,15 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       ImmutableMultimap<String, String> settingsMap,
       ImmutableMap<Label, String> flagSettingsMap,
       RequiredConfigFragmentsProvider requiredFragmentOptions,
+      ImmutableSet<Label> constraintValueSettings,
       boolean matches) {
     return new AutoValue_ConfigMatchingProvider(
-        label, settingsMap, flagSettingsMap, requiredFragmentOptions, matches);
+        label,
+        settingsMap,
+        flagSettingsMap,
+        requiredFragmentOptions,
+        constraintValueSettings,
+        matches);
   }
 
   /** The target's label. */
@@ -63,6 +69,8 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
   abstract ImmutableMap<Label, String> flagSettingsMap();
 
   public abstract RequiredConfigFragmentsProvider requiredFragmentOptions();
+
+  abstract ImmutableSet<Label> constraintValuesSetting();
 
   /**
    * Whether or not the configuration criteria defined by this target match its actual
@@ -81,11 +89,18 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
     ImmutableSet<Map.Entry<Label, String>> flagSettings = flagSettingsMap().entrySet();
     ImmutableSet<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap().entrySet();
 
-    if (!settings.containsAll(otherSettings) || !flagSettings.containsAll(otherFlagSettings)) {
+    ImmutableSet<Label> constraintValueSettings = constraintValuesSetting();
+    ImmutableSet<Label> otherConstraintValueSettings = other.constraintValuesSetting();
+
+    if (!settings.containsAll(otherSettings)
+        || !flagSettings.containsAll(otherFlagSettings)
+        || !constraintValueSettings.containsAll(otherConstraintValueSettings)) {
       return false; // Not a superset.
     }
 
-    return settings.size() > otherSettings.size() || flagSettings.size() > otherFlagSettings.size();
+    return settings.size() > otherSettings.size()
+        || flagSettings.size() > otherFlagSettings.size()
+        || constraintValueSettings.size() > otherConstraintValueSettings.size();
   }
 
   /** Format this provider as its label. */

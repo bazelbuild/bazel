@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -82,6 +83,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
         // the owning target already depends on PlatformConfiguration. And we can't reference
         // PlatformConfiguration.class here without a build dependency cycle.
         RequiredConfigFragmentsProvider.EMPTY,
+        ImmutableSet.of(),
         platformInfo.constraints().hasConstraintValue(this));
   }
 
