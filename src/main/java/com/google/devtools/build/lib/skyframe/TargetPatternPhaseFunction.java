@@ -470,9 +470,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       TestsForTargetPatternValue expandedSuitesValue =
           (TestsForTargetPatternValue) expandedSuites.next();
       if (expandedSuitesValue == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "expandedSuitesValue " + pattern + " was missing, this should never happen"));
+        BugReport.logUnexpected("Value for: '%s' was missing, this should never happen", pattern);
         return null;
       }
       if (pattern.isNegative()) {
