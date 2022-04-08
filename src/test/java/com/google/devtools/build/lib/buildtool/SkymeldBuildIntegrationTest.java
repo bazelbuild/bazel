@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.server.FailureDetails.Spawn.Code.NON_ZERO_EXIT;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -148,5 +150,32 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError(
         "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
     events.assertContainsError("rule '//foo:missing' does not exist");
+  }
+
+  @Test
+  public void noSymlinkPlantedLocalAction_failureNoSuchFileOrDirectory() throws Exception {
+    addOptions("--spawn_strategy=standalone");
+    write(
+        "foo/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cp foo.in $(location foo.out)'",
+        ")");
+    write("foo/foo.in");
+
+    outErr = new RecordingOutErr();
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+    String err = ((RecordingOutErr) outErr).errAsLatin1();
+
+    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+        .isEqualTo(NON_ZERO_EXIT);
+    assertThat(err)
+        .contains(
+            "Executing genrule //foo:foo failed: (Exit 1): bash failed: error executing command"
+                + " (from target //foo:foo)");
+    assertThat(err).contains("No such file or directory");
   }
 }
