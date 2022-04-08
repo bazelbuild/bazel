@@ -83,8 +83,8 @@ public final class ActionEnvironment {
 
     static EnvironmentVariables create(
         Map<String, String> fixedVars, Set<String> inheritedVars, EnvironmentVariables base) {
-      if (fixedVars.isEmpty() && inheritedVars.isEmpty() && base.isEmpty()) {
-        return EMPTY_ENVIRONMENT_VARIABLES;
+      if (fixedVars.isEmpty() && inheritedVars.isEmpty()) {
+        return base;
       }
       return new CompoundEnvironmentVariables(fixedVars, inheritedVars, base);
     }
@@ -219,18 +219,22 @@ public final class ActionEnvironment {
    * Returns a copy of the environment with the given fixed variables added to it, <em>overwriting
    * any existing occurrences of those variables</em>.
    */
-  public ActionEnvironment addFixedVariables(Map<String, String> fixedVars) {
-    return ActionEnvironment.create(
-        CompoundEnvironmentVariables.create(fixedVars, ImmutableSet.of(), vars));
+  public ActionEnvironment withAdditionalFixedVariables(Map<String, String> fixedVars) {
+    return withAdditionalVariables(fixedVars, ImmutableSet.of());
   }
 
   /**
    * Returns a copy of the environment with the given fixed and inherited variables added to it,
    * <em>overwriting any existing occurrences of those variables</em>.
    */
-  public ActionEnvironment addVariables(Map<String, String> fixedVars, Set<String> inheritedVars) {
-    return ActionEnvironment.create(
-        CompoundEnvironmentVariables.create(fixedVars, inheritedVars, vars));
+  public ActionEnvironment withAdditionalVariables(
+      Map<String, String> fixedVars, Set<String> inheritedVars) {
+    EnvironmentVariables newVars =
+        CompoundEnvironmentVariables.create(fixedVars, inheritedVars, vars);
+    if (newVars == vars) {
+      return this;
+    }
+    return ActionEnvironment.create(newVars);
   }
 
   /**

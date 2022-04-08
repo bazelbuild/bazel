@@ -34,7 +34,7 @@ public final class ActionEnvironmentTest {
         ActionEnvironment.create(
             ImmutableMap.of("FOO", "foo1", "BAR", "bar"), ImmutableSet.of("baz"));
     // entries added by env2 override the existing entries
-    ActionEnvironment env2 = env1.addFixedVariables(ImmutableMap.of("FOO", "foo2"));
+    ActionEnvironment env2 = env1.withAdditionalFixedVariables(ImmutableMap.of("FOO", "foo2"));
 
     assertThat(env1.getFixedEnv()).containsExactly("FOO", "foo1", "BAR", "bar");
     assertThat(env1.getInheritedEnv()).containsExactly("baz");
@@ -48,7 +48,7 @@ public final class ActionEnvironmentTest {
     ActionEnvironment env =
         ActionEnvironment.create(
                 ImmutableMap.of("FIXED_ONLY", "fixed"), ImmutableSet.of("INHERITED_ONLY"))
-            .addVariables(
+            .withAdditionalVariables(
                 ImmutableMap.of("FIXED_AND_INHERITED", "fixed"),
                 ImmutableSet.of("FIXED_AND_INHERITED"));
     Map<String, String> clientEnv =
@@ -64,5 +64,18 @@ public final class ActionEnvironmentTest {
             "inherited",
             "INHERITED_ONLY",
             "inherited");
+  }
+
+  @Test
+  public void emptyEnvironmentInterning() {
+    ActionEnvironment emptyEnvironment =
+        ActionEnvironment.create(ImmutableMap.of(), ImmutableSet.of());
+    assertThat(emptyEnvironment).isSameInstanceAs(ActionEnvironment.EMPTY);
+
+    ActionEnvironment base =
+        ActionEnvironment.create(ImmutableMap.of("FOO", "foo1"), ImmutableSet.of("baz"));
+    assertThat(base.withAdditionalFixedVariables(ImmutableMap.of())).isSameInstanceAs(base);
+    assertThat(base.withAdditionalVariables(ImmutableMap.of(), ImmutableSet.of()))
+        .isSameInstanceAs(base);
   }
 }
