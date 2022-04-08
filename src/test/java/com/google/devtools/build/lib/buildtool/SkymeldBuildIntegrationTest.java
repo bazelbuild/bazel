@@ -14,14 +14,13 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.server.FailureDetails.Spawn.Code.NON_ZERO_EXIT;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -153,7 +152,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void noSymlinkPlantedLocalAction_failureNoSuchFileOrDirectory() throws Exception {
+  public void symlinkPlantedLocalAction_success() throws Exception {
     addOptions("--spawn_strategy=standalone");
     write(
         "foo/BUILD",
@@ -161,21 +160,64 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "  name = 'foo',",
         "  srcs = ['foo.in'],",
         "  outs = ['foo.out'],",
-        "  cmd = 'cp foo.in $(location foo.out)'",
+        "  cmd = 'cp $< $@'",
         ")");
     write("foo/foo.in");
 
-    outErr = new RecordingOutErr();
-    BuildFailedException e =
-        assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
-    String err = ((RecordingOutErr) outErr).errAsLatin1();
+    BuildResult result = buildTarget("//foo:foo");
 
-    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
-        .isEqualTo(NON_ZERO_EXIT);
-    assertThat(err)
-        .contains(
-            "Executing genrule //foo:foo failed: (Exit 1): bash failed: error executing command"
-                + " (from target //foo:foo)");
-    assertThat(err).contains("No such file or directory");
+    assertThat(result.getSuccess()).isTrue();
+    assertSingleOutputBuilt("//foo:foo");
+  }
+
+  @Test
+  public void symlinksPlanted() throws Exception {
+    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    writeMyRuleBzl();
+    Path fooDir =
+        write(
+                "foo/BUILD",
+                "load('//foo:my_rule.bzl', 'my_rule')",
+                "my_rule(name = 'foo', srcs = ['foo.in'])")
+            .getParentDirectory();
+    write("foo/foo.in");
+    Path unusedDir = write("unused/dummy").getParentDirectory();
+
+    // Before the build: no symlink.
+    assertThat(execroot.getRelative("foo").exists()).isFalse();
+
+    buildTarget("//foo:foo");
+
+    // After the build: symlinks to the source directory, even unused packages.
+    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
+    assertThat(execroot.getRelative("unused").resolveSymbolicLinks()).isEqualTo(unusedDir);
+  }
+
+  @Test
+  public void symlinksReplantedEachBuild() throws Exception {
+    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    writeMyRuleBzl();
+    Path fooDir =
+        write(
+                "foo/BUILD",
+                "load('//foo:my_rule.bzl', 'my_rule')",
+                "my_rule(name = 'foo', srcs = ['foo.in'])")
+            .getParentDirectory();
+    write("foo/foo.in");
+    Path unusedDir = write("unused/dummy").getParentDirectory();
+
+    buildTarget("//foo:foo");
+
+    // After the 1st build: symlinks to the source directory, even unused packages.
+    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
+    assertThat(execroot.getRelative("unused").resolveSymbolicLinks()).isEqualTo(unusedDir);
+
+    unusedDir.deleteTree();
+
+    buildTarget("//foo:foo");
+
+    // After the 2nd build: symlink to unusedDir is gone, since the package itself was deleted.
+    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
+    assertThat(execroot.getRelative("unused").exists()).isFalse();
   }
 }

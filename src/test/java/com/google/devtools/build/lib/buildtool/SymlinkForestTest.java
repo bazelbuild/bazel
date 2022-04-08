@@ -138,7 +138,8 @@ public class SymlinkForestTest {
   @Test
   public void testDeleteTreesBelowNotPrefixed() throws IOException {
     createTestDirectoryTree();
-    new SymlinkForest(ImmutableMap.of(), topDir, "").deleteTreesBelowNotPrefixed(topDir, "file-");
+    SymlinkForest.deleteTreesBelowNotPrefixed(
+        topDir, "file-", /*notSymlinkedInExecrootDirectories=*/ ImmutableSortedSet.of());
     assertThat(file1.exists()).isTrue();
     assertThat(file2.exists()).isTrue();
     assertThat(aDir.exists()).isFalse();
