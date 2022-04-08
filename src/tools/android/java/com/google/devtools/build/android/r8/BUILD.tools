@@ -22,3 +22,10 @@ java_binary(
     visibility = ["//tools/android:__subpackages__"],
     runtime_deps = [":r8"],
 )
+
+java_binary(
+    name = "r8_binary",
+    main_class = "com.google.devtools.build.android.r8.CompatDx",
+    visibility = ["@androidsdk//:__subpackages__", "//tools/android:__subpackages__"],
+    runtime_deps = [":r8"],
+)

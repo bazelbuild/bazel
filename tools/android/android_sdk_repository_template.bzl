@@ -296,10 +296,9 @@ def create_android_sdk_rules(
         name = "dx_jar_import",
         jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
     )
-    java_binary(
+    native.alias(
         name = "d8_compat_dx",
-        main_class = "com.android.tools.r8.compatdx.CompatDx",
-        runtime_deps = [":d8_jar_import"],
+        actual = "@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:r8_binary"
     )
     java_import(
         name = "d8_jar_import",
