@@ -176,6 +176,21 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_compile_actions,
+                flag_groups = [
+                    flag_group(
+                        # Security hardening requires optimization.
+                        # We need to undef it as some distributions now have it enabled by default.
+                        flags = ["-U_FORTIFY_SOURCE"],
+                    ),
+                ],
+                with_features = [
+                    with_feature_set(
+                        not_features = ["thin_lto"],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = all_compile_actions,
                 flag_groups = ([
                     flag_group(
                         flags = ctx.attr.compile_flags,

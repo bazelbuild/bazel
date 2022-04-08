@@ -530,9 +530,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cxx_builtin_include_directories}": get_starlark_list(builtin_include_directories),
             "%{compile_flags}": get_starlark_list(
                 [
-                    # Security hardening requires optimization.
-                    # We need to undef it as some distributions now have it enabled by default.
-                    "-U_FORTIFY_SOURCE",
                     "-fstack-protector",
                     # All warnings are enabled.
                     "-Wall",
