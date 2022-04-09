@@ -177,6 +177,10 @@ public final class GlobFunction implements SkyFunction {
             return null;
           }
           GlobValue globValue = (GlobValue) listingAndRecursiveGlobResult.next();
+          if (globValue == null) {
+            // has exception, will be handled later.
+            return null;
+          }
           matches.addTransitive(globValue.getMatches());
           listingValue = (DirectoryListingValue) listingAndRecursiveGlobResult.next();
         }
