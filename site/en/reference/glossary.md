@@ -298,8 +298,8 @@ An identifier for a [target](#target). A fully-qualified label such as
 directory, `path/to/package` as the directory that contains the [`BUILD`
 file](#build-file) declaring the target, and `:target` as the name of the target
 declared in the aforementioned `BUILD` file. May also be prefixed with
-`@my_repository//<..>` to indicate that the target is declared in an ]external
-repository] named `my_repository`.
+`@my_repository//<..>` to indicate that the target is declared in an [external
+repository](/docs/external) named `my_repository`.
 
 ### Loading phase {:#loading-phase}
 
