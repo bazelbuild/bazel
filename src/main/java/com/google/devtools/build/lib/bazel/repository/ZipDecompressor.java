@@ -131,11 +131,11 @@ public class ZipDecompressor implements Decompressor {
     }
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
     int permissions = getPermissions(entry.getExternalAttributes(), entry.getName());
-    FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
+    outputPath.getParentDirectory().createDirectoryAndParents();
     boolean isDirectory = (permissions & S_IFDIR) == S_IFDIR;
     boolean isSymlink = (permissions & S_IFLNK) == S_IFLNK;
     if (isDirectory) {
-      FileSystemUtils.createDirectoryAndParents(outputPath);
+      outputPath.createDirectoryAndParents();
     } else if (isSymlink) {
       Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
       byte[] buffer = new byte[(int) entry.getSize()];

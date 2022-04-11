@@ -40,8 +40,10 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -67,16 +69,15 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -100,6 +101,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -213,39 +215,39 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             // Input files for every test action
             .add(
                 attr("$test_wrapper", LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
             .add(
                 attr("$xml_writer", LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
             .add(
                 attr("$test_runtime", LABEL_LIST)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     // Getting this default value through the getTestRuntimeLabelList helper ensures
                     // we reuse the same ImmutableList<Label> instance for each $test_runtime attr.
                     .value(getTestRuntimeLabelList(env)))
             .add(
                 attr("$test_setup_script", LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
             .add(
                 attr("$xml_generator_script", LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
             .add(
                 attr("$collect_coverage_script", LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
             // Input files for test actions collecting code coverage
             .add(
                 attr(":coverage_support", LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .value(
                         BaseRuleClasses.coverageSupportAttribute(
                             labelCache.get(
@@ -253,7 +255,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             // Used in the one-per-build coverage report generation action.
             .add(
                 attr(":coverage_report_generator", LABEL)
-                    .cfg(HostTransition.createFactory())
+                    .cfg(ExecutionTransitionFactory.create())
                     .value(
                         BaseRuleClasses.coverageReportGeneratorAttribute(
                             labelCache.get(
@@ -271,14 +273,25 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   }
 
   @Override
-  public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {
+  public Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+      throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
       builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
     }
-    return builder.build();
+    if (init == Starlark.NONE) {
+      return builder.build();
+    } else {
+      if (init instanceof StarlarkCallable) {
+        builder.setInit((StarlarkCallable) init);
+      } else {
+        throw Starlark.errorf("got %s for init, want callable value", Starlark.type(init));
+      }
+      StarlarkProvider provider = builder.build();
+      return Tuple.of(provider, provider.createRawConstructor());
+    }
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -388,7 +401,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             : Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
         bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
 
-    builder.addRequiredToolchains(parseToolchains(toolchains, thread));
+    builder.addToolchainTypes(parseToolchainTypes(toolchains, thread));
     if (useToolchainTransition) {
       builder.useToolchainTransition(ToolchainTransitionMode.ENABLED);
     }
@@ -546,46 +559,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     return attributes.build();
   }
 
-  /**
-   * Parses a sequence of label strings with a repo mapping.
-   *
-   * @param inputs sequence of input strings
-   * @param thread repository mapping
-   * @param adjective describes the purpose of the label; used for errors
-   * @throws EvalException if the label can't be parsed
-   */
-  private static ImmutableList<Label> parseLabels(
-      Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
+  private static ImmutableList<Label> parseExecCompatibleWith(
+      Sequence<?> inputs, StarlarkThread thread) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
-    BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    LabelConversionContext context =
-        new LabelConversionContext(
-            moduleContext.label(),
-            moduleContext.repoMapping(),
-            bazelStarlarkContext.getConvertedLabelsInPackage());
-    for (String input : inputs) {
+    LabelConverter converter = LabelConverter.forThread(thread);
+    for (String input : Sequence.cast(inputs, String.class, "exec_compatible_with")) {
       try {
-        Label label = context.convert(input);
+        Label label = converter.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
-        throw Starlark.errorf(
-            "Unable to parse %s label '%s': %s", adjective, input, e.getMessage());
+        throw Starlark.errorf("Unable to parse constraint label '%s': %s", input, e.getMessage());
       }
     }
     return parsedLabels.build();
-  }
-
-  private static ImmutableList<Label> parseToolchains(Sequence<?> inputs, StarlarkThread thread)
-      throws EvalException {
-    return parseLabels(Sequence.cast(inputs, String.class, "toolchains"), thread, "toolchain");
-  }
-
-  private static ImmutableList<Label> parseExecCompatibleWith(
-      Sequence<?> inputs, StarlarkThread thread) throws EvalException {
-    return parseLabels(
-        Sequence.cast(inputs, String.class, "exec_compatible_with"), thread, "constraint");
   }
 
   @Override
@@ -705,7 +691,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
-        parseToolchains(toolchains, thread),
+        parseToolchainTypes(toolchains, thread),
         useToolchainTransition,
         applyToGeneratingRules);
   }
@@ -1040,9 +1026,62 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       return ExecGroup.copyFromDefault();
     }
 
-    ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes = parseToolchainTypes(toolchains, thread);
     ImmutableSet<Label> constraints =
         ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
-    return ExecGroup.create(toolchainTypes, constraints);
+    return ExecGroup.builder()
+        .toolchainTypes(toolchainTypes)
+        .execCompatibleWith(constraints)
+        .copyFrom(null)
+        .build();
+  }
+
+  private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(
+      Sequence<?> rawToolchains, StarlarkThread thread) throws EvalException {
+    Map<Label, ToolchainTypeRequirement> toolchainTypes = new HashMap<>();
+    LabelConverter converter = LabelConverter.forThread(thread);
+
+    for (Object rawToolchain : rawToolchains) {
+      ToolchainTypeRequirement toolchainType = parseToolchainType(converter, rawToolchain);
+      Label typeLabel = toolchainType.toolchainType();
+      ToolchainTypeRequirement previous = toolchainTypes.get(typeLabel);
+      if (previous != null) {
+        // Keep the one with the strictest requirements.
+        toolchainType = ToolchainTypeRequirement.strictest(previous, toolchainType);
+      }
+      toolchainTypes.put(typeLabel, toolchainType);
+    }
+
+    return ImmutableSet.copyOf(toolchainTypes.values());
+  }
+
+  private static ToolchainTypeRequirement parseToolchainType(
+      LabelConverter converter, Object rawToolchain) throws EvalException {
+    // Handle actual ToolchainTypeRequirement objects.
+    if (rawToolchain instanceof ToolchainTypeRequirement) {
+      return (ToolchainTypeRequirement) rawToolchain;
+    }
+
+    // Handle Label-like objects.
+    Label toolchainLabel = null;
+    if (rawToolchain instanceof Label) {
+      toolchainLabel = (Label) rawToolchain;
+    } else if (rawToolchain instanceof String) {
+      try {
+        toolchainLabel = converter.convert((String) rawToolchain);
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf(
+            "Unable to parse toolchain_type label '%s': %s", rawToolchain, e.getMessage());
+      }
+    }
+
+    if (toolchainLabel != null) {
+      return ToolchainTypeRequirement.builder(toolchainLabel).mandatory(true).build();
+    }
+
+    // It's not a valid type.
+    throw Starlark.errorf(
+        "'toolchains' takes a toolchain_type, Label, or String, but instead got a %s",
+        rawToolchain.getClass().getSimpleName());
   }
 }

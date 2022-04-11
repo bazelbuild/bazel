@@ -97,7 +97,7 @@ class EvaluationTestCase {
     if (this.module == null) {
       ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
       newModuleHook(predeclared); // see StarlarkFlagGuardingTest
-      this.module = Module.withPredeclared(semantics, predeclared.build());
+      this.module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
     }
     return this.module;
   }

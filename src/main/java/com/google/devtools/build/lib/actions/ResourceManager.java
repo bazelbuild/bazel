@@ -24,6 +24,9 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.worker.Worker;
+import com.google.devtools.build.lib.worker.WorkerKey;
+import com.google.devtools.build.lib.worker.WorkerPool;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.Iterator;
@@ -86,6 +89,30 @@ public class ResourceManager {
     }
   }
 
+  /**
+   * A handle returned by {@link #acquireWorkerResources(ActionExecutionMetadata, ResourceSet,
+   * WorkerKey, ResourcePriority)} that must be closed in order to free the resources again.
+   */
+  public static class ResourceHandleWithWorker implements AutoCloseable {
+    final ResourceHandle resourceHandle;
+    final Worker worker;
+
+    public ResourceHandleWithWorker(ResourceHandle resourceHandle, Worker worker) {
+      this.resourceHandle = resourceHandle;
+      this.worker = worker;
+    }
+
+    public Worker getWorker() {
+      return worker;
+    }
+
+    /** Closing the ResourceHandle releases the resources associated with it. */
+    @Override
+    public void close() {
+      this.resourceHandle.close();
+    }
+  }
+
   private final ThreadLocal<Boolean> threadLocked = new ThreadLocal<Boolean>() {
     @Override
     protected Boolean initialValue() {
@@ -137,6 +164,8 @@ public class ResourceManager {
   @SuppressWarnings("JdkObsolete")
   private final Deque<Pair<ResourceSet, CountDownLatch>> dynamicStandaloneRequests =
       new LinkedList<>();
+
+  private WorkerPool workerPool;
 
   // The total amount of resources on the local host. Must be set by
   // an explicit call to setAvailableResources(), often using
@@ -217,9 +246,29 @@ public class ResourceManager {
     localMemoryEstimate = value;
   }
 
+  /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
+  public void setWorkerPool(WorkerPool workerPool) {
+    this.workerPool = workerPool;
+  }
+
   /** Sets whether to prioritize local-only actions in resource allocation. */
   public void setPrioritizeLocalActions(boolean prioritizeLocalActions) {
     this.prioritizeLocalActions = prioritizeLocalActions;
+  }
+
+  /**
+   * Acuqires requested resource set and worker. Will block if resource is not available. The worker
+   * isn't released as part of the AutoCloseable.
+   */
+  public ResourceHandleWithWorker acquireWorkerResources(
+      ActionExecutionMetadata owner,
+      ResourceSet resources,
+      WorkerKey workerKey,
+      ResourcePriority priority)
+      throws InterruptedException, IOException {
+    Worker worker = this.workerPool.borrowObject(workerKey);
+    ResourceHandle handle = acquireResources(owner, resources, priority);
+    return new ResourceHandleWithWorker(handle, worker);
   }
 
   /**

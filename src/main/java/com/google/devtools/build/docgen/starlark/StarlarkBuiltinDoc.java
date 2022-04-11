@@ -17,10 +17,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import java.text.Collator;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -39,7 +41,9 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private TreeMap<String, StarlarkMethodDoc> methodMap;
   @Nullable private StarlarkConstructorMethodDoc javaConstructor;
 
-  public StarlarkBuiltinDoc(StarlarkBuiltin module, String title, Class<?> classObject) {
+  public StarlarkBuiltinDoc(
+      StarlarkBuiltin module, String title, Class<?> classObject, StarlarkDocExpander expander) {
+    super(expander);
     this.module =
         Preconditions.checkNotNull(
             module, "Class has to be annotated with StarlarkBuiltin: %s", classObject);
@@ -55,8 +59,8 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   }
 
   @Override
-  public String getDocumentation() {
-    return StarlarkDocUtils.substituteVariables(module.doc());
+  public String getRawDocumentation() {
+    return module.doc();
   }
 
   public String getTitle() {
@@ -109,11 +113,14 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   }
 
   public Collection<StarlarkMethodDoc> getJavaMethods() {
-    ImmutableList.Builder<StarlarkMethodDoc> returnedMethods = ImmutableList.builder();
+    ImmutableSortedSet.Builder<StarlarkMethodDoc> methods =
+        new ImmutableSortedSet.Builder<>(Comparator.comparing(StarlarkMethodDoc::getName));
+
     if (javaConstructor != null) {
-      returnedMethods.add(javaConstructor);
+      methods.add(javaConstructor);
     }
-    return returnedMethods.addAll(javaMethods.values()).build();
+    methods.addAll(javaMethods.values());
+    return methods.build();
   }
 
   public ImmutableCollection<? extends StarlarkMethodDoc> getMethods() {

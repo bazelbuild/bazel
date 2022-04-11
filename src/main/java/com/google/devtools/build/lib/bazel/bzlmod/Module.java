@@ -116,7 +116,7 @@ public abstract class Module {
           RepositoryName.createFromValidStrippedName(dep.getKey()),
           RepositoryName.createFromValidStrippedName(dep.getValue().getCanonicalRepoName()));
     }
-    return RepositoryMapping.create(mapping.build(), getCanonicalRepoName());
+    return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
   }
 
   /**

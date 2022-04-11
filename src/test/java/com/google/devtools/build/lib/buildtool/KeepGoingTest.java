@@ -248,6 +248,7 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
 
   @Test
   public void testConfigurationErrorsAreToleratedWithKeepGoing() throws Exception {
+    runtimeWrapper.addOptions("--experimental_builtins_injection_override=+cc_library");
     write("a/BUILD", "cc_library(name='a', srcs=['missing.foo'])");
     write("b/BUILD", "cc_library(name='b')");
 
@@ -258,7 +259,8 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
     assertBuildFailedExceptionFromBuilding(
         "command succeeded, but not all targets were analyzed", "//a", "//b");
     events.assertContainsError(
-        "in srcs attribute of cc_library rule //a:a: " + "target '//a:missing.foo' does not exist");
+        "in srcs attribute of cc_library rule //a:a: source file '//a:missing.foo' is misplaced"
+            + " here");
     events.assertContainsInfo("Analysis succeeded for only 1 of 2 top-level targets");
 
     assertSameConfiguredTarget("//b:b");

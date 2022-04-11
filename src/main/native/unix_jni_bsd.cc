@@ -36,7 +36,6 @@
 
 #include <string>
 
-#include "src/main/native/macros.h"
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
@@ -66,8 +65,6 @@ int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctime;
     case STAT_MTIME:
       return statbuf.st_mtime;
-    default:
-      CHECK(false);
   }
 }
 
@@ -79,8 +76,6 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctimespec.tv_nsec;
     case STAT_MTIME:
       return statbuf.st_mtimespec.tv_nsec;
-    default:
-      CHECK(false);
   }
 }
 
@@ -157,8 +152,22 @@ void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
 }
 
+MemoryPressureLevel portable_memory_pressure() {
+  // Currently not implemented.
+  return MemoryPressureLevelNormal;
+}
+
 void portable_start_disk_space_monitoring() {
   // Currently not implemented.
+}
+
+void portable_start_cpu_speed_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_cpu_speed() {
+  // Currently not implemented.
+  return -1;
 }
 
 }  // namespace blaze_jni

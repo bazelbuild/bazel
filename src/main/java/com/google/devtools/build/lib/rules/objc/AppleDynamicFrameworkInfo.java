@@ -60,7 +60,7 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
 
   private final NestedSet<String> dynamicFrameworkDirs;
   private final NestedSet<Artifact> dynamicFrameworkFiles;
-  private final @Nullable Artifact dylibBinary;
+  @Nullable private final Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;
 
   public AppleDynamicFrameworkInfo(

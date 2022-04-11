@@ -77,7 +77,6 @@ public final class HttpUtils {
     // scheme of their redirect URLs.
     if (preferred.getHost() != null
         && preferred.getScheme() != null
-        && (preferred.getUserInfo() != null || original.getUserInfo() == null)
         && (preferred.getFragment() != null || original.getRef() == null)) {
       // In this case we obviously do not inherit anything from the original URL, as all inheritable
       // fields are either set explicitly or not present in the original either. Therefore, it is

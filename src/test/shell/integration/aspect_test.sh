@@ -820,39 +820,6 @@ inline int fourtyTwo() {
 EOF
 }
 
-function test_invalid_aspect_with_flag() {
-  # Create a simple cc library to test.
-  cat > BUILD <<EOF
-cc_library(
-  name = "number",
-  srcs = ["number.cc"],
-)
-EOF
-  cat > number.cc <<EOF
-int number() {
-  return 42;
-}
-EOF
-
-  cat > aspect.bzl <<EOF
-def _print_aspect_impl(target, ctx):
-    print(ctx.name)
-    return []
-
-print_aspect = aspect(
-    implementation = _print_aspect_impl,
-    attr_aspects = ['deps'],
-    # Aspects that use attrs are not usable at the command line.
-    attrs = {
-        "type": attr.string(values = ["foo", "bar"]),
-    },
-)
-EOF
-
-  bazel build //:number --aspects //:aspect.bzl%print_aspect &> $TEST_log && fail "Error expected"
-  expect_log "Cannot instantiate parameterized aspect .* at the top level"
-}
-
 function test_aspect_requires_aspect_no_providers_duplicates() {
   local package="test"
   mkdir -p "${package}"
@@ -1065,7 +1032,6 @@ EOF
       --aspects_parameters="p1=p1_v1" \
       --aspects_parameters="p2=p2_v2" \
       --aspects_parameters="p3=p3_v3" \
-      --experimental_allow_top_level_aspects_parameters \
       &> $TEST_log || fail "Build failed"
 
   expect_log "aspect_a on target //test:main_target, p1 = p1_v1 and p3 = p3_v3"
@@ -1119,7 +1085,6 @@ EOF
   bazel build "//${package}:main_target" \
       --aspects="//${package}:defs.bzl%aspect_a" \
       --aspects_parameters="p=p_v1" \
-      --experimental_allow_top_level_aspects_parameters \
       &> $TEST_log || fail "Build failed"
 
   expect_log "aspect_a on target //test:main_target, p = p_v1"
@@ -1167,7 +1132,6 @@ EOF
       --aspects="//${package}:defs.bzl%aspect_a" \
       --aspects_parameters="p=p_v1" \
       --aspects_parameters="p=p_v2" \
-      --experimental_allow_top_level_aspects_parameters \
       &> $TEST_log && fail "Build succeeded, expected to fail"
 
   expect_log "Error in top-level aspects parameters: Multiple entries with same key: p=p_v2 and p=p_v1"
@@ -1176,7 +1140,6 @@ EOF
       --aspects="//${package}:defs.bzl%aspect_a" \
       --aspects_parameters="p=p_v1" \
       --aspects_parameters="p=p_v1" \
-      --experimental_allow_top_level_aspects_parameters \
       &> $TEST_log && fail "Build succeeded, expected to fail"
 
   expect_log "Error in top-level aspects parameters: Multiple entries with same key: p=p_v1 and p=p_v1"
@@ -1229,7 +1192,6 @@ EOF
       --aspects="//${package}:defs.bzl%aspect_a" \
       --aspects="//${package}:defs.bzl%aspect_b" \
       --aspects_parameters="p=val" \
-      --experimental_allow_top_level_aspects_parameters \
       &> $TEST_log && fail "Build succeeded, expected to fail"
 
   expect_log "//test:defs.bzl%aspect_a: expected value of type 'int' for attribute 'p' but got 'val'"

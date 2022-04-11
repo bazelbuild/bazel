@@ -188,6 +188,8 @@ public final class Lexer {
         case ':':
         case '$':
         case '~':
+        case '[':
+        case ']':
           pos++;
           break;
        default:

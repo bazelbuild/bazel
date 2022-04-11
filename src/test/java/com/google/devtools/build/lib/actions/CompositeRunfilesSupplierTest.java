@@ -167,7 +167,7 @@ public class CompositeRunfilesSupplierTest {
     for (String path : paths) {
       builder.put(PathFragment.create(path), ActionsTestUtil.createArtifact(rootDir, path));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private static NestedSet<Artifact> mkArtifacts(ArtifactRoot rootDir, String... paths) {

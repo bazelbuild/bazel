@@ -22,7 +22,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDetail;
-import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
@@ -34,6 +33,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllS
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToCombinedDisk;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
+import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -58,6 +58,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -132,14 +133,17 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -161,6 +165,8 @@ public class RemoteExecutionService {
   private final ImmutableSet<PathFragment> filesToDownload;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
+  private final Set<String> reportedErrors = new HashSet<>();
+  private final Phaser backgroundTaskPhaser = new Phaser(1);
 
   private final Scheduler scheduler;
 
@@ -979,7 +985,8 @@ public class RemoteExecutionService {
           localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
     }
 
-    return new ActionResultMetadata(files.build(), symlinks.build(), directories.build());
+    return new ActionResultMetadata(
+        files.buildOrThrow(), symlinks.buildOrThrow(), directories.buildOrThrow());
   }
 
   /**
@@ -1002,6 +1009,32 @@ public class RemoteExecutionService {
     ActionResultMetadata metadata;
     try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
       metadata = parseActionResultMetadata(action, result);
+    }
+
+    if (result.success()) {
+      // Check that all mandatory outputs are created.
+      for (ActionInput output : action.spawn.getOutputFiles()) {
+        if (action.spawn.isMandatoryOutput(output)) {
+          // Don't check output that is tree artifact since spawn could generate nothing under that
+          // directory. Remote server typically doesn't create directory ahead of time resulting in
+          // empty tree artifact missing from action cache entry.
+          if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+            continue;
+          }
+
+          Path localPath = execRoot.getRelative(output.getExecPath());
+          if (!metadata.files.containsKey(localPath)
+              && !metadata.directories.containsKey(localPath)
+              && !metadata.symlinks.containsKey(localPath)) {
+            throw new IOException(
+                "Invalid action cache entry "
+                    + action.actionKey.getDigest().getHash()
+                    + ": expected output "
+                    + prettyPrint(output)
+                    + " does not exist.");
+          }
+        }
+      }
     }
 
     FileOutErr outErr = action.spawnExecutionContext.getFileOutErr();
@@ -1117,24 +1150,56 @@ public class RemoteExecutionService {
     return null;
   }
 
+  private static String prettyPrint(ActionInput actionInput) {
+    if (actionInput instanceof Artifact) {
+      return ((Artifact) actionInput).prettyPrint();
+    } else {
+      return actionInput.getExecPathString();
+    }
+  }
+
+  private Single<UploadManifest> buildUploadManifestAsync(
+      RemoteAction action, SpawnResult spawnResult) {
+    return Single.fromCallable(
+        () -> {
+          ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+          // Check that all mandatory outputs are created.
+          for (ActionInput outputFile : action.spawn.getOutputFiles()) {
+            Path localPath = execRoot.getRelative(outputFile.getExecPath());
+            if (action.spawn.isMandatoryOutput(outputFile) && !localPath.exists()) {
+              throw new IOException(
+                  "Expected output " + prettyPrint(outputFile) + " was not created locally.");
+            }
+            outputFiles.add(localPath);
+          }
+
+          return UploadManifest.create(
+              remoteOptions,
+              digestUtil,
+              remotePathResolver,
+              action.actionKey,
+              action.action,
+              action.command,
+              outputFiles.build(),
+              action.spawnExecutionContext.getFileOutErr(),
+              spawnResult.exitCode());
+        });
+  }
+
   @VisibleForTesting
   UploadManifest buildUploadManifest(RemoteAction action, SpawnResult spawnResult)
-      throws ExecException, IOException {
-    Collection<Path> outputFiles =
-        action.spawn.getOutputFiles().stream()
-            .map((inp) -> execRoot.getRelative(inp.getExecPath()))
-            .collect(ImmutableList.toImmutableList());
-
-    return UploadManifest.create(
-        remoteOptions,
-        digestUtil,
-        remotePathResolver,
-        action.actionKey,
-        action.action,
-        action.command,
-        outputFiles,
-        action.spawnExecutionContext.getFileOutErr(),
-        /* exitCode= */ 0);
+      throws IOException, ExecException, InterruptedException {
+    try {
+      return buildUploadManifestAsync(action, spawnResult).blockingGet();
+    } catch (RuntimeException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        Throwables.throwIfInstanceOf(cause, IOException.class);
+        Throwables.throwIfInstanceOf(cause, ExecException.class);
+        Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+      }
+      throw e;
+    }
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
@@ -1146,37 +1211,43 @@ public class RemoteExecutionService {
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");
 
-    try {
-      UploadManifest manifest = buildUploadManifest(action, spawnResult);
-      if (remoteOptions.remoteCacheAsync) {
-        Single.using(
-                remoteCache::retain,
-                remoteCache ->
-                    manifest.uploadAsync(
-                        action.getRemoteActionExecutionContext(), remoteCache, reporter),
-                RemoteCache::release)
-            .subscribeOn(scheduler)
-            .subscribe(
-                new SingleObserver<ActionResult>() {
-                  @Override
-                  public void onSubscribe(@NonNull Disposable d) {}
+    if (remoteOptions.remoteCacheAsync) {
+      Single.using(
+              remoteCache::retain,
+              remoteCache ->
+                  buildUploadManifestAsync(action, spawnResult)
+                      .flatMap(
+                          manifest ->
+                              manifest.uploadAsync(
+                                  action.getRemoteActionExecutionContext(), remoteCache, reporter)),
+              RemoteCache::release)
+          .subscribeOn(scheduler)
+          .subscribe(
+              new SingleObserver<ActionResult>() {
+                @Override
+                public void onSubscribe(@NonNull Disposable d) {
+                  backgroundTaskPhaser.register();
+                }
 
-                  @Override
-                  public void onSuccess(@NonNull ActionResult actionResult) {}
+                @Override
+                public void onSuccess(@NonNull ActionResult actionResult) {
+                  backgroundTaskPhaser.arriveAndDeregister();
+                }
 
-                  @Override
-                  public void onError(@NonNull Throwable e) {
-                    reportUploadError(e);
-                  }
-                });
-      } else {
-        try (SilentCloseable c =
-            Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
-          manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
-        }
+                @Override
+                public void onError(@NonNull Throwable e) {
+                  backgroundTaskPhaser.arriveAndDeregister();
+                  reportUploadError(e);
+                }
+              });
+    } else {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
+        UploadManifest manifest = buildUploadManifest(action, spawnResult);
+        manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
+      } catch (IOException e) {
+        reportUploadError(e);
       }
-    } catch (IOException e) {
-      reportUploadError(e);
     }
   }
 
@@ -1186,10 +1257,9 @@ public class RemoteExecutionService {
       return;
     }
 
-    String errorMessage =
-        "Writing to Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
+    String errorMessage = "Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
 
-    reporter.handle(Event.warn(errorMessage));
+    report(Event.warn(errorMessage));
   }
 
   /**
@@ -1300,7 +1370,7 @@ public class RemoteExecutionService {
       remoteCache.release();
 
       try {
-        remoteCache.awaitTermination();
+        backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
       } catch (InterruptedException e) {
         buildInterrupted.set(true);
         remoteCache.shutdownNow();
@@ -1310,6 +1380,17 @@ public class RemoteExecutionService {
 
     if (remoteExecutor != null) {
       remoteExecutor.close();
+    }
+  }
+
+  void report(Event evt) {
+
+    synchronized (this) {
+      if (reportedErrors.contains(evt.getMessage())) {
+        return;
+      }
+      reportedErrors.add(evt.getMessage());
+      reporter.handle(evt);
     }
   }
 }

@@ -75,7 +75,7 @@ public final class ComposingTransition implements ConfigurationTransition {
         toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
       }
     }
-    return toOptions.build();
+    return toOptions.buildOrThrow();
   }
 
   @Override

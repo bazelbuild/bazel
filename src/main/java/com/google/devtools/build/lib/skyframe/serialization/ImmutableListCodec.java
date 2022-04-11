@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,45 +19,33 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
-/** Encodes a list of elements using a specified {@link ObjectCodec}. */
-public class ImmutableListCodec<T> implements ObjectCodec<ImmutableList<T>> {
+/** A {@link ObjectCodec} for {@link ImmutableList}. */
+@SuppressWarnings("rawtypes") // Intentional erasure of ImmutableList.
+class ImmutableListCodec implements ObjectCodec<ImmutableList> {
 
-  private final ObjectCodec<T> codec;
-
-  ImmutableListCodec(ObjectCodec<T> codec) {
-    this.codec = codec;
-  }
-
-  @SuppressWarnings("unchecked")
   @Override
-  public Class<ImmutableList<T>> getEncodedClass() {
-    // Compiler doesn't like cast from Class<ImmutableList> -> Class<ImmutableList<T>>, but it
-    // does allow what we see below. Type is lost at runtime anyway, so while gross this works.
-    return (Class<ImmutableList<T>>) ((Class<?>) ImmutableList.class);
+  public Class<ImmutableList> getEncodedClass() {
+    return ImmutableList.class;
   }
 
   @Override
   public void serialize(
-      SerializationContext context, ImmutableList<T> list, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
-    codedOut.writeInt32NoTag(list.size());
-    for (T item : list) {
-      codec.serialize(context, item, codedOut);
+      SerializationContext context, ImmutableList object, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    codedOut.writeInt32NoTag(object.size());
+    for (Object obj : object) {
+      context.serialize(obj, codedOut);
     }
   }
 
   @Override
-  public ImmutableList<T> deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
-    int length = codedIn.readInt32();
-    if (length < 0) {
-      throw new SerializationException("Expected non-negative length: " + length);
+  public ImmutableList deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws IOException, SerializationException {
+    int size = codedIn.readInt32();
+    Object[] list = new Object[size];
+    for (int i = 0; i < size; ++i) {
+      list[i] = context.deserialize(codedIn);
     }
-
-    ImmutableList.Builder<T> builder = ImmutableList.builder();
-    for (int i = 0; i < length; i++) {
-      builder.add(codec.deserialize(context, codedIn));
-    }
-    return builder.build();
+    return ImmutableList.copyOf(list);
   }
 }

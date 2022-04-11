@@ -67,7 +67,7 @@ _java_grpc_gensource = rule(
             allow_single_file = True,
         ),
         "_java_plugin": attr.label(
-            default = Label("@io_bazel//third_party/grpc:grpc-java-plugin"),
+            default = Label("@io_bazel//third_party/grpc-java:grpc-java-plugin"),
             executable = True,
             cfg = "host",
         ),
@@ -113,7 +113,7 @@ def java_grpc_library(name, srcs, deps, enable_deprecated = None, visibility = N
         deps = [
             "@io_bazel//third_party:javax_annotations",
             "@io_bazel//third_party:jsr305",
-            "@io_bazel//third_party/grpc:grpc-jar",
+            "@io_bazel//third_party/grpc-java:grpc-jar",
             "@io_bazel//third_party:guava",
             "@com_google_protobuf//:protobuf_java",
         ] + deps,

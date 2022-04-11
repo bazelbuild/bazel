@@ -50,6 +50,20 @@ public final class AnalysisUtils {
   }
 
   /**
+   * Returns whether link stamping is enabled for a TriState stamp attribute.
+   *
+   * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
+   * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
+   * AUTO.
+   */
+  public static boolean isStampingEnabled(TriState stamp, BuildConfigurationValue config) {
+    if (config.isToolConfiguration()) {
+      return false;
+    }
+    return stamp.equals(TriState.YES) || (stamp.equals(TriState.AUTO) && config.stampBinaries());
+  }
+
+  /**
    * Returns whether link stamping is enabled for a rule.
    *
    * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
@@ -57,19 +71,15 @@ public final class AnalysisUtils {
    * -1.
    */
   public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfigurationValue config) {
-    if (config.isToolConfiguration()) {
-      return false;
-    }
-    TriState stamp;
     if (ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
-      stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
-    } else if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
-      int value = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
-      stamp = TriState.fromInt(value);
-    } else {
-      return false;
+      TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
+      return isStampingEnabled(stamp, config);
     }
-    return stamp == TriState.YES || (stamp == TriState.AUTO && config.stampBinaries());
+    if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
+      int stamp = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
+      return isStampingEnabled(TriState.fromInt(stamp), config);
+    }
+    return false;
   }
 
   public static boolean isStampingEnabled(RuleContext ruleContext) {

@@ -707,7 +707,8 @@ bool FindZip64CentralDirectory(const u1 *bytes, size_t in_length,
   if (MaybeReadZip64CentralDirectory(bytes, in_length,
                                      bytes + zip64_end_of_central_dir_offset,
                                      end_of_central_dir, cd)) {
-    if (disk_with_zip64_central_directory != 0 || zip64_total_disks != 1) {
+    // TODO(b/228519294) Add a test for a valid zip64 file with total disks = 0
+    if (disk_with_zip64_central_directory != 0 || zip64_total_disks > 1) {
       fprintf(stderr, "multi-disk JAR files are not supported\n");
       return false;
     }

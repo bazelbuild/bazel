@@ -320,6 +320,7 @@ java_test(
     srcs = [
         "DesugarCoreLibraryFunctionalTest.java",
     ],
+    javacopts = ["-source 8 -target 8"],
     jvm_flags = [
         # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
         "-XX:+IgnoreUnrecognizedVMOptions",
@@ -693,7 +694,10 @@ sh_test(
 java_library(
     name = "testdata",
     srcs = glob(["testdata/*.java"]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":separate",
@@ -707,7 +711,10 @@ java_library(
         "testdata/*.java",
         "testdata/java8/**/*.java",
     ]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":separate",
@@ -721,6 +728,7 @@ java_library(
     srcs = glob([
         "testdata/core_library/**/*.java",
     ]),
+    javacopts = ["-source 8 -target 8"],
     resources = ["testdata/testresource.txt"],
     deps = [
         "//third_party:error_prone",
@@ -741,7 +749,10 @@ java_library(
 java_library(
     name = "testdata_like_in_android_studio",
     srcs = glob(["testdata/*.java"]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
@@ -755,7 +766,10 @@ java_library(
         "testdata/*.java",
         "testdata/java8/**/*.java",
     ]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
@@ -2080,6 +2094,7 @@ genrule(
     name = "desugar_guava_at_head",
     srcs = [
         "//third_party:guava-jars",
+        "//third_party:guava-failureaccess-jar",
         # Depend on Jacoco runtime in case testdata was built with coverage
         # instrumentation
         "//third_party/java/jacoco:blaze-agent",
@@ -2087,7 +2102,9 @@ genrule(
     ],
     outs = ["guava_at_head_desugared.jar"],
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
-          "-i $(location //third_party:guava-jars) -o $@ " +
+          "-i $(location //third_party:guava-jars) " +
+          "--classpath_entry $(location //third_party:guava-failureaccess-jar) " +
+          "-o $@ " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
     tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],

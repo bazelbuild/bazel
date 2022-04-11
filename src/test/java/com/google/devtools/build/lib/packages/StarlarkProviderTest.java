@@ -16,16 +16,22 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,28 +42,28 @@ import org.junit.runners.JUnit4;
 public final class StarlarkProviderTest {
 
   @Test
-  public void unexportedProvider_Accessors() {
+  public void unexportedProvider_accessors() {
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
     assertThat(provider.isExported()).isFalse();
     assertThat(provider.getName()).isEqualTo("<no name>");
     assertThat(provider.getPrintableName()).isEqualTo("<no name>");
+    assertThat(provider.createRawConstructor().getName()).isEqualTo("<raw constructor>");
     assertThat(provider.getErrorMessageForUnknownField("foo"))
         .isEqualTo("'struct' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isFalse();
     assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
-    assertThrows(
-        IllegalStateException.class,
-        () -> provider.getKey());
+    assertThrows(IllegalStateException.class, provider::getKey);
   }
 
   @Test
-  public void exportedProvider_Accessors() throws Exception {
+  public void exportedProvider_accessors() throws Exception {
     StarlarkProvider.Key key =
         new StarlarkProvider.Key(Label.parseAbsolute("//foo:bar.bzl", ImmutableMap.of()), "prov");
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).setExported(key).build();
     assertThat(provider.isExported()).isTrue();
     assertThat(provider.getName()).isEqualTo("prov");
     assertThat(provider.getPrintableName()).isEqualTo("prov");
+    assertThat(provider.createRawConstructor().getName()).isEqualTo("<raw constructor for prov>");
     assertThat(provider.getErrorMessageForUnknownField("foo"))
         .isEqualTo("'prov' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isTrue();
@@ -66,30 +72,166 @@ public final class StarlarkProviderTest {
   }
 
   @Test
-  public void schemalessProvider_Instantiation() throws Exception {
+  public void basicInstantiation() throws Exception {
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
-    StarlarkInfo info = instantiateWithA1B2C3(provider);
-    assertHasExactlyValuesA1B2C3(info);
+    StarlarkInfo infoFromNormalConstructor = instantiateWithA1B2C3(provider);
+    assertHasExactlyValuesA1B2C3(infoFromNormalConstructor);
+    assertThat(infoFromNormalConstructor.getProvider()).isEqualTo(provider);
+
+    StarlarkInfo infoFromRawConstructor = instantiateWithA1B2C3(provider.createRawConstructor());
+    assertHasExactlyValuesA1B2C3(infoFromRawConstructor);
+    assertThat(infoFromRawConstructor.getProvider()).isEqualTo(provider);
+
+    assertThat(infoFromNormalConstructor).isEqualTo(infoFromRawConstructor);
   }
 
   @Test
-  public void schemafulProvider_Instantiation() throws Exception {
+  public void instantiationWithInit() throws Exception {
+    StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).setInit(initBC).build();
+    StarlarkInfo infoFromNormalConstructor = instantiateWithA1(provider);
+    assertHasExactlyValuesA1B2C3(infoFromNormalConstructor);
+    assertThat(infoFromNormalConstructor.getProvider()).isEqualTo(provider);
+  }
+
+  @Test
+  public void instantiationWithInitSignatureMismatch_fails() throws Exception {
+    StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).setInit(initBC).build();
+    EvalException e = assertThrows(EvalException.class, () -> instantiateWithA1B2C3(provider));
+    assertThat(e).hasMessageThat().contains("expected a single `a` argument");
+  }
+
+  @Test
+  public void instantiationWithInitReturnTypeMismatch_fails() throws Exception {
+    StarlarkCallable initWithInvalidReturnType =
+        new StarlarkCallable() {
+          @Override
+          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
+            return "invalid";
+          }
+
+          @Override
+          public String getName() {
+            return "initWithInvalidReturnType";
+          }
+
+          @Override
+          public Location getLocation() {
+            return Location.BUILTIN;
+          }
+        };
+
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN).setInit(initWithInvalidReturnType).build();
+    EvalException e = assertThrows(EvalException.class, () -> instantiateWithA1B2C3(provider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("got string for 'return value of provider init()', want dict");
+  }
+
+  @Test
+  public void instantiationWithFailingInit_fails() throws Exception {
+    StarlarkCallable failingInit =
+        new StarlarkCallable() {
+          @Override
+          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+              throws EvalException {
+            throw Starlark.errorf("failingInit fails");
+          }
+
+          @Override
+          public String getName() {
+            return "failingInit";
+          }
+
+          @Override
+          public Location getLocation() {
+            return Location.BUILTIN;
+          }
+        };
+
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN).setInit(failingInit).build();
+    EvalException e = assertThrows(EvalException.class, () -> instantiateWithA1B2C3(provider));
+    assertThat(e).hasMessageThat().contains("failingInit fails");
+  }
+
+  @Test
+  public void rawConstructorBypassesInit() throws Exception {
+    StarlarkCallable init = mock(StarlarkCallable.class, "init");
+    StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).setInit(init).build();
+    StarlarkInfo infoFromRawConstructor = instantiateWithA1B2C3(provider.createRawConstructor());
+    assertHasExactlyValuesA1B2C3(infoFromRawConstructor);
+    assertThat(infoFromRawConstructor.getProvider()).isEqualTo(provider);
+    verifyNoInteractions(init);
+  }
+
+  @Test
+  public void basicInstantiationWithSchemaWithSomeFieldsUnset() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setSchema(ImmutableList.of("a", "b", "c"))
             .build();
-    StarlarkInfo info = instantiateWithA1B2C3(provider);
-    assertHasExactlyValuesA1B2C3(info);
+    StarlarkInfo infoFromNormalConstructor = instantiateWithA1(provider);
+    assertHasExactlyValuesA1(infoFromNormalConstructor);
+    StarlarkInfo infoFromRawConstructor = instantiateWithA1(provider.createRawConstructor());
+    assertHasExactlyValuesA1(infoFromRawConstructor);
   }
 
   @Test
-  public void schemalessProvider_GetFields() throws Exception {
+  public void basicInstantiationWithSchemaWithAllFieldsSet() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableList.of("a", "b", "c"))
+            .build();
+    StarlarkInfo infoFromNormalConstructor = instantiateWithA1B2C3(provider);
+    assertHasExactlyValuesA1B2C3(infoFromNormalConstructor);
+    StarlarkInfo infoFromRawConstructor = instantiateWithA1B2C3(provider.createRawConstructor());
+    assertHasExactlyValuesA1B2C3(infoFromRawConstructor);
+  }
+
+  @Test
+  public void schemaDisallowsUnexpectedFields() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN).setSchema(ImmutableList.of("a", "b")).build();
+    EvalException e = assertThrows(EvalException.class, () -> instantiateWithA1B2C3(provider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("got unexpected field 'c' in call to instantiate provider");
+  }
+
+  @Test
+  public void schemaEnforcedOnRawConstructor() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN).setSchema(ImmutableList.of("a", "b")).build();
+    EvalException e =
+        assertThrows(
+            EvalException.class, () -> instantiateWithA1B2C3(provider.createRawConstructor()));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("got unexpected field 'c' in call to instantiate provider");
+  }
+
+  @Test
+  public void schemaEnforcedOnInit() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableList.of("a", "b"))
+            .setInit(initBC)
+            .build();
+    EvalException e = assertThrows(EvalException.class, () -> instantiateWithA1(provider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("got unexpected field 'c' in call to instantiate provider");
+  }
+
+  @Test
+  public void schemalessProvider_getFields() throws Exception {
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
     assertThat(provider.getFields()).isNull();
   }
 
   @Test
-  public void schemafulProvider_GetFields() throws Exception {
+  public void schemafulProvider_getFields() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setSchema(ImmutableList.of("a", "b", "c"))
@@ -128,15 +270,61 @@ public final class StarlarkProviderTest {
     new EqualsTester()
         .addEqualityGroup(provFooA1, provFooA2)
         .addEqualityGroup(provFooB)
-        .addEqualityGroup(provBarA, provBarA)  // reflexive equality (exported)
+        .addEqualityGroup(provBarA, provBarA) // reflexive equality (exported)
         .addEqualityGroup(provBarB)
-        .addEqualityGroup(provUnexported1, provUnexported1)  // reflexive equality (unexported)
+        .addEqualityGroup(provUnexported1, provUnexported1) // reflexive equality (unexported)
         .addEqualityGroup(provUnexported2)
         .testEquals();
   }
 
+  /** Custom init equivalent to `def initBC(a): return {a:a, b:a*2, c:a*3}` */
+  private static final StarlarkCallable initBC =
+      new StarlarkCallable() {
+        @Override
+        public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+            throws EvalException {
+          if (!args.isEmpty()) {
+            throw Starlark.errorf("unexpected positional arguments");
+          }
+          if (kwargs.size() != 1 || !kwargs.containsKey("a")) {
+            throw Starlark.errorf("expected a single `a` argument");
+          }
+          StarlarkInt a = (StarlarkInt) kwargs.get("a");
+          return Dict.builder()
+              .put("a", a)
+              .put("b", StarlarkInt.of(a.toIntUnchecked() * 2))
+              .put("c", StarlarkInt.of(a.toIntUnchecked() * 3))
+              .build(Mutability.IMMUTABLE);
+        }
+
+        @Override
+        public String getName() {
+          return "initBC";
+        }
+
+        @Override
+        public Location getLocation() {
+          return Location.BUILTIN;
+        }
+      };
+
+  /** Instantiates a {@link StarlarkInfo} with fields a=1 (and nothing else). */
+  private static StarlarkInfo instantiateWithA1(StarlarkCallable provider) throws Exception {
+    try (Mutability mu = Mutability.create()) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      Object result =
+          Starlark.call(
+              thread,
+              provider,
+              /*args=*/ ImmutableList.of(),
+              /*kwargs=*/ ImmutableMap.of("a", StarlarkInt.of(1)));
+      assertThat(result).isInstanceOf(StarlarkInfo.class);
+      return (StarlarkInfo) result;
+    }
+  }
+
   /** Instantiates a {@link StarlarkInfo} with fields a=1, b=2, c=3 (and nothing else). */
-  private static StarlarkInfo instantiateWithA1B2C3(StarlarkProvider provider) throws Exception {
+  private static StarlarkInfo instantiateWithA1B2C3(StarlarkCallable provider) throws Exception {
     try (Mutability mu = Mutability.create()) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       Object result =
@@ -149,6 +337,12 @@ public final class StarlarkProviderTest {
       assertThat(result).isInstanceOf(StarlarkInfo.class);
       return (StarlarkInfo) result;
     }
+  }
+
+  /** Asserts that a {@link StarlarkInfo} has field a=1 (and nothing else). */
+  private static void assertHasExactlyValuesA1(StarlarkInfo info) throws Exception {
+    assertThat(info.getFieldNames()).containsExactly("a");
+    assertThat(info.getValue("a")).isEqualTo(StarlarkInt.of(1));
   }
 
   /** Asserts that a {@link StarlarkInfo} has fields a=1, b=2, c=3 (and nothing else). */

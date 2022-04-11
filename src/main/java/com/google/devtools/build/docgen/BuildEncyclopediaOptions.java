@@ -24,14 +24,13 @@ import java.util.List;
  */
 public class BuildEncyclopediaOptions extends OptionsBase {
   @Option(
-    name = "product_name",
-    abbrev = 'n',
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Name of the product to put in the documentation"
-  )
-  public String productName;
+      name = "link_map_path",
+      abbrev = 'm',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to a JSON file that specifies link mappings (page name to URL).")
+  public String linkMapPath;
 
   @Option(
       name = "input_dir",
@@ -101,4 +100,15 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     help = "Prints the help string."
   )
   public boolean help;
+
+  @Option(
+      name = "create_toc",
+      abbrev = 't',
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether a table-of-contents file should be created. Mutually exclusive with"
+              + " --single_page.")
+  public boolean createToc;
 }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -24,11 +26,11 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -50,6 +52,18 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class GraphlessQueryTest extends AbstractQueryTest<Target> {
+  @Override
+  public void boundedRdepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+                .getMessage())
+        .contains("errors were encountered while computing transitive closure");
+  }
+
   @Override
   @Test
   public void testGraphOrderOfWildcards() {

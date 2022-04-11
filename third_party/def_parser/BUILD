@@ -31,13 +31,13 @@ py_test(
         "//src/conditions:windows": ["def_parser_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
-    main = select({
-        "//src/conditions:windows": "def_parser_test.py",
-        "//conditions:default": "empty_test.py",
-    }),
     data = select({
         "//src/conditions:windows": [":def_parser"],
         "//conditions:default": [],
+    }),
+    main = select({
+        "//src/conditions:windows": "def_parser_test.py",
+        "//conditions:default": "empty_test.py",
     }),
     deps = ["//src/test/py/bazel:test_base"],
 )

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
 import java.io.IOException;
@@ -62,6 +63,7 @@ public final class BlazeWorkspace {
 
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
+  private final SyscallCache perCommandSyscallCache;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -81,7 +83,8 @@ public final class BlazeWorkspace {
       SubscriberExceptionHandler eventBusExceptionHandler,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       BinTools binTools,
-      @Nullable AllocationTracker allocationTracker) {
+      @Nullable AllocationTracker allocationTracker,
+      SyscallCache perCommandSyscallCache) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -90,6 +93,7 @@ public final class BlazeWorkspace {
 
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
+    this.perCommandSyscallCache = perCommandSyscallCache;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -207,6 +211,7 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
+            perCommandSyscallCache,
             warnings,
             waitTimeInMs,
             commandStartTime,

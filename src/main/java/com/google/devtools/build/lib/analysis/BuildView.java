@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSema
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -64,7 +67,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -207,18 +209,25 @@ public class BuildView {
       boolean reportIncompatibleTargets,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
+      BugReporter bugReporter,
       boolean includeExecutionPhase,
       int mergedPhasesExecutionJobsCount)
-      throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException {
+      throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
+          BuildFailedException, TestExecException {
     logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
 
     skyframeBuildView.resetProgressReceiver();
+    skyframeExecutor.setBaselineConfiguration(targetOptions);
 
-    // TODO(ulfjack): Expensive. Maybe we don't actually need the targets, only the labels?
-    Collection<Target> targets =
-        loadingResult.getTargets(eventHandler, skyframeExecutor.getPackageManager());
-    eventBus.post(new AnalysisPhaseStartedEvent(targets));
+    ImmutableMap.Builder<Label, Target> labelToTargetsMapBuilder =
+        ImmutableMap.builderWithExpectedSize(loadingResult.getTargetLabels().size());
+    loadingResult
+        .getTargets(eventHandler, skyframeExecutor.getPackageManager())
+        .forEach(target -> labelToTargetsMapBuilder.put(target.getLabel(), target));
+    ImmutableMap<Label, Target> labelToTargetMap = labelToTargetsMapBuilder.buildOrThrow();
+
+    eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
 
     // Prepare the analysis phase
     BuildConfigurationCollection configurations;
@@ -247,7 +256,11 @@ public class BuildView {
       try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
         topLevelTargetsWithConfigsResult =
             AnalysisUtils.getTargetsWithConfigs(
-                configurations, targets, eventHandler, ruleClassProvider, skyframeExecutor);
+                configurations,
+                labelToTargetMap.values(),
+                eventHandler,
+                ruleClassProvider,
+                skyframeExecutor);
       }
     }
 
@@ -271,7 +284,7 @@ public class BuildView {
     for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
       byLabel.put(pair.getLabel(), pair.getConfiguration());
     }
-    for (Target target : targets) {
+    for (Target target : labelToTargetMap.values()) {
       eventBus.post(new TargetConfiguredEvent(target, byLabel.get(target.getLabel())));
     }
 
@@ -385,6 +398,7 @@ public class BuildView {
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
                 eventBus,
+                bugReporter,
                 keepGoing,
                 loadingPhaseThreads,
                 viewOptions.strictConflictChecks,
@@ -397,10 +411,15 @@ public class BuildView {
                 eventHandler,
                 topLevelCtKeys,
                 aspectsKeys.build(),
+                loadingResult.getTestsToRunLabels(),
+                labelToTargetMap,
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
                 eventBus,
+                bugReporter,
                 keepGoing,
+                viewOptions.strictConflictChecks,
+                checkForActionConflicts,
                 loadingPhaseThreads,
                 viewOptions.cpuHeavySkyKeysThreadPoolSize,
                 mergedPhasesExecutionJobsCount);
@@ -433,6 +452,7 @@ public class BuildView {
               viewOptions,
               skyframeAnalysisResult,
               /*targetsToSkip=*/ ImmutableSet.of(),
+              /*labelToTargetMap=*/ labelToTargetMap,
               topLevelTargetsWithConfigsResult,
               /*includeExecutionPhase=*/ true);
     } else {
@@ -475,6 +495,7 @@ public class BuildView {
               viewOptions,
               skyframeAnalysisResult,
               targetsToSkip,
+              labelToTargetMap,
               topLevelTargetsWithConfigsResult,
               /*includeExecutionPhase=*/ false);
     }
@@ -499,6 +520,7 @@ public class BuildView {
       AnalysisOptions viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
+      ImmutableMap<Label, Target> labelToTargetMap,
       TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigs,
       boolean includeExecutionPhase)
       throws InterruptedException {
@@ -564,8 +586,7 @@ public class BuildView {
 
     // Tests.
     Pair<ImmutableSet<ConfiguredTarget>, ImmutableSet<ConfiguredTarget>> testsPair =
-        collectTests(
-            topLevelOptions, allTargetsToTest, skyframeExecutor.getPackageManager(), eventHandler);
+        collectTests(topLevelOptions, allTargetsToTest, labelToTargetMap);
     ImmutableSet<ConfiguredTarget> parallelTests = testsPair.first;
     ImmutableSet<ConfiguredTarget> exclusiveTests = testsPair.second;
 
@@ -790,9 +811,7 @@ public class BuildView {
   private static Pair<ImmutableSet<ConfiguredTarget>, ImmutableSet<ConfiguredTarget>> collectTests(
       TopLevelArtifactContext topLevelOptions,
       @Nullable Iterable<ConfiguredTarget> allTestTargets,
-      PackageManager packageManager,
-      ExtendedEventHandler eventHandler)
-      throws InterruptedException {
+      ImmutableMap<Label, Target> labelToTargetMap) {
     Set<String> outputGroups = topLevelOptions.outputGroups();
     if (!outputGroups.contains(OutputGroupInfo.FILES_TO_COMPILE)
         && !outputGroups.contains(OutputGroupInfo.COMPILATION_PREREQUISITES)
@@ -801,13 +820,7 @@ public class BuildView {
       ImmutableSet.Builder<ConfiguredTarget> targetsToTest = ImmutableSet.builder();
       ImmutableSet.Builder<ConfiguredTarget> targetsToTestExclusive = ImmutableSet.builder();
       for (ConfiguredTarget configuredTarget : allTestTargets) {
-        Target target;
-        try {
-          target = packageManager.getTarget(eventHandler, configuredTarget.getLabel());
-        } catch (NoSuchTargetException | NoSuchPackageException e) {
-          eventHandler.handle(Event.error("Failed to get target when scheduling tests"));
-          continue;
-        }
+        Target target = labelToTargetMap.get(configuredTarget.getLabel());
         if (target instanceof Rule) {
           if (isExclusive || TargetUtils.isExclusiveTestRule((Rule) target)) {
             targetsToTestExclusive.add(configuredTarget);

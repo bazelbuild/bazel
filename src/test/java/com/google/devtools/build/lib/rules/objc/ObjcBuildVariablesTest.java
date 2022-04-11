@@ -112,10 +112,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         "--crosstool_top=//tools/osx/crosstool", "--xcode_version=5.8",
         "--ios_minimum_os=12.345", "--watchos_minimum_os=" + dummyMinimumOsValue,
         "--watchos_cpus=armv7k");
-
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'watchos',",
@@ -161,13 +162,15 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   public void testAppleBuildVariablesMacos() throws Exception {
     MockObjcSupport.setup(mockToolsConfig);
     String dummyMinimumOsValue = "13.579";
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
         "--cpu=darwin_x86_64",
         "--macos_minimum_os=" + dummyMinimumOsValue);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'macos',",
@@ -206,9 +209,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         "--host_cpu=darwin_x86_64",
         "--macos_minimum_os=10.11",
         "--host_macos_minimum_os=" + dummyMinimumOsValue);
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'macos',",
@@ -269,9 +274,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
         "--cpu=darwin_x86_64");
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'ios',",

@@ -107,8 +107,8 @@ EOF
   bazel aquery --output=text --java_language_version=11  //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
 
-  bazel aquery --output=text  --java_language_version=15 //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk15_.*/bin/java"
+  bazel aquery --output=text  --java_language_version=17 //java:javalib >& $TEST_log
+  expect_log "exec external/remotejdk17_.*/bin/java"
 }
 
 # Javabuilder shall be executed using JDK defined in java_toolchain's java_runtime attribute, not tool_java_runtime.
@@ -168,8 +168,8 @@ EOF
   expect_log "exec external/remotejdk11_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
-  bazel aquery --output=text --tool_java_language_version=15 --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk15_.*/bin/java"
+  bazel aquery --output=text --tool_java_language_version=17 --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
+  expect_log "exec external/remotejdk17_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 }
 
@@ -266,6 +266,22 @@ function test_no_javabase() {
   ($(bazel-bin/javabase_test/a --print_javabin) -version || true) >& $TEST_log
   expect_log "bazel-bin/javabase_test/a.runfiles/local_jdk/bin/java: No such file or directory"
 }
+
+# Tests non-existent java_home path.
+function test_no_java_home_path() {
+  cat << EOF >> WORKSPACE
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+local_java_repository(
+    name = "javabase",
+    java_home = "$PWD/i-dont-exist",
+    version = "11",
+)
+EOF
+
+  bazel build @javabase//... >& $TEST_log && fail "Build with missing java_home should fail."
+  expect_log "The path indicated by the \"java_home\" attribute .* does not exist."
+}
+
 
 function test_genrule() {
   cat << EOF > WORKSPACE

@@ -475,12 +475,6 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testWorkspaceFileValueListener() throws Exception {
-    // Normally, syscalls cache is reset in the sync() method of the SkyframeExecutor, before
-    // diffing.
-    // But here we are calling only actual diffing part, exposed for testing:
-    // handleDiffsForTesting(), so we better turn off the syscalls cache.
-    skyframeExecutor.turnOffSyscallCacheForTesting();
-
     createWorkspaceFile("workspace(name = 'old')");
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
     assertThat(testManagedDirectoriesKnowledge.getLastWorkspaceName()).isEqualTo("old");

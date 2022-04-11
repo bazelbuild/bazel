@@ -53,7 +53,7 @@ function parse_option() {
 
 # let parse the option list
 for i in "$@"; do
-    if [[ "$i" = @* ]]; then
+    if [[ "$i" = @* && -r "${i:1}" ]]; then
         while IFS= read -r opt
         do
             parse_option "$opt"

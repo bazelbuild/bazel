@@ -887,23 +887,6 @@ public class JavaCommon {
   }
 
   /**
-   * Return the runtime jars of the transitive closure of the target, excluding the first level of
-   * dependencies and the current target itself.
-   *
-   * <p>This particular set of jars is used by the persistent test runner, to create a classloader
-   * for the transitive dependencies. The target itself and its direct dependencies are loaded into
-   * a different classloader.
-   */
-  public NestedSet<Artifact> getRuntimeClasspathExcludingDirect() {
-    NestedSetBuilder<Artifact> classpath = new NestedSetBuilder<>(Order.STABLE_ORDER);
-    targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY).stream()
-        .map(JavaInfo::getJavaInfo)
-        .filter(Objects::nonNull)
-        .forEach(j -> classpath.addTransitive(j.getTransitiveOnlyRuntimeJars()));
-    return classpath.build();
-  }
-
-  /**
    * Returns true if and only if this target has the neverlink attribute set to 1, or false if the
    * neverlink attribute does not exist (for example, on *_binary targets)
    *

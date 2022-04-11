@@ -96,6 +96,9 @@ cc_library(
     name = "port",
     srcs = ["port.cc"],
     hdrs = ["port.h"],
+    visibility = [
+        "//src/main/native:__pkg__",
+    ],
 )
 
 cc_library(

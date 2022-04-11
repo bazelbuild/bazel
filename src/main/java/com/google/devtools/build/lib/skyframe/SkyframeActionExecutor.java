@@ -101,7 +101,8 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
@@ -146,7 +147,7 @@ public final class SkyframeActionExecutor {
   private final ActionKeyContext actionKeyContext;
   private final MetadataConsumerForMetrics outputArtifactsSeen;
   private final MetadataConsumerForMetrics outputArtifactsFromActionCache;
-  private final AtomicReference<FilesystemCalls> syscalls;
+  private final SyscallCache syscallCache;
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
   private Reporter reporter;
   private Map<String, String> clientEnv = ImmutableMap.of();
@@ -218,14 +219,14 @@ public final class SkyframeActionExecutor {
       MetadataConsumerForMetrics outputArtifactsFromActionCache,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
-      AtomicReference<FilesystemCalls> syscalls,
+      SyscallCache syscallCache,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.syscalls = syscalls;
+    this.syscallCache = syscallCache;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
   }
 
@@ -315,6 +316,10 @@ public final class SkyframeActionExecutor {
 
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
+  }
+
+  XattrProvider getXattrProvider() {
+    return syscallCache;
   }
 
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
@@ -546,7 +551,7 @@ public final class SkyframeActionExecutor {
         actionFileSystem,
         skyframeDepsResult,
         discoveredModulesPruner,
-        syscalls.get(),
+        syscallCache,
         threadStateReceiverFactory.apply(actionLookupData));
   }
 
@@ -767,7 +772,7 @@ public final class SkyframeActionExecutor {
             env,
             actionFileSystem,
             discoveredModulesPruner,
-            syscalls.get(),
+            syscallCache,
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
@@ -1174,7 +1179,8 @@ public final class SkyframeActionExecutor {
 
       MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
       FileOutErr fileOutErr = actionExecutionContext.getFileOutErr();
-      Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
+      Artifact primaryOutput = action.getPrimaryOutput();
+      Path primaryOutputPath = actionExecutionContext.getInputPath(primaryOutput);
       try {
         Preconditions.checkState(action.inputsDiscovered(),
             "Action %s successfully executed, but inputs still not known", action);
@@ -1206,21 +1212,12 @@ public final class SkyframeActionExecutor {
                 Code.ACTION_FINALIZATION_FAILURE);
           }
         }
-
-        reportActionExecution(
-            eventHandler,
-            primaryOutputPath,
-            action,
-            actionResult,
-            actionFileSystemType().inMemoryFileSystem(),
-            null,
-            fileOutErr,
-            ErrorTiming.NO_ERROR);
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
+            /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
             actionFileSystemType().inMemoryFileSystem(),
@@ -1233,6 +1230,7 @@ public final class SkyframeActionExecutor {
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
+            /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
             actionFileSystemType().inMemoryFileSystem(),
@@ -1245,6 +1243,27 @@ public final class SkyframeActionExecutor {
             ErrorTiming.AFTER_EXECUTION);
         throw exception;
       }
+
+      FileArtifactValue primaryOutputMetadata;
+      if (metadataHandler.artifactOmitted(primaryOutput)) {
+        primaryOutputMetadata = FileArtifactValue.OMITTED_FILE_MARKER;
+      } else {
+        try {
+          primaryOutputMetadata = metadataHandler.getMetadata(primaryOutput);
+        } catch (IOException e) {
+          throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
+        }
+      }
+      reportActionExecution(
+          eventHandler,
+          primaryOutputPath,
+          primaryOutputMetadata,
+          action,
+          actionResult,
+          actionFileSystemType().inMemoryFileSystem(),
+          null,
+          fileOutErr,
+          ErrorTiming.NO_ERROR);
 
       Preconditions.checkState(
           actionExecutionContext.getOutputSymlinks() == null
@@ -1391,6 +1410,7 @@ public final class SkyframeActionExecutor {
     reportActionExecution(
         eventHandler,
         primaryOutputPath,
+        /*primaryOutputMetadata=*/ null,
         action,
         null,
         actionFileSystemType().inMemoryFileSystem(),
@@ -1671,6 +1691,7 @@ public final class SkyframeActionExecutor {
   private static void reportActionExecution(
       ExtendedEventHandler eventHandler,
       Path primaryOutputPath,
+      @Nullable FileArtifactValue primaryOutputMetadata,
       Action action,
       @Nullable ActionResult actionResult,
       boolean isInMemoryFs,
@@ -1700,6 +1721,8 @@ public final class SkyframeActionExecutor {
             action,
             exception,
             primaryOutputPath,
+            action.getPrimaryOutput(),
+            primaryOutputMetadata,
             stdout,
             stderr,
             logs,

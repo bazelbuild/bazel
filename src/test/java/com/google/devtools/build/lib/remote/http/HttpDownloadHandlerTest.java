@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -50,9 +51,9 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 @SuppressWarnings("FutureReturnValueIgnored")
 public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
-
   private static final URI CACHE_URI = URI.create("http://storage.googleapis.com:80/cache-bucket");
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("foo");
 
   /**

@@ -176,6 +176,21 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = all_compile_actions,
+                flag_groups = [
+                    flag_group(
+                        # Security hardening requires optimization.
+                        # We need to undef it as some distributions now have it enabled by default.
+                        flags = ["-U_FORTIFY_SOURCE"],
+                    ),
+                ],
+                with_features = [
+                    with_feature_set(
+                        not_features = ["thin_lto"],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = all_compile_actions,
                 flag_groups = ([
                     flag_group(
                         flags = ctx.attr.compile_flags,
@@ -376,6 +391,7 @@ def _impl(ctx):
 
     per_object_debug_info_feature = feature(
         name = "per_object_debug_info",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -1182,6 +1198,20 @@ def _impl(ctx):
         ],
     )
 
+    treat_warnings_as_errors_feature = feature(
+        name = "treat_warnings_as_errors",
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                flag_groups = [flag_group(flags = ["-Werror"])],
+            ),
+            flag_set(
+                actions = all_link_actions,
+                flag_groups = [flag_group(flags = ["-Wl,-fatal-warnings"])],
+            ),
+        ],
+    )
+
     is_linux = ctx.attr.target_libc != "macosx"
 
     # TODO(#8303): Mac crosstool should also declare every feature.
@@ -1234,6 +1264,7 @@ def _impl(ctx):
             user_compile_flags_feature,
             sysroot_feature,
             unfiltered_compile_flags_feature,
+            treat_warnings_as_errors_feature,
         ] + layering_check_features(ctx.attr.compiler)
     else:
         # macOS artifact name patterns differ from the defaults only for dynamic
@@ -1263,6 +1294,7 @@ def _impl(ctx):
             user_compile_flags_feature,
             sysroot_feature,
             unfiltered_compile_flags_feature,
+            treat_warnings_as_errors_feature,
         ] + layering_check_features(ctx.attr.compiler)
 
     return cc_common.create_cc_toolchain_config_info(

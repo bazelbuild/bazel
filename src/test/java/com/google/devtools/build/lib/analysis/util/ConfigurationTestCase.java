@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -129,6 +130,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -191,8 +193,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     Pair<BuildOptions, TestOptions> pair = parseBuildOptionsWithTestOptions(starlarkOptions, args);
 
     skyframeExecutor.handleDiffsForTesting(reporter);
-    return skyframeExecutor.createConfigurations(
-        reporter, pair.getFirst(), ImmutableSortedSet.copyOf(pair.getSecond().multiCpus), false);
+    BuildOptions targetOptions = pair.getFirst();
+    ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(pair.getSecond().multiCpus);
+    skyframeExecutor.setBaselineConfiguration(targetOptions);
+    return skyframeExecutor.createConfigurations(reporter, targetOptions, multiCpu, false);
   }
 
   /** Parses purported commandline options into a BuildOptions (assumes default parsing context.) */
@@ -227,12 +231,16 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   /** Returns a raw {@link BuildConfigurationValue} with the given parameters. */
   protected BuildConfigurationValue createRaw(
-      BuildOptions buildOptions, String repositoryName, boolean siblingRepositoryLayout)
+      BuildOptions buildOptions,
+      String repositoryName,
+      boolean siblingRepositoryLayout,
+      String transitionDirectoryNameFragment)
       throws Exception {
     return BuildConfigurationValue.create(
         buildOptions,
         RepositoryName.create(repositoryName),
         siblingRepositoryLayout,
+        transitionDirectoryNameFragment,
         skyframeExecutor.getBlazeDirectoriesForTesting(),
         skyframeExecutor.getRuleClassProviderForTesting(),
         fragmentFactory);

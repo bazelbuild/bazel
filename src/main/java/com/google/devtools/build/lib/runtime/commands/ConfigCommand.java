@@ -383,7 +383,7 @@ public class ConfigCommand implements BlazeCommand {
       findConfigurations(CommandEnvironment env) {
     InMemoryMemoizingEvaluator evaluator =
         (InMemoryMemoizingEvaluator)
-            env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluatorForTesting();
+            env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluator();
     return evaluator.getDoneValues().entrySet().stream()
         .filter(e -> SkyFunctions.BUILD_CONFIGURATION.equals(e.getKey().functionName()))
         .collect(
@@ -557,10 +557,14 @@ public class ConfigCommand implements BlazeCommand {
 
     // --define:
     for (Map.Entry<String, String> entry :
-        config.getOptions().get(CoreOptions.class).commandLineBuildVariables) {
+        config
+            .getOptions()
+            .get(CoreOptions.class)
+            .getNormalizedCommandLineBuildVariables()
+            .entrySet()) {
       ans.put("--define:" + entry.getKey(), Verify.verifyNotNull(entry.getValue()));
     }
-    return ans.build();
+    return ans.buildOrThrow();
   }
 
   /**

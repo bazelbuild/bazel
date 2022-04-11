@@ -145,6 +145,6 @@ class AndroidLintActionBuilder {
         .putAll(
             TargetUtils.getExecutionInfo(
                 ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-        .build();
+        .buildOrThrow();
   }
 }

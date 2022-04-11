@@ -452,6 +452,15 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     // Historically passed to all Bazel commands by certain tools.
     @Option(
+        name = "experimental_allow_top_level_aspects_parameters",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean experimentalAllowTopLevelAspectsParameters;
+
+    @Option(
         name = "experimental_required_aspects",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -496,6 +505,26 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean incompatibleApplicableLicenses;
+
+    @Option(
+        name = "bes_best_effort",
+        defaultValue = "false",
+        deprecationWarning =
+            "BES best effort upload has been removed. The flag has no more "
+                + "functionality attached to it and will be removed in a future release.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op")
+    public boolean besBestEffort;
+
+    @Option(
+        name = "distinct_host_configuration",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean useDistinctHostConfiguration;
   }
 
   @Override

@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -66,7 +65,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -94,12 +92,13 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -110,7 +109,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -133,9 +131,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
 
-/**
- * The common code that's shared between various builder tests.
- */
+/** The common code that's shared between various builder tests. */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   @SerializationConstant
   protected static final ActionLookupKey ACTION_LOOKUP_KEY =
@@ -153,7 +149,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
-  public final void initialize() throws Exception  {
+  public final void initialize() throws Exception {
     options =
         OptionsParser.builder()
             .optionsClasses(KeepGoingOption.class, BuildRequestOptions.class, CoreOptions.class)
@@ -218,17 +214,17 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    AtomicReference<TimestampGranularityMonitor> tsgmRef = new AtomicReference<>(tsgm);
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator,
-        ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
     differencer = new SequencedRecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =
@@ -240,7 +236,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             MetadataConsumerForMetrics.NO_OP,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ ImmutableList::of,
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            SyscallCache.NO_CACHE,
             k -> ThreadStateReceiver.NULL_INSTANCE);
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
@@ -248,7 +244,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new ActionLogBufferPathGenerator(actionOutputBase, actionOutputBase));
 
     MetadataProvider cache =
-        new SingleBuildFileCache(rootDirectory.getPathString(), scratch.getFileSystem());
+        new SingleBuildFileCache(
+            rootDirectory.getPathString(), scratch.getFileSystem(), SyscallCache.NO_CACHE);
     skyframeActionExecutor.configure(
         cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
@@ -256,21 +253,19 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
-                    FileStateValue.FILE_STATE,
-                    new FileStateFunction(
-                        tsgmRef,
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
-                        externalFilesHelper))
+                    FileStateKey.FILE_STATE,
+                    new FileStateFunction(() -> tsgm, SyscallCache.NO_CACHE, externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(
                     Artifact.ARTIFACT,
-                    new ArtifactFunction(() -> true, MetadataConsumerForMetrics.NO_OP))
+                    new ArtifactFunction(
+                        () -> true, MetadataConsumerForMetrics.NO_OP, SyscallCache.NO_CACHE))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(
                         skyframeActionExecutor,
                         directories,
-                        tsgmRef,
+                        () -> tsgm,
                         BugReporter.defaultInstance()))
                 .put(
                     SkyFunctions.PACKAGE,
@@ -319,7 +314,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             DEFAULT_STORED_EVENT_FILTER,
             new EmittedEventState(),
             /*keepEdges=*/ true);
-    final SequentialBuildDriver driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
@@ -332,7 +326,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         return Preconditions.checkNotNull(latestResult);
       }
 
-      private void setGeneratingActions() throws ActionConflictException, InterruptedException {
+      private void setGeneratingActions()
+          throws ActionConflictException, InterruptedException,
+              Actions.ArtifactGeneratedByOtherRuleException {
         if (evaluator.getExistingValue(ACTION_LOOKUP_KEY) == null) {
           differencer.inject(
               ImmutableMap.of(
@@ -382,7 +378,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
         try {
           setGeneratingActions();
-        } catch (ActionConflictException e) {
+        } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
           throw new IllegalStateException(e);
         }
 
@@ -392,7 +388,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .setNumThreads(threadCount)
                 .setEventHandler(reporter)
                 .build();
-        EvaluationResult<SkyValue> result = driver.evaluate(keys, evaluationContext);
+        EvaluationResult<SkyValue> result = evaluator.evaluate(keys, evaluationContext);
         this.latestResult = result;
 
         if (result.hasError()) {
@@ -408,7 +404,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             throw new BuildFailedException(
                 null, createDetailedExitCode(Code.NON_ACTION_EXECUTION_FAILURE));
           } else {
-            SkyframeBuilder.rethrow(
+            SkyframeErrorProcessor.rethrow(
                 Preconditions.checkNotNull(result.getError().getException()),
                 BugReporter.defaultInstance(),
                 result);

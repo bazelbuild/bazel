@@ -369,9 +369,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   /**
-   * Returns a progress message string that is specific for this action. This is
-   * then annotated with additional information, currently the string '[for host]'
-   * for actions in the host configurations.
+   * Returns a progress message string that is specific for this action. This is then annotated with
+   * additional information, currently the string '[for tool]' for actions in the tool
+   * configurations.
    *
    * <p>A return value of null indicates no message should be reported.
    */
@@ -494,13 +494,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
       Path parentDir = path.getParentDirectory();
       if (!parentDir.isWritable() && root.contains(parentDir)) {
-        // Retry deleting after making the parent writable.
         parentDir.setWritable(true);
-        deleteOutput(path, root);
-      } else if (path.isDirectory(Symlinks.NOFOLLOW)) {
+      }
+
+      // Retry deleting after making the parent writable.
+      if (path.isDirectory(Symlinks.NOFOLLOW)) {
         path.deleteTree();
       } else {
-        throw new IOException(e);
+        path.delete();
       }
     }
   }
@@ -698,7 +699,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Dict<String, String> getEnv() {
-    return Dict.immutableCopyOf(env.getFixedEnv().toMap());
+    return Dict.immutableCopyOf(env.getFixedEnv());
   }
 
   @Override

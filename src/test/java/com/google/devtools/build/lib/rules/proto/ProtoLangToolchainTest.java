@@ -36,6 +36,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void setUp() throws Exception {
     MockProtoSupport.setupWorkspace(scratch);
     MockProtoSupport.setup(mockToolsConfig);
+    useConfiguration("--protocopt=--myflag");
     invalidatePackages();
   }
 
@@ -54,6 +55,14 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
             "third_party/x/metadata.proto",
             "third_party/x/descriptor.proto",
             "third_party/x/any.proto");
+
+    assertThat(toolchain.protocOpts()).containsExactly("--myflag");
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+    assertThat(toolchain.protoc().getExecutable().prettyPrint())
+        .isEqualTo(protoc.toPathFragment().getPathString());
+
+    assertThat(toolchain.progressMessage()).isEqualTo("Progress Message %{label}");
+    assertThat(toolchain.mnemonic()).isEqualTo("MyMnemonic");
   }
 
   @Test
@@ -77,13 +86,15 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:denied']",
+        "    blacklisted_protos = ['//third_party/x:denied'],",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER));
   }
 
   @Test
@@ -106,13 +117,15 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:descriptors', '//third_party/x:any']",
+        "    blacklisted_protos = ['//third_party/x:descriptors', '//third_party/x:any'],",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER));
   }
 
   @Test
@@ -135,13 +148,15 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:any']",
+        "    blacklisted_protos = ['//third_party/x:any'],",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER));
   }
 
   @Test
@@ -157,11 +172,12 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
     ProtoLangToolchainProvider toolchain =
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class);
+        getConfiguredTarget("//foo:toolchain").get(ProtoLangToolchainProvider.PROVIDER);
 
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
     assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
     assertThat(toolchain.forbiddenProtos().toList()).isEmpty();
+    assertThat(toolchain.mnemonic()).isEqualTo("GenProto");
   }
 }

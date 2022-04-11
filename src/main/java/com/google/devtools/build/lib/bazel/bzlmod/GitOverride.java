@@ -52,7 +52,7 @@ public abstract class GitOverride implements NonRegistryOverride {
     return RepoSpec.builder()
         .setBzlFile("@bazel_tools//tools/build_defs/repo:git.bzl")
         .setRuleClassName("git_repository")
-        .setAttributes(attrBuilder.build())
+        .setAttributes(attrBuilder.buildOrThrow())
         .build();
   }
 }

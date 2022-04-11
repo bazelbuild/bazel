@@ -21,7 +21,7 @@ Rule with &lt;brackets&gt;
     <tr id="my_anglebrac-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>

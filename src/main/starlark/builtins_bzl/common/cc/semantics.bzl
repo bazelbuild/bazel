@@ -13,10 +13,11 @@
 # limitations under the License.
 
 """Semantics for Bazel cc rules"""
-load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
 
-def _create_cc_launcher_info(cc_info, cc_compilation_outputs):
-    return None
+cc_common = _builtins.toplevel.cc_common
+
+def _should_create_empty_archive():
+    return False
 
 def _validate_deps(ctx):
     pass
@@ -27,14 +28,17 @@ def _validate_attributes(ctx):
 def _determine_headers_checking_mode(ctx):
     return "strict"
 
-def _get_cc_shared_library_info(dep):
-    return dep[CcSharedLibraryInfo]
-
 def _get_semantics():
     return _builtins.internal.bazel_cc_internal.semantics
 
+def _get_stl():
+    return attr.label()
+
 def _get_repo():
-    return ""
+    return "bazel_tools"
+
+def _get_platforms_root():
+    return "platforms//"
 
 def _additional_fragments():
     return []
@@ -48,6 +52,31 @@ def _get_licenses_attr():
 
 def _get_loose_mode_in_hdrs_check_allowed_attr():
     return {}
+
+def _get_def_parser():
+    return attr.label(
+        default = _builtins.internal.cc_internal.def_parser_computed_default(),
+        allow_single_file = True,
+        cfg = "exec",
+    )
+
+def _get_grep_includes():
+    return attr.label()
+
+def _get_interface_deps_allowed_attr():
+    return {}
+
+def _should_use_interface_deps_behavior(ctx):
+    experimental_cc_interface_deps = ctx.fragments.cpp.experimental_cc_interface_deps()
+    if (not experimental_cc_interface_deps and
+        len(ctx.attr.interface_deps) > 0):
+        fail("requires --experimental_cc_interface_deps", attr = "interface_deps")
+
+    return experimental_cc_interface_deps
+
+def _check_experimental_cc_shared_library(ctx):
+    if not cc_common.check_experimental_cc_shared_library():
+        fail("Pass --experimental_cc_shared_library to use cc_shared_library")
 
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
@@ -65,12 +94,18 @@ semantics = struct(
     validate_deps = _validate_deps,
     validate_attributes = _validate_attributes,
     determine_headers_checking_mode = _determine_headers_checking_mode,
-    get_cc_shared_library_info = _get_cc_shared_library_info,
-    create_cc_launcher_info = _create_cc_launcher_info,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
+    get_platforms_root = _get_platforms_root,
     additional_fragments = _additional_fragments,
     get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,
     get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
+    get_def_parser = _get_def_parser,
+    get_stl = _get_stl,
+    should_create_empty_archive = _should_create_empty_archive,
+    get_grep_includes = _get_grep_includes,
+    get_interface_deps_allowed_attr = _get_interface_deps_allowed_attr,
+    should_use_interface_deps_behavior = _should_use_interface_deps_behavior,
+    check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
 )

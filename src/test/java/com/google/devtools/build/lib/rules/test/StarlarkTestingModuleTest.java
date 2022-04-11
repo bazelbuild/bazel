@@ -80,6 +80,39 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStarlarkRulePropagatesTestEnvironmentProviderWithInheritedEnv() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  test_env = testing.TestEnvironment(",
+        "    {'XCODE_VERSION_OVERRIDE': '7.3.1'},",
+        "    [",
+        "      'DEVELOPER_DIR',",
+        "      'XCODE_VERSION_OVERRIDE',",
+        "    ]",
+        ")",
+        "  return [test_env]",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "examples/apple_starlark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
+    TestEnvironmentInfo provider = starlarkTarget.get(TestEnvironmentInfo.PROVIDER);
+
+    assertThat(provider.getEnvironment()).containsEntry("XCODE_VERSION_OVERRIDE", "7.3.1");
+    assertThat(provider.getInheritedEnvironment()).contains("DEVELOPER_DIR");
+    assertThat(provider.getInheritedEnvironment()).contains("XCODE_VERSION_OVERRIDE");
+  }
+
+  @Test
   public void testExecutionInfoProviderCanMarkTestAsLocal() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(

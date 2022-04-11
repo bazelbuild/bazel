@@ -158,7 +158,7 @@ public final class SnapshottableBiMapTest {
     for (int i = 0; i < rest.length; i += 2) {
       expectedBuilder.put((K) rest[i], (V) rest[i + 1]);
     }
-    BiMap<K, V> expectedBiMap = expectedBuilder.build();
+    BiMap<K, V> expectedBiMap = expectedBuilder.buildOrThrow();
     verifyMapSizeAndContentsInOrder(bimap, expectedBiMap);
     verifyMapSizeAndContentsInOrder(bimap.inverse(), expectedBiMap.inverse());
   }

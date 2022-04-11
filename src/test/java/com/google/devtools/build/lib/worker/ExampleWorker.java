@@ -30,6 +30,7 @@ import com.google.gson.stream.JsonReader;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -80,6 +81,7 @@ public final class ExampleWorker {
     }
 
     @Override
+    @SuppressWarnings("SystemExitOutsideMain")
     public void processRequests() throws IOException {
       while (true) {
         WorkRequest request = messageProcessor.readWorkRequest();
@@ -98,15 +100,7 @@ public final class ExampleWorker {
         if (request.getCancel()) {
           respondToCancelRequest(request);
         } else {
-          try {
-            startResponseThread(request);
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            // We don't expect interrupts at this level, only inside the individual request
-            // handling threads, so here we just abort on interrupt.
-            e.printStackTrace();
-            return;
-          }
+          startResponseThread(request);
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);
@@ -194,6 +188,7 @@ public final class ExampleWorker {
         try {
           if (currentRequest.getVerbosity() > 0) {
             originalStdErr.println("VERBOSE: Pretending to do work.");
+            originalStdErr.println("VERBOSE: Running in " + new File(".").getAbsolutePath());
           }
           parseOptionsAndLog(args);
         } catch (Exception e) {

@@ -215,7 +215,7 @@ public final class NativeLibs {
                 + artifact.prettyPrint()
                 + " and "
                 + oldArtifact.prettyPrint()
-                + ((oldArtifact.equals(linkedLibrary))
+                + ( oldArtifact.equals(linkedLibrary)
                     ? " (the library compiled for this target)"
                     : ""));
       }

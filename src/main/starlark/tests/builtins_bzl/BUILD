@@ -21,8 +21,8 @@ sh_test(
         ":builtin_test_setup",
         ":cc_builtin_test_files",
         "//src/test/shell/bazel:test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
 )
 
 sh_library(

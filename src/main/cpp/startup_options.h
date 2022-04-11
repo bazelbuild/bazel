@@ -386,20 +386,20 @@ class StartupOptions {
   // lazily). Not guarded by a mutex - StartupOptions is not thread-safe.
   mutable std::pair<blaze_util::Path, JavabaseType> default_server_javabase_;
 
-  // Startup flags that don't expect a value, e.g. "master_bazelrc".
-  // Valid uses are "--master_bazelrc" are "--nomaster_bazelrc".
-  // Keys are positive and negative flag names (e.g. "--master_bazelrc" and
-  // "--nomaster_bazelrc"), values are pointers to the boolean to mutate.
+  // Startup flags that don't expect a value, e.g. "home_rc".
+  // Valid uses are "--home_rc" are "--nohome_rc".
+  // Keys are positive and negative flag names (e.g. "--home_rc" and
+  // "--nohome_rc"), values are pointers to the boolean to mutate.
   std::unordered_map<std::string, bool *> all_nullary_startup_flags_;
 
   // Subset of 'all_nullary_startup_flags_'.
-  // Contains positive and negative names (e.g. "--master_bazelrc" and
-  // "--nomaster_bazelrc") of flags that must not appear in .bazelrc files.
+  // Contains positive and negative names (e.g. "--home_rc" and
+  // "--nohome_rc") of flags that must not appear in .bazelrc files.
   std::unordered_set<std::string> no_rc_nullary_startup_flags_;
 
   // Subset of 'all_nullary_startup_flags_'.
-  // Contains positive and negative names (e.g. "--master_bazelrc" and
-  // "--nomaster_bazelrc") of flags that have a special handler.
+  // Contains positive and negative names (e.g. "--home_rc" and
+  // "--nohome_rc") of flags that have a special handler.
   // Can be used for tri-state flags where omitting the flag completely means
   // leaving the tri-state as "auto".
   std::unordered_map<std::string, SpecialNullaryFlagHandler>

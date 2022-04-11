@@ -59,7 +59,7 @@ public class CoreOptionConverters {
           .put(LABEL, new LabelConverter())
           .put(LABEL_LIST, new LabelListConverter())
           .put(NODEP_LABEL, new LabelConverter())
-          .build();
+          .buildOrThrow();
 
   /** A converter from strings to Starlark int values. */
   private static class StarlarkIntConverter implements Converter<StarlarkInt> {

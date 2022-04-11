@@ -59,7 +59,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -496,7 +496,9 @@ public class BzlLoadFunction implements SkyFunction {
       if (!loadStack.add(key)) {
         ImmutableList<BzlLoadValue.Key> cycle =
             CycleUtils.splitIntoPathAndChain(Predicates.equalTo(key), loadStack).second;
-        throw new BzlLoadFailedException("Starlark load cycle: " + cycle, Code.CYCLE);
+        throw new BzlLoadFailedException(
+            "Starlark load cycle: " + Lists.transform(cycle, BzlLoadValue.Key::getLabel),
+            Code.CYCLE);
       }
     }
 
@@ -966,12 +968,11 @@ public class BzlLoadFunction implements SkyFunction {
       Environment env, List<BzlLoadValue.Key> keys, List<Pair<String, Location>> programLoads)
       throws BzlLoadFailedException, InterruptedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    Map<SkyKey, ValueOrException<BzlLoadFailedException>> values =
-        env.getValuesOrThrow(keys, BzlLoadFailedException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
     // Process loads (and report first error) in source order.
     for (int i = 0; i < keys.size(); i++) {
       try {
-        bzlLoads.add((BzlLoadValue) values.get(keys.get(i)).get());
+        bzlLoads.add((BzlLoadValue) values.nextOrThrow(BzlLoadFailedException.class));
       } catch (BzlLoadFailedException ex) {
         throw BzlLoadFailedException.whileLoadingDep(programLoads.get(i).second, ex);
       }

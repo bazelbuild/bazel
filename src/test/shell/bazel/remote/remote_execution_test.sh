@@ -1001,6 +1001,63 @@ EOF
            || fail "Failed to run //a:starlark_output_dir_test with remote execution"
 }
 
+function generate_empty_treeartifact_build() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load(":output_dir.bzl", "gen_output_dir")
+gen_output_dir(
+    name = "output-dir",
+    outdir = "dir",
+)
+EOF
+  cat > a/output_dir.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+    ctx.actions.run_shell(
+        outputs = [output_dir],
+        inputs = [],
+        command = "",
+        arguments = [output_dir.path],
+    )
+    return [
+        DefaultInfo(files = depset(direct = [output_dir])),
+    ]
+
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+}
+
+function test_empty_treeartifact_works_with_remote_execution() {
+  # Test that empty tree artifact works with remote execution
+  generate_empty_treeartifact_build
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+}
+
+function test_empty_treeartifact_works_with_remote_cache() {
+  # Test that empty tree artifact works with remote cache
+  generate_empty_treeartifact_build
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+
+  expect_log "remote cache hit"
+}
+
 function test_downloads_minimal() {
   # Test that genrule outputs are not downloaded when using
   # --remote_download_minimal
@@ -3266,14 +3323,14 @@ EOF
 
   # Check the error message when failed to upload
   bazel build --remote_cache=http://nonexistent.example.org //a:foo >& $TEST_log || fail "Failed to build"
-  expect_log "WARNING: Writing to Remote Cache:"
+  expect_log "WARNING: Remote Cache:"
 
   bazel test \
     --remote_cache=grpc://localhost:${worker_port} \
     --experimental_remote_cache_async \
     --flaky_test_attempts=2 \
     //a:test >& $TEST_log  && fail "expected failure" || true
-  expect_not_log "WARNING: Writing to Remote Cache:"
+  expect_not_log "WARNING: Remote Cache:"
 }
 
 function test_download_toplevel_when_turn_remote_cache_off() {
@@ -3330,6 +3387,40 @@ EOF
     --remote_download_toplevel \
     "$@" \
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
+}
+
+function test_download_top_level_remote_execution_after_local_fetches_inputs() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+  mkdir a
+  cat > a/BUILD <<'EOF'
+genrule(name="dep", srcs=["not_used"], outs=["dep.c"], cmd="touch $@")
+cc_library(name="foo", srcs=["dep.c"])
+EOF
+  echo hello > a/not_used
+  bazel build \
+      --experimental_ui_debug_all_events \
+      --remote_executor=grpc://localhost:"${worker_port}" \
+      --remote_download_toplevel \
+      --genrule_strategy=local \
+      //a:dep >& "${TEST_log}" || fail "Expected success"
+  expect_log "START.*: \[.*\] Executing genrule //a:dep"
+
+  echo there > a/not_used
+  # Local compilation requires now remote dep.c to successfully download.
+  bazel build \
+      --experimental_ui_debug_all_events \
+      --remote_executor=grpc://localhost:"${worker_port}" \
+      --remote_download_toplevel \
+      --genrule_strategy=remote \
+      --strategy=CppCompile=local \
+      //a:foo >& "${TEST_log}" || fail "Expected success"
+
+  expect_log "START.*: \[.*\] Executing genrule //a:dep"
 }
 
 function test_uploader_respect_no_cache() {
@@ -3533,6 +3624,48 @@ EOF
   disk_cas_files="$(count_disk_cas_files $cache_dir)"
   # foo.txt, stdout and stderr for action 'foo'
   [[ "$disk_cas_files" == 3 ]] || fail "Expected 3 disk cas entries, not $disk_cas_files"
+}
+
+function test_missing_outputs_dont_upload_action_result() {
+  # Test that if declared outputs are not created, even the exit code of action
+  # is 0, we treat this as failed and don't upload action result.
+  # See https://github.com/bazelbuild/bazel/issues/14543.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo foo",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log && fail "Should failed to build"
+
+  remote_cas_files="$(count_remote_cas_files)"
+  [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
+  remote_ac_files="$(count_remote_ac_files)"
+  [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+}
+
+function test_failed_action_dont_check_declared_outputs() {
+  # Test that if action failed, outputs are not checked
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "exit 1",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log && fail "Should failed to build"
+
+  expect_log "Executing genrule .* failed: (Exit 1):"
 }
 
 run_suite "Remote execution and remote cache tests"

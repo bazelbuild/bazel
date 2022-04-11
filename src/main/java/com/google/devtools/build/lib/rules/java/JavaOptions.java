@@ -552,6 +552,24 @@ public class JavaOptions extends FragmentOptions {
   public boolean requireJavaPluginInfo;
 
   @Option(
+      name = "incompatible_multi_release_deploy_jars",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "When enabled, java_binary creates Multi-Release deploy jars.")
+  public boolean multiReleaseDeployJars;
+
+  @Option(
+      name = "incompatible_disallow_java_import_exports",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "When enabled, java_import.exports is not supported.")
+  public boolean disallowJavaImportExports;
+
+  @Option(
       name = "experimental_enable_jspecify",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -617,6 +635,10 @@ public class JavaOptions extends FragmentOptions {
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     host.requireJavaPluginInfo = requireJavaPluginInfo;
+
+    host.multiReleaseDeployJars = multiReleaseDeployJars;
+
+    host.disallowJavaImportExports = disallowJavaImportExports;
 
     return host;
   }

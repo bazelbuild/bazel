@@ -78,32 +78,30 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
   }
 
   /**
-   * Tests that [for host] tags are added to the progress messages of actions in the
-   * host configuration, but not in the target configuration.
+   * Tests that [for tool] tags are added to the progress messages of actions in the host
+   * configuration, but not in the target configuration.
    */
   @Test
   public void testAdditionalInfo() throws Exception {
     AnalysisMock.get().pySupport().setup(mockToolsConfig);
-    write("x/BUILD",
-        "py_binary(name = 'bin',",
-        "          srcs = ['bin.py'])",
+    write(
+        "x/BUILD",
+        "genrule(name = 'tool',",
+        "          outs = ['sometool'],",
+        "          cmd = 'touch $@')",
         "genrule(name = 'x',",
-        "        outs = ['out']," +
-        "        cmd = 'echo test > $@'," +
-        "        tools = [':bin'])");
-    write("x/bin.py");
+        "        outs = ['out'],"
+            + "        cmd = 'echo test > $@',"
+            + "        tools = [':tool'])");
 
     EventCollector collector = new EventCollector(EventKind.START);
     events.addHandler(collector);
 
     buildTarget("//x");
 
-    assertContainsEvent(collector, "Expanding template x/bin [for host]");
-    assertContainsEvent(collector, "Creating source manifest for //x:bin [for host]");
-    assertContainsEvent(collector,
-        "Creating runfiles tree blaze-out/host/bin/x/bin.runfiles [for host]");
+    assertContainsEvent(collector, "Executing genrule //x:tool [for tool]");
     assertContainsEvent(collector, "Executing genrule //x:x");
-    assertDoesNotContainEvent(collector, "Executing genrule //x:x [for host]");
+    assertDoesNotContainEvent(collector, "Executing genrule //x:x [for tool]");
   }
 
   @Test

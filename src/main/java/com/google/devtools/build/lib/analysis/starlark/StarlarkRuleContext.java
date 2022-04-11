@@ -494,7 +494,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
 
     return StructProvider.STRUCT.create(
-        splitAttrInfos.build(),
+        splitAttrInfos.buildOrThrow(),
         "No attribute '%s' in split_attr."
             + "This attribute is not defined with a split configuration.");
   }
@@ -1113,6 +1113,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           current.getProvider(FileProvider.class).getFilesToBuild().toList());
     }
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 }

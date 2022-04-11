@@ -49,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:common_prerequisite_validator",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
@@ -99,6 +100,17 @@ java_library(
 )
 
 java_library(
+    name = "test_interrupting_bug_reporter",
+    srcs = ["TestInterruptingBugReporter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_library(
     name = "TestRunnableWrapper",
     srcs = ["TestRunnableWrapper.java"],
     deps = [
@@ -131,6 +143,8 @@ java_library(
     srcs = ["TestUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:jsr305",
     ],
 )
 
@@ -229,10 +243,14 @@ java_library(
     srcs = [
         "ManualSleeperTest.java",
         "MoreAssertsTest.java",
+        "TestInterruptingBugReporterTest.java",
     ],
     deps = [
         ":JunitUtils",
+        ":test_interrupting_bug_reporter",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

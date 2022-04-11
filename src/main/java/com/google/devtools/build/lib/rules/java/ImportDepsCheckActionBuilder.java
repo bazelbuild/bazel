@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import java.util.stream.Collectors;
 
@@ -40,6 +42,7 @@ public final class ImportDepsCheckActionBuilder {
   private NestedSet<Artifact> declaredDeps;
   private NestedSet<Artifact> transitiveDeps;
   private ImportDepsCheckingLevel importDepsCheckingLevel;
+  private Artifact importDepsChecker;
 
   private ImportDepsCheckActionBuilder() {}
 
@@ -86,6 +89,12 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
+  public ImportDepsCheckActionBuilder importDepsChecker(Artifact importDepsChecker) {
+    checkState(this.importDepsChecker == null);
+    this.importDepsChecker = checkNotNull(importDepsChecker);
+    return this;
+  }
+
   public void buildAndRegister(RuleContext ruleContext) {
     checkNotNull(jarsToCheck);
     checkNotNull(bootclasspath);
@@ -95,10 +104,20 @@ public final class ImportDepsCheckActionBuilder {
     checkNotNull(jdepsArtifact);
     checkNotNull(ruleLabel);
 
+    SpawnAction.Builder builder = new SpawnAction.Builder();
+    if (importDepsChecker == null) {
+      builder.setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker"));
+    } else {
+      builder
+          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs())
+          .setJarExecutable(
+              JavaCommon.getHostJavaExecutable(ruleContext),
+              importDepsChecker,
+              NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    }
     ruleContext.registerAction(
-        new SpawnAction.Builder()
+        builder
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker"))
             .addTransitiveInputs(jarsToCheck)
             .addTransitiveInputs(declaredDeps)
             .addTransitiveInputs(transitiveDeps)

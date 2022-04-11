@@ -49,5 +49,11 @@ public class FakeProviderApi implements StarlarkCallable, ProviderApi {
   }
 
   @Override
+  public boolean isImmutable() {
+    // Mirroring StarlarkProvider's behavior.
+    return name != null;
+  }
+
+  @Override
   public void repr(Printer printer) {}
 }

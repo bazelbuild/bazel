@@ -50,7 +50,8 @@ public interface WalkableGraph {
    * computed. Or in other words, it filters out non-existent nodes, pending nodes and nodes that
    * produced an exception.
    */
-  Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys) throws InterruptedException;
+  Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
 
   /**
    * Returns a map giving exceptions associated to the given keys for done keys. Keys not present in

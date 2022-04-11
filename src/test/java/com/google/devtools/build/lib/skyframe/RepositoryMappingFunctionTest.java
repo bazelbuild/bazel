@@ -98,7 +98,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
       allMappings.put(repoName, repoName);
     }
     return RepositoryMappingValue.withMapping(
-        RepositoryMapping.create(allMappings.build(), ownerRepo.strippedName()));
+        RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo.strippedName()));
   }
 
   @Test

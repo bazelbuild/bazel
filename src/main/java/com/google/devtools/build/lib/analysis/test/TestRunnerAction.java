@@ -209,14 +209,13 @@ public class TestRunnerAction extends AbstractAction
       String workspaceName,
       @Nullable PathFragment shExecutable,
       boolean cancelConcurrentTestsOnSuccess,
-      Iterable<Artifact> tools,
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       RunfilesSupplier lcovMergerRunfilesSupplier,
       PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         runfilesSupplier,
         nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
@@ -714,11 +713,6 @@ public class TestRunnerAction extends AbstractAction
       env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
 
-    if (testProperties.isPersistentTestRunner()) {
-      // Let the test runner know it runs persistently within a worker.
-      env.put("PERSISTENT_TEST_RUNNER", "true");
-    }
-
     if (isCoverageMode()) {
       // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
       // TODO(ulfjack): Find a way to avoid setting this variable.
@@ -1051,7 +1045,7 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
-    return getEnvironment().getFixedEnv().toMap();
+    return getEnvironment().getFixedEnv();
   }
 
   @Override

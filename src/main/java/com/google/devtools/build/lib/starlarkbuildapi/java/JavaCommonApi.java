@@ -175,8 +175,7 @@ public interface JavaCommonApi<
             doc =
                 "A string that specifies how to handle strict deps. Possible values: 'OFF', "
                     + "'ERROR', 'WARN' and 'DEFAULT'. For more details see "
-                    + "https://docs.bazel.build/versions/main/bazel-user-manual.html#"
-                    + "flag--strict_java_deps. By default 'ERROR'."),
+                    + "${link user-manual#flag--strict_java_deps}. By default 'ERROR'."),
         @Param(
             name = "java_toolchain",
             positional = false,
@@ -229,7 +228,29 @@ public interface JavaCommonApi<
                 "Enables header compilation or ijar creation. If set to False, it forces use of the"
                     + " full class jar in the compilation classpaths of any dependants. Doing so is"
                     + " intended for use by non-library targets such as binaries that do not have"
-                    + " dependants.")
+                    + " dependants."),
+        @Param(
+            name = "enable_jspecify",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            documented = false),
+        @Param(
+            name = "create_output_source_jar",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            documented = false),
+        @Param(
+            name = "injecting_rule_kind",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -256,6 +277,9 @@ public interface JavaCommonApi<
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      Boolean enableJSpecify,
+      boolean createOutputSourceJar,
+      Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -304,10 +328,7 @@ public interface JavaCommonApi<
               + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">run_ijar</a></code> "
               + "when possible.",
       parameters = {
-        @Param(
-            name = "actions",
-            named = true,
-            doc = "ctx.actions"),
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
         @Param(
             name = "jar",
             positional = false,
@@ -436,10 +457,31 @@ public interface JavaCommonApi<
             named = false,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
+        @Param(
+            name = "exports",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "A list of exports. Optional."),
+        @Param(
+            name = "runtime_deps",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "A list of runtime dependencies. Optional."),
+        @Param(
+            name = "include_source_jars_from_exports",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
   JavaInfoT mergeJavaProviders(
-      Sequence<?> providers /* <JavaInfoT> expected. */, StarlarkThread thread)
+      Sequence<?> providers /* <JavaInfoT> expected. */,
+      Sequence<?> exports /* <JavaInfoT> expected. */,
+      Sequence<?> runtimeDeps /* <JavaInfoT> expected. */,
+      boolean includeSourceJarsFromExports,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

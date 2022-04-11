@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MissingDepExecException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Hints;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
@@ -181,7 +181,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             continue;
           }
         }
-        if (onlyCheckGenerated && !isRealOutputFile(fileFragment)) {
+        if (onlyCheckGenerated && !isOutputFile(fileFragment)) {
           continue;
         }
         viewedIllegalOutput = viewedIllegalOutput || isIllegalOutputFile(fileFragment, headerData);
@@ -250,7 +250,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         // Construct the full framework path path/to/foo.framework.
         PathFragment fullFrameworkPath = includePath.getRelative(frameworkName);
 
-        if (onlyCheckGenerated && !isRealOutputFile(fullFrameworkPath)) {
+        if (onlyCheckGenerated && !isOutputFile(fullFrameworkPath)) {
           return LocateOnPathResult.createNotFound(viewedIllegalOutput);
         }
 
@@ -426,7 +426,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
   /** Search path for searching for all includes from frameworks. */
   private final ImmutableList<PathFragment> frameworkIncludePaths;
 
-  private final PathFragment includeRootFragment;
   private final PathFragment outputPathFragment;
   private final Root absoluteRoot;
 
@@ -486,8 +485,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
     this.inclusionCache = new InclusionCache();
     this.execRoot = execRoot;
     this.outputPathFragment = outputPath.relativeTo(execRoot);
-    this.includeRootFragment =
-        outputPathFragment.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR);
     this.absoluteRoot = Root.absoluteRoot(execRoot.getFileSystem());
   }
 
@@ -554,7 +551,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       PathFragment includeAsWritten,
       boolean isSource,
       IncludeScanningHeaderData headerData) {
-    if (isRealOutputFile(execPath)) {
+    if (isOutputFile(execPath)) {
       return headerData.isDeclaredHeader(execPath);
     }
     // TODO(djasper): This code path cannot be hit with isSource being false. Verify and add
@@ -589,7 +586,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
-      throws IOException, ExecException, InterruptedException {
+      throws IOException, NoSuchPackageException, ExecException, InterruptedException {
     SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
     ImmutableSet<Artifact> pathHints;
     if (parser.getHints() == null) {
@@ -633,17 +630,11 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
   private boolean isIllegalOutputFile(
       PathFragment includeFile, IncludeScanningHeaderData headerData) {
-    return isRealOutputFile(includeFile) && !headerData.isDeclaredHeader(includeFile);
+    return isOutputFile(includeFile) && !headerData.isDeclaredHeader(includeFile);
   }
 
-  private boolean isRealOutputFile(PathFragment path) {
-    return path.startsWith(outputPathFragment) && !isIncPath(path);
-  }
-
-  private boolean isIncPath(PathFragment path) {
-    // See CreateIncSymlinkAction and where it's used: The symlink trees
-    // are always rooted at locations that fit the logic here.
-    return path.startsWith(includeRootFragment) && !path.equals(includeRootFragment);
+  private boolean isOutputFile(PathFragment path) {
+    return path.startsWith(outputPathFragment);
   }
 
   /**
@@ -772,7 +763,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                     actionExecutionContext,
                     grepIncludes,
                     spawnIncludeScannerSupplier.get(),
-                    isRealOutputFile(source.getExecPath())));
+                    isOutputFile(source.getExecPath())));
           } catch (Throwable t) {
             fileParseCache.remove(source);
             future.setException(t);

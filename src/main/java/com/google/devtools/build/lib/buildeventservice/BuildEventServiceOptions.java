@@ -66,19 +66,6 @@ public class BuildEventServiceOptions extends OptionsBase {
   public List<Map.Entry<String, String>> besHeaders;
 
   @Option(
-      name = "bes_best_effort",
-      defaultValue = "false",
-      deprecationWarning =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.")
-  public boolean besBestEffort;
-
-  @Option(
     name = "bes_lifecycle_events",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -88,13 +75,15 @@ public class BuildEventServiceOptions extends OptionsBase {
   public boolean besLifecycleEvents;
 
   @Option(
-    name = "project_id",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Specifies the BES project identifier. Defaults to null."
-  )
-  public String projectId;
+      name = "bes_instance_name",
+      oldName = "project_id",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Specifies the instance name under which the BES will persist uploaded BEP. Defaults "
+              + "to null.")
+  public String instanceName;
 
   @Option(
       name = "bes_keywords",

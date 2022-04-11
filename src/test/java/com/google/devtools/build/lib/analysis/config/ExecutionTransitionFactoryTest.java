@@ -92,4 +92,127 @@ public class ExecutionTransitionFactoryTest {
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(options);
   }
+
+  @Test
+  public void executionTransition_confDist_legacy()
+      throws OptionsParsingException, InterruptedException {
+    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
+    PatchTransition transition =
+        execTransitionFactory.create(
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(EXECUTION_PLATFORM)
+                .build());
+
+    assertThat(transition).isNotNull();
+
+    // Apply the transition.
+    BuildOptions options =
+        BuildOptions.of(
+            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            "--platforms=//platform:target",
+            "--experimental_exec_configuration_distinguisher=legacy");
+
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
+
+    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
+    assertThat(result.get(CoreOptions.class).platformSuffix)
+        .contains(String.format("%X", EXECUTION_PLATFORM.getCanonicalForm().hashCode()));
+  }
+
+  @Test
+  public void executionTransition_confDist_fullHash()
+      throws OptionsParsingException, InterruptedException {
+    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
+    PatchTransition transition =
+        execTransitionFactory.create(
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(EXECUTION_PLATFORM)
+                .build());
+
+    assertThat(transition).isNotNull();
+
+    // Apply the transition.
+    BuildOptions options =
+        BuildOptions.of(
+            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            "--platforms=//platform:target",
+            "--experimental_exec_configuration_distinguisher=full_hash");
+
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
+
+    BuildOptions mutableCopy = result.clone();
+    mutableCopy.get(CoreOptions.class).platformSuffix = "";
+    int fullHash = mutableCopy.hashCode();
+
+    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
+    assertThat(result.get(CoreOptions.class).platformSuffix)
+        .contains(String.format("%X", fullHash));
+  }
+
+  @Test
+  public void executionTransition_confDist_diffToAffected()
+      throws OptionsParsingException, InterruptedException {
+    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
+    PatchTransition transition =
+        execTransitionFactory.create(
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(EXECUTION_PLATFORM)
+                .build());
+
+    assertThat(transition).isNotNull();
+
+    // Apply the transition.
+    BuildOptions options =
+        BuildOptions.of(
+            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            "--platforms=//platform:target",
+            "--experimental_exec_configuration_distinguisher=diff_to_affected");
+
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
+
+    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isNotEmpty();
+    assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
+  }
+
+  @Test
+  public void executionTransition_confDist_off()
+      throws OptionsParsingException, InterruptedException {
+    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
+    PatchTransition transition =
+        execTransitionFactory.create(
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(EXECUTION_PLATFORM)
+                .build());
+
+    assertThat(transition).isNotNull();
+
+    // Apply the transition.
+    BuildOptions options =
+        BuildOptions.of(
+            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            "--platforms=//platform:target",
+            "--experimental_exec_configuration_distinguisher=off");
+
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
+
+    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
+    assertThat(result.get(CoreOptions.class).platformSuffix)
+        .isEqualTo(options.get(CoreOptions.class).platformSuffix);
+  }
 }

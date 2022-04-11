@@ -59,7 +59,7 @@ ExitCode PythonBinaryLauncher::Launch() {
   // In case the given binary path is a shortened Windows 8dot3 path, we need to
   // convert it back to its long path form before using it to find the python
   // file.
-  wstring full_binary_path = GetWindowsLongPath(args[0]);
+  wstring full_binary_path = GetWindowsLongPath(executable_file_);
   if (use_zip_file == L"1") {
     python_file = GetBinaryPathWithoutExtension(full_binary_path) + L".zip";
   } else {
@@ -67,7 +67,9 @@ ExitCode PythonBinaryLauncher::Launch() {
   }
 
   // Replace the first argument with python file path
-  args[0] = python_file;
+  // Escaping it, as the python file might contain a " " (eg. When the file is
+  // located under C:\Program Files\...)
+  args[0] = bazel::windows::WindowsEscapeArg(python_file);
 
   for (int i = 1; i < args.size(); i++) {
     args[i] = bazel::windows::WindowsEscapeArg(args[i]);

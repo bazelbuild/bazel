@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp.proto;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -62,14 +63,9 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -105,11 +101,11 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       AspectParameters parameters,
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ProtoInfo protoInfo = checkNotNull(ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER));
+    ConfiguredTarget protoTarget = ctadBase.getConfiguredTarget();
 
     try {
       ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
-      new Impl(ruleContext, protoInfo, cppSemantics, ccToolchainType).addProviders(result);
+      new Impl(ruleContext, protoTarget, cppSemantics, ccToolchainType).addProviders(result);
       return result.build();
     } catch (RuleErrorException e) {
       ruleContext.ruleError(e.getMessage());
@@ -124,11 +120,16 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
-            .addRequiredToolchains(ccToolchainType)
+            .addToolchainTypes(
+                ToolchainTypeRequirement.builder(ccToolchainType)
+                    // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this
+                    // can be optional.
+                    .mandatory(true)
+                    .build())
             .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryBuiltinProviders(ImmutableList.of(ProtoLangToolchainProvider.class))
+                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER.id())
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
@@ -145,6 +146,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
     private final RuleContext ruleContext;
+    private final ConfiguredTarget protoTarget;
     private final ProtoInfo protoInfo;
     private final CppSemantics cppSemantics;
     private final NestedSetBuilder<Artifact> filesBuilder;
@@ -152,12 +154,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     Impl(
         RuleContext ruleContext,
-        ProtoInfo protoInfo,
+        ConfiguredTarget protoTarget,
         CppSemantics cppSemantics,
         Label ccToolchainType)
         throws RuleErrorException, InterruptedException {
       this.ruleContext = ruleContext;
-      this.protoInfo = protoInfo;
+      this.protoTarget = protoTarget;
+      this.protoInfo = protoTarget.get(ProtoInfo.PROVIDER);
       this.cppSemantics = cppSemantics;
       this.ccToolchainType = ccToolchainType;
       FeatureConfiguration featureConfiguration = getFeatureConfiguration();
@@ -178,7 +181,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       // Compute and register files generated by this proto library.
       Collection<Artifact> outputs = new ArrayList<>();
       if (areSrcsExcluded()) {
-        registerExcludedSrcs(protoInfo, protoConfiguration, compilationHelper);
+        registerExcludedSrcs(protoTarget, protoConfiguration, compilationHelper);
         headerProvider = null;
       } else if (!protoInfo.getDirectProtoSources().isEmpty()) {
         Collection<Artifact> headers =
@@ -283,13 +286,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       }
     }
 
-    private boolean areSrcsExcluded() {
-      return !new ProtoSourceFileExcludeList(
-              ruleContext, getProtoToolchainProvider().forbiddenProtos())
-          .checkSrcs(protoInfo.getDirectSources(), "cc_proto_library");
+    private boolean areSrcsExcluded() throws RuleErrorException, InterruptedException {
+      return !ProtoCommon.shouldGenerateCode(
+          ruleContext, protoTarget, getProtoToolchainProvider(), "cc_proto_library");
     }
 
-    private FeatureConfiguration getFeatureConfiguration() throws RuleErrorException {
+    private FeatureConfiguration getFeatureConfiguration()
+        throws RuleErrorException, InterruptedException {
       ImmutableSet.Builder<String> requestedFeatures = new ImmutableSet.Builder<>();
       requestedFeatures.addAll(ruleContext.getFeatures());
       ImmutableSet.Builder<String> unsupportedFeatures = new ImmutableSet.Builder<>();
@@ -416,7 +419,10 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private static void registerExcludedSrcs(
-        ProtoInfo protoInfo, ProtoConfiguration protoConfiguration, CcCompilationHelper helper) {
+        ConfiguredTarget protoTarget,
+        ProtoConfiguration protoConfiguration,
+        CcCompilationHelper helper) {
+      ProtoInfo protoInfo = protoTarget.get(ProtoInfo.PROVIDER);
       // Hack: This is a proto_library for descriptor.proto or similar.
       //
       // The headers of those libraries are precomputed . They are also explicitly part of normal
@@ -451,22 +457,19 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       } else {
         genfilesPath = genfilesFragment.getRelative(protoRootFragment).getPathString();
       }
-
-      ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
-      invocations.add(
-          new ToolchainInvocation("C++", checkNotNull(getProtoToolchainProvider()), genfilesPath));
-      ProtoCompileActionBuilder.registerActions(
-          ruleContext,
-          invocations.build(),
-          protoInfo,
-          outputs,
-          "Generating C++ proto_library %{label}",
-          Exports.DO_NOT_USE,
-          Services.ALLOW);
+      if (!outputs.isEmpty()) {
+        ProtoCommon.compile(
+            ruleContext,
+            protoTarget,
+            getProtoToolchainProvider(),
+            outputs,
+            genfilesPath,
+            "Generating C++ proto_library %{label}");
+      }
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {
-      return ruleContext.getPrerequisite(PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+      return ruleContext.getPrerequisite(PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {

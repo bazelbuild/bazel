@@ -680,7 +680,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       validateResourceSetBuilder(resourceSetUnchecked);
       builder.setResources(
           new StarlarkActionResourceSetBuilder(
-              (StarlarkFunction) resourceSetUnchecked, mnemonic, getSemantics()));
+              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
     }
 
     // Always register the action
@@ -770,30 +770,32 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  private static StarlarkFunction validateResourceSetBuilder(Object fn) throws EvalException {
-    if (!(fn instanceof StarlarkFunction)) {
+  private static StarlarkCallable validateResourceSetBuilder(Object fn) throws EvalException {
+    if (!(fn instanceof StarlarkCallable)) {
       throw Starlark.errorf(
-          "resource_set should be a Starlark-defined function, but got %s instead",
+          "resource_set should be a Starlark-callable function, but got %s instead",
           Starlark.type(fn));
     }
 
-    StarlarkFunction sfn = (StarlarkFunction) fn;
+    if (fn instanceof StarlarkFunction) {
+      StarlarkFunction sfn = (StarlarkFunction) fn;
 
-    // Reject non-global functions, because arbitrary closures may cause large
-    // analysis-phase data structures to remain live into the execution phase.
-    // We require that the function is "global" as opposed to "not a closure"
-    // because a global function may be closure if it refers to load bindings.
-    // This unfortunately disallows such trivially safe non-global
-    // functions as "lambda x: x".
-    // See https://github.com/bazelbuild/bazel/issues/12701.
-    if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
-      throw Starlark.errorf(
-          "to avoid unintended retention of analysis data structures, "
-              + "the resource_set function (declared at %s) must be declared "
-              + "by a top-level def statement",
-          sfn.getLocation());
+      // Reject non-global functions, because arbitrary closures may cause large
+      // analysis-phase data structures to remain live into the execution phase.
+      // We require that the function is "global" as opposed to "not a closure"
+      // because a global function may be closure if it refers to load bindings.
+      // This unfortunately disallows such trivially safe non-global
+      // functions as "lambda x: x".
+      // See https://github.com/bazelbuild/bazel/issues/12701.
+      if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
+        throw Starlark.errorf(
+            "to avoid unintended retention of analysis data structures, "
+                + "the resource_set function (declared at %s) must be declared "
+                + "by a top-level def statement",
+            sfn.getLocation());
+      }
     }
-    return (StarlarkFunction) fn;
+    return (StarlarkCallable) fn;
   }
 
   private String getMnemonic(Object mnemonicUnchecked) {

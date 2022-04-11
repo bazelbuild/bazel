@@ -62,8 +62,8 @@ public abstract class Worker {
     return workerKey.getWorkerFilesCombinedHash();
   }
 
-  SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
-    return workerKey.getWorkerFilesWithHashes();
+  SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests() {
+    return workerKey.getWorkerFilesWithDigests();
   }
 
   /** Returns true if this worker is sandboxed. */
@@ -103,7 +103,12 @@ public abstract class Worker {
    */
   abstract WorkResponse getResponse(int requestId) throws IOException, InterruptedException;
 
-  /** Does whatever cleanup may be required after execution is done. */
+  /**
+   * Does whatever cleanup may be required after execution is done.
+   *
+   * @param execRoot The global execRoot, where outputs must go.
+   * @param outputs The expected outputs.
+   */
   public abstract void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException;
 
   /**

@@ -40,14 +40,11 @@ java_test(
 java_library(
     name = "string_concat_cases",
     srcs = [":string_concat_cases_srcs"],
-    javacopts = select({
-        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jdk11-config": [
-            "-source 11",
-            "-target 11",
-            "-XDstringConcat=indyWithConstants",  # Enable OpenJDK version of String concat.
-        ],
-        "//conditions:default": [],
-    }),
+    javacopts = [
+        "-source 11",
+        "-target 11",
+        "-XDstringConcat=indyWithConstants",  # Enable OpenJDK version of String concat.
+    ],
 )
 
 filegroup(

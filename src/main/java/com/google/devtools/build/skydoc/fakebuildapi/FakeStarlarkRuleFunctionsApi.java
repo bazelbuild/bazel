@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
@@ -45,6 +44,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -84,7 +84,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
-  public ProviderApi provider(String doc, Object fields, StarlarkThread thread)
+  public Object provider(String doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
     FakeProviderApi fakeProvider = new FakeProviderApi(null);
     // Field documentation will be output preserving the order in which the fields are listed.
@@ -102,7 +102,11 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       // fields is NONE, so there is no field information to add.
     }
     providerInfoList.add(forProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
-    return fakeProvider;
+    if (init == Starlark.NONE) {
+      return fakeProvider;
+    } else {
+      return Tuple.of(fakeProvider, FakeDeepStructure.create("<raw constructor>"));
+    }
   }
 
   /** Constructor for ProviderFieldInfo. */

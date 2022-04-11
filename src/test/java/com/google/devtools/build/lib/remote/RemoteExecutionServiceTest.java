@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
@@ -102,6 +103,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -109,6 +111,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -124,7 +127,8 @@ import org.junit.runners.JUnit4;
 public class RemoteExecutionServiceTest {
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
-  private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+  private final DigestUtil digestUtil =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private final Reporter reporter = new Reporter(new EventBus());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
 
@@ -1099,9 +1103,21 @@ public class RemoteExecutionServiceTest {
     ActionResult r = ActionResult.newBuilder().setExitCode(0).build();
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
+    // set file1 as declared output but not mandatory output
     Spawn spawn =
-        newSpawn(
-            ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"), ImmutableSet.of(a1));
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
+            /*runfilesSupplier=*/ null,
+            /*filesetMappings=*/ ImmutableMap.of(),
+            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*outputs=*/ ImmutableSet.of(a1),
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
+
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -1116,6 +1132,32 @@ public class RemoteExecutionServiceTest {
     assertThat(inMemoryOutput).isNull();
     // The in memory file metadata also should not have been injected.
     verify(injector, never()).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+  }
+
+  @Test
+  public void downloadOutputs_missingMandatoryOutputs_reportError() throws Exception {
+    // Test that an AC which misses mandatory outputs is correctly ignored.
+    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    ImmutableSet.Builder<Artifact> outputs = ImmutableSet.builder();
+    ImmutableList<String> expectedOutputFiles = ImmutableList.of("outputs/foo", "outputs/bar");
+    for (String outputFile : expectedOutputFiles) {
+      Path path = remotePathResolver.outputPathToLocalPath(outputFile);
+      Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
+      outputs.add(output);
+    }
+    Spawn spawn = newSpawn(ImmutableMap.of(), outputs.build());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    IOException error =
+        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
+
+    assertThat(error).hasMessageThat().containsMatch("expected output .+ does not exist.");
   }
 
   @Test
@@ -1366,6 +1408,27 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_missingMandatoryOutputs_dontUpload() throws Exception {
+    Path file = execRoot.getRelative("outputs/file");
+    Artifact outputFile = ActionsTestUtil.createArtifact(artifactRoot, file);
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputFile));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+
+    service.uploadOutputs(action, spawnResult);
+
+    // assert
+    assertThat(cache.getNumFindMissingDigests()).isEmpty();
+  }
+
+  @Test
   public void uploadInputsIfNotPresent_deduplicateFindMissingBlobCalls() throws Exception {
     int taskCount = 100;
     ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
@@ -1374,19 +1437,18 @@ public class RemoteExecutionServiceTest {
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
     RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
 
     for (int i = 0; i < taskCount; ++i) {
       executorService.execute(
           () -> {
             try {
-              Spawn spawn =
-                  newSpawn(
-                      ImmutableMap.of(),
-                      ImmutableSet.of(),
-                      NestedSetBuilder.create(Order.STABLE_ORDER, input));
-              FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-              RemoteAction action = service.buildRemoteAction(spawn, context);
-
               service.uploadInputsIfNotPresent(action, /*force=*/ false);
             } catch (Throwable e) {
               if (e instanceof InterruptedException) {
@@ -1405,6 +1467,72 @@ public class RemoteExecutionServiceTest {
     for (Integer num : cache.getNumFindMissingDigests().values()) {
       assertThat(num).isEqualTo(1);
     }
+  }
+
+  @Test
+  public void uploadInputsIfNotPresent_sameInputs_interruptOne_keepOthers() throws Exception {
+    int taskCount = 100;
+    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Semaphore semaphore = new Semaphore(0);
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    Random random = new Random();
+
+    for (int i = 0; i < taskCount; ++i) {
+      boolean shouldInterrupt = random.nextBoolean();
+      executorService.execute(
+          () -> {
+            try {
+              if (shouldInterrupt) {
+                Thread.currentThread().interrupt();
+              }
+              service.uploadInputsIfNotPresent(action, /*force=*/ false);
+            } catch (Throwable e) {
+              if (!(shouldInterrupt && e instanceof InterruptedException)) {
+                error.set(e);
+              }
+            } finally {
+              semaphore.release();
+            }
+          });
+    }
+    semaphore.acquire(taskCount);
+
+    assertThat(error.get()).isNull();
+  }
+
+  @Test
+  public void uploadInputsIfNotPresent_interrupted_requestCancelled() throws Exception {
+    SettableFuture<ImmutableSet<Digest>> future = SettableFuture.create();
+    doReturn(future).when(cache).findMissingDigests(any(), any());
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    try {
+      Thread.currentThread().interrupt();
+      service.uploadInputsIfNotPresent(action, /*force=*/ false);
+    } catch (InterruptedException ignored) {
+      // Intentionally left empty
+    }
+
+    assertThat(future.isCancelled()).isTrue();
   }
 
   @Test

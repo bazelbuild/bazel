@@ -55,7 +55,7 @@ public class WorkerMultiplexerTest {
 
   @After
   public void tearDown() {
-    WorkerMultiplexerManager.reset();
+    WorkerMultiplexerManager.resetForTesting();
   }
 
   @Test
@@ -68,7 +68,8 @@ public class WorkerMultiplexerTest {
     multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStream));
 
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(1).build();
-    WorkerProxy worker = new WorkerProxy(workerKey, 2, logPath, multiplexer);
+    WorkerProxy worker =
+        new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
     worker.prepareExecution(null, null, null);
     worker.putRequest(request1);
     WorkResponse response1 = WorkResponse.newBuilder().setRequestId(1).build();
@@ -91,12 +92,14 @@ public class WorkerMultiplexerTest {
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
     multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStream));
 
-    WorkerProxy worker1 = new WorkerProxy(workerKey, 1, logPath, multiplexer);
+    WorkerProxy worker1 =
+        new WorkerProxy(workerKey, 1, logPath, multiplexer, workerKey.getExecRoot());
     worker1.prepareExecution(null, null, null);
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
-    WorkerProxy worker2 = new WorkerProxy(workerKey, 2, logPath, multiplexer);
+    WorkerProxy worker2 =
+        new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
     worker2.prepareExecution(null, null, null);
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);
@@ -123,16 +126,18 @@ public class WorkerMultiplexerTest {
     WorkerKey workerKey = TestUtils.createWorkerKey(fileSystem, "test3", true, "fakeBinary");
     WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
 
-    PipedInputStream serverInputStrean = new PipedInputStream();
-    OutputStream workerOutputStream = new PipedOutputStream(serverInputStrean);
-    multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStrean));
+    PipedInputStream serverInputStream = new PipedInputStream();
+    OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
+    multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStream));
 
-    WorkerProxy worker1 = new WorkerProxy(workerKey, 1, logPath, multiplexer);
+    WorkerProxy worker1 =
+        new WorkerProxy(workerKey, 1, logPath, multiplexer, workerKey.getExecRoot());
     worker1.prepareExecution(null, null, null);
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
-    WorkerProxy worker2 = new WorkerProxy(workerKey, 2, logPath, multiplexer);
+    WorkerProxy worker2 =
+        new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
     worker2.prepareExecution(null, null, null);
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);
@@ -184,12 +189,14 @@ public class WorkerMultiplexerTest {
     OutputStream workerOutputStream = new PipedOutputStream(serverInputStream);
     multiplexer.setProcessFactory(params -> new FakeSubprocess(serverInputStream));
 
-    WorkerProxy worker1 = new WorkerProxy(workerKey, 1, logPath, multiplexer);
+    WorkerProxy worker1 =
+        new WorkerProxy(workerKey, 1, logPath, multiplexer, workerKey.getExecRoot());
     worker1.prepareExecution(null, null, null);
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
-    WorkerProxy worker2 = new WorkerProxy(workerKey, 2, logPath, multiplexer);
+    WorkerProxy worker2 =
+        new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
     worker2.prepareExecution(null, null, null);
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);

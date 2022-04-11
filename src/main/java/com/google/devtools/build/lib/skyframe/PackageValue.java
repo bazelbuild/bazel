@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -26,8 +27,7 @@ import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 
 /** A Skyframe value representing a package. */
 @AutoCodec(explicitlyAllowClass = Package.class)
@@ -82,11 +82,14 @@ public class PackageValue implements NotComparableSkyValue {
     }
   }
 
-  public static List<SkyKey> keys(Iterable<PackageIdentifier> pkgIdentifiers) {
-    List<SkyKey> keys = new ArrayList<>();
+  public static ImmutableList<SkyKey> keys(Iterable<PackageIdentifier> pkgIdentifiers) {
+    ImmutableList.Builder<SkyKey> keys =
+        (pkgIdentifiers instanceof Collection)
+            ? ImmutableList.builderWithExpectedSize(((Collection) pkgIdentifiers).size())
+            : ImmutableList.builder();
     for (PackageIdentifier pkgIdentifier : pkgIdentifiers) {
       keys.add(key(pkgIdentifier));
     }
-    return keys;
+    return keys.build();
   }
 }

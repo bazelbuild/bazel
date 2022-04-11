@@ -156,7 +156,7 @@ public interface GoWrapCcHelperApi<
       CcToolchainProviderT ccToolchainProvider,
       Sequence<?> srcs, // <FileT> expected
       Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "create_go_compile_actions_gopkg",
@@ -173,7 +173,7 @@ public interface GoWrapCcHelperApi<
       CcToolchainProviderT ccToolchainProvider,
       Sequence<?> srcs, // <FileT> expected
       Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "create_transitive_gopackage_info",

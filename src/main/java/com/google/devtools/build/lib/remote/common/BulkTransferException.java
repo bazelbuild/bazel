@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import com.google.common.base.Joiner;
 import java.io.IOException;
 
 /**
@@ -57,6 +58,9 @@ public class BulkTransferException extends IOException {
     if (super.getSuppressed().length == 1) {
       return super.getSuppressed()[0].getMessage();
     }
-    return String.format("%d errors during bulk transfer", super.getSuppressed().length);
+    String errorSummary =
+        String.format("%d errors during bulk transfer:", super.getSuppressed().length);
+    String combinedSuberrors = Joiner.on('\n').join(super.getSuppressed());
+    return Joiner.on('\n').join(errorSummary, combinedSuberrors);
   }
 }

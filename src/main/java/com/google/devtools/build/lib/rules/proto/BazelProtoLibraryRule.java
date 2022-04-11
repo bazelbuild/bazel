@@ -15,46 +15,27 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
  * Rule definition for the proto_library rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelProtoLibraryRule implements RuleDefinition {
-
-  private static final Label DEFAULT_PROTO_COMPILER =
-      Label.parseAbsoluteUnchecked("@com_google_protobuf//:protoc");
-  private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
-      Attribute.LabelLateBoundDefault.fromTargetConfiguration(
-          ProtoConfiguration.class,
-          DEFAULT_PROTO_COMPILER,
-          (rule, attributes, protoConfig) ->
-              protoConfig.protoCompiler() != null
-                  ? protoConfig.protoCompiler()
-                  : DEFAULT_PROTO_COMPILER);
-
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
 
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .setOutputToGenfiles()
-        .add(
-            attr(":proto_compiler", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .exec()
-                .value(PROTO_COMPILER))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
         The list of other <code>proto_library</code> rules that the target depends upon.
         A <code>proto_library</code> may only depend on other
@@ -114,7 +95,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("proto_library")
         .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
-        .factoryClass(BazelProtoLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

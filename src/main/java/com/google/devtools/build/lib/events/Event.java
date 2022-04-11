@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -400,22 +399,6 @@ public final class Event {
   public static void replayEventsOn(EventHandler handler, List<SyntaxError> errors) {
     for (SyntaxError error : errors) {
       handler.handle(Event.error(error.location(), error.message()));
-    }
-  }
-
-  /**
-   * Converts a list of {@link SyntaxError}s to events, each with a specified property, and replays
-   * them on {@code handler}.
-   */
-  public static <T> void replayEventsOn(
-      EventHandler handler,
-      List<SyntaxError> errors,
-      Class<T> propertyType,
-      Function<SyntaxError, T> toProperty) {
-    for (SyntaxError error : errors) {
-      handler.handle(
-          Event.error(error.location(), error.message())
-              .withProperty(propertyType, toProperty.apply(error)));
     }
   }
 

@@ -233,7 +233,7 @@ public final class TopLevelArtifactHelper {
     }
 
     return new ArtifactsToBuild(
-        allOutputGroups.build(), /*allOutputGroupsImportant=*/ allOutputGroupsImportant);
+        allOutputGroups.buildOrThrow(), /*allOutputGroupsImportant=*/ allOutputGroupsImportant);
   }
 
   /**
@@ -280,7 +280,7 @@ public final class TopLevelArtifactHelper {
       if (!leavesDirty) {
         return outputGroups;
       }
-      return resultBuilder.build();
+      return resultBuilder.buildOrThrow();
     }
 
     /**

@@ -83,9 +83,11 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DelegatingSyscallCache;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -162,9 +164,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory;
   private PathPackageLocator pkgLocator;
+  protected final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
   @Before
   public final void createMocks() throws Exception {
+    delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
     analysisMock = getAnalysisMock();
     pkgLocator =
         new PathPackageLocator(
@@ -195,6 +199,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setActionKeyContext(actionKeyContext)
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+        .setPerCommandSyscallCache(delegatingSyscallCache)
         .build();
   }
 
@@ -574,8 +579,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     ActionLookupValue actionLookupValue;
     try {
       actionLookupValue =
-          (ActionLookupValue)
-              skyframeExecutor.getEvaluatorForTesting().getExistingValue(actionLookupKey);
+          (ActionLookupValue) skyframeExecutor.getEvaluator().getExistingValue(actionLookupKey);
     } catch (InterruptedException e) {
       throw new IllegalStateException(e);
     }

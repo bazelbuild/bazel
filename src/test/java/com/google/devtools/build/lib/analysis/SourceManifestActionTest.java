@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -85,8 +84,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
    * Get the contents of a file internally using an in memory output stream.
    *
    * @return returns the file contents as a string.
-   * @throws ActionExecutionException
-   * @throws InterruptedException
    * @throws IOException
    */
   public String getFileContentsAsString(SourceManifestAction manifest) throws IOException {

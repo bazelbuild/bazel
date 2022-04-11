@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -122,12 +121,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (!cppConfiguration.experimentalCcImplementationDeps()
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
-      ruleContext.attributeError(
-          "implementation_deps", "requires --experimental_cc_implementation_deps");
-    }
+    boolean shouldUseInterfaceDepsBehavior = semantics.shouldUseInterfaceDepsBehavior(ruleContext);
 
     final CcCommon common = new CcCommon(ruleContext);
     common.reportInvalidOptions(ruleContext);
@@ -137,7 +131,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
     ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
     ruleContext.initConfigurationMakeVariableContext(
-        new MapBackedMakeVariableSupplier(toolchainMakeVariables.build()),
+        new MapBackedMakeVariableSupplier(toolchainMakeVariables.buildOrThrow()),
         new CcFlagsSupplier(ruleContext));
 
     FdoContext fdoContext = common.getFdoContext();
@@ -157,7 +151,24 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       addEmptyRequiredProviders(targetBuilder);
       return;
     }
-    Iterable<CcInfo> ccInfosFromDeps = AnalysisUtils.getProviders(deps, CcInfo.PROVIDER);
+
+    ImmutableList.Builder<CcCompilationContext> interfaceDeps = ImmutableList.builder();
+    ImmutableList.Builder<CcCompilationContext> implementationDeps = ImmutableList.builder();
+
+    if (shouldUseInterfaceDepsBehavior) {
+      interfaceDeps.addAll(
+          CppHelper.getCompilationContextsFromDeps(
+              ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))));
+      implementationDeps.addAll(
+          CppHelper.getCompilationContextsFromDeps(
+              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
+    } else {
+      interfaceDeps.addAll(
+          CppHelper.getCompilationContextsFromDeps(
+              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
+    }
+    interfaceDeps.add(CcCompilationHelper.getStlCcCompilationContext(ruleContext));
+
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
                 ruleContext,
@@ -176,15 +187,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .addPrivateHeaders(common.getPrivateHeaders())
             .addPublicHeaders(common.getHeaders())
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
-            .addCcCompilationContexts(
-                Streams.stream(ccInfosFromDeps)
-                    .map(CcInfo::getCcCompilationContext)
-                    .collect(ImmutableList.toImmutableList()))
-            .addCcCompilationContexts(
-                ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
-            .addImplementationDepsCcCompilationContexts(
-                CppHelper.getCompilationContextsFromDeps(
-                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
+            .addCcCompilationContexts(interfaceDeps.build())
+            .addImplementationDepsCcCompilationContexts(implementationDeps.build())
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     CcLinkingHelper linkingHelper =
@@ -205,7 +209,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .fromCommon(ruleContext, common)
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
-                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
             .addLinkopts(common.getLinkopts())
@@ -254,6 +258,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     linkingHelper.setShouldCreateDynamicLibrary(createDynamicLibrary);
     linkingHelper.setLinkerOutputArtifact(soImplArtifact);
+
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
     // If the reason we're not creating a dynamic library is that the toolchain
     // doesn't support it, then register an action which complains when triggered,
@@ -339,21 +345,17 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
         Artifact defParser = common.getDefParser();
         if (defParser != null) {
-          try {
-            generatedDefFile =
-                CppHelper.createDefFileActions(
-                    ruleContext,
-                    defParser,
-                    ccCompilationOutputs.getObjectFiles(false),
-                    ccToolchain
-                        .getFeatures()
-                        .getArtifactNameForCategory(
-                            ArtifactCategory.DYNAMIC_LIBRARY,
-                            ruleContext.getLabel().getName() + dllNameSuffix));
-            targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
-          } catch (EvalException e) {
-            throw ruleContext.throwWithRuleError(e);
-          }
+          generatedDefFile =
+              CppHelper.createDefFileActions(
+                  ruleContext,
+                  defParser,
+                  ccCompilationOutputs.getObjectFiles(false),
+                  ccToolchain
+                      .getFeatures()
+                      .getArtifactNameForCategory(
+                          ArtifactCategory.DYNAMIC_LIBRARY,
+                          ruleContext.getLabel().getName() + dllNameSuffix));
+          targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
         }
         linkingHelper.setDefFile(
             CppHelper.getWindowsDefFileForLinking(
@@ -489,11 +491,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 .setCcLinkingContext(ccLinkingContext)
                 .setCcDebugInfoContext(
                     CppHelper.mergeCcDebugInfoContexts(
-                        compilationInfo.getCcCompilationOutputs(), ccInfosFromDeps))
+                        compilationInfo.getCcCompilationOutputs(),
+                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)))
                 .setCcNativeLibraryInfo(ccNativeLibraryInfo)
                 .build())
         .addOutputGroups(
-            CcCommon.mergeOutputGroups(ImmutableList.of(currentOutputGroups, outputGroups.build())))
+            CcCommon.mergeOutputGroups(
+                ImmutableList.of(currentOutputGroups, outputGroups.buildOrThrow())))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()));
   }
@@ -594,7 +598,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ImmutableSortedMap.naturalOrder();
     if (!ruleContext.attributes().has("alwayslink", Type.BOOLEAN)
         || !ruleContext.attributes().has("linkstatic", Type.BOOLEAN)) {
-      return outputGroups.build();
+      return outputGroups.buildOrThrow();
     }
 
     if (ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
@@ -639,7 +643,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     outputGroups.put(ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME, archiveFile.build());
     outputGroups.put(DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME, dynamicLibrary.build());
-    return outputGroups.build();
+    return outputGroups.buildOrThrow();
   }
 
   private static ImmutableList<LibraryToLink> createLibrariesToLinkList(

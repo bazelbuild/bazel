@@ -102,6 +102,15 @@ public final class Spawns {
   }
 
   /**
+   * Returns whether the {@link Spawn} supports sandboxing for multiplex workers through the {@code
+   * WorkRequest.sandbox_dir} field.
+   */
+  public static boolean supportsMultiplexSandboxing(Spawn spawn) {
+    return "1"
+        .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING));
+  }
+
+  /**
    * Returns which worker protocol format a Spawn claims a persistent worker uses. Defaults to proto
    * if the protocol format is not specified.
    */

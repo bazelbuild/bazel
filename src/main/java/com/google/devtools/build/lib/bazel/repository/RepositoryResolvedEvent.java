@@ -24,12 +24,13 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -102,7 +103,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         // Do nothing, just ignore the value.
       }
     }
-    ImmutableMap<String, Object> origAttr = origAttrBuilder.build();
+    ImmutableMap<String, Object> origAttr = origAttrBuilder.buildOrThrow();
     resolvedInformationBuilder.put(ORIGINAL_ATTRIBUTES, origAttr);
 
     repositoryBuilder.put(RULE_CLASS, originalClass);
@@ -117,7 +118,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       // version of itself.
       repositoryBuilder.put(ATTRIBUTES, result);
       Pair<Map<String, Object>, List<String>> diff =
-          compare(origAttr, defaults.build(), (Map<?, ?>) result);
+          compare(origAttr, defaults.buildOrThrow(), (Map<?, ?>) result);
       if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
         this.informationReturned = false;
         this.message = "Repository rule '" + rule.getName() + "' finished.";
@@ -164,13 +165,13 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    * Ensure that the {@code resolvedInformation} and the {@code directoryDigest} fields are
    * initialized properly. Does nothing, if the values are computed already.
    */
-  private synchronized void finalizeResolvedInformation() {
+  private synchronized void finalizeResolvedInformation(XattrProvider xattrProvider) {
     if (resolvedInformation != null) {
       return;
     }
     String digest = "[unavailable]";
     try {
-      digest = outputDirectory.getDirectoryDigest();
+      digest = outputDirectory.getDirectoryDigest(xattrProvider);
       repositoryBuilder.put(OUTPUT_TREE_HASH, digest);
     } catch (IOException e) {
       // Digest not available, but we still have to report that a repository rule
@@ -179,17 +180,19 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     this.directoryDigest = digest;
     if (repositoryBuilder != null) {
       resolvedInformationBuilder.put(
-          REPOSITORIES, ImmutableList.<Object>of(repositoryBuilder.build()));
+          REPOSITORIES, ImmutableList.<Object>of(repositoryBuilder.buildOrThrow()));
     }
-    this.resolvedInformation = resolvedInformationBuilder.build();
+    this.resolvedInformation = resolvedInformationBuilder.buildOrThrow();
     this.resolvedInformationBuilder = null;
     this.repositoryBuilder = null;
   }
 
-  /** Return the entry for the given rule invocation in a format suitable for WORKSPACE.resolved. */
+  /**
+   * Returns the entry for the given rule invocation in a format suitable for WORKSPACE.resolved.
+   */
   @Override
-  public Object getResolvedInformation() {
-    finalizeResolvedInformation();
+  public Object getResolvedInformation(XattrProvider xattrProvider) {
+    finalizeResolvedInformation(xattrProvider);
     return resolvedInformation;
   }
 
@@ -199,8 +202,8 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     return name;
   }
 
-  public String getDirectoryDigest() {
-    finalizeResolvedInformation();
+  public String getDirectoryDigest(XattrProvider xattrProvider) {
+    finalizeResolvedInformation(xattrProvider);
     return directoryDigest;
   }
 
@@ -295,7 +298,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         keysDropped.add(key);
       }
     }
-    return Pair.of(valuesChanged.build(), keysDropped.build());
+    return Pair.of(valuesChanged.buildOrThrow(), keysDropped.build());
   }
 
   static String representModifications(Map<String, Object> changes) {

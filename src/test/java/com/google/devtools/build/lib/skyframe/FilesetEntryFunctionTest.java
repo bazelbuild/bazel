@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.actions.FilesetTraversalParams.Packa
 import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.REPORT_ERROR;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,8 +37,8 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory.Symli
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -46,18 +47,18 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -80,20 +81,16 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class FilesetEntryFunctionTest extends FoundationTestCase {
   private MemoizingEvaluator evaluator;
-  private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
-  private AtomicReference<PathPackageLocator> pkgLocator;
 
   @Before
-  public final void setUp() throws Exception  {
-    pkgLocator =
+  public void setUp() throws Exception {
+    AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,
@@ -107,23 +104,23 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
 
     skyFunctions.put(
-        FileStateValue.FILE_STATE,
+        FileStateKey.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
+            SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(
-            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
+        new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
     skyFunctions.put(
-        SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
+        SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
+        new RecursiveFilesystemTraversalFunction(SyscallCache.NO_CACHE));
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
-            deletedPackages,
+            new AtomicReference<>(ImmutableSet.of()),
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -140,13 +137,12 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
-    driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
   }
 
-  private Artifact getSourceArtifact(String path) throws Exception {
+  private Artifact getSourceArtifact(String path) {
     return ActionsTestUtil.createArtifact(
         ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)), path);
   }
@@ -195,7 +191,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver.evaluate(ImmutableList.of(key), evaluationContext);
+    return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
   }
 
   private FilesetEntryValue evalFilesetTraversal(FilesetTraversalParams params) throws Exception {
@@ -353,7 +349,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     fileAsym.asPath().createSymbolicLink(PathFragment.create("../file.a"));
 
     FilesetOutputSymlink outA = symlink("output-name/file.a", childOf(dir, "file.a"));
-    FilesetOutputSymlink outAsym = null;
+    FilesetOutputSymlink outAsym;
     FilesetOutputSymlink outBuild = symlink("output-name/subpkg/BUILD", buildFile);
     FilesetOutputSymlink outB = symlink("output-name/subpkg/file.b", fileB);
     switch (symlinks) {
@@ -444,7 +440,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     symlink.getPath().createSymbolicLink(PathFragment.create("dir_real"));
 
     FilesetOutputSymlink outA = symlink("output-name/file.a", childOf(symlink, "file.a"));
-    FilesetOutputSymlink outASym = null;
+    FilesetOutputSymlink outASym;
     FilesetOutputSymlink outBuild =
         symlink("output-name/subpkg/BUILD", childOf(symlink, "subpkg/BUILD"));
     FilesetOutputSymlink outB =
@@ -542,7 +538,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
     FilesetOutputSymlink outBuild = symlink("output-name/BUILD", buildFile);
     FilesetOutputSymlink outA = symlink("output-name/file.a", fileA);
-    FilesetOutputSymlink outAsym = null;
+    FilesetOutputSymlink outAsym;
     FilesetOutputSymlink outSubpkgBuild = symlink("output-name/subpkg/BUILD", subpkgBuildFile);
     FilesetOutputSymlink outSubpkgB = symlink("output-name/subpkg/file.b", fileB);
     FilesetOutputSymlink outSubpkgSymBuild;
@@ -654,12 +650,12 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     // Ensure the symlink and its target would be included if they weren't explicitly excluded.
     FilesetTraversalParams params =
         FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
-            /* ownerLabel */ label("//foo"),
-            /* buildFile */ buildFile,
+            label("//foo"),
+            buildFile,
             PathFragment.create("output-name"),
-            /* excludes */ ImmutableSet.<String>of(),
-            /* symlinkBehaviorMode */ symlinkBehavior,
-            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS,
+            /*excludes=*/ ImmutableSet.of(),
+            symlinkBehavior,
+            PackageBoundaryMode.DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(
         params,
@@ -869,15 +865,15 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     return new Domain(true, valueA, valueB);
   }
 
-  private static Domain notPartOfFingerprint(Object valueA, Object valueB) {
-    return new Domain(false, valueA, valueB);
+  private static Domain notPartOfFingerprint(Object valueB) {
+    return new Domain(false, "//foo", valueB);
   }
 
   @Test
   public void testFingerprintOfFileTraversal() throws Exception {
     new FingerprintTester(
         ImmutableMap.<String, Domain>builder()
-            .put("ownerLabel", notPartOfFingerprint("//foo", "//bar"))
+            .put("ownerLabel", notPartOfFingerprint("//bar"))
             .put("fileToTraverse", partOfFingerprint("foo/file.a", "bar/file.b"))
             .put("destPath", partOfFingerprint("out1", "out2"))
             .put(
@@ -887,7 +883,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                     FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
-            .build()) {
+            .buildOrThrow()) {
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
         return FilesetTraversalParamsFactory.fileTraversal(
@@ -905,12 +901,10 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   public void testFingerprintOfDirectoryTraversal() throws Exception {
     new FingerprintTester(
         ImmutableMap.<String, Domain>builder()
-            .put("ownerLabel", notPartOfFingerprint("//foo", "//bar"))
+            .put("ownerLabel", notPartOfFingerprint("//bar"))
             .put("directoryToTraverse", partOfFingerprint("foo/dir_a", "bar/dir_b"))
             .put("destPath", partOfFingerprint("out1", "out2"))
-            .put(
-                "excludes",
-                partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.<String>of("blah")))
+            .put("excludes", partOfFingerprint(ImmutableSet.of(), ImmutableSet.of("blah")))
             .put(
                 "symlinkBehaviorMode",
                 partOfFingerprint(
@@ -918,7 +912,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                     FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
-            .build()) {
+            .buildOrThrow()) {
       @SuppressWarnings("unchecked")
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
@@ -938,19 +932,17 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   public void testFingerprintOfPackageTraversal() throws Exception {
     new FingerprintTester(
         ImmutableMap.<String, Domain>builder()
-            .put("ownerLabel", notPartOfFingerprint("//foo", "//bar"))
+            .put("ownerLabel", notPartOfFingerprint("//bar"))
             .put("buildFile", partOfFingerprint("foo/BUILD", "bar/BUILD"))
             .put("destPath", partOfFingerprint("out1", "out2"))
-            .put(
-                "excludes",
-                partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.<String>of("blah")))
+            .put("excludes", partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.of("blah")))
             .put(
                 "symlinkBehaviorMode",
                 partOfFingerprint(
                     FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
                     FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
-            .build()) {
+            .buildOrThrow()) {
       @SuppressWarnings("unchecked")
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
@@ -972,12 +964,11 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     Artifact nested2 = getSourceArtifact("a/c");
 
     new FingerprintTester(
-        ImmutableMap.<String, Domain>of(
-            "ownerLabel", notPartOfFingerprint("//foo", "//bar"),
+        ImmutableMap.of(
+            "ownerLabel", notPartOfFingerprint("//bar"),
             "nestedArtifact", partOfFingerprint(nested1, nested2),
             "destDir", partOfFingerprint("out1", "out2"),
-            "excludes",
-                partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.<String>of("x")))) {
+            "excludes", partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.of("x")))) {
       @SuppressWarnings("unchecked")
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {

@@ -243,12 +243,17 @@ public class ExecutionTool {
    *
    * <p>b/199053098: This method concentrates the setup steps for execution, which were previously
    * scattered over several classes. We need this in order to merge analysis & execution phases.
-   * TODO(b/199053098): Minimize code duplication with the main code path.
+   * TODO(b/199053098): Minimize code duplication with the main code path. TODO(b/213040766): Write
+   * tests for these setup steps.
    */
   public void prepareForExecution(
-      UUID buildId, Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects)
+      UUID buildId,
+      Set<ConfiguredTargetKey> builtTargets,
+      Set<AspectKey> builtAspects,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories)
       throws AbruptExitException, BuildFailedException, InterruptedException {
     init();
+    BuildRequestOptions options = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     // TODO(b/199053098): Support symlink forest.
@@ -258,12 +263,33 @@ public class ExecutionTool {
         "--experimental_merged_skyframe_analysis_execution requires a single package path entry."
             + " Found a list of size: %s",
         pkgPathEntries.size());
-    Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
-    PackageRoots noSymlinkPackageRoots = new PackageRootsNoSymlinkCreation(singleSourceRoot);
-    env.getEventBus().post(new ExecRootPreparedEvent(noSymlinkPackageRoots.getPackageRootsMap()));
-    env.getSkyframeBuildView()
-        .getArtifactFactory()
-        .setPackageRoots(noSymlinkPackageRoots.getPackageRootLookup());
+
+    try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
+      Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
+      PackageRoots noSymlinkPackageRoots = new PackageRootsNoSymlinkCreation(singleSourceRoot);
+      try {
+        SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
+            getExecRoot(),
+            singleSourceRoot.asPath(),
+            /*prefix=*/ env.getDirectories().getProductName() + "-",
+            notSymlinkedInExecrootDirectories,
+            request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("Failed to prepare the symlink forest")
+                    .setSymlinkForest(
+                        FailureDetails.SymlinkForest.newBuilder()
+                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
+                    .build()),
+            e);
+      }
+      env.getEventBus().post(new ExecRootPreparedEvent(noSymlinkPackageRoots.getPackageRootsMap()));
+      env.getSkyframeBuildView()
+          .getArtifactFactory()
+          .setPackageRoots(noSymlinkPackageRoots.getPackageRootLookup());
+    }
 
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
@@ -284,8 +310,11 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    ActionCache actionCache = getActionCache();
-    actionCache.resetStatistics();
+    ActionCache actionCache = null;
+    if (options.useActionCache) {
+      actionCache = getActionCache();
+      actionCache.resetStatistics();
+    }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
       skyframeBuilder =

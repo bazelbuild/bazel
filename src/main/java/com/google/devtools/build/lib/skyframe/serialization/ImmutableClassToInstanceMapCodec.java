@@ -68,7 +68,7 @@ class ImmutableClassToInstanceMapCodec<B> implements ObjectCodec<ImmutableClassT
 
     ImmutableMap<Class<? extends B>, B> classKeyedMap;
     try {
-      classKeyedMap = classKeyedBuilder.build();
+      classKeyedMap = classKeyedBuilder.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw new SerializationException(
           "Duplicate keys during ImmutableClassToInstanceMapCodec deserialization", e);

@@ -87,7 +87,7 @@ public interface AppleCommonApi<
               + "<li><code>tvos_device</code></li>"
               + "<li><code>tvos_simulator</code></li>"
               + "<li><code>watchos_device</code></li>"
-              + "<li><code>watchos_device</code></li>"
+              + "<li><code>watchos_simulator</code></li>"
               + "</ul><p>"
               + "These values can be passed to methods that expect a platform, like "
               + "<a href='XcodeVersionConfig.html#sdk_version_for_platform'>"
@@ -404,18 +404,6 @@ public interface AppleCommonApi<
                     + "If -1 (the default), then the behavior is determined by the --[no]stamp "
                     + "flag. This should be set to 0 when generating the executable output for "
                     + "test rules."),
-        @Param(
-            name = "should_lipo",
-            named = true,
-            positional = false,
-            defaultValue = "True",
-            doc =
-                "If True, invoke lipo after linking to create a universal binary. This parameter "
-                    + "is temporary and defaults to True for legacy purposes. After rules_apple "
-                    + "has been updated to call this with False, the default will be changed to "
-                    + "False and the support for invoking lipo inside "
-                    + "<code>link_multi_arch_binary</code> will be removed, along with this "
-                    + "parameter.")
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
@@ -425,8 +413,23 @@ public interface AppleCommonApi<
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkInt stamp,
-      Boolean shouldLipo,
       StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "link_multi_arch_static_library",
+      doc =
+          "Links a (potentially multi-architecture) static library targeting Apple platforms."
+              + " This method comprises a part of the <code>apple_static_library</code> rule logic,"
+              + " and is exposed as an API to iterate on XCFrameworks support on Starlark.\n"
+              + "<p>This API is <b>highly experimental</b> and subject to change at any time."
+              + " Do not depend on the stability of this function at this time.",
+      parameters = {
+        @Param(name = "ctx", named = true, positional = false, doc = "The Starlark rule context."),
+      },
+      useStarlarkThread = true)
+  StructApi linkMultiArchStaticLibrary(
+      StarlarkRuleContextT starlarkRuleContext, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

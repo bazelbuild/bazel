@@ -24,7 +24,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -59,7 +57,6 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -126,6 +123,10 @@ public final class SandboxModule extends BlazeModule {
               env.getRuntime().getProductName(),
               Fingerprint.getHexDigest(env.getOutputBase().toString()));
       FileSystem fileSystem = env.getRuntime().getFileSystem();
+      if (OS.getCurrent() == OS.DARWIN) {
+        // Don't resolve symlinks on macOS: See https://github.com/bazelbuild/bazel/issues/13766
+        return fileSystem.getPath(options.sandboxBase).getRelative(dirName);
+      }
       Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
       return resolvedSandboxBase.getRelative(dirName);
     }
@@ -448,6 +449,7 @@ public final class SandboxModule extends BlazeModule {
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
+        env.getXattrProvider(),
         // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
         RunfilesTreeUpdater.INSTANCE);
   }
@@ -485,15 +487,11 @@ public final class SandboxModule extends BlazeModule {
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
         throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-      Instant spawnExecutionStartInstant = Instant.now();
-      SpawnResult spawnResult;
       if (sandboxSpawnRunner.canExec(spawn)) {
-        spawnResult = sandboxSpawnRunner.exec(spawn, context);
+        return sandboxSpawnRunner.exec(spawn, context);
       } else {
-        spawnResult = fallbackSpawnRunner.exec(spawn, context);
+        return fallbackSpawnRunner.exec(spawn, context);
       }
-      reporter.post(new SpawnExecutedEvent(spawn, spawnResult, spawnExecutionStartInstant));
-      return spawnResult;
     }
 
     @Override

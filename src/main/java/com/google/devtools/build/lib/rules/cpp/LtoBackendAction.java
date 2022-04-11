@@ -104,7 +104,8 @@ public final class LtoBackendAction extends SpawnAction {
         mnemonic,
         false,
         null,
-        null);
+        null,
+        /*stripOutputPaths=*/ false);
     mandatoryInputs = inputs;
     Preconditions.checkState(
         (allBitcodeFiles == null) == (importsFile == null),

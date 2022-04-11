@@ -215,7 +215,7 @@ public final class OutputGroupInfo extends StructImpl
         resultBuilder.put(outputGroup, provider.getOutputGroup(outputGroup));
       }
     }
-    return new OutputGroupInfo(resultBuilder.build());
+    return new OutputGroupInfo(resultBuilder.buildOrThrow());
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(
@@ -335,7 +335,7 @@ public final class OutputGroupInfo extends StructImpl
             StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 entry.getKey(), entry.getValue()));
       }
-      return new OutputGroupInfo(builder.build());
+      return new OutputGroupInfo(builder.buildOrThrow());
     }
   }
 }

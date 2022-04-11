@@ -184,7 +184,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         implementations of Parcelable), otherwise use <code>idl_srcs</code> for
         Android IDL definitions that need to be translated to Java interfaces and
         use <code>idl_parcelable</code>
-        for non-preprcessed AIDL files.
+        for non-preprocessed AIDL files.
         </p>
 
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

@@ -29,16 +29,13 @@ if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
 fi
 
-: ${JAVA_VERSION:="1.8"}
+: ${JAVA_VERSION:="11"}
 
 _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --distdir=derived/distdir \
-      --java_toolchain=//scripts/bootstrap:bootstrap_toolchain \
-      --host_java_toolchain=//scripts/bootstrap:bootstrap_toolchain \
-      --incompatible_use_toolchain_resolution_for_java_rules \
       --extra_toolchains=//scripts/bootstrap:bootstrap_toolchain_definition \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"

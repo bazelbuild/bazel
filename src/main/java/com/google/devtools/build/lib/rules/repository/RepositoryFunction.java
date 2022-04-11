@@ -383,7 +383,7 @@ public abstract class RepositoryFunction {
   protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
       throws RepositoryFunctionException {
     try {
-      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
+      repositoryDirectory.createDirectoryAndParents();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -464,7 +464,7 @@ public abstract class RepositoryFunction {
       Path repositoryDirectory, Path targetDirectory, String userDefinedPath)
       throws RepositoryFunctionException {
     try {
-      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
+      repositoryDirectory.createDirectoryAndParents();
       for (Path target : targetDirectory.getDirectoryEntries()) {
         Path symlinkPath = repositoryDirectory.getRelative(target.getBaseName());
         createSymbolicLink(symlinkPath, target);

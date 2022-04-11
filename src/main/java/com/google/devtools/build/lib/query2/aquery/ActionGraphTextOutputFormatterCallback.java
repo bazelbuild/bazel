@@ -221,7 +221,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       Iterable<Map.Entry<String, String>> fixedEnvironment =
-          abstractAction.getEnvironment().getFixedEnv().toMap().entrySet();
+          abstractAction.getEnvironment().getFixedEnv().entrySet();
       if (!Iterables.isEmpty(fixedEnvironment)) {
         stringBuilder
             .append("  Environment: [")

@@ -417,7 +417,7 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
           foundSrc = true;
           break;
         case "tool":
-          assertConfigurationsEqual(getHostConfiguration(), getConfiguration(prereq));
+          assertThat(getConfiguration(prereq).isToolConfiguration()).isTrue();
           foundTool = true;
           break;
         case GENRULE_SETUP_PATH:

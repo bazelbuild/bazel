@@ -18,9 +18,8 @@
 // absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
 #include <mutex>  // NOLINT
 
-#include "src/main/native/darwin/util.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/native/unix_jni.h"
-#include "src/main/native/macros.h"
 
 namespace blaze_jni {
 
@@ -35,15 +34,14 @@ static IOPMAssertionID g_sleep_state_assertion = kIOPMNullAssertionID;
 
 int portable_push_disable_sleep() {
   std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
-  CHECK_GE(g_sleep_state_stack, 0);
+  BAZEL_CHECK_GE(g_sleep_state_stack, 0);
   if (g_sleep_state_stack == 0) {
-    CHECK_EQ(g_sleep_state_assertion, kIOPMNullAssertionID);
+    BAZEL_CHECK_EQ(g_sleep_state_assertion, kIOPMNullAssertionID);
     CFStringRef reasonForActivity = CFSTR("build.bazel");
     IOReturn success = IOPMAssertionCreateWithName(
         kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, reasonForActivity,
         &g_sleep_state_assertion);
-    CHECK_EQ(success, kIOReturnSuccess);
-    log_if_possible("sleep assertion created");
+    BAZEL_CHECK_EQ(success, kIOReturnSuccess);
   }
   g_sleep_state_stack += 1;
   return 0;
@@ -51,14 +49,13 @@ int portable_push_disable_sleep() {
 
 int portable_pop_disable_sleep() {
   std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
-  CHECK_GT(g_sleep_state_stack, 0);
+  BAZEL_CHECK_GT(g_sleep_state_stack, 0);
   g_sleep_state_stack -= 1;
   if (g_sleep_state_stack == 0) {
-    CHECK_NEQ(g_sleep_state_assertion, kIOPMNullAssertionID);
+    BAZEL_CHECK_NE(g_sleep_state_assertion, kIOPMNullAssertionID);
     IOReturn success = IOPMAssertionRelease(g_sleep_state_assertion);
-    CHECK_EQ(success, kIOReturnSuccess);
+    BAZEL_CHECK_EQ(success, kIOReturnSuccess);
     g_sleep_state_assertion = kIOPMNullAssertionID;
-    log_if_possible("sleep assertion released");
   }
   return 0;
 }

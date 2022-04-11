@@ -13,10 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,7 +29,9 @@ import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -39,6 +46,7 @@ import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -48,7 +56,9 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ModifiedOutputsReceiver;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -58,9 +68,11 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -68,7 +80,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -76,7 +89,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -98,10 +110,32 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link FilesystemValueChecker}. */
 @RunWith(TestParameterInjector.class)
-public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTestBase {
+public final class FilesystemValueCheckerTest {
+  private static final int FSVC_THREADS_FOR_TEST = 200;
+  private static final ActionLookupKey ACTION_LOOKUP_KEY =
+      new ActionLookupKey() {
+        @Override
+        public SkyFunctionName functionName() {
+          return SkyFunctionName.FOR_TESTING;
+        }
+
+        @Nullable
+        @Override
+        public Label getLabel() {
+          return null;
+        }
+
+        @Nullable
+        @Override
+        public BuildConfigurationKey getConfigurationKey() {
+          return null;
+        }
+      };
+  private static final ActionLookupData ACTION_LOOKUP_DATA = actionLookupData(0);
   private static final EvaluationContext EVALUATION_OPTIONS =
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
@@ -109,10 +143,135 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
           .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
+  private final MockFileSystem fs = new MockFileSystem();
   private RecordingDifferencer differencer;
   private MemoizingEvaluator evaluator;
-  private SequentialBuildDriver driver;
   private Path pkgRoot;
+  @TestParameter private BatchStatMode batchStat;
+
+  private final ModifiedOutputsReceiver mockModifiedOutputsReceiver =
+      mock(ModifiedOutputsReceiver.class);
+  private final ArgumentCaptor<Artifact> modifiedOutputsCaptor =
+      ArgumentCaptor.forClass(Artifact.class);
+
+  private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
+    String outSegment = "bin";
+    Path outputDir = fs.getPath("/" + outSegment);
+    Path outputPath = outputDir.getRelative(relPath);
+    outputDir.createDirectory();
+    ArtifactRoot derivedRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.Output, outSegment);
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        derivedRoot,
+        derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)));
+  }
+
+  private static ActionExecutionValue actionValueWithTreeArtifacts(List<TreeFileArtifact> contents)
+      throws IOException {
+    return actionValueWithTreeArtifacts(contents, ImmutableList.of());
+  }
+
+  private static ActionExecutionValue actionValueWithTreeArtifacts(
+      Iterable<TreeFileArtifact> contents, Iterable<ArchivedTreeArtifact> archivedTreeArtifacts)
+      throws IOException {
+    TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
+
+    for (TreeFileArtifact output : contents) {
+      treeArtifacts.putChild(output, createMetadataFromFileSystem(output));
+    }
+
+    for (ArchivedTreeArtifact archivedTreeArtifact : archivedTreeArtifacts) {
+      treeArtifacts.setArchivedRepresentation(
+          archivedTreeArtifact, createMetadataFromFileSystem(archivedTreeArtifact));
+    }
+
+    Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
+    treeArtifacts.injectTo(treeArtifactData::put);
+
+    return ActionExecutionValue.createForTesting(
+        /*artifactData=*/ ImmutableMap.of(),
+        ImmutableMap.copyOf(treeArtifactData),
+        /*outputSymlinks=*/ null);
+  }
+
+  private static FileArtifactValue createMetadataFromFileSystem(Artifact artifact)
+      throws IOException {
+    Path path = artifact.getPath();
+    FileArtifactValue noDigest =
+        ActionMetadataHandler.fileArtifactValueFromArtifact(
+            artifact,
+            FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
+            SyscallCache.NO_CACHE,
+            null);
+    return FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
+  }
+
+  void writeFile(Path path, String... lines) throws IOException {
+    // Make sure we advance the clock to detect modifications which do not change the size, which
+    // rely on ctime.
+    fs.advanceClockMillis(1);
+    FileSystemUtils.writeIsoLatin1(path, lines);
+  }
+
+  private static final class MockFileSystem extends InMemoryFileSystem {
+    boolean statThrowsRuntimeException;
+    boolean readlinkThrowsIoException;
+
+    MockFileSystem() {
+      this(new ManualClock());
+    }
+
+    private MockFileSystem(ManualClock clock) {
+      super(clock, DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+      if (statThrowsRuntimeException) {
+        throw new RuntimeException("bork");
+      }
+      return super.statIfFound(path, followSymlinks);
+    }
+
+    @Override
+    protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+      if (readlinkThrowsIoException) {
+        throw new IOException("readlink failed");
+      }
+      return super.readSymbolicLink(path);
+    }
+
+    void advanceClockMillis(int millis) {
+      ((ManualClock) clock).advanceMillis(millis);
+    }
+  }
+
+  private enum BatchStatMode {
+    DISABLED {
+      @Nullable
+      @Override
+      BatchStat getBatchStat(FileSystem fileSystem) {
+        return null;
+      }
+    },
+    ENABLED {
+      @Override
+      BatchStat getBatchStat(FileSystem fileSystem) {
+        return (useDigest, includeLinks, paths) -> {
+          List<FileStatusWithDigest> stats = new ArrayList<>();
+          for (PathFragment pathFrag : paths) {
+            stats.add(
+                FileStatusWithDigestAdapter.maybeAdapt(
+                    fileSystem.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
+          }
+          return stats;
+        };
+      }
+    };
+
+    @Nullable
+    abstract BatchStat getBatchStat(FileSystem fileSystem);
+  }
 
   @Before
   public void setUp() throws Exception {
@@ -137,10 +296,10 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
     skyFunctions.put(
-        FileStateValue.FILE_STATE,
+        FileStateKey.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
+            SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(
@@ -182,16 +341,199 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions.buildOrThrow(), differencer);
-    driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+  }
+
+  @Before
+  public void setupModifiedOutputReceiverMock() {
+    doNothing()
+        .when(mockModifiedOutputsReceiver)
+        .reportModifiedOutputFile(anyLong(), modifiedOutputsCaptor.capture());
+  }
+
+  public static ImmutableList<Object[]> batchStatModes() {
+    return Arrays.stream(BatchStatMode.values())
+        .map(mode -> new BatchStatMode[] {mode})
+        .collect(toImmutableList());
+  }
+
+  @Test
+  public void getDirtyActionValues_unchangedEmptyTreeArtifactWithArchivedFile_noDirtyKeys()
+      throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    treeArtifact.getPath().createDirectoryAndParents();
+    ActionExecutionValue actionExecutionValue =
+        actionValueWithTreeArtifacts(
+            ImmutableList.of(),
+            ImmutableList.of(createArchivedTreeArtifactWithContent(treeArtifact)));
+
+    assertThat(getDirtyActionValues(actionExecutionValue)).isEmpty();
+  }
+
+  @Test
+  public void getDirtyActionValues_unchangedTreeArtifactWithArchivedFile_noDirtyKeys()
+      throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    ActionExecutionValue actionExecutionValue =
+        actionValueWithTreeArtifacts(
+            ImmutableList.of(
+                createTreeFileArtifactWithContent(treeArtifact, "file1", "content"),
+                createTreeFileArtifactWithContent(treeArtifact, "file2", "content2")),
+            ImmutableList.of(createArchivedTreeArtifactWithContent(treeArtifact)));
+
+    assertThat(getDirtyActionValues(actionExecutionValue)).isEmpty();
+  }
+
+  @Test
+  public void getDirtyActionValues_editedArchivedFileForEmptyTreeArtifact_reportsChange()
+      throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    treeArtifact.getPath().createDirectoryAndParents();
+    ArchivedTreeArtifact archivedTreeArtifact =
+        createArchivedTreeArtifactWithContent(treeArtifact, "old content");
+    ActionExecutionValue actionExecutionValue =
+        actionValueWithTreeArtifacts(ImmutableList.of(), ImmutableList.of(archivedTreeArtifact));
+
+    writeFile(archivedTreeArtifact.getPath(), "new content");
+    assertThat(getDirtyActionValues(actionExecutionValue)).containsExactly(ACTION_LOOKUP_DATA);
+  }
+
+  @Test
+  public void getDirtyActionValues_editedArchivedFileForTreeArtifact_reportsChange()
+      throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    ArchivedTreeArtifact archivedTreeArtifact =
+        createArchivedTreeArtifactWithContent(treeArtifact, "old content");
+    ActionExecutionValue actionExecutionValue =
+        actionValueWithTreeArtifacts(
+            ImmutableList.of(
+                createTreeFileArtifactWithContent(
+                    treeArtifact, /*parentRelativePath=*/ "file1", "content"),
+                createTreeFileArtifactWithContent(
+                    treeArtifact, /*parentRelativePath=*/ "file2", "content2")),
+            ImmutableList.of(archivedTreeArtifact));
+
+    writeFile(archivedTreeArtifact.getPath(), "new content");
+    assertThat(getDirtyActionValues(actionExecutionValue)).containsExactly(ACTION_LOOKUP_DATA);
+  }
+
+  @Test
+  public void getDirtyActionValues_deletedArchivedFileForTreeArtifact_reportsChange()
+      throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifactWithContent(treeArtifact);
+    ActionExecutionValue actionExecutionValue =
+        actionValueWithTreeArtifacts(
+            ImmutableList.of(
+                createTreeFileArtifactWithContent(
+                    treeArtifact, /*parentRelativePath=*/ "file1", "content"),
+                createTreeFileArtifactWithContent(
+                    treeArtifact, /*parentRelativePath=*/ "file2", "content2")),
+            ImmutableList.of(archivedTreeArtifact));
+
+    archivedTreeArtifact.getPath().delete();
+    assertThat(getDirtyActionValues(actionExecutionValue)).containsExactly(ACTION_LOOKUP_DATA);
+  }
+
+  @Test
+  public void getDirtyActionValues_deletedArchivedFileForEmptyTreeArtifact_reportsChange()
+      throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifactWithContent(treeArtifact);
+    ActionExecutionValue actionExecutionValue =
+        actionValueWithTreeArtifacts(ImmutableList.of(), ImmutableList.of(archivedTreeArtifact));
+
+    archivedTreeArtifact.getPath().delete();
+    assertThat(getDirtyActionValues(actionExecutionValue)).containsExactly(ACTION_LOOKUP_DATA);
+  }
+
+  @Test
+  public void getDirtyActionValues_editedFileForTreeArtifactWithArchivedFile_reportsChange()
+      throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    TreeFileArtifact child1 =
+        createTreeFileArtifactWithContent(
+            treeArtifact, /*parentRelativePath=*/ "file1", "old content");
+    ActionExecutionValue actionExecutionValue =
+        actionValueWithTreeArtifacts(
+            ImmutableList.of(
+                child1,
+                createTreeFileArtifactWithContent(
+                    treeArtifact, /*parentRelativePath=*/ "file2", "content2")),
+            ImmutableList.of(createArchivedTreeArtifactWithContent(treeArtifact)));
+
+    writeFile(child1.getPath(), "new content");
+    assertThat(getDirtyActionValues(actionExecutionValue)).containsExactly(ACTION_LOOKUP_DATA);
+  }
+
+  @Test
+  public void getDirtyActionValues_treeArtifactWithArchivedArtifact_reportsOnlyChangedKey()
+      throws Exception {
+    SpecialArtifact unchangedTreeArtifact = createTreeArtifact("dir1");
+    ActionExecutionValue unchangedValue =
+        actionValueWithTreeArtifacts(
+            ImmutableList.of(createTreeFileArtifactWithContent(unchangedTreeArtifact, "child")),
+            ImmutableList.of(createArchivedTreeArtifactWithContent(unchangedTreeArtifact)));
+    SpecialArtifact changedTreeArtifact = createTreeArtifact("dir2");
+    ArchivedTreeArtifact changedArchivedTreeArtifact =
+        createArchivedTreeArtifactWithContent(changedTreeArtifact, "old content");
+    ActionExecutionValue changedValue =
+        actionValueWithTreeArtifacts(
+            ImmutableList.of(
+                createTreeFileArtifactWithContent(changedTreeArtifact, "file", "content")),
+            ImmutableList.of(changedArchivedTreeArtifact));
+
+    writeFile(changedArchivedTreeArtifact.getPath(), "new content");
+    assertThat(
+            getDirtyActionValues(
+                ImmutableMap.of(
+                    actionLookupData(0), unchangedValue, actionLookupData(1), changedValue)))
+        .containsExactly(actionLookupData(1));
+  }
+
+  private Collection<SkyKey> getDirtyActionValues(ActionExecutionValue actionExecutionValue)
+      throws InterruptedException {
+    return getDirtyActionValues(ImmutableMap.of(ACTION_LOOKUP_DATA, actionExecutionValue));
+  }
+
+  private Collection<SkyKey> getDirtyActionValues(ImmutableMap<SkyKey, SkyValue> valuesMap)
+      throws InterruptedException {
+    return new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+        .getDirtyActionValues(
+            valuesMap,
+            batchStat.getBatchStat(fs),
+            ModifiedFileSet.EVERYTHING_MODIFIED,
+            /*trustRemoteArtifacts=*/ false,
+            (ignored, ignored2) -> {});
+  }
+
+  private TreeFileArtifact createTreeFileArtifactWithContent(
+      SpecialArtifact treeArtifact, String parentRelativePath, String... contentLines)
+      throws IOException {
+    TreeFileArtifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, parentRelativePath);
+    writeFile(artifact.getPath(), contentLines);
+    return artifact;
+  }
+
+  private ArchivedTreeArtifact createArchivedTreeArtifactWithContent(
+      SpecialArtifact treeArtifact, String... contentLines) throws IOException {
+    ArchivedTreeArtifact artifact = ArchivedTreeArtifact.createForTree(treeArtifact);
+    writeFile(artifact.getPath(), contentLines);
+    return artifact;
+  }
+
+  private static ActionLookupData actionLookupData(int actionIndex) {
+    return ActionLookupData.create(ACTION_LOOKUP_KEY, actionIndex);
   }
 
   @Test
   public void testEmpty() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            FSVC_THREADS_FOR_TEST);
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
 
@@ -199,7 +541,9 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
   public void testSimple() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            FSVC_THREADS_FOR_TEST);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.createEmptyFile(path);
@@ -209,7 +553,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         FileStateValue.key(
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo")));
     EvaluationResult<SkyValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+        evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
@@ -221,7 +565,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), skyKey);
 
     differencer.invalidate(ImmutableList.of(skyKey));
-    result = driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+    result = evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
@@ -237,7 +581,9 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
   public void testDirtySymlink() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            FSVC_THREADS_FOR_TEST);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foo contents");
@@ -262,7 +608,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     Iterable<SkyKey> allKeys = ImmutableList.of(symlinkKey, fooKey);
 
     // First build -- prime the graph.
-    EvaluationResult<FileValue> result = driver.evaluate(allKeys, EVALUATION_OPTIONS);
+    EvaluationResult<FileValue> result = evaluator.evaluate(allKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     FileValue symlinkValue = result.get(symlinkKey);
     FileValue fooValue = result.get(fooKey);
@@ -277,7 +623,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
     differencer.invalidate(ImmutableList.of(sym1FileStateKey));
-    result = driver.evaluate(ImmutableList.of(), EVALUATION_OPTIONS);
+    result = evaluator.evaluate(ImmutableList.of(), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
@@ -289,7 +635,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     FileSystemUtils.writeContentAsLatin1(symlink, "new symlink contents");
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), symlinkFileStateKey);
     differencer.invalidate(ImmutableList.of(symlinkFileStateKey));
-    result = driver.evaluate(allKeys, EVALUATION_OPTIONS);
+    result = evaluator.evaluate(allKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     symlinkValue = result.get(symlinkKey);
     assertWithMessage(symlinkValue.toString()).that(symlinkValue.isSymlink()).isFalse();
@@ -302,7 +648,9 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
   public void testExplicitFiles() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            FSVC_THREADS_FOR_TEST);
 
     Path path1 = fs.getPath("/foo1");
     Path path2 = fs.getPath("/foo2");
@@ -317,7 +665,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         FileStateValue.key(
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo2")));
     Iterable<SkyKey> skyKeys = ImmutableList.of(key1, key2);
-    EvaluationResult<SkyValue> result = driver.evaluate(skyKeys, EVALUATION_OPTIONS);
+    EvaluationResult<SkyValue> result = evaluator.evaluate(skyKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
@@ -338,7 +686,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), key1, key2);
 
     differencer.invalidate(skyKeys);
-    result = driver.evaluate(skyKeys, EVALUATION_OPTIONS);
+    result = evaluator.evaluate(skyKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
@@ -354,13 +702,15 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         FileStateValue.key(
             RootedPath.toRootedPath(Root.fromPath(pkgRoot), PathFragment.create("foo")));
     EvaluationResult<SkyValue> result =
-        driver.evaluate(ImmutableList.of(fileKey), EVALUATION_OPTIONS);
+        evaluator.evaluate(ImmutableList.of(fileKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
 
     fs.readlinkThrowsIoException = false;
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            FSVC_THREADS_FOR_TEST);
     Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
@@ -377,12 +727,14 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     SkyKey fileKey1 = FileValue.key(RootedPath.toRootedPath(Root.fromPath(pkgRoot), path1));
 
     EvaluationResult<SkyValue> result =
-        driver.evaluate(ImmutableList.of(fileKey1), EVALUATION_OPTIONS);
+        evaluator.evaluate(ImmutableList.of(fileKey1), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
 
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            FSVC_THREADS_FOR_TEST);
     Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
@@ -441,15 +793,15 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                         Runnables.doNothing(),
                         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                         ImmutableSet.of(out2)))));
-    assertThat(driver.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
+    assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
     assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .isEmpty();
 
     tsgm.waitForTimestampGranularity(OutErr.SYSTEM_OUT_ERR);
@@ -459,51 +811,51 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
       Artifact file, SkyKey actionKey, BatchStat batchStatter, TimestampGranularityMonitor tsgm)
       throws InterruptedException {
     assertThat(
-            new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
     assertThat(
-            new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
                     ModifiedFileSet.EVERYTHING_DELETED,
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
     assertThat(
-            new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
                     new ModifiedFileSet.Builder().modify(file.getExecPath()).build(),
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
     assertThat(
-            new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
                     new ModifiedFileSet.Builder()
                         .modify(file.getExecPath().getParentDirectory())
                         .build(),
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .isEmpty();
     assertThat(
-            new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
                     ModifiedFileSet.NOTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .isEmpty();
   }
 
@@ -532,7 +884,6 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
 
   @Test
   public void getDirtyActionValues_touchedTreeDirectory_returnsEmptyDiff(
-      @TestParameter BatchStatMode batchStatMode,
       @TestParameter({"", "subdir"}) String touchedTreePath,
       @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
@@ -543,22 +894,47 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     differencer.inject(
         ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
     evaluate();
-
     FileSystemUtils.touchFile(tree.getPath().getRelative(touchedTreePath));
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    modifiedSet.getModifiedFileSet(tree.getExecPath()),
-                    /*trustRemoteArtifacts=*/ false))
-        .isEmpty();
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                modifiedSet.getModifiedFileSet(tree.getExecPath()),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).isEmpty();
+    assertThat(modifiedOutputsCaptor.getAllValues()).isEmpty();
   }
 
   @Test
   public void getDirtyActionValues_deleteEmptyTreeDirectory_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
+      @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    tree.getPath().createDirectoryAndParents();
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifact(tree, TreeArtifactValue.empty())));
+    evaluate();
+    assertThat(tree.getPath().delete()).isTrue();
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                modifiedSet.getModifiedFileSet(tree.getExecPath()),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(actionKey);
+    assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
+  }
+
+  @Test
+  public void getDirtyActionValues_treeDirectoryReplacedWithSymlink_returnsTreeKey()
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     tree.getPath().createDirectoryAndParents();
@@ -566,49 +942,27 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     differencer.inject(
         ImmutableMap.of(actionKey, actionValueWithTreeArtifact(tree, TreeArtifactValue.empty())));
     evaluate();
-
-    assertThat(tree.getPath().delete()).isTrue();
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    modifiedSet.getModifiedFileSet(tree.getExecPath()),
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(actionKey);
-  }
-
-  @Test
-  public void getDirtyActionValues_treeDirectoryReplacedWithSymlink_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode) throws Exception {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    tree.getPath().createDirectoryAndParents();
-    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
-    differencer.inject(
-        ImmutableMap.of(actionKey, actionValueWithTreeArtifact(tree, TreeArtifactValue.empty())));
-    evaluate();
-
     Path dummyEmptyDir = fs.getPath("/bin").getRelative("dir");
     dummyEmptyDir.createDirectoryAndParents();
     assertThat(tree.getPath().delete()).isTrue();
     tree.getPath().createSymbolicLink(dummyEmptyDir);
 
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey); // Symbolic links should count as dirty
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                /* trustRemoteArtifacts= */ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(actionKey);
+    assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
   }
 
   @Test
   public void getDirtyActionValues_modifiedTreeFile_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
-      throws Exception {
+      @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "text");
@@ -616,23 +970,24 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     differencer.inject(
         ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
     evaluate();
-
     FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "other text");
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(actionKey);
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(actionKey);
+    assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(treeFile);
   }
 
   @Test
   public void getDirtyActionValues_addedTreeFile_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
-      throws Exception {
+      @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file1");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath());
@@ -643,45 +998,47 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
 
     TreeFileArtifact newFile = TreeFileArtifact.createTreeOutput(tree, "file2");
     FileSystemUtils.writeIsoLatin1(newFile.getPath());
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    modifiedSet.getModifiedFileSet(newFile.getExecPath()),
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(actionKey);
+    Collection<SkyKey> dirtyActionValues =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                modifiedSet.getModifiedFileSet(newFile.getExecPath()),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionValues).containsExactly(actionKey);
+    assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
   }
 
   @Test
   public void getDirtyActionValues_addedTreeFileToEmptyTree_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
-      throws Exception {
+      @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     tree.getPath().createDirectoryAndParents();
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     differencer.inject(
         ImmutableMap.of(actionKey, actionValueWithTreeArtifact(tree, TreeArtifactValue.empty())));
     evaluate();
-
     TreeFileArtifact newFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileSystemUtils.writeIsoLatin1(newFile.getPath());
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    modifiedSet.getModifiedFileSet(newFile.getExecPath()),
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(actionKey);
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                modifiedSet.getModifiedFileSet(newFile.getExecPath()),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(actionKey);
+    assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
   }
 
   @Test
   public void getDirtyActionValues_deletedTreeFile_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
-      throws Exception {
+      @TestParameter ModifiedSetReporting modifiedSet) throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath());
@@ -689,55 +1046,23 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     differencer.inject(
         ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
     evaluate();
-
     assertThat(treeFile.getPath().delete()).isTrue();
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(actionKey);
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(actionKey);
+    assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(treeFile, tree);
   }
 
   @Test
-  public void getDirtyActionValues_everythingModified_returnsAllKeys(
-      @TestParameter BatchStatMode batchStatMode) throws Exception {
-    SpecialArtifact tree1 = createTreeArtifact("tree1");
-    TreeFileArtifact tree1File = TreeFileArtifact.createTreeOutput(tree1, "file");
-    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "text");
-    SpecialArtifact tree2 = createTreeArtifact("tree2");
-    TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
-    FileSystemUtils.writeIsoLatin1(tree2File.getPath());
-    SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
-    SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
-    differencer.inject(
-        ImmutableMap.of(
-            actionKey1,
-            actionValueWithTreeArtifacts(ImmutableList.of(tree1File)),
-            actionKey2,
-            actionValueWithTreeArtifacts(ImmutableList.of(tree1File))));
-    evaluate();
-
-    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "new text");
-    assertThat(tree2File.getPath().delete()).isTrue();
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(actionKey1, actionKey2);
-  }
-
-  @Test
-  public void getDirtyActionValues_changedFileNotInModifiedSet_returnsKeysFromSetOnly(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean reportFirst)
-      throws Exception {
+  public void getDirtyActionValues_everythingModified_returnsAllKeys() throws Exception {
     SpecialArtifact tree1 = createTreeArtifact("tree1");
     TreeFileArtifact tree1File = TreeFileArtifact.createTreeOutput(tree1, "file");
     FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "text");
@@ -753,25 +1078,63 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             actionKey2,
             actionValueWithTreeArtifacts(ImmutableList.of(tree2File))));
     evaluate();
-
     FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "new text");
     assertThat(tree2File.getPath().delete()).isTrue();
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    ModifiedFileSet.builder()
-                        .modify((reportFirst ? tree1File : tree2File).getExecPath())
-                        .build(),
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(reportFirst ? actionKey1 : actionKey2);
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(actionKey1, actionKey2);
+    assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree1File, tree2, tree2File);
   }
 
   @Test
-  public void getDirtyActionValues_middleFileSkippedInModifiedFileSet_returnsKeysFromSetOnly(
-      @TestParameter BatchStatMode batchStatMode) throws Exception {
+  public void getDirtyActionValues_changedFileNotInModifiedSet_returnsKeysFromSetOnly(
+      @TestParameter boolean reportFirst) throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeFileArtifact tree1File = TreeFileArtifact.createTreeOutput(tree1, "file");
+    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "text");
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
+    FileSystemUtils.writeIsoLatin1(tree2File.getPath());
+    SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
+    differencer.inject(
+        ImmutableMap.of(
+            actionKey1,
+            actionValueWithTreeArtifacts(ImmutableList.of(tree1File)),
+            actionKey2,
+            actionValueWithTreeArtifacts(ImmutableList.of(tree2File))));
+    evaluate();
+    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "new text");
+    assertThat(tree2File.getPath().delete()).isTrue();
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                ModifiedFileSet.builder()
+                    .modify((reportFirst ? tree1File : tree2File).getExecPath())
+                    .build(),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(reportFirst ? actionKey1 : actionKey2);
+    assertThat(modifiedOutputsCaptor.getAllValues())
+        .containsExactlyElementsIn(
+            reportFirst ? ImmutableList.of(tree1File) : ImmutableList.of(tree2File, tree2));
+  }
+
+  @Test
+  public void getDirtyActionValues_middleFileSkippedInModifiedFileSet_returnsKeysFromSetOnly()
+      throws Exception {
     SpecialArtifact treeA = createTreeArtifact("a_tree");
     TreeFileArtifact treeAFile = TreeFileArtifact.createTreeOutput(treeA, "file");
     FileSystemUtils.writeIsoLatin1(treeAFile.getPath());
@@ -793,27 +1156,29 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             actionKey3,
             actionValueWithTreeArtifacts(ImmutableList.of(treeCFile))));
     evaluate();
-
     assertThat(treeAFile.getPath().delete()).isTrue();
     assertThat(treeBFile.getPath().delete()).isTrue();
     assertThat(treeCFile.getPath().delete()).isTrue();
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    ModifiedFileSet.builder()
-                        .modify(treeAFile.getExecPath())
-                        .modify(treeCFile.getExecPath())
-                        .build(),
-                    /*trustRemoteArtifacts=*/ false))
-        .containsExactly(actionKey1, actionKey3);
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                ModifiedFileSet.builder()
+                    .modify(treeAFile.getExecPath())
+                    .modify(treeCFile.getExecPath())
+                    .build(),
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).containsExactly(actionKey1, actionKey3);
+    assertThat(modifiedOutputsCaptor.getAllValues())
+        .containsExactly(treeAFile, treeA, treeCFile, treeC);
   }
 
   @Test
-  public void getDirtyActionValues_nothingModified_returnsEmptyDiff(
-      @TestParameter BatchStatMode batchStatMode) throws Exception {
+  public void getDirtyActionValues_nothingModified_returnsEmptyDiff() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileSystemUtils.writeIsoLatin1(treeFile.getPath());
@@ -821,17 +1186,19 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     differencer.inject(
         ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
     evaluate();
-
     assertThat(treeFile.getPath().delete()).isTrue();
-    assertThat(
-            new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatMode.getBatchStat(fs),
-                    ModifiedFileSet.NOTHING_MODIFIED,
-                    /*trustRemoteArtifacts=*/ false))
-        .isEmpty();
+
+    Collection<SkyKey> dirtyActionKeys =
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                batchStat.getBatchStat(fs),
+                ModifiedFileSet.NOTHING_MODIFIED,
+                /*trustRemoteArtifacts=*/ false,
+                mockModifiedOutputsReceiver);
+
+    assertThat(dirtyActionKeys).isEmpty();
+    assertThat(modifiedOutputsCaptor.getAllValues()).isEmpty();
   }
 
   private void evaluate() throws InterruptedException {
@@ -841,7 +1208,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             .setNumThreads(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    assertThat(driver.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
+    assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
   }
 
   private Artifact createDerivedArtifact(String relPath) throws IOException {
@@ -873,7 +1240,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
               stats.add(
-                  FileStatusWithDigestAdapter.adapt(
+                  FileStatusWithDigestAdapter.maybeAdapt(
                       fs.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
             }
             return stats;
@@ -927,7 +1294,8 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         FileArtifactValue noDigest =
             ActionMetadataHandler.fileArtifactValueFromArtifact(
                 output,
-                FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                SyscallCache.NO_CACHE,
                 null);
         FileArtifactValue withDigest =
             FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
@@ -987,29 +1355,31 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(
-            driver.evaluate(ImmutableList.of(actionKey1, actionKey2), evaluationContext).hasError())
+            evaluator
+                .evaluate(ImmutableList.of(actionKey1, actionKey2), evaluationContext)
+                .hasError())
         .isFalse();
     assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ true))
+                    /* trustRemoteArtifacts= */ true,
+                    (ignored, ignored2) -> {}))
         .isEmpty();
 
     // Create the "out1" artifact on the filesystem and test that it invalidates the generating
     // action's SkyKey.
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "new-foo-content");
     assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ true))
+                    /* trustRemoteArtifacts= */ true,
+                    (ignored, ignored2) -> {}))
         .containsExactly(actionKey1);
   }
 
@@ -1039,29 +1409,29 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             .setNumThreads(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    assertThat(driver.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
+    assertThat(evaluator.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
         .isFalse();
     assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .isEmpty();
 
     // Create dir/foo on the local disk and test that it invalidates the associated sky key.
     TreeFileArtifact fooArtifact = TreeFileArtifact.createTreeOutput(treeArtifact, "foo");
     FileSystemUtils.writeContentAsLatin1(fooArtifact.getPath(), "new-foo-content");
     assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
+                    /* trustRemoteArtifacts= */ false,
+                    (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
   }
 
@@ -1071,7 +1441,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         ImmutableList.of(
             FileValue.key(
                 RootedPath.toRootedPath(Root.fromPath(pkgRoot), PathFragment.create("foo"))));
-    driver.evaluate(values, EVALUATION_OPTIONS);
+    evaluator.evaluate(values, EVALUATION_OPTIONS);
     AtomicReference<Throwable> uncaughtRef = new AtomicReference<>();
     CountDownLatch throwableCaught = new CountDownLatch(1);
     Thread.UncaughtExceptionHandler uncaughtExceptionHandler =
@@ -1082,7 +1452,9 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
     Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            FSVC_THREADS_FOR_TEST);
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 

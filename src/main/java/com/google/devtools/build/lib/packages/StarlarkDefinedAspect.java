@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -46,7 +47,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableSet<String> fragments;
   private final ConfigurationTransition hostTransition;
   private final ImmutableSet<String> hostFragments;
-  private final ImmutableList<Label> requiredToolchains;
+  private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean useToolchainTransition;
   private final boolean applyToGeneratingRules;
 
@@ -71,7 +72,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       // The host transition is in lib.analysis, so we can't reference it directly here.
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
-      ImmutableList<Label> requiredToolchains,
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean useToolchainTransition,
       boolean applyToGeneratingRules) {
     this.implementation = implementation;
@@ -85,7 +86,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.fragments = fragments;
     this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
-    this.requiredToolchains = requiredToolchains;
+    this.toolchainTypes = toolchainTypes;
     this.useToolchainTransition = useToolchainTransition;
     this.applyToGeneratingRules = applyToGeneratingRules;
   }
@@ -177,7 +178,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     builder.advertiseProvider(advertisedStarlarkProviders.build());
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
-    builder.addRequiredToolchains(requiredToolchains);
+    builder.addToolchainTypes(toolchainTypes);
     builder.useToolchainTransition(useToolchainTransition);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     ImmutableSet.Builder<AspectClass> requiredAspectsClasses = ImmutableSet.builder();
@@ -223,46 +224,51 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   @Override
   public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
-    return rule -> {
-      AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
-      AspectParameters.Builder builder = new AspectParameters.Builder();
-      for (Attribute aspectAttr : attributes) {
-        String param = aspectAttr.getName();
-        if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
-          // These attributes are the private matters of the aspect
-          continue;
-        }
+    // This is serialized along with AspectsListBuilder.StarlarkAspectDetail and should not be
+    // turned into a lambda.
+    return new Function<Rule, AspectParameters>() {
+      @Override
+      public AspectParameters apply(Rule rule) {
+        AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
+        AspectParameters.Builder builder = new AspectParameters.Builder();
+        for (Attribute aspectAttr : attributes) {
+          String param = aspectAttr.getName();
+          if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
+            // These attributes are the private matters of the aspect
+            continue;
+          }
 
-        Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-        if (paramAttributes.contains(aspectAttr.getName())) {
-          // These are preconditions because if they are false, RuleFunction.call() should
-          // already have generated an error.
-          Preconditions.checkArgument(
-              ruleAttr != null,
-              "Cannot apply aspect %s to %s that does not define attribute '%s'.",
-              getName(),
-              rule.getTargetKind(),
-              param);
-          Preconditions.checkArgument(
-              ruleAttr.getType() == Type.STRING
-                  || ruleAttr.getType() == Type.INTEGER
-                  || ruleAttr.getType() == Type.BOOLEAN,
-              "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
-                  + " string.",
-              getName(),
-              rule.getTargetKind(),
-              param);
-        }
+          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+          if (paramAttributes.contains(aspectAttr.getName())) {
+            // These are preconditions because if they are false, RuleFunction.call() should
+            // already have generated an error.
+            Preconditions.checkArgument(
+                ruleAttr != null,
+                "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+                getName(),
+                rule.getTargetKind(),
+                param);
+            Preconditions.checkArgument(
+                ruleAttr.getType() == Type.STRING
+                    || ruleAttr.getType() == Type.INTEGER
+                    || ruleAttr.getType() == Type.BOOLEAN,
+                "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
+                    + " string.",
+                getName(),
+                rule.getTargetKind(),
+                param);
+          }
 
-        if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-          // If the attribute has a select() (which aspect attributes don't yet support), the
-          // error gets reported in RuleClass.checkAspectAllowedValues.
-          if (!ruleAttrs.isConfigurable(param)) {
-            builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+            // If the attribute has a select() (which aspect attributes don't yet support), the
+            // error gets reported in RuleClass.checkAspectAllowedValues.
+            if (!ruleAttrs.isConfigurable(param)) {
+              builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+            }
           }
         }
+        return builder.build();
       }
-      return builder.build();
     };
   }
 
@@ -338,8 +344,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         getName(), name, value);
   }
 
-  public ImmutableList<Label> getRequiredToolchains() {
-    return requiredToolchains;
+  public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {
+    return toolchainTypes;
   }
 
   public boolean useToolchainTransition() {
@@ -347,8 +353,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   }
 
   @Override
-  public void attachToAspectsList(
-      String baseAspectName, AspectsListBuilder aspectsList, boolean allowAspectsParameters)
+  public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
       throws EvalException {
 
     if (!this.isExported()) {
@@ -356,12 +361,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
           "Aspects should be top-level values in extension files that define them.");
     }
 
-    if (!allowAspectsParameters && !this.paramAttributes.isEmpty()) {
-      throw Starlark.errorf("Cannot use parameterized aspect %s at the top level.", this.getName());
-    }
-
     for (StarlarkAspect requiredAspect : requiredAspects) {
-      requiredAspect.attachToAspectsList(this.getName(), aspectsList, allowAspectsParameters);
+      requiredAspect.attachToAspectsList(this.getName(), aspectsList);
     }
 
     aspectsList.addAspect(this, baseAspectName);
@@ -395,7 +396,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         && Objects.equals(fragments, that.fragments)
         && Objects.equals(hostTransition, that.hostTransition)
         && Objects.equals(hostFragments, that.hostFragments)
-        && Objects.equals(requiredToolchains, that.requiredToolchains)
+        && Objects.equals(toolchainTypes, that.toolchainTypes)
         && useToolchainTransition == that.useToolchainTransition
         && Objects.equals(aspectClass, that.aspectClass);
   }
@@ -414,7 +415,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         fragments,
         hostTransition,
         hostFragments,
-        requiredToolchains,
+        toolchainTypes,
         useToolchainTransition,
         aspectClass);
   }

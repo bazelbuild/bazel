@@ -143,7 +143,7 @@ public class AndroidAssets {
 
   private final ImmutableList<Artifact> assets;
   private final ImmutableList<PathFragment> assetRoots;
-  private final @Nullable String assetDir;
+  @Nullable private final String assetDir;
 
   AndroidAssets(AndroidAssets other) {
     this(other.assets, other.assetRoots, other.assetDir);
@@ -167,7 +167,8 @@ public class AndroidAssets {
     return assetRoots;
   }
 
-  public @Nullable String getAssetDirAsString() {
+  @Nullable
+  public String getAssetDirAsString() {
     return assetDir;
   }
 

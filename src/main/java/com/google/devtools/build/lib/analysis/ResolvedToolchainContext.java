@@ -91,7 +91,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         // this:
         targetDescription,
         unloadedToolchainContext.requestedLabelToToolchainType(),
-        toolchains.build(),
+        toolchains.buildOrThrow(),
         templateVariableProviders.build());
   }
 

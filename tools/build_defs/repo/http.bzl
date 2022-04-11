@@ -34,6 +34,7 @@ load(
     ":utils.bzl",
     "patch",
     "read_netrc",
+    "read_user_netrc",
     "update_attrs",
     "use_netrc",
     "workspace_and_buildfile",
@@ -77,21 +78,9 @@ def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "HOME" in ctx.os.environ and not ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"])
-        if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "USERPROFILE" in ctx.os.environ and ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
-        if ctx.path(netrcfile).exists:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    return {}
+    else:
+        netrc = read_user_netrc(ctx)
+    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -125,7 +114,7 @@ def _http_archive_impl(ctx):
     sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
     return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
 
-_HTTP_FILE_BUILD = """
+_HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -163,7 +152,7 @@ def _http_file_impl(ctx):
 
     return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
 
-_HTTP_JAR_BUILD = """
+_HTTP_JAR_BUILD = """\
 load("@rules_java//java:defs.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -280,7 +269,7 @@ match a directory in the archive, Bazel will return an error.""",
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
 following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, or `tar.bz2`.""",
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -368,8 +357,9 @@ http_archive = repository_rule(
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`,
-`"tar"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
+`"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
+or `"deb"`.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,

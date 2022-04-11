@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsEvent;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -95,6 +96,7 @@ class MetricsCollector {
   private final List<WorkerMetrics> workerMetricsList = new ArrayList<>();
   private final SpawnStats spawnStats = new SpawnStats();
 
+  @CanIgnoreReturnValue
   private MetricsCollector(
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;
@@ -127,7 +129,7 @@ class MetricsCollector {
     targetMetrics
         .setTargetsConfigured(targetsConfigured.total())
         .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
-    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesLoaded());
+    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
   }
 
@@ -277,6 +279,11 @@ class MetricsCollector {
       // notification (which may arrive too late for this specific GC).
       memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
     }
+
+    PostGCMemoryUseRecorder.get()
+        .getPeakPostGcHeapTenuredSpace()
+        .map(PeakHeap::bytes)
+        .ifPresent(memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
 
     Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
     for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {

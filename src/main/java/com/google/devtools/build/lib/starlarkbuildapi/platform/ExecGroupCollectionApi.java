@@ -24,8 +24,7 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(
     name = "ExecGroupCollection",
     category = DocCategory.BUILTIN,
-    // TODO(b/151742236) update this doc when this becomes non-experimental.
-    doc = "<i>experimental</i> Stores exec groups available to a given rule.")
+    doc = "Stores exec groups available to a given rule.")
 public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable {
 
   /**
@@ -37,14 +36,12 @@ public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable
   @StarlarkBuiltin(
       name = "ExecGroupContext",
       category = DocCategory.BUILTIN,
-      // TODO(b/151742236) update this doc when this becomes non-experimental.
-      doc = "<i>experimental</i> Stores information about an exec group.")
+      doc = "Stores information about an exec group.")
   interface ExecGroupContextApi extends StarlarkValue {
     @StarlarkMethod(
         name = "toolchains",
         structField = true,
-        // TODO(b/151742236) update this doc when this becomes non-experimental.
-        doc = "<i>experimental</i> Toolchains required for this exec group")
+        doc = "Toolchains required for this exec group")
     ToolchainContextApi toolchains() throws EvalException;
   }
 }

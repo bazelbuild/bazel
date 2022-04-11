@@ -166,7 +166,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       Throwables.propagateIfInstanceOf(exception, NoSuchPackageException.class);
       Throwables.propagate(exception);
     }
-    return pkgResults.build();
+    return pkgResults.buildOrThrow();
   }
 
   @Override

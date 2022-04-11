@@ -177,7 +177,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
 
   public String map(T t) {
     return suppliers.stream()
-        .map(s -> (s.apply(t)))
+        .map(s -> s.apply(t))
         .collect(Collectors.joining(joinerType.itemSeparator));
   }
 

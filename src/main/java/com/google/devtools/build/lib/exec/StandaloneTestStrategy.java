@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
@@ -128,15 +127,13 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
-    if (action.getTestProperties().isPersistentTestRunner()) {
-      executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
-    }
 
-    ResourceSet localResourceUsage =
-        action
-            .getTestProperties()
-            .getLocalResourceUsage(
-                action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
+    SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
+        () ->
+            action
+                .getTestProperties()
+                .getLocalResourceUsage(
+                    action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
 
     Spawn spawn =
         new SimpleSpawn(
@@ -147,11 +144,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
             /*inputs=*/ action.getInputs(),
-            action.getTestProperties().isPersistentTestRunner()
-                ? action.getTools()
-                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createSpawnOutputs(action),
-            localResourceUsage);
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            localResourcesSupplier);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
@@ -548,7 +544,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new SimpleSpawn(
         action,
         args,
-        envBuilder.build(),
+        envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         ImmutableMap.copyOf(executionInfo),
@@ -558,13 +554,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*outputs=*/ ImmutableSet.of(createArtifactOutput(action, action.getXmlOutputPath())),
+        /*mandatoryOutputs=*/ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 
-  /**
-   * A spawn to generate a test.xml file from the test log. This is only used if the test does not
-   * generate a test.xml file itself.
-   */
   private static Spawn createCoveragePostProcessingSpawn(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
@@ -588,8 +581,8 @@ public class StandaloneTestStrategy extends TestStrategy {
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
         action.getLcovMergerRunfilesSupplier(),
-        /* filesetMappings= */ ImmutableMap.of(),
-        /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
+        /*filesetMappings=*/ ImmutableMap.of(),
+        /*inputs=*/ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
             .add(action.getCollectCoverageScript())
@@ -597,9 +590,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             .add(action.getCoverageManifest())
             .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*outputs=*/ ImmutableSet.of(
             ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /*mandatoryOutputs=*/ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 

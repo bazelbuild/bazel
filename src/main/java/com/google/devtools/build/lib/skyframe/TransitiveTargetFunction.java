@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -29,8 +30,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetFunction.TransitiveTargetValueBuilder;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException2;
-import java.util.Map;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import javax.annotation.Nullable;
 
 /**
@@ -62,23 +62,28 @@ final class TransitiveTargetFunction
       TransitiveTargetValueBuilder builder,
       EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
-      Iterable<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-          depEntries) {
+      SkyframeLookupResult depEntries,
+      Iterable<? extends SkyKey> depKeys) {
     boolean successfulTransitiveLoading = builder.isSuccessfulTransitiveLoading();
     Target target = targetAndErrorIfAny.getTarget();
 
-    for (Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
-        depEntries) {
-      Label depLabel = ((TransitiveTargetKey) entry.getKey()).getLabel();
+    for (SkyKey skyKey : depKeys) {
+      Label depLabel = ((TransitiveTargetKey) skyKey).getLabel();
       TransitiveTargetValue transitiveTargetValue;
       try {
-        transitiveTargetValue = (TransitiveTargetValue) entry.getValue().get();
-        if (transitiveTargetValue == null) {
-          continue;
-        }
+        transitiveTargetValue =
+            (TransitiveTargetValue)
+                depEntries.getOrThrow(
+                    skyKey, NoSuchPackageException.class, NoSuchTargetException.class);
       } catch (NoSuchPackageException | NoSuchTargetException e) {
         successfulTransitiveLoading = false;
         maybeReportErrorAboutMissingEdge(target, depLabel, e, eventHandler);
+        continue;
+      }
+      if (transitiveTargetValue == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "TransitiveTargetValue " + skyKey + " was missing, this should never happen"));
         continue;
       }
       builder.getTransitiveTargets().addTransitive(transitiveTargetValue.getTransitiveTargets());
@@ -104,10 +109,7 @@ final class TransitiveTargetFunction
   @Nullable
   @Override
   protected AdvertisedProviderSet getAdvertisedProviderSet(
-      Label toLabel,
-      @Nullable ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-      Environment env)
-      throws InterruptedException {
+      Label toLabel, SkyValue toVal, Environment env) throws InterruptedException {
     SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
     Target toTarget;
     try {

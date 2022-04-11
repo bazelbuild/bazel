@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -44,7 +45,7 @@ import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToo
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,8 +67,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ToolchainContextKey key = (ToolchainContextKey) skyKey.argument();
 
     try {
-      UnloadedToolchainContextImpl.Builder builder =
-          UnloadedToolchainContextImpl.builder().setKey(key);
+      UnloadedToolchainContextImpl.Builder builder = UnloadedToolchainContextImpl.builder(key);
 
       // Determine the configuration being used.
       BuildConfigurationValue configuration =
@@ -83,13 +83,17 @@ public class ToolchainResolutionFunction implements SkyFunction {
           key.debugTarget()
               || configuration
                   .getFragment(PlatformConfiguration.class)
-                  .debugToolchainResolution(key.requiredToolchainTypeLabels());
+                  .debugToolchainResolution(
+                      key.toolchainTypes().stream()
+                          .map(ToolchainTypeRequirement::toolchainType)
+                          .collect(toImmutableSet()));
 
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
       ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypes =
-          loadToolchainTypes(env, configuration, key.requiredToolchainTypeLabels());
+          loadToolchainTypes(env, configuration, key.toolchainTypes());
       builder.setRequestedLabelToToolchainType(resolvedToolchainTypes);
+      // TODO(katre): Need to correct for possible aliases, map to mandatory/optional.
       ImmutableSet<Label> resolvedToolchainTypeLabels =
           resolvedToolchainTypes.values().stream()
               .map(ToolchainTypeInfo::typeLabel)
@@ -149,10 +153,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
   private static ImmutableMap<Label, ToolchainTypeInfo> loadToolchainTypes(
       Environment environment,
       BuildConfigurationValue configuration,
-      ImmutableSet<Label> requestedToolchainTypeLabels)
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements)
       throws InvalidToolchainTypeException, InterruptedException, ValueMissingException {
     ImmutableSet<ConfiguredTargetKey> toolchainTypeKeys =
-        requestedToolchainTypeLabels.stream()
+        toolchainTypeRequirements.stream()
+            .map(ToolchainTypeRequirement::toolchainType)
             .map(
                 label ->
                     ConfiguredTargetKey.builder()
@@ -361,7 +366,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           NoMatchingPlatformException, UnresolvedToolchainsException,
           InvalidToolchainLabelException {
 
-    // Find the toolchains for the required toolchain types.
+    // Find the toolchains for the requested toolchain types.
     List<SingleToolchainResolutionKey> registeredToolchainKeys = new ArrayList<>();
     for (Label toolchainTypeLabel : requiredToolchainTypeLabels) {
       registeredToolchainKeys.add(
@@ -373,12 +378,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
               debugTarget));
     }
 
-    Map<SkyKey, ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>>
-        results =
-            environment.getValuesOrThrow(
-                registeredToolchainKeys,
-                NoToolchainFoundException.class,
-                InvalidToolchainLabelException.class);
+    SkyframeIterableResult results =
+        environment.getOrderedValuesAndExceptions(registeredToolchainKeys);
     boolean valuesMissing = false;
 
     // Determine the potential set of toolchains.
@@ -386,14 +387,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
         HashBasedTable.create();
     ImmutableSet.Builder<ToolchainTypeInfo> requiredToolchainTypesBuilder = ImmutableSet.builder();
     List<Label> missingToolchains = new ArrayList<>();
-    for (Map.Entry<
-            SkyKey, ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>>
-        entry : results.entrySet()) {
+    while (results.hasNext()) {
       try {
-        ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>
-            valueOrException = entry.getValue();
         SingleToolchainResolutionValue singleToolchainResolutionValue =
-            (SingleToolchainResolutionValue) valueOrException.get();
+            (SingleToolchainResolutionValue)
+                results.nextOrThrow(
+                    NoToolchainFoundException.class, InvalidToolchainLabelException.class);
         if (singleToolchainResolutionValue == null) {
           valuesMissing = true;
           continue;
@@ -420,6 +419,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes = requiredToolchainTypesBuilder.build();
 
     // Find and return the first execution platform which has all required toolchains.
+    // TODO(katre): Handle mandatory/optional.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
         findExecutionPlatformForToolchains(
             requiredToolchainTypes,

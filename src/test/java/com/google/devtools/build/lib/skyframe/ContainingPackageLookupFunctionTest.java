@@ -15,16 +15,17 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -43,15 +44,15 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -67,19 +68,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link ContainingPackageLookupFunction}.
- */
+/** Tests for {@link ContainingPackageLookupFunction}. */
 @RunWith(JUnit4.class)
 public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
 
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;
-  private SequentialBuildDriver driver;
-  private RecordingDifferencer differencer;
 
   @Before
-  public final void setUp() throws Exception  {
+  public final void setUp() throws Exception {
     AnalysisMock analysisMock = AnalysisMock.get();
 
     AtomicReference<PathPackageLocator> pkgLocator =
@@ -88,7 +85,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+    deletedPackages = new AtomicReference<>(ImmutableSet.of());
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
@@ -128,17 +125,16 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new IgnoredPackagePrefixesFunction(
             /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
     skyFunctions.put(
-        FileStateValue.FILE_STATE,
+        FileStateKey.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
+            SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(
-            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
+        new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
@@ -158,8 +154,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(
-            LocalRepositoryRule.NAME, (RepositoryFunction) new LocalRepositoryFunction());
+        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
@@ -171,9 +166,8 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
 
-    differencer = new SequencedRecordingDifferencer();
+    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
-    driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
@@ -199,7 +193,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver
+    return evaluator
         .<ContainingPackageLookupValue>evaluate(ImmutableList.of(key), evaluationContext)
         .get(key);
   }
@@ -213,7 +207,9 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver.<PackageLookupValue>evaluate(ImmutableList.of(key), evaluationContext).get(key);
+    return evaluator
+        .<PackageLookupValue>evaluate(ImmutableList.of(key), evaluationContext)
+        .get(key);
   }
 
   @Test
@@ -243,9 +239,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
 
   @Test
   public void testContainingPackageIsExternalRepositoryViaExternalRepository() throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(name='a', path='a')");
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='a', path='a')");
     scratch.file("a/WORKSPACE");
     scratch.file("a/BUILD");
     scratch.file("a/b/BUILD");
@@ -259,9 +253,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
 
   @Test
   public void testContainingPackageIsExternalRepositoryViaLocalPath() throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(name='a', path='a')");
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='a', path='a')");
     scratch.file("a/WORKSPACE");
     scratch.file("a/BUILD");
     scratch.file("a/b/BUILD");
@@ -272,7 +264,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testEqualsAndHashCodeContract() throws Exception {
+  public void testEqualsAndHashCodeContract() {
     ContainingPackageLookupValue valueA1 = ContainingPackageLookupValue.NONE;
     ContainingPackageLookupValue valueA2 = ContainingPackageLookupValue.NONE;
     ContainingPackageLookupValue valueB1 =

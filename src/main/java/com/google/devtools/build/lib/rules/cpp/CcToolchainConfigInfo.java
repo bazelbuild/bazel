@@ -14,14 +14,15 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePatternMapper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
@@ -48,7 +49,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   private final ImmutableList<ActionConfig> actionConfigs;
   private final ImmutableList<Feature> features;
-  private final ImmutableList<ArtifactNamePattern> artifactNamePatterns;
+  private final ArtifactNamePatternMapper artifactNamePatterns;
   private final ImmutableList<String> cxxBuiltinIncludeDirectories;
 
   private final String toolchainIdentifier;
@@ -67,7 +68,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   CcToolchainConfigInfo(
       ImmutableList<ActionConfig> actionConfigs,
       ImmutableList<Feature> features,
-      ImmutableList<ArtifactNamePattern> artifactNamePatterns,
+      ArtifactNamePatternMapper artifactNamePatterns,
       ImmutableList<String> cxxBuiltinIncludeDirectories,
       String toolchainIdentifier,
       String hostSystemName,
@@ -104,7 +105,9 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return PROVIDER;
   }
 
-  public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {
+  @VisibleForTesting // Only called by tests.
+  public static CcToolchainConfigInfo fromToolchainForTestingOnly(CToolchain toolchain)
+      throws EvalException {
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
       actionConfigBuilder.add(new ActionConfig(actionConfig));
@@ -115,10 +118,26 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       featureBuilder.add(new Feature(feature));
     }
 
-    ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
+    ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
+        new ArtifactNamePatternMapper.Builder();
     for (CToolchain.ArtifactNamePattern artifactNamePattern :
         toolchain.getArtifactNamePatternList()) {
-      artifactNamePatternBuilder.add(new ArtifactNamePattern(artifactNamePattern));
+      ArtifactCategory foundCategory = null;
+      for (ArtifactCategory artifactCategory : ArtifactCategory.values()) {
+        if (artifactNamePattern.getCategoryName().equals(artifactCategory.getCategoryName())) {
+          foundCategory = artifactCategory;
+          break;
+        }
+      }
+      Preconditions.checkNotNull(foundCategory, artifactNamePattern);
+      String extension = artifactNamePattern.getExtension();
+      Preconditions.checkState(
+          foundCategory.getAllowedExtensions().contains(extension),
+          "%s had extension not in %s",
+          artifactNamePattern,
+          foundCategory);
+      artifactNamePatternBuilder.addOverride(
+          foundCategory, artifactNamePattern.getPrefix(), extension);
     }
 
     return new CcToolchainConfigInfo(
@@ -152,7 +171,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return features;
   }
 
-  public ImmutableList<ArtifactNamePattern> getArtifactNamePatterns() {
+  public ArtifactNamePatternMapper getArtifactNamePatterns() {
     return artifactNamePatterns;
   }
 
@@ -218,14 +237,13 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
             .map(actionConfig -> actionConfigToProto(actionConfig))
             .collect(ImmutableList.toImmutableList()));
     cToolchain.addAllArtifactNamePattern(
-        artifactNamePatterns.stream()
+        artifactNamePatterns.asImmutableMap().entrySet().stream()
             .map(
-                artifactNamePattern ->
+                entry ->
                     CToolchain.ArtifactNamePattern.newBuilder()
-                        .setCategoryName(
-                            artifactNamePattern.getArtifactCategory().getCategoryName())
-                        .setPrefix(artifactNamePattern.getPrefix())
-                        .setExtension(artifactNamePattern.getExtension())
+                        .setCategoryName(entry.getKey().getCategoryName())
+                        .setPrefix(entry.getValue().getPrefix())
+                        .setExtension(entry.getValue().getExtension())
                         .build())
             .collect(ImmutableList.toImmutableList()));
     cToolchain.addAllToolPath(

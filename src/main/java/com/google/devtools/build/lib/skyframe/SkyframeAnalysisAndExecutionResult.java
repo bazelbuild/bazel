@@ -23,12 +23,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import javax.annotation.Nullable;
 
 /** Encapsulates the raw analysis result of top level targets and aspects coming from Skyframe. */
 public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisResult {
-  private final DetailedExitCode representativeExecutionExitCode;
+  @Nullable private final DetailedExitCode representativeExecutionExitCode;
 
-  SkyframeAnalysisAndExecutionResult(
+  private SkyframeAnalysisAndExecutionResult(
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
@@ -48,6 +49,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
     this.representativeExecutionExitCode = representativeExecutionExitCode;
   }
 
+  @Nullable
   public DetailedExitCode getRepresentativeExecutionExitCode() {
     return representativeExecutionExitCode;
   }
@@ -69,6 +71,42 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
         getWalkableGraph(),
         getAspects(),
         getPackageRoots(),
+        representativeExecutionExitCode);
+  }
+
+  public static SkyframeAnalysisAndExecutionResult success(
+      ImmutableList<ConfiguredTarget> configuredTargets,
+      WalkableGraph walkableGraph,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      PackageRoots packageRoots) {
+    return new SkyframeAnalysisAndExecutionResult(
+        /*hasLoadingError=*/ false,
+        /*hasAnalysisError=*/ false,
+        /*hasActionConflicts=*/ false,
+        configuredTargets,
+        walkableGraph,
+        aspects,
+        packageRoots,
+        /*representativeExecutionExitCode=*/ null);
+  }
+
+  public static SkyframeAnalysisAndExecutionResult withErrors(
+      boolean hasLoadingError,
+      boolean hasAnalysisError,
+      boolean hasActionConflicts,
+      ImmutableList<ConfiguredTarget> configuredTargets,
+      WalkableGraph walkableGraph,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      PackageRoots packageRoots,
+      @Nullable DetailedExitCode representativeExecutionExitCode) {
+    return new SkyframeAnalysisAndExecutionResult(
+        hasLoadingError,
+        hasAnalysisError,
+        hasActionConflicts,
+        configuredTargets,
+        walkableGraph,
+        aspects,
+        packageRoots,
         representativeExecutionExitCode);
   }
 }

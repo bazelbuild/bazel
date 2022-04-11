@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -112,11 +112,8 @@ public class StarlarkBazelModule implements StarlarkValue {
       RepositoryMapping repoMapping,
       @Nullable ModuleExtensionUsage usage)
       throws ExternalDepsException {
-    LabelConversionContext labelConversionContext =
-        new LabelConversionContext(
-            createModuleRootLabel(module.getCanonicalRepoName()),
-            repoMapping,
-            /* convertedLabelsInPackage= */ new HashMap<>());
+    LabelConverter labelConverter =
+        new LabelConverter(createModuleRootLabel(module.getCanonicalRepoName()), repoMapping);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
     for (String tagClassName : extension.getTagClasses().keySet()) {
@@ -138,7 +135,7 @@ public class StarlarkBazelModule implements StarlarkValue {
       // (for example, String to Label).
       typeCheckedTags
           .get(tag.getTagName())
-          .add(TypeCheckedTag.create(tagClass, tag, labelConversionContext));
+          .add(TypeCheckedTag.create(tagClass, tag, labelConverter));
     }
     return new StarlarkBazelModule(
         module.getName(),

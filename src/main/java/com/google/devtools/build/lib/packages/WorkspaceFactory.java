@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -146,8 +147,9 @@ public class WorkspaceFactory {
       List<String> globs = new ArrayList<>(); // unused
       if (PackageFactory.checkBuildSyntax(
           file,
-          globs,
-          globs,
+          /*globs=*/ globs,
+          /*globsWithDirs=*/ globs,
+          /*subpackages=*/ globs,
           new HashMap<>(),
           error ->
               localReporter.handle(
@@ -171,6 +173,13 @@ public class WorkspaceFactory {
     } catch (SyntaxError.Exception ex) {
       // compilation failed
       Event.replayEventsOn(localReporter, ex.errors());
+      builder.setFailureDetailOverride(
+          FailureDetails.FailureDetail.newBuilder()
+              .setMessage(ex.getMessage())
+              .setPackageLoading(
+                  FailureDetails.PackageLoading.newBuilder()
+                      .setCode(PackageLoading.Code.SYNTAX_ERROR))
+              .build());
     }
 
     // cleanup (success or failure)
@@ -320,7 +329,7 @@ public class WorkspaceFactory {
       }
     }
 
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private ImmutableMap<String, Object> getDefaultEnvironment() {
@@ -337,7 +346,7 @@ public class WorkspaceFactory {
     for (EnvironmentExtension ext : environmentExtensions) {
       ext.updateWorkspace(env);
     }
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private String getDefaultSystemJavabase() {
@@ -381,7 +390,7 @@ public class WorkspaceFactory {
     }
     bindings.put("bazel_version", version);
 
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   public Map<String, Module> getLoadedModules() {

@@ -20,8 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
-import java.util.List;
-import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -63,104 +62,6 @@ public interface SkyFunction {
   @Nullable
   SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException;
-
-  /**
-   * Same as {@link #compute(SkyKey, Environment)}, except with a {@link SkyKeyComputeState}.
-   *
-   * <p>The {@link SkyKeyComputeState} instance will either be freshly created via {@link
-   * #createNewSkyKeyComputeState()}, or will be the same exact instance used on the previous call
-   * to this method for the same {@link SkyKey}. This allows {@link SkyFunction} implementations to
-   * avoid redoing the same intermediate work over-and-over again on each {@link #compute} call for
-   * the same {@link SkyKey}, due to missing Skyframe dependencies. For example,
-   *
-   * <pre>
-   *   class MyFunction implements SkyFunction {
-   *     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-   *       int x = (Integer) skyKey.argument();
-   *       SkyKey myDependencyKey = getSkyKeyForValue(someExpensiveComputation(x));
-   *       SkyValue myDependencyValue = env.getValue(myDependencyKey);
-   *       if (env.valuesMissing()) {
-   *         return null;
-   *       }
-   *       return createMyValue(myDependencyValue);
-   *     }
-   *   }
-   * </pre>
-   *
-   * <p>If the dependency was missing, then we'll end up evaluating {@code
-   * someExpensiveComputation(x)} twice, once on the initial call to {@link #compute} and then again
-   * on the subsequent call after the dependency was computed.
-   *
-   * <p>To fix this, we can use a mutable {@link SkyKeyComputeState} implementation and store the
-   * result of {@code someExpensiveComputation(x)} in there:
-   *
-   * <pre>
-   *   class MyFunction implements SkyFunction {
-   *     public boolean supportsSkyKeyComputeState() {
-   *       return true;
-   *     }
-   *
-   *     private static class State implements SkyKeyComputeState {
-   *       private Integer result;
-   *     }
-   *
-   *     public State createNewSkyKeyComputeState() {
-   *       return new State();
-   *     }
-   *
-   *     public SkyValue compute(
-   *         SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
-   *         throws InterruptedException {
-   *       int x = (Integer) skyKey.argument();
-   *       State state = (State) skyKeyComputeState;
-   *       if (state.result == null) {
-   *         state.result = someExpensiveComputation(x);
-   *       }
-   *       SkyKey myDependencyKey = getSkyKeyForValue(state.result);
-   *       SkyValue myDependencyValue = env.getValue(myDependencyKey);
-   *       if (env.valuesMissing()) {
-   *         return null;
-   *       }
-   *       return createMyValue(myDependencyValue);
-   *     }
-   *   }
-   * </pre>
-   *
-   * Now {@code someExpensiveComputation(x)} gets called exactly once for each {@code x}!
-   *
-   * <p>TODO(b/209701268): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
-   * sort of optimization.
-   */
-  @ThreadSafe
-  @Nullable
-  default SkyValue compute(SkyKey skyKey, SkyKeyComputeState state, Environment env)
-      throws SkyFunctionException, InterruptedException {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * If this returns {@code true}, then the Skyframe engine will invoke {@link #compute(SkyKey,
-   * SkyKeyComputeState, Environment)} instead of {@link #compute(SkyKey, Environment)}.
-   */
-  default boolean supportsSkyKeyComputeState() {
-    return false;
-  }
-
-  /**
-   * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
-   *
-   * <p>See the javadoc of {@link #compute(SkyKey, SkyKeyComputeState, Environment)} for motivation
-   * and an example.
-   */
-  interface SkyKeyComputeState {}
-
-  /**
-   * Returns a new {@link SkyKeyComputeState} instance to use for {@link #compute(SkyKey,
-   * SkyKeyComputeState, Environment)}.
-   */
-  default SkyKeyComputeState createNewSkyKeyComputeState() {
-    throw new UnsupportedOperationException();
-  }
 
   /**
    * Extracts a tag (target label) from a SkyKey if it has one. Otherwise return {@code null}.
@@ -224,8 +125,8 @@ public interface SkyFunction {
      *
      * <p>On a subsequent evaluation, if any of this value's dependencies have changed they will be
      * re-evaluated in the same order as originally requested by the {@code SkyFunction} using this
-     * {@code getValue} call (see {@link #getValues} for when preserving the order is not
-     * important).
+     * {@code getValue} call (see {@link #getOrderedValuesAndExceptions} for when preserving the
+     * order is not important).
      *
      * <p>This method and the ones below may throw {@link InterruptedException}. Such exceptions
      * must not be caught by the {@link SkyFunction#compute} implementation. Instead, they should be
@@ -275,35 +176,20 @@ public interface SkyFunction {
             Class<E4> exceptionClass4)
             throws E1, E2, E3, E4, InterruptedException;
 
-    @Nullable
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        SkyValue getValueOrThrow(
-            SkyKey depKey,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws E1, E2, E3, E4, E5, InterruptedException;
-
     /**
-     * Requests {@code depKeys} "in parallel", independent of each others' values. These keys may be
-     * thought of as a "dependency group" -- they are requested together by this value.
+     * Requests {@code depKeys} "in parallel", independent of each others' results. These keys may
+     * be thought of as a "dependency group" -- they are requested together by this value.
      *
      * <p>In general, if the result of one getValue call can affect the argument of a later getValue
-     * call, the two calls cannot be merged into a single getValues call, since the result of the
-     * first call might change on a later evaluation. Inversely, if the result of one getValue call
-     * cannot affect the parameters of the next getValue call, the two keys can form a dependency
-     * group and the two getValue calls should be merged into one getValues call. In the latter
-     * case, if we fail to combine the _multiple_ getValue (or getValues) calls into one _single_
-     * getValues call, it would result in multiple dependency groups with an implicit ordering
-     * between them. This would unnecessarily cause sequential evaluations of these groups and could
-     * impact overall performance.
+     * call, the two calls cannot be merged into a single getOrderedValuesAndExceptions call, since
+     * the result of the first call might change on a later evaluation. Inversely, if the result of
+     * one getValue call cannot affect the parameters of the next getValue call, the two keys can
+     * form a dependency group and the two getValue calls should be merged into one
+     * getOrderedValuesAndExceptions call. In the latter case, if we fail to combine the _multiple_
+     * getValue (or getOrderedValuesAndExceptions) calls into one _single_
+     * getOrderedValuesAndExceptions call, it would result in multiple dependency groups with an
+     * implicit ordering between them. This would unnecessarily cause sequential evaluations of
+     * these groups and could impact overall performance.
      *
      * <p>On subsequent evaluations, when checking to see if dependencies require re-evaluation, all
      * the values within one group may be simultaneously checked. A SkyFunction should request a
@@ -318,146 +204,43 @@ public interface SkyFunction {
      * value, will request all values in the group again anyway, so they would have to have been
      * built in any case.
      *
-     * <p>Example of when to use getValues: A ListProcessor value is built with key inputListRef.
-     * The {@link #compute} method first calls getValue(InputList.key(inputListRef)), and retrieves
-     * inputList. It then iterates through inputList, calling getValue on each input. Finally, it
-     * processes the whole list and returns. Say inputList is (a, b, c). Since the {@link #compute}
-     * method will unconditionally call getValue(a), getValue(b), and getValue (c), the {@link
-     * #compute} method can instead just call getValues({a, b, c}). If the value is later dirtied
-     * the evaluator will evaluate a, b, and c in parallel (assuming the inputList value was
-     * unchanged), and re-evaluate the ListProcessor value only if at least one of them was changed.
-     * On the other hand, if the InputList changes to be (a, b, d), then the evaluator will see that
-     * the first dep has changed, and call the {@link #compute} method to re-evaluate from scratch,
-     * without considering the dep group of {a, b, c}.
+     * <p>Example of when to use getOrderedValuesAndExceptions: A ListProcessor value is built with
+     * key inputListRef. The {@link #compute} method first calls
+     * getValue(InputList.key(inputListRef)), and retrieves inputList. It then iterates through
+     * inputList, calling getValue on each input. Finally, it processes the whole list and returns.
+     * Say inputList is (a, b, c). Since the {@link #compute} method will unconditionally call
+     * getValue(a), getValue(b), and getValue (c), the {@link #compute} method can instead just call
+     * getOrderedValuesAndExceptions({a, b, c}). If the value is later dirtied the evaluator will
+     * evaluate a, b, and c in parallel (assuming the inputList value was unchanged), and
+     * re-evaluate the ListProcessor value only if at least one of them was changed. On the other
+     * hand, if the InputList changes to be (a, b, d), then the evaluator will see that the first
+     * dep has changed, and call the {@link #compute} method to re-evaluate from scratch, without
+     * considering the dep group of {a, b, c}.
      *
-     * <p>Example of when not to use getValues: A BestMatch value is built with key
-     * &lt;potentialMatchesRef, matchCriterion&gt;. The {@link #compute} method first calls
+     * <p>Example of when not to use getOrderedValuesAndExceptions: A BestMatch value is built with
+     * key &lt;potentialMatchesRef, matchCriterion&gt;. The {@link #compute} method first calls
      * getValue(PotentialMatches.key(potentialMatchesRef) and retrieves potentialMatches. It then
      * iterates through potentialMatches, calling getValue on each potential match until it finds
      * one that satisfies matchCriterion. In this case, if potentialMatches is (a, b, c), it would
-     * be <i>incorrect</i> to call getValues({a, b, c}), because it is not known yet whether
-     * requesting b or c will be necessary -- if a matches, then we will never call b or c.
+     * be <i>incorrect</i> to call getOrderedValuesAndExceptions({a, b, c}), because it is not known
+     * yet whether requesting b or c will be necessary -- if a matches, then we will never call b or
+     * c.
      *
-     * <p>Returns a map, {@code m}. For all {@code k} in {@code depKeys}, {@code m.containsKey(k)}
-     * is {@code true}, and, {@code m.get(k) != null} iff the dependency was already evaluated and
-     * was not in error.
+     * <p>Returns a {@link SkyframeIterableResult}, which contains the results in the same order as
+     * {@code depKeys}.
      */
-    Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
+    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+        throws InterruptedException;
 
     /**
-     * Similar to getValues, but instead of returning a {@code Map<SkyKey, SkyValue>}, returns a
-     * {@code List<SkyValue>} in the order of the input {@code Iterable<SkyKey>}. b/172462551
-     */
-    List<SkyValue> getOrderedValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
-
-    /**
-     * Similar to {@link #getValues} but allows the caller to specify a set of types that are proper
-     * subtypes of Exception (see {@link SkyFunctionException} for more details) to find out whether
-     * any of the dependencies' evaluations resulted in exceptions of those types. The returned
-     * objects may throw when attempting to retrieve their value.
+     * Similar to {@link #getOrderedValuesAndExceptions}, but returns a {@link
+     * SkyframeLookupResult}, which allows the calling {@code SkyFunction} to get value or throw
+     * exception per SkyKey.
      *
-     * <p>Callers should prioritize their responsibility to detect and handle errors in the returned
-     * map over their responsibility to return {@code null} if values are missing. This is because
-     * in nokeep_going evaluations, an error from a low level dependency is given a chance to be
-     * enriched by its reverse-dependencies, if possible. Callers should also prioritize throwing
-     * exceptions over checking for {@link InterruptedException}, since during the error-bubbling
-     * enrichment process, the SkyFunction is interrupted after it has received the exception to
-     * prevent it from doing too much unnecessary work.
-     *
-     * <p>Returns a map, {@code m}. For all {@code k} in {@code depKeys}, {@code m.get(k) != null}.
-     * For all {@code v} such that there is some {@code k} such that {@code m.get(k) == v}, the
-     * following is true: {@code v.get() != null} iff the dependency {@code k} was already evaluated
-     * and was not in error. {@code v.get()} throws {@code E} iff the dependency {@code k} was
-     * already evaluated with an error in the specified set of {@link Exception} types.
+     * <p>Use {@link #getOrderedValuesAndExceptions} in preference, since it creates less garbage.
      */
-    <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-        Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception>
-        Map<SkyKey, ValueOrException2<E1, E2>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-        Map<SkyKey, ValueOrException3<E1, E2, E3>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-        Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4)
-            throws InterruptedException;
-
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws InterruptedException;
-
-    /**
-     * Similar to getValuesOrThrow, but instead of returning a {@code Map<SkyKey,
-     * ValueOrException>}, returns a {@code List<SkyValue>} in the order of the input {@code
-     * Iterable<SkyKey>}.
-     */
-    <E extends Exception> List<ValueOrException<E>> getOrderedValuesOrThrow(
-        Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception>
-        List<ValueOrException2<E1, E2>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-        List<ValueOrException3<E1, E2, E3>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-        List<ValueOrException4<E1, E2, E3, E4>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4)
-            throws InterruptedException;
-
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        List<ValueOrException5<E1, E2, E3, E4, E5>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws InterruptedException;
+    SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+        throws InterruptedException;
 
     /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
@@ -465,9 +248,10 @@ public interface SkyFunction {
      *
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
-     *   <li>getValues(ks).get(k) == {@code null} for some ks and k such that ks.contains(k)
-     *   <li>getValuesOrThrow(ks, c).get(k).get() == {@code null} for some ks and k such that
-     *       ks.contains(k)
+     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
+     *       getOrderedValuesAndExceptions(ks) for some ks
+     *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
+     *       getValuesAndExceptions(ks) for some ks
      * </ul>
      *
      * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
@@ -550,5 +334,80 @@ public interface SkyFunction {
      * true}.
      */
     boolean restartPermitted();
+
+    /**
+     * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
+     *
+     * <p>See the javadoc of {@link #getState} for motivation and an example.
+     */
+    interface SkyKeyComputeState {}
+
+    /**
+     * Returns (or creates and returns) a "state" object to assist with temporary computations for
+     * the {@link SkyKey} associated with this {@link Environment}.
+     *
+     * <p>The {@link SkyKeyComputeState} will either be freshly created via the given {@link
+     * Supplier}, or will be the same exact instance used on the previous call to this method for
+     * the same {@link SkyKey}. This allows {@link SkyFunction} implementations to avoid redoing the
+     * same intermediate work over-and-over again on each {@link #compute} call for the same {@link
+     * SkyKey}, due to missing Skyframe dependencies. For example,
+     *
+     * <pre>
+     *   class MyFunction implements SkyFunction {
+     *     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+     *       int x = (Integer) skyKey.argument();
+     *       SkyKey myDependencyKey = getSkyKeyForValue(someExpensiveComputation(x));
+     *       SkyValue myDependencyValue = env.getValue(myDependencyKey);
+     *       if (env.valuesMissing()) {
+     *         return null;
+     *       }
+     *       return createMyValue(myDependencyValue);
+     *     }
+     *   }
+     * </pre>
+     *
+     * <p>If the dependency was missing, then we'll end up evaluating {@code
+     * someExpensiveComputation(x)} twice, once on the initial call to {@link #compute} and then
+     * again on the subsequent call after the dependency was computed.
+     *
+     * <p>To fix this, we can use a mutable {@link SkyKeyComputeState} implementation and store the
+     * result of {@code someExpensiveComputation(x)} in there:
+     *
+     * <pre>
+     *   class MyFunction implements SkyFunction {
+     *     private static class State implements SkyKeyComputeState {
+     *       private Integer result;
+     *     }
+     *
+     *     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+     *       int x = (Integer) skyKey.argument();
+     *       State state = env.getState(State::new);
+     *       if (state.result == null) {
+     *         state.result = someExpensiveComputation(x);
+     *       }
+     *       SkyKey myDependencyKey = getSkyKeyForValue(state.result);
+     *       SkyValue myDependencyValue = env.getValue(myDependencyKey);
+     *       if (env.valuesMissing()) {
+     *         return null;
+     *       }
+     *       return createMyValue(myDependencyValue);
+     *     }
+     *   }
+     * </pre>
+     *
+     * <p>Now {@code someExpensiveComputation(x)} gets called exactly once for each {@code x}!
+     *
+     * <p>Important: There's no guarantee the {@link SkyKeyComputeState} instance will be the same
+     * exact instance used on the previous call to this method for the same {@link SkyKey}. The
+     * above example was just illustrating the best-case outcome. Therefore, {@link SkyFunction}
+     * implementations should make use of this feature only as a performance optimization.
+     *
+     * <p>A notable example of the above note is that if {@link #compute} returns a {@link Restart}
+     * then a call to {@link #getState} on the subsequent call to {@link #compute} will definitely
+     * use the {@code stateSupplier}. It's important that Skyframe do this because {@link Restart}
+     * indicates that work should be redone, and so it'd be wrong to reuse work from the previous
+     * {@link #compute} call.
+     */
+    <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier);
   }
 }

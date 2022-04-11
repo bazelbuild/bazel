@@ -73,9 +73,12 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   /** Prefix for iOS cpu values */
   public static final String IOS_CPU_PREFIX = "ios_";
 
+  /** Prefix for macOS cpu values */
+  private static final String MACOS_CPU_PREFIX = "darwin_";
+
   // TODO(b/180572694): Remove after platforms based toolchain resolution supported.
-  /** Prefix for forced iOS simulator cpu values */
-  public static final String IOS_FORCED_SIMULATOR_CPU_PREFIX = "sim_";
+  /** Prefix for forced iOS and tvOS simulator cpu values */
+  public static final String FORCED_SIMULATOR_CPU_PREFIX = "sim_";
 
   /** Default cpu for iOS builds. */
   @VisibleForTesting
@@ -88,7 +91,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
   private final boolean mandatoryMinimumVersion;
-  private final boolean objcProviderFromLinked;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
@@ -101,7 +103,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
-    this.objcProviderFromLinked = options.objcProviderFromLinked;
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
@@ -122,7 +123,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
               : ImmutableList.copyOf(options.tvosCpus);
       ImmutableList<String> macosCpus =
           (options.macosCpus == null || options.macosCpus.isEmpty())
-              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
+              ? ImmutableList.of(macosCpuFromCpu(coreOptions.cpu))
               : ImmutableList.copyOf(options.macosCpus);
       ImmutableList<String> catalystCpus =
           (options.catalystCpus == null || options.catalystCpus.isEmpty())
@@ -148,13 +149,21 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> catalystCpus();
   }
 
-  /** Determines cpu value from apple-specific toolchain identifier. */
+  /** Determines iOS cpu value from apple-specific toolchain identifier. */
   public static String iosCpuFromCpu(String cpu) {
     if (cpu.startsWith(IOS_CPU_PREFIX)) {
       return cpu.substring(IOS_CPU_PREFIX.length());
     } else {
       return DEFAULT_IOS_CPU;
     }
+  }
+
+  /** Determines macOS cpu value from apple-specific toolchain identifier. */
+  private static String macosCpuFromCpu(String cpu) {
+    if (cpu.startsWith(MACOS_CPU_PREFIX)) {
+      return cpu.substring(MACOS_CPU_PREFIX.length());
+    }
+    return AppleCommandLineOptions.DEFAULT_MACOS_CPU;
   }
 
   public AppleCommandLineOptions getOptions() {
@@ -177,7 +186,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME,
             platform.getNameInPlist());
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**
@@ -220,25 +229,24 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     // The removeSimPrefix argument is necessary due to a simulator and device both using arm64
     // architecture. In the case of Starlark asking for the architecture, we should return the
     // actual architecture (arm64) but in other cases in this class what we actually want is the
-    // CPU without the ios prefix (e.g. sim_arm64). This parameter is provided in the private method
-    // so that internal to this class we are able to use both without duplicating retrieval logic.
+    // CPU without the ios/tvos prefix (e.g. sim_arm64). This parameter is provided in the private
+    // method so that internal to this class we are able to use both without duplicating retrieval
+    // logic.
     // TODO(b/180572694): Remove removeSimPrefix parameter once platforms are used instead of CPU
+    String cpu = getPrefixedAppleCpu(applePlatformType, appleCpus);
+    if (removeSimPrefix && cpu.startsWith(FORCED_SIMULATOR_CPU_PREFIX)) {
+      cpu = cpu.substring(FORCED_SIMULATOR_CPU_PREFIX.length());
+    }
+    return cpu;
+  }
+
+  private static String getPrefixedAppleCpu(PlatformType applePlatformType, AppleCpus appleCpus) {
     if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
-      String cpu = appleCpus.appleSplitCpu();
-      if (removeSimPrefix && cpu.startsWith(IOS_FORCED_SIMULATOR_CPU_PREFIX)) {
-        cpu = cpu.substring(IOS_FORCED_SIMULATOR_CPU_PREFIX.length());
-      }
-      return cpu;
+      return appleCpus.appleSplitCpu();
     }
     switch (applePlatformType) {
       case IOS:
-        {
-          String cpu = Iterables.getFirst(appleCpus.iosMultiCpus(), appleCpus.iosCpu());
-          if (removeSimPrefix && cpu.startsWith(IOS_FORCED_SIMULATOR_CPU_PREFIX)) {
-            cpu = cpu.substring(IOS_FORCED_SIMULATOR_CPU_PREFIX.length());
-          }
-          return cpu;
-        }
+        return Iterables.getFirst(appleCpus.iosMultiCpus(), appleCpus.iosCpu());
       case WATCHOS:
         return appleCpus.watchosCpus().get(0);
       case TVOS:
@@ -435,14 +443,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
 
   public boolean isMandatoryMinimumVersion() {
     return mandatoryMinimumVersion;
-  }
-
-  /**
-   * Returns true if rules which manage link actions should propagate {@link ObjcProvider} at the
-   * top level.
-   **/
-  public boolean shouldLinkingRulesPropagateObjc() {
-    return objcProviderFromLinked;
   }
 
   @Override

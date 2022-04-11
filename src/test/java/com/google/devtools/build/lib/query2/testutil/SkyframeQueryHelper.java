@@ -61,16 +61,19 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DelegatingSyscallCache;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.AbstractSet;
 import java.util.ArrayList;
@@ -99,6 +102,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
+  private final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
   @Override
   public void setUp() throws Exception {
@@ -114,6 +118,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
+    delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
 
     initTargetPatternEvaluator(analysisMock.createRuleClassProvider());
 
@@ -152,6 +157,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
   }
 
+  @ForOverride
   protected QueryEnvironmentFactory makeQueryEnvironmentFactory() {
     return new QueryEnvironmentFactory();
   }
@@ -194,7 +200,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   @Override
   public AbstractBlazeQueryEnvironment<Target> getQueryEnvironment() {
     return queryEnvironmentFactory.create(
-        pkgManager.transitiveLoader(),
+        skyframeExecutor.getQueryTransitivePackagePreloader(),
         skyframeExecutor,
         pkgManager,
         pkgManager,
@@ -313,6 +319,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     initTargetPatternEvaluator(ruleClassProvider);
   }
 
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.delegatingSyscallCache.setDelegate(syscallCache);
+  }
+
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {
     PackageFactory pkgFactory =
         TestPackageFactoryBuilderFactory.getInstance()
@@ -328,6 +338,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -350,7 +361,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   @Override
   public void assertPackageNotLoaded(String packageName) throws Exception {
-    MemoizingEvaluator evaluator = skyframeExecutor.getEvaluatorForTesting();
+    MemoizingEvaluator evaluator = skyframeExecutor.getEvaluator();
     SkyKey key = PackageValue.key(PackageIdentifier.parse(packageName));
     if (evaluator.getExistingValue(key) != null
         || evaluator.getExistingErrorForTesting(key) != null) {

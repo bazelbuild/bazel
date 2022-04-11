@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -148,10 +147,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         BazelModuleContext moduleContext =
             BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
         builder.defaultValue(
-            defaultValue,
-            new BuildType.LabelConversionContext(
-                moduleContext.label(), moduleContext.repoMapping(), new HashMap<>()),
-            DEFAULT_ARG);
+            defaultValue, LabelConverter.forModuleContext(moduleContext), DEFAULT_ARG);
       }
     }
 
@@ -176,7 +172,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
         throw Starlark.errorf(
             "cfg parameter is mandatory when executable=True is provided. Please see "
-                + "https://docs.bazel.build/versions/main/skylark/rules.html#configurations "
+                + "https://bazel.build/rules/rules#configurations "
                 + "for more details.");
       }
     }
@@ -233,6 +229,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
       }
+      // TODO(b/203203933): Officially deprecate HOST transition and remove this.
       if (trans.equals("host")) {
         boolean disableStarlarkHostTransitions =
             thread
@@ -243,7 +240,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
               "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
                   + "'cfg = \"exec\"' instead.");
         }
-        builder.cfg(HostTransition.createFactory());
+        builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans.equals("exec")) {
         builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans instanceof ExecutionTransitionFactory) {
@@ -279,10 +276,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
         aspect.attachToAspectsList(
             /** baseAspectName= */
-            null,
-            builder.getAspectsListBuilder(),
-            /** allowAspectsParameters= */
-            true);
+            null, builder.getAspectsListBuilder());
       }
     }
 
@@ -381,10 +375,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   private static final Map<Type<?>, String> whyNotConfigurable =
       ImmutableMap.<Type<?>, String>builder()
-          .put(BuildType.LICENSE,
+          .put(
+              BuildType.LICENSE,
               "loading phase license checking logic assumes non-configurable values")
           .put(BuildType.OUTPUT, "output paths are part of the static graph structure")
-          .build();
+          .buildOrThrow();
 
   /**
    * If the given attribute type is non-configurable, returns the reason why. Otherwise, returns
@@ -769,6 +764,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         b.put(key, value);
       }
     }
-    return b.build();
+    return b.buildOrThrow();
   }
 }

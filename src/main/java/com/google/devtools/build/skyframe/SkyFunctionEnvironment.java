@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
@@ -86,6 +87,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    */
   @Nullable private final Map<SkyKey, ValueWithMetadata> bubbleErrorInfo;
 
+  private boolean encounteredErrorDuringBubbling = false;
+
   /**
    * The values previously declared as dependencies.
    *
@@ -117,7 +120,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * The grouped list of values requested during this build as dependencies. On a subsequent build,
    * if this value is dirty, all deps in the same dependency group can be checked in parallel for
    * changes. In other words, if dep1 and dep2 are in the same group, then dep1 will be checked in
-   * parallel with dep2. See {@link SkyFunction.Environment#getValues} for more.
+   * parallel with dep2. See {@link SkyFunction.Environment#getValuesAndExceptions} for more.
    */
   private final GroupedListHelper<SkyKey> newlyRequestedDeps = new GroupedListHelper<>();
 
@@ -610,6 +613,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         errorMightHaveBeenFound = true;
         childErrorInfos.add(errorInfo);
         if (bubbleErrorInfo != null) {
+          encounteredErrorDuringBubbling = true;
           // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
           // fancy after this. SkyFunctions executed during error bubbling are supposed to
           // (quickly) rethrow errors or return a value/null (but there's currently no way to
@@ -658,6 +662,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         errorMightHaveBeenFound = true;
         childErrorInfos.add(errorInfo);
         if (bubbleErrorInfo != null) {
+          encounteredErrorDuringBubbling = true;
           // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
           // fancy after this. SkyFunctions executed during error bubbling are supposed to
           // (quickly) rethrow errors or return a value/null (but there's currently no way to
@@ -802,8 +807,12 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
               .getErrorInfoToUse(skyKey, value != null, childErrorInfos);
       // TODO(b/166268889, b/172223413): remove when fixed.
       if (errorInfo != null && errorInfo.getException() instanceof IOException) {
-        logger.atInfo().withCause(errorInfo.getException()).log(
-            "Synthetic errorInfo for %s", skyKey);
+        String skyFunctionName = skyKey.functionName().getName();
+        if (!skyFunctionName.startsWith("FILE")
+            && !skyFunctionName.startsWith("DIRECTORY_LISTING")) {
+          logger.atInfo().withCause(errorInfo.getException()).log(
+              "Synthetic errorInfo for %s", skyKey);
+        }
       }
     }
 
@@ -920,7 +929,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         skyKey);
     Preconditions.checkNotNull(version, skyKey);
     Preconditions.checkState(
-        version.atMost(evaluatorContext.getGraphVersion()),
+        !evaluatorContext.getGraphVersion().lowerThan(version),
         "Invalid injected version (%s > %s) for %s",
         version,
         evaluatorContext.getGraphVersion(),
@@ -961,6 +970,16 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Override
   public boolean restartPermitted() {
     return evaluatorContext.restartPermitted();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return (T) evaluatorContext.stateCache().get(skyKey, k -> stateSupplier.get());
+  }
+
+  boolean encounteredErrorDuringBubbling() {
+    return encounteredErrorDuringBubbling;
   }
 
   /** Thrown during environment construction if previously requested deps are no longer done. */

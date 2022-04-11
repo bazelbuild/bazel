@@ -96,7 +96,7 @@ public abstract class ClassMemberRetargetConfig {
             invocationSite, MethodInvocationSite.fromProto(replacement.getDestination()));
       }
     }
-    return replacementsBuilder.build();
+    return replacementsBuilder.buildOrThrow();
   }
 
   @Nullable

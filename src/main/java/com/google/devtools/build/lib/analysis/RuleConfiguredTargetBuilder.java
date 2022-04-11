@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
@@ -86,7 +87,6 @@ public final class RuleConfiguredTargetBuilder {
 
   private final NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
-  private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
   private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
 
@@ -161,7 +161,8 @@ public final class RuleConfiguredTargetBuilder {
     // rule doesn't configure InstrumentedFilesInfo. This needs to be done for non-test rules
     // as well, but should be done before initializeTestProvider, which uses that.
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
-        && !providersBuilder.contains(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
+        && !providersBuilder.contains(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())
+        && !providersBuilder.contains(ToolchainInfo.PROVIDER.getKey())) {
       addNativeDeclaredProvider(InstrumentedFilesCollector.forwardAll(ruleContext));
     }
     // Create test action and artifacts if target was successfully initialized
@@ -191,7 +192,7 @@ public final class RuleConfiguredTargetBuilder {
         outputGroups.put(entry.getKey(), entry.getValue().build());
       }
 
-      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.build());
+      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.buildOrThrow());
       addNativeDeclaredProvider(outputGroupInfo);
     }
 
@@ -257,12 +258,18 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions =
-        Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-            analysisEnvironment.getActionKeyContext(),
-            analysisEnvironment.getRegisteredActions(),
-            ruleContext.getOwner(),
-            ((Rule) ruleContext.getTarget()).getOutputFiles());
+    GeneratingActions generatingActions = null;
+    try {
+      generatingActions =
+          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+              analysisEnvironment.getActionKeyContext(),
+              analysisEnvironment.getRegisteredActions(),
+              ruleContext.getOwner(),
+              ((Rule) ruleContext.getTarget()).getOutputFiles());
+    } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
     return new RuleConfiguredTarget(
         ruleContext,
         providers,
@@ -468,12 +475,12 @@ public final class RuleConfiguredTargetBuilder {
             providersBuilder.getProvider(TestEnvironmentInfo.PROVIDER.getKey());
     if (environmentProvider != null) {
       testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
+      testActionBuilder.addExtraInheritedEnv(environmentProvider.getInheritedEnvironment());
     }
 
     TestParams testParams =
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
-            .setPersistentTestRunnerRunfiles(persistentTestRunnerRunfiles)
             .addTools(additionalTestActionTools.build())
             .setExecutionRequirements(
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
@@ -598,11 +605,6 @@ public final class RuleConfiguredTargetBuilder {
       RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
     this.executable = executable;
-    return this;
-  }
-
-  public RuleConfiguredTargetBuilder setPersistentTestRunnerRunfiles(Runfiles testSupportRunfiles) {
-    this.persistentTestRunnerRunfiles = testSupportRunfiles;
     return this;
   }
 

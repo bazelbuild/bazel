@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.common.testing.GcFinalization;
@@ -93,9 +92,11 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -109,6 +110,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -121,23 +123,22 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.InMemoryGraph;
-import com.google.devtools.build.skyframe.InMemoryNodeEntry;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.GraphTransformerForTesting;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
-import com.google.devtools.build.skyframe.ProcessableGraph;
-import com.google.devtools.build.skyframe.QueryableGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.TaggedEvents;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -149,6 +150,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -183,7 +185,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   @Before
   public void createSkyframeExecutorAndVisitor() throws Exception {
     skyframeExecutor = getSkyframeExecutor();
-    visitor = skyframeExecutor.getPackageManager().transitiveLoader();
+    visitor = skyframeExecutor.getQueryTransitivePackagePreloader();
     options =
         OptionsParser.builder()
             .optionsClasses(
@@ -291,106 +293,168 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   @Test
-  public void getDiff_changedFileStillExists_returnsFile() throws Exception {
-    Root root = Root.fromPath(scratch.dir("/"));
-    Path file = scratch.file("/foo/foo.txt");
-    RootedPath fileRootedPath = RootedPath.toRootedPath(root, file);
-    FileStateValue.Key key = FileStateValue.key(fileRootedPath);
-    FileStateValue oldValue = FileStateValue.create(fileRootedPath, /*tsgm=*/ null);
-    skyframeExecutor.memoizingEvaluator.injectGraphTransformerForTesting(
-        inMemoryGraphWithValues(ImmutableMap.of(key, oldValue)));
-    scratch.overwriteFile(file.getPathString(), "new contents");
+  public void sync_onlyExternalFileChanged_reportsAffectedFile() throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external"));
+    RootedPath file = RootedPath.toRootedPath(externalRoot, scratch.file("/external/file"));
+    initializeSkyframeExecutor(
+        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+    skyframeExecutor
+        .injectable()
+        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /*tsgm=*/ null));
+    skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
+    // Initial sync to establish the baseline DiffAwareness.View.
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    scratch.overwriteFile("/external/file", "new content");
 
-    Diff diff =
-        skyframeExecutor.getDiff(
-            /*tsgm=*/ null,
-            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
-            root,
-            /*fsvcThreads=*/ 1);
+    skyframeExecutor.sync(
+        NullEventHandler.INSTANCE,
+        Options.getDefaults(PackageOptions.class),
+        skyframeExecutor.getPackageLocator().get(),
+        Options.getDefaults(BuildLanguageOptions.class),
+        UUID.randomUUID(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*repoEnvOption=*/ ImmutableMap.of(),
+        new TimestampGranularityMonitor(new ManualClock()),
+        options);
 
-    assertThat(diff.changedKeysWithNewValues())
-        .containsExactly(key, FileStateValue.create(fileRootedPath, /*tsgm=*/ null));
-    assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
+    Diff diff = getRecordedDiff();
+    assertThat(diff.changedKeysWithNewValues()).containsKey(file);
   }
 
   @Test
-  public void getDiff_newFile_returnsFileAndParentDirectoryListing() throws Exception {
-    Root root = Root.fromPath(scratch.dir("/"));
-    Path file = scratch.file("/foo/foo.txt");
+  public void sync_nothingChangedWithExternalFile_reportsNoExternalKeysInDiff() throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external"));
+    RootedPath file = RootedPath.toRootedPath(externalRoot, scratch.file("/external/file"));
+    initializeSkyframeExecutor(
+        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+    skyframeExecutor
+        .injectable()
+        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /*tsgm=*/ null));
+    skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
+    // Initial sync to establish the baseline DiffAwareness.View.
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
 
-    Diff diff =
-        skyframeExecutor.getDiff(
-            /*tsgm=*/ null,
-            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
-            root,
-            /*fsvcThreads=*/ 1);
+    skyframeExecutor.sync(
+        NullEventHandler.INSTANCE,
+        Options.getDefaults(PackageOptions.class),
+        skyframeExecutor.getPackageLocator().get(),
+        Options.getDefaults(BuildLanguageOptions.class),
+        UUID.randomUUID(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*repoEnvOption=*/ ImmutableMap.of(),
+        new TimestampGranularityMonitor(new ManualClock()),
+        options);
 
-    RootedPath fileRootedPath = RootedPath.toRootedPath(root, file);
-    assertThat(diff.changedKeysWithNewValues())
-        .containsExactly(
-            FileStateValue.key(fileRootedPath),
-            FileStateValue.create(fileRootedPath, /*tsgm=*/ null));
-    assertThat(diff.changedKeysWithoutNewValues())
-        .containsExactly(DirectoryListingStateValue.key(fileRootedPath.getParentDirectory()));
+    Diff diff = getRecordedDiff();
+    assertThat(diff.changedKeysWithoutNewValues()).doesNotContain(file);
+    assertThat(diff.changedKeysWithNewValues()).doesNotContainKey(file);
   }
 
   @Test
-  public void getDiff_newFileFailsToStat_returnsFileAndParentDirectoryListing() throws Exception {
-    Root root = Root.fromPath(scratch.dir("/"));
-    Path file = scratch.file("/foo/foo.txt");
-    // This makes InMemoryFileSystem throw IOException when we try to stat /foo/foo.txt.
-    file.getParentDirectory().setExecutable(false);
+  public void sync_onlyExternalListingChanged_reportsAffectedListing() throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external"));
+    RootedPath dir = RootedPath.toRootedPath(externalRoot, scratch.dir("/external/foo"));
+    DirectoryListingStateValue value =
+        DirectoryListingStateValue.create(dir.asPath().readdir(Symlinks.NOFOLLOW));
+    DirectoryListingStateValue.Key dirListingKey = DirectoryListingStateValue.key(dir);
+    initializeSkyframeExecutor(
+        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+    skyframeExecutor
+        .injectable()
+        .inject(
+            ImmutableMap.of(
+                dir,
+                FileStateValue.create(dir, SyscallCache.NO_CACHE, /*tsgm=*/ null),
+                dirListingKey,
+                value));
+    skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
+    // Initial sync to establish the baseline DiffAwareness.View.
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    scratch.file("/external/foo/new_file");
 
-    Diff diff =
-        skyframeExecutor.getDiff(
-            /*tsgm=*/ null,
-            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
-            root,
-            /*fsvcThreads=*/ 1);
+    skyframeExecutor.sync(
+        NullEventHandler.INSTANCE,
+        Options.getDefaults(PackageOptions.class),
+        skyframeExecutor.getPackageLocator().get(),
+        Options.getDefaults(BuildLanguageOptions.class),
+        UUID.randomUUID(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*repoEnvOption=*/ ImmutableMap.of(),
+        new TimestampGranularityMonitor(new ManualClock()),
+        options);
 
-    assertThat(diff.changedKeysWithNewValues()).isEmpty();
-    assertThat(diff.changedKeysWithoutNewValues())
-        .containsExactly(
-            FileStateValue.key(RootedPath.toRootedPath(root, file)),
-            DirectoryListingStateValue.key(
-                RootedPath.toRootedPath(root, file.getParentDirectory())));
+    Diff diff = getRecordedDiff();
+    assertThat(diff.changedKeysWithoutNewValues()).containsNoneOf(dir, dirListingKey);
+    assertThat(diff.changedKeysWithNewValues()).doesNotContainKey(dir);
+    assertThat(diff.changedKeysWithNewValues()).containsKey(dirListingKey);
   }
 
-  private static GraphTransformerForTesting inMemoryGraphWithValues(
-      ImmutableMap<SkyKey, SkyValue> values) {
+  @Test
+  public void sync_nothingChangedWithExternalListing_reportsNoExternalKeysInDiff()
+      throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external"));
+    RootedPath dir = RootedPath.toRootedPath(externalRoot, scratch.dir("/external/foo"));
+    DirectoryListingStateValue value =
+        DirectoryListingStateValue.create(dir.asPath().readdir(Symlinks.NOFOLLOW));
+    DirectoryListingStateValue.Key dirListingKey = DirectoryListingStateValue.key(dir);
+    initializeSkyframeExecutor(
+        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+    skyframeExecutor
+        .injectable()
+        .inject(
+            ImmutableMap.of(
+                dir,
+                FileStateValue.create(dir, SyscallCache.NO_CACHE, /*tsgm=*/ null),
+                dirListingKey,
+                value));
+    skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
+    // Initial sync to establish the baseline DiffAwareness.View.
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
 
-    return new GraphTransformerForTesting() {
-      @Override
-      public InMemoryGraph transform(InMemoryGraph graph) {
-        InMemoryGraph transformed = InMemoryGraph.create();
-        transformed
-            .getAllValuesMutable()
-            .putAll(Maps.transformValues(values, this::createNodeEntry));
-        return transformed;
-      }
+    skyframeExecutor.sync(
+        NullEventHandler.INSTANCE,
+        Options.getDefaults(PackageOptions.class),
+        skyframeExecutor.getPackageLocator().get(),
+        Options.getDefaults(BuildLanguageOptions.class),
+        UUID.randomUUID(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*repoEnvOption=*/ ImmutableMap.of(),
+        new TimestampGranularityMonitor(new ManualClock()),
+        options);
 
-      @Override
-      public QueryableGraph transform(QueryableGraph graph) {
-        throw new UnsupportedOperationException();
-      }
+    Diff diff = getRecordedDiff();
+    assertThat(diff.changedKeysWithoutNewValues()).containsNoneOf(dir, dirListingKey);
+    assertThat(diff.changedKeysWithNewValues()).doesNotContainKey(dir);
+    assertThat(diff.changedKeysWithNewValues()).doesNotContainKey(dirListingKey);
+  }
 
-      @Override
-      public ProcessableGraph transform(ProcessableGraph graph) {
-        throw new UnsupportedOperationException();
-      }
+  private static DiffAwareness.Factory nothingChangedDiffAwarenessFactory() {
+    return pathEntry ->
+        new DiffAwareness() {
+          @Override
+          public View getCurrentView(OptionsProvider options) {
+            return new View() {};
+          }
 
-      private InMemoryNodeEntry createNodeEntry(SkyValue value) {
-        InMemoryNodeEntry nodeEntry = new InMemoryNodeEntry();
-        nodeEntry.addReverseDepAndCheckIfDone(null);
-        nodeEntry.markRebuilding();
-        try {
-          nodeEntry.setValue(value, ignored -> false, null);
-        } catch (InterruptedException e) {
-          throw new RuntimeException();
-        }
-        return nodeEntry;
-      }
-    };
+          @Override
+          public ModifiedFileSet getDiff(View oldView, View newView) {
+            return ModifiedFileSet.NOTHING_MODIFIED;
+          }
+
+          @Override
+          public String name() {
+            return null;
+          }
+
+          @Override
+          public void close() {}
+        };
+  }
+
+  private Diff getRecordedDiff() {
+    return skyframeExecutor
+        .getDifferencerForTesting()
+        .getDiff(/*fromGraph=*/ null, ignored -> false, ignored -> false);
   }
 
   @Test
@@ -567,11 +631,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Diff diff =
         new FilesystemValueChecker(
                 new TimestampGranularityMonitor(BlazeClock.instance()),
-                /* lastExecutionTimeRange= */ null,
+                SyscallCache.NO_CACHE,
                 /* numThreads= */ 20)
             .getDirtyKeys(
-                skyframeExecutor.getEvaluatorForTesting().getValues(),
-                new BasicFilesystemDirtinessChecker());
+                skyframeExecutor.getEvaluator().getValues(), new BasicFilesystemDirtinessChecker());
     return ImmutableList.<SkyKey>builder()
         .addAll(diff.changedKeysWithoutNewValues())
         .addAll(diff.changedKeysWithNewValues().keySet())
@@ -584,7 +647,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       labels.add(Label.parseAbsolute(labelString, ImmutableMap.of()));
     }
     visitor.preloadTransitiveTargets(
-        reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200);
+        reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200, /*callerForError=*/ null);
   }
 
   @Test
@@ -718,7 +781,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
-    return skyframeExecutor.getDriver().evaluate(roots, evaluationContext);
+    return skyframeExecutor.getEvaluator().evaluate(roots, evaluationContext);
   }
 
   /**
@@ -825,7 +888,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // the action cache post-build.
     final CountDownLatch inputsRequested = new CountDownLatch(2);
     skyframeExecutor
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
@@ -943,7 +1006,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Thread mainThread = Thread.currentThread();
     CountDownLatch cStarted = new CountDownLatch(1);
     skyframeExecutor
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
@@ -1473,7 +1536,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     skyframeExecutor
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
@@ -1593,16 +1656,18 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThat(
             ValueWithMetadata.getEvents(
                     skyframeExecutor
-                        .getDriver()
-                        .getEntryForTesting(ActionLookupData.create(lc1, 0))
+                        .getEvaluator()
+                        .getExistingEntryAtCurrentlyEvaluatingVersion(
+                            ActionLookupData.create(lc1, 0))
                         .getValueMaybeWithMetadata())
                 .toList())
         .isEmpty();
     assertThat(
             ValueWithMetadata.getEvents(
                     skyframeExecutor
-                        .getDriver()
-                        .getEntryForTesting(ActionLookupData.create(lc2, 0))
+                        .getEvaluator()
+                        .getExistingEntryAtCurrentlyEvaluatingVersion(
+                            ActionLookupData.create(lc2, 0))
                         .getValueMaybeWithMetadata())
                 .toList())
         .isEmpty();
@@ -1775,7 +1840,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   private static ActionLookupValue createActionLookupValue(
       ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey)
-      throws ActionConflictException, InterruptedException {
+      throws ActionConflictException, InterruptedException,
+          Actions.ArtifactGeneratedByOtherRuleException {
     return new BasicActionLookupValue(
         Actions.assignOwnersAndFindAndThrowActionConflict(
             new ActionKeyContext(), ImmutableList.of(generatingAction), actionLookupKey));
@@ -1849,8 +1915,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 failureCTK, failureALV,
                 topCTK, topALV));
     skyframeExecutor
-        .getDriver()
-        .getGraphForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             DeterministicHelper.makeTransformer(
                 (key, type, order, context) -> {
@@ -1969,8 +2034,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(configuredTargetKey, nonRuleActionLookupValue));
     skyframeExecutor
-        .getDriver()
-        .getGraphForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             DeterministicHelper.makeTransformer(
                 (key, type, order, context) -> {

@@ -24,9 +24,16 @@ import java.util.Map;
  * Assembles the multi-page version of the Build Encyclopedia with one page per rule family.
  */
 public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProcessor {
+
+  // Whether a table-of-contents file should be created.
+  protected final boolean createToc;
+
   public MultiPageBuildEncyclopediaProcessor(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
-    super(productName, ruleClassProvider);
+      RuleLinkExpander linkExpander,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      boolean createToc) {
+    super(linkExpander, ruleClassProvider);
+    this.createToc = createToc;
   }
 
   /**
@@ -40,76 +47,81 @@ public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProces
   @Override
   public void generateDocumentation(List<String> inputDirs, String outputDir, String denyList)
       throws BuildEncyclopediaDocException, IOException {
-    BuildDocCollector collector = new BuildDocCollector(productName, ruleClassProvider, false);
-    RuleLinkExpander expander = new RuleLinkExpander(productName, false);
-    Map<String, RuleDocumentation> ruleDocEntries =
-        collector.collect(inputDirs, denyList, expander);
+    BuildDocCollector collector = new BuildDocCollector(linkExpander, ruleClassProvider, false);
+    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(inputDirs, denyList);
     warnAboutUndocumentedRules(
         Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
 
-    writeStaticDoc(outputDir, expander, "make-variables");
-    writeStaticDoc(outputDir, expander, "functions");
-    writeCommonDefinitionsPage(outputDir, expander);
+    writeStaticDoc(outputDir, "make-variables");
+    writeStaticDoc(outputDir, "functions");
+    writeCommonDefinitionsPage(outputDir);
 
-    writeRuleDocs(outputDir, expander, ruleDocEntries.values());
+    writeRuleDocs(outputDir, ruleDocEntries.values());
   }
 
-  private void writeStaticDoc(String outputDir, RuleLinkExpander expander, String name)
-      throws IOException {
+  private void writeStaticDoc(String outputDir, String name) throws IOException {
     // TODO(dzc): Consider splitting out the call to writePage so that this method only creates the
     // Page object and adding docgen tests that test the state of Page objects constructed by
     // this method, and similar methods in this class.
     Page page = TemplateEngine.newPage(DocgenConsts.BE_TEMPLATE_DIR + "/" + name + ".vm");
-    page.add("expander", expander);
+    page.add("expander", linkExpander);
     writePage(page, outputDir, name + ".html");
   }
 
-  private void writeCommonDefinitionsPage(String outputDir, RuleLinkExpander expander)
-      throws IOException {
+  private void writeCommonDefinitionsPage(String outputDir) throws IOException {
     Page page = TemplateEngine.newPage(DocgenConsts.COMMON_DEFINITIONS_TEMPLATE);
-    page.add("expander", expander);
-    page.add(
-        "typicalAttributes",
-        expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES, expander));
-    page.add("commonAttributes",
-        expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES, expander));
-    page.add("testAttributes",
-        expandCommonAttributes(PredefinedAttributes.TEST_ATTRIBUTES, expander));
-    page.add("binaryAttributes",
-        expandCommonAttributes(PredefinedAttributes.BINARY_ATTRIBUTES, expander));
+    page.add("expander", linkExpander);
+    page.add("typicalAttributes", expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES));
+    page.add("commonAttributes", expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES));
+    page.add("testAttributes", expandCommonAttributes(PredefinedAttributes.TEST_ATTRIBUTES));
+    page.add("binaryAttributes", expandCommonAttributes(PredefinedAttributes.BINARY_ATTRIBUTES));
     writePage(page, outputDir, "common-definitions.html");
   }
 
-  private void writeRuleDocs(String outputDir, RuleLinkExpander expander,
-      Iterable<RuleDocumentation> docEntries) throws BuildEncyclopediaDocException, IOException {
+  private void writeRuleDocs(String outputDir, Iterable<RuleDocumentation> docEntries)
+      throws BuildEncyclopediaDocException, IOException {
     RuleFamilies ruleFamilies = assembleRuleFamilies(docEntries);
 
     // Generate documentation.
-    writeOverviewPage(outputDir, expander, ruleFamilies.langSpecific, ruleFamilies.generic);
+    writeOverviewPage(outputDir, ruleFamilies.langSpecific, ruleFamilies.generic);
     writeBeNav(outputDir, ruleFamilies.all);
     for (RuleFamily ruleFamily : ruleFamilies.all) {
       if (ruleFamily.size() > 0) {
         writeRuleDoc(outputDir, ruleFamily);
       }
     }
+    if (createToc) {
+      writeTableOfContents(outputDir, ruleFamilies.langSpecific, ruleFamilies.generic);
+    }
   }
 
   private void writeOverviewPage(String outputDir,
-      RuleLinkExpander expander,
       List<RuleFamily> langSpecificRuleFamilies,
       List<RuleFamily> genericRuleFamilies)
       throws BuildEncyclopediaDocException, IOException {
     Page page = TemplateEngine.newPage(DocgenConsts.OVERVIEW_TEMPLATE);
-    page.add("expander", expander);
+    page.add("expander", linkExpander);
     page.add("langSpecificRuleFamilies", langSpecificRuleFamilies);
     page.add("genericRuleFamilies", genericRuleFamilies);
     writePage(page, outputDir, "overview.html");
+  }
+
+  private void writeTableOfContents(
+      String outputDir,
+      List<RuleFamily> langSpecificRuleFamilies,
+      List<RuleFamily> genericRuleFamilies)
+      throws IOException {
+    Page page = TemplateEngine.newPage(DocgenConsts.BE_TOC_TEMPLATE);
+    page.add("langSpecificRuleFamilies", langSpecificRuleFamilies);
+    page.add("genericRuleFamilies", genericRuleFamilies);
+    writePage(page, outputDir, "_toc.yaml");
   }
 
   private void writeRuleDoc(String outputDir, RuleFamily ruleFamily)
       throws BuildEncyclopediaDocException, IOException {
     Page page = TemplateEngine.newPage(DocgenConsts.RULES_TEMPLATE);
     page.add("ruleFamily", ruleFamily);
+    page.add("expander", linkExpander);
     writePage(page, outputDir, ruleFamily.getId() + ".html");
   }
 

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
@@ -70,14 +71,10 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   @Override
   public void setUp() throws Exception {
-    setUp(new AnalysisHelper());
-  }
-
-  public void setUp(AnalysisHelper analysisHelper) throws Exception {
     super.setUp();
     parserPrefix = PathFragment.EMPTY_FRAGMENT;
-    this.analysisHelper = analysisHelper;
     wholeTestUniverse = false;
+    this.analysisHelper = new AnalysisHelper();
     // Reverse the @Before method list, so that superclass is called before subclass.
     for (Method method :
         Lists.reverse(getMethodsAnnotatedWith(AnalysisHelper.class, Before.class))) {
@@ -100,6 +97,10 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   MockToolsConfig getMockToolsConfig() {
     return analysisHelper.getMockToolsConfig();
+  }
+
+  void setSyscallCache(SyscallCache syscallCache) {
+    this.analysisHelper.setSyscallCache(syscallCache);
   }
 
   public boolean isWholeTestUniverse() {
@@ -176,7 +177,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     Path rootDirectory = getRootDirectory();
     Path linkPath = rootDirectory.getRelative(link);
     Path targetPath = rootDirectory.getRelative(target);
-    FileSystemUtils.createDirectoryAndParents(linkPath.getParentDirectory());
+    linkPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.ensureSymbolicLink(linkPath, targetPath);
   }
 
@@ -300,6 +301,10 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
     protected Reporter getReporter() {
       return reporter;
+    }
+
+    private void setSyscallCache(SyscallCache syscallCache) {
+      this.delegatingSyscallCache.setDelegate(syscallCache);
     }
 
     @Override

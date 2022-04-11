@@ -31,7 +31,12 @@ def _determine_single_architecture(platform_type, settings):
         ios_cpus = settings["//command_line_option:ios_multi_cpus"]
         if len(ios_cpus) > 0:
             return ios_cpus[0]
-        return _ios_cpu_from_cpu(settings["//command_line_option:cpu"])
+        cpu_value = settings["//command_line_option:cpu"]
+        if cpu_value.startswith(IOS_CPU_PREFIX):
+            return cpu_value[len(IOS_CPU_PREFIX):]
+        if cpu_value == "darwin_arm64":
+            return "sim_arm64"
+        return DEFAULT_IOS_CPU
     if platform_type == WATCHOS:
         watchos_cpus = settings["//command_line_option:watchos_cpus"]
         if len(watchos_cpus) == 0:
@@ -44,9 +49,12 @@ def _determine_single_architecture(platform_type, settings):
         return tvos_cpus[0]
     if platform_type == MACOS:
         macos_cpus = settings["//command_line_option:macos_cpus"]
-        if len(macos_cpus) == 0:
-            return DEFAULT_MACOS_CPU
-        return macos_cpus[0]
+        if macos_cpus:
+            return macos_cpus[0]
+        cpu_value = settings["//command_line_option:cpu"]
+        if cpu_value.startswith(DARWIN_CPU_PREFIX):
+            return cpu_value[len(DARWIN_CPU_PREFIX):]
+        return DEFAULT_MACOS_CPU
     if platform_type == CATALYST:
         catalyst_cpus = settings["//command_line_option:catalyst_cpus"]
         if len(catalyst_cpus) == 0:
@@ -61,45 +69,51 @@ TVOS = "tvos"
 MACOS = "macos"
 CATALYST = "catalyst"
 IOS_CPU_PREFIX = "ios_"
+DARWIN_CPU_PREFIX = "darwin_"
 DEFAULT_IOS_CPU = "x86_64"
 DEFAULT_WATCHOS_CPU = "i386"
 DEFAULT_TVOS_CPU = "x86_64"
 DEFAULT_MACOS_CPU = "x86_64"
 DEFAULT_CATALYST_CPU = "x86_64"
 
-def _ios_cpu_from_cpu(cpu):
-    if cpu.startswith(IOS_CPU_PREFIX):
-        return cpu[len(IOS_CPU_PREFIX):]
-    return DEFAULT_IOS_CPU
-
-def _apple_crosstool_transition_impl(settings, attr):
-    platform_type = str(settings["//command_line_option:apple_platform_type"])
-    cpu = _cpu_string(platform_type, settings)
-    if cpu == settings["//command_line_option:cpu"] and settings["//command_line_option:crosstool_top"] == settings["//command_line_option:apple_crosstool_top"]:
-        return {}  # No changes necessary.
+def _output_dictionary(settings, cpu, platform_type, platforms):
     return {
         "//command_line_option:apple configuration distinguisher": "applebin_" + platform_type,
-        "//command_line_option:apple_platform_type": settings["//command_line_option:apple_platform_type"],
-        "//command_line_option:apple_split_cpu": settings["//command_line_option:apple_split_cpu"],
         "//command_line_option:compiler": settings["//command_line_option:apple_compiler"],
         "//command_line_option:cpu": cpu,
         "//command_line_option:crosstool_top": (
             settings["//command_line_option:apple_crosstool_top"]
         ),
-        "//command_line_option:platforms": [],
+        "//command_line_option:platforms": platforms,
         "//command_line_option:fission": [],
         "//command_line_option:grte_top": settings["//command_line_option:apple_grte_top"],
-        "//command_line_option:ios_minimum_os": settings["//command_line_option:ios_minimum_os"],
-        "//command_line_option:macos_minimum_os": settings["//command_line_option:macos_minimum_os"],
-        "//command_line_option:tvos_minimum_os": settings["//command_line_option:tvos_minimum_os"],
-        "//command_line_option:watchos_minimum_os": settings["//command_line_option:watchos_minimum_os"],
     }
+
+def _apple_crosstool_transition_impl(settings, attr):
+    platform_type = str(settings["//command_line_option:apple_platform_type"])
+    cpu = _cpu_string(platform_type, settings)
+    if settings["//command_line_option:incompatible_enable_apple_toolchain_resolution"]:
+        platforms = (
+            settings["//command_line_option:apple_platforms"] or
+            settings["//command_line_option:platforms"]
+        )
+        return _output_dictionary(settings, cpu, platform_type, platforms)
+    crosstools_are_equal = (
+        settings["//command_line_option:crosstool_top"] ==
+        settings["//command_line_option:apple_crosstool_top"]
+    )
+    if cpu == settings["//command_line_option:cpu"] and crosstools_are_equal:
+        # No changes necessary.
+        return {}
+
+    # Ensure platforms aren't set so that platform mapping can take place.
+    return _output_dictionary(settings, cpu, platform_type, [])
 
 _apple_rule_base_transition_inputs = [
     "//command_line_option:apple configuration distinguisher",
     "//command_line_option:apple_compiler",
-    "//command_line_option:compiler",
     "//command_line_option:apple_platform_type",
+    "//command_line_option:apple_platforms",
     "//command_line_option:apple_crosstool_top",
     "//command_line_option:crosstool_top",
     "//command_line_option:apple_split_cpu",
@@ -110,28 +124,19 @@ _apple_rule_base_transition_inputs = [
     "//command_line_option:tvos_cpus",
     "//command_line_option:watchos_cpus",
     "//command_line_option:catalyst_cpus",
-    "//command_line_option:ios_minimum_os",
-    "//command_line_option:macos_minimum_os",
-    "//command_line_option:tvos_minimum_os",
-    "//command_line_option:watchos_minimum_os",
     "//command_line_option:platforms",
     "//command_line_option:fission",
     "//command_line_option:grte_top",
+    "//command_line_option:incompatible_enable_apple_toolchain_resolution",
 ]
 _apple_rule_base_transition_outputs = [
     "//command_line_option:apple configuration distinguisher",
-    "//command_line_option:apple_platform_type",
-    "//command_line_option:apple_split_cpu",
     "//command_line_option:compiler",
     "//command_line_option:cpu",
     "//command_line_option:crosstool_top",
     "//command_line_option:platforms",
     "//command_line_option:fission",
     "//command_line_option:grte_top",
-    "//command_line_option:ios_minimum_os",
-    "//command_line_option:macos_minimum_os",
-    "//command_line_option:tvos_minimum_os",
-    "//command_line_option:watchos_minimum_os",
 ]
 
 apple_crosstool_transition = transition(

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -68,10 +67,10 @@ public class GenRuleBaseRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(tools) -->
         A list of <i>tool</i> dependencies for this rule. See the definition of
-        <a href="../build-ref.html#deps">dependencies</a> for more information. <br/>
+        <a href="${link build-ref#deps}">dependencies</a> for more information. <br/>
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
-          they are built using the <a href='../guide.html#configurations'><i>host</i>
+          they are built using the <a href='${link guide#configurations}'><i>host</i>
           configuration</a>, since these tools are executed as part of the build. The path of an
           individual <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.
@@ -83,7 +82,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("tools", LABEL_LIST)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(exec_tools) -->
@@ -154,7 +153,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         </ol>
         <p>
           The command may refer to <code>*_binary</code> targets; it should use a <a
-          href="../build-ref.html#labels">label</a> for this. The following
+          href="${link build-ref#labels}">label</a> for this. The following
           variables are available within the <code>cmd</code> sublanguage:</p>
         <ul>
           <li>

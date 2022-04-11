@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -74,29 +75,13 @@ public class PackageLookupFunction implements SkyFunction {
     this.externalPackageHelper = externalPackageHelper;
   }
 
-  @Override
-  public boolean supportsSkyKeyComputeState() {
-    return true;
-  }
-
   private static class State implements SkyKeyComputeState {
     private int packagePathEntryPos = 0;
     private int buildFileNamePos = 0;
   }
 
   @Override
-  public State createNewSkyKeyComputeState() {
-    return new State();
-  }
-
-  @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws PackageLookupFunctionException, InterruptedException {
-    return compute(skyKey, createNewSkyKeyComputeState(), env);
-  }
-
-  @Override
-  public SkyValue compute(SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -135,7 +120,7 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
-    return findPackageByBuildFile((State) skyKeyComputeState, env, pkgLocator, packageKey);
+    return findPackageByBuildFile(env, pkgLocator, packageKey);
   }
 
   /**
@@ -169,8 +154,9 @@ public class PackageLookupFunction implements SkyFunction {
 
   @Nullable
   private PackageLookupValue findPackageByBuildFile(
-      State state, Environment env, PathPackageLocator pkgLocator, PackageIdentifier packageKey)
+      Environment env, PathPackageLocator pkgLocator, PackageIdentifier packageKey)
       throws PackageLookupFunctionException, InterruptedException {
+    State state = env.getState(State::new);
     while (state.packagePathEntryPos < pkgLocator.getPathEntries().size()) {
       while (state.buildFileNamePos < buildFilesByPriority.size()) {
         Root packagePathEntry = pkgLocator.getPathEntries().get(state.packagePathEntryPos);

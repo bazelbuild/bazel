@@ -86,7 +86,7 @@ public final class BuildOptionDetails {
       throw new IllegalStateException(
           "Unexpected illegal access trying to create this configuration's options map: ", e);
     }
-    return new BuildOptionDetails(map.build(), ImmutableMap.copyOf(starlarkOptions));
+    return new BuildOptionDetails(map.buildOrThrow(), ImmutableMap.copyOf(starlarkOptions));
   }
 
   private static final class OptionDetails {

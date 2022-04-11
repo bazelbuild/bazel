@@ -124,7 +124,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // Add make variables from the toolchainProvider, also.
     ImmutableMap.Builder<String, String> ccProviderMakeVariables = new ImmutableMap.Builder<>();
     toolchainProvider.addGlobalMakeVariables(ccProviderMakeVariables);
-    makeVariables.putAll(ccProviderMakeVariables.build());
+    makeVariables.putAll(ccProviderMakeVariables.buildOrThrow());
 
     return new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables), location);
   }

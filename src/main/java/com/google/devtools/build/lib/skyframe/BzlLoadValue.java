@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -63,6 +64,8 @@ public class BzlLoadValue implements SkyValue {
 
   /** SkyKey for a Starlark load. */
   public abstract static class Key implements SkyKey {
+    // Closed, for class-based equals()/hashCode().
+    private Key() {}
 
     /**
      * Returns the absolute label of the .bzl file to be loaded.
@@ -94,7 +97,7 @@ public class BzlLoadValue implements SkyValue {
     abstract Key getKeyForLoad(Label loadLabel);
 
     /**
-     * Constructs an BzlCompileValue key suitable for retrieving the Starlark code for this .bzl,
+     * Constructs a BzlCompileValue key suitable for retrieving the Starlark code for this .bzl,
      * given the Root in which to find its file.
      */
     abstract BzlCompileValue.Key getCompileKey(Root root);
@@ -110,13 +113,46 @@ public class BzlLoadValue implements SkyValue {
       // compare deserialized instances. This is currently the case for attribute descriptors.
       return false;
     }
+
+    @SuppressWarnings("EqualsGetClass") // All subclasses are known.
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null) {
+        return false;
+      }
+      if (!this.getClass().equals(obj.getClass())) {
+        return false;
+      }
+      Key that = (Key) obj;
+      return this.getLabel().equals(that.getLabel())
+          && (this.isBuildPrelude() == that.isBuildPrelude())
+          && (this.isBuiltins() == that.isBuiltins());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getClass(), getLabel(), isBuildPrelude(), isBuiltins());
+    }
+
+    protected final MoreObjects.ToStringHelper toStringHelper() {
+      return MoreObjects.toStringHelper(this)
+          .add("label", getLabel())
+          .add("isBuildPrelude", isBuildPrelude());
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper().toString();
+    }
   }
 
   /** A key for loading a .bzl during package loading (BUILD evaluation). */
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForBuild extends Key {
-
     private final Label label;
 
     /**
@@ -158,29 +194,6 @@ public class BzlLoadValue implements SkyValue {
         return BzlCompileValue.key(root, label);
       }
     }
-
-    // TODO(brandjon): Use something more similar to AbstractSkyKey's stringification (same below).
-    @Override
-    public String toString() {
-      return label.toString();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof KeyForBuild)) {
-        return false;
-      }
-      KeyForBuild other = (KeyForBuild) obj;
-      return this.label.equals(other.label) && this.isBuildPrelude == other.isBuildPrelude;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(KeyForBuild.class, label, isBuildPrelude);
-    }
   }
 
   /**
@@ -198,7 +211,6 @@ public class BzlLoadValue implements SkyValue {
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForWorkspace extends Key {
-
     private final Label label;
     private final int workspaceChunk;
     private final RootedPath workspacePath;
@@ -233,27 +245,17 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    public String toString() {
-      return label + " (in workspace)";
-    }
-
-    @Override
     public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof KeyForWorkspace)) {
+      if (!super.equals(obj)) {
         return false;
       }
       KeyForWorkspace other = (KeyForWorkspace) obj;
-      return label.equals(other.label)
-          && workspaceChunk == other.workspaceChunk
-          && workspacePath.equals(other.workspacePath);
+      return workspaceChunk == other.workspaceChunk && workspacePath.equals(other.workspacePath);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(KeyForWorkspace.class, label, workspaceChunk, workspacePath);
+      return Objects.hash(super.hashCode(), workspaceChunk, workspacePath);
     }
   }
 
@@ -271,7 +273,6 @@ public class BzlLoadValue implements SkyValue {
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForBuiltins extends Key {
-
     private final Label label;
 
     private KeyForBuiltins(Label label) {
@@ -300,34 +301,12 @@ public class BzlLoadValue implements SkyValue {
     BzlCompileValue.Key getCompileKey(Root root) {
       return BzlCompileValue.keyForBuiltins(root, label);
     }
-
-    @Override
-    public String toString() {
-      return label.toString();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof KeyForBuiltins)) {
-        return false;
-      }
-      return this.label.equals(((KeyForBuiltins) obj).label);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(KeyForBuiltins.class, label);
-    }
   }
 
   /** A key for loading a .bzl to get the repo rule required by Bzlmod generated repositories. */
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForBzlmod extends Key {
-
     private final Label label;
 
     private KeyForBzlmod(Label label) {
@@ -347,28 +326,6 @@ public class BzlLoadValue implements SkyValue {
     @Override
     BzlCompileValue.Key getCompileKey(Root root) {
       return BzlCompileValue.key(root, label);
-    }
-
-    @Override
-    public String toString() {
-      return label + " (in Bzlmod)";
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof KeyForBzlmod)) {
-        return false;
-      }
-      KeyForBzlmod other = (KeyForBzlmod) obj;
-      return label.equals(other.label);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(KeyForBzlmod.class, label);
     }
   }
 

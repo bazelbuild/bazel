@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.testutil;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -62,6 +63,7 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -592,6 +594,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testDeps() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
@@ -635,7 +638,8 @@ public abstract class AbstractQueryTest<T> {
                   helper.getToolsRepository()
                       + "//tools/cpp:malloc + //configurable:main + "
                       + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-                      + "//configurable:defaultdep + //conditions:a + //conditions:b"
+                      + "//configurable:defaultdep + //conditions:a + //conditions:b + "
+                      + "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain"
                       + implicitDeps));
     }
   }
@@ -951,6 +955,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testNoImplicitDeps() throws Exception {
     writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
 
@@ -971,10 +976,11 @@ public abstract class AbstractQueryTest<T> {
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";
+    String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
     assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr,
+        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr + " + " + toolchainDepsExpr,
         "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
     assertEqualsFiltered(
         targetDepsExpr + " + " + hostDepsExpr,
@@ -1800,6 +1806,28 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void badRuleInDeps() throws Exception {
+    runBadRuleInDeps(Code.STARLARK_EVAL_ERROR);
+  }
+
+  protected final void runBadRuleInDeps(Object code) throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:bar'])");
+    writeFile("bar/BUILD", "sh_library(name = 'bar', srcs = 'bad_single_file')");
+    EvalThrowsResult evalThrowsResult =
+        evalThrows("deps(//foo:foo)", /*unconditionallyThrows=*/ false);
+    FailureDetail.Builder failureDetailBuilder = FailureDetail.newBuilder();
+    if (code instanceof FailureDetails.PackageLoading.Code) {
+      failureDetailBuilder.setPackageLoading(
+          FailureDetails.PackageLoading.newBuilder().setCode((Code) code));
+    } else if (code instanceof Query.Code) {
+      failureDetailBuilder.setQuery(FailureDetails.Query.newBuilder().setCode((Query.Code) code));
+    }
+    assertThat(evalThrowsResult.getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(failureDetailBuilder.build());
+  }
+
+  @Test
   public void buildfilesBazel() throws Exception {
     writeFile("bar/BUILD.bazel");
     writeFile("bar/bar.bzl", "sym = 0");
@@ -1859,6 +1887,29 @@ public abstract class AbstractQueryTest<T> {
         "sh_library(name = 'd')");
     assertThat(evalToString("rdeps(//foo:a, //foo:d + //foo:c, 1)" + getDependencyCorrection()))
         .isEqualTo("//foo:b //foo:c //foo:d");
+  }
+
+  @Test
+  public void boundedDepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(evalToListOfStrings("deps(//foo:foo, 1)")).containsExactly("//foo:foo", "//foo:dep");
+  }
+
+  // Ideally we wouldn't fail on an irrelevant error (since //bar:missing is a dep of //foo:dep,
+  // not an rdep). This test documents the current non-ideal behavior.
+  @Test
+  public void boundedRdepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+                .getMessage())
+        .contains("preloading transitive closure failed: no such package 'bar':");
   }
 
   @Test
@@ -2046,8 +2097,8 @@ public abstract class AbstractQueryTest<T> {
    */
   public interface QueryHelper<T> {
 
-    @Before
     /** Basic set-up; this is called once at the beginning of a test, before anything else. */
+    @Before
     void setUp() throws Exception;
 
     void setKeepGoing(boolean keepGoing);

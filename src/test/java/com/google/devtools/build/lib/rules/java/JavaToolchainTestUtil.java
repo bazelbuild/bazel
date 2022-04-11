@@ -56,21 +56,10 @@ class JavaToolchainTestUtil {
         "    ], ",
         "    java_home = 'k8',",
         ")",
-        "constraint_value(",
-        "    name = 'constraint',",
-        "    constraint_setting = '"
-            + TestConstants.PLATFORM_PACKAGE_ROOT
-            + "/java/constraints:runtime',",
-        ")",
         "toolchain(",
         "    name = 'java_toolchain',",
         "    toolchain = ':toolchain',",
         "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/jdk:toolchain_type',",
-        "    target_compatible_with = [':constraint'],",
-        ")",
-        "platform(",
-        "    name = 'platform',",
-        "    constraint_values = [':constraint'],",
         ")");
   }
 }

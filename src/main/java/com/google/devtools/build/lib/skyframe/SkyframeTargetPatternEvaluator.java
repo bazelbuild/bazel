@@ -87,10 +87,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     Exception catastrophe = result.getCatastrophe();
     Throwables.propagateIfPossible(catastrophe, TargetParsingException.class);
     if (catastrophe != null) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "Non-TargetParsingException catastrophe for " + result + " and " + patterns,
-              catastrophe));
+      throw wrapException(catastrophe, null, result);
     }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
     for (PatternLookup patternLookup : patternLookups) {
@@ -113,7 +110,11 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         String rawPattern = patternLookup.pattern;
         ErrorInfo error = result.errorMap().get(key);
         if (error == null) {
-          Preconditions.checkState(!keepGoing);
+          if (keepGoing) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "No error for a non-catastrophic keep-going build: " + key + ", " + result));
+          }
           continue;
         }
         String errorMessage;
@@ -126,33 +127,22 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
           errorMessage = exception.getMessage();
           if (exception instanceof TargetParsingException) {
             targetParsingException = (TargetParsingException) exception;
-          } else if (key instanceof PackageValue.Key
-              && exception instanceof NoSuchPackageException) {
-            targetParsingException =
-                new TargetParsingException(
-                    errorMessage,
-                    exception,
-                    ((NoSuchPackageException) exception).getDetailedExitCode());
           } else {
-            BugReport.sendBugReport(
-                new IllegalStateException(
-                    "Unexpected exception when processing " + key, exception));
-            targetParsingException =
-                DetailedException.getDetailedExitCode(exception) != null
-                    ? new TargetParsingException(
-                        errorMessage, exception, DetailedException.getDetailedExitCode(exception))
-                    : new TargetParsingException(
-                        errorMessage, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
+            targetParsingException = wrapException(exception, key, key);
           }
-        } else if (!error.getCycleInfo().isEmpty()) {
+        } else {
+          Preconditions.checkState(
+              !error.getCycleInfo().isEmpty(),
+              "No exception or cycle %s %s %s",
+              key,
+              error,
+              result);
           errorMessage = "cycles detected during target parsing";
           targetParsingException =
               new TargetParsingException(errorMessage, TargetPatterns.Code.CYCLE);
           skyframeExecutor
               .getCyclesReporter()
               .reportCycles(error.getCycleInfo(), key, eventHandler);
-        } else {
-          throw new IllegalStateException(error.toString());
         }
         if (keepGoing) {
           eventHandler.handle(createPatternParsingError(targetParsingException, rawPattern));
@@ -164,7 +154,27 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
       }
     }
-    return resultBuilder.build();
+    return resultBuilder.buildOrThrow();
+  }
+
+  private static TargetParsingException wrapException(
+      Exception exception, @Nullable SkyKey key, Object debugging) {
+    if ((key == null || (key instanceof PackageValue.Key))
+        && (exception instanceof NoSuchPackageException)) {
+      // A "simple" target pattern (like "//pkg:t") doesn't have a TargetPatternKey, just a Package
+      // key, so it results in NoSuchPackageException that we transform here.
+      return new TargetParsingException(
+          exception.getMessage(),
+          exception,
+          ((NoSuchPackageException) exception).getDetailedExitCode());
+    }
+    BugReport.sendBugReport(
+        new IllegalStateException("Unexpected exception: " + debugging, exception));
+    String message = "Target parsing failed due to unexpected exception: " + exception.getMessage();
+    DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(exception);
+    return detailedExitCode != null
+        ? new TargetParsingException(message, exception, detailedExitCode)
+        : new TargetParsingException(message, exception, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
   }
 
   private PatternLookup createPatternLookup(

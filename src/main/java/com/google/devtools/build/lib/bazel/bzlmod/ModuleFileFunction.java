@@ -291,7 +291,7 @@ public class ModuleFileFunction implements SkyFunction {
       ModuleFileGlobals moduleFileGlobals, StarlarkSemantics starlarkSemantics) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, moduleFileGlobals, starlarkSemantics);
-    return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.build());
+    return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.buildOrThrow());
   }
 
   @FormatMethod

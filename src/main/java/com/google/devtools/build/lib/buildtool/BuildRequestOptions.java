@@ -331,9 +331,7 @@ public class BuildRequestOptions extends OptionsBase {
               + " specified via <param_name>=<param_value>, for example 'my_param=my_val' where"
               + " 'my_param' is a parameter of some aspect in --aspects list or required by an"
               + " aspect in the list. This option can be used multiple times. However, it is not"
-              + " allowed to assign values to the same parameter more than once. This option is"
-              + " only be effective under the experimental flag"
-              + " --experimental_allow_top_level_aspects_parameters.")
+              + " allowed to assign values to the same parameter more than once.")
   public List<Map.Entry<String, String>> aspectsParameters;
 
   public BuildRequestOptions() throws OptionsParsingException {}

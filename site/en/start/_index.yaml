@@ -1,0 +1,74 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+# custom_css_path: /landing-pages-nav.scss
+title: Getting started
+landing_page:
+  nav: left
+  rows:
+  - background: BAZEL_THEME
+    options:
+    - hero
+    - description-50
+    - no-image-background
+    - padding-large
+    items:
+    - image_path: "/images/placeholder_960.png"
+      heading: Getting started
+      description: >
+        Learn what Bazel is, why it is a good choice for your project, and how you can get started using it.
+  - options:
+    - cards
+    background: grey
+    items:
+    - heading: Learn about Bazel
+      classname: fully-clickable
+      path: /start/bazel-intro
+      description: >
+        Bazel is a powerful, open-source build system using human-readable, high-level build language.
+      icon:
+        name: info
+        position: top
+    - heading: Get started
+      classname: fully-clickable
+      path: /start/getting-started
+      description: >
+        Get started with Bazel with installation steps, container information, and links to tutorials.
+      icon:
+        name: start
+        position: top
+    - heading: Install Bazel
+      classname: fully-clickable
+      path: /install
+      description: >
+        Find and download Bazel packages and instructions for supported platforms.
+      icon:
+        name: download
+        position: top
+  - options:
+    - cards
+    background: grey
+    items:
+    - heading: Customize your setup
+      classname: fully-clickable
+      path: /install/ide
+      description: >
+        Integrate Bazel with your favorite IDE, and adjust settings to support your workflow.
+      icon:
+        name: settings
+        position: top
+    - heading: Migrate to Bazel
+      classname: fully-clickable
+      path: /migrate/maven
+      description: >
+        If you're coming from another build system, use a migration guide to smooth the transition.
+      icon:
+        name: fast_forward
+        position: top
+    - heading: Take a tutorial
+      classname: fully-clickable
+      path: /tutorials/cpp
+      description: >
+        Follow tutorials covering fundamental workflows to get comfortable using Bazel.
+      icon:
+        name: play_lesson
+        position: top

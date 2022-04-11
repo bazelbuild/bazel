@@ -81,7 +81,8 @@ public final class WorkerTest {
 
     SandboxInputs sandboxInputs = null;
     SandboxOutputs sandboxOutputs = null;
-    worker.prepareExecution(sandboxInputs, sandboxOutputs, key.getWorkerFilesWithHashes().keySet());
+    worker.prepareExecution(
+        sandboxInputs, sandboxOutputs, key.getWorkerFilesWithDigests().keySet());
 
     workerForCleanup = worker;
 

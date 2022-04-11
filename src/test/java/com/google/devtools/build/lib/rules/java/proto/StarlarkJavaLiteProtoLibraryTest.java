@@ -57,7 +57,10 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setUpMocks() throws Exception {
-    useConfiguration("--proto_compiler=//proto:compiler");
+    useConfiguration(
+        "--proto_compiler=//proto:compiler",
+        "--proto_toolchain_for_javalite=//tools/proto/toolchains:javalite");
+
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
     mockToolchains();
@@ -67,7 +70,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupStarlarkRule() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_lite_proto_library");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+java_lite_proto_library",
+        "--experimental_google_legacy_api");
   }
 
   private void mockToolchains() throws IOException {
@@ -265,7 +270,10 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "    mnemonics = ['Javac'],",
         "    extra_actions = [':xa'])");
 
-    useConfiguration("--experimental_action_listener=//xa:al", "--proto_compiler=//proto:compiler");
+    useConfiguration(
+        "--experimental_action_listener=//xa:al",
+        "--proto_compiler=//proto:compiler",
+        "--proto_toolchain_for_javalite=//tools/proto/toolchains:javalite");
     ConfiguredTarget ct = getConfiguredTarget("//x:lite_pb2");
     NestedSet<DerivedArtifact> artifacts =
         ct.getProvider(ExtraActionArtifactsProvider.class).getTransitiveExtraActionArtifacts();
@@ -331,67 +339,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that a java_lite_proto_library only provides direct jars corresponding on the
-   * proto_library rules it directly depends on, excluding anything that the proto_library rules
-   * depends on themselves. This does not concern strict-deps in the compilation of the generated
-   * Java code itself, only compilation of regular code in java_library/java_binary and similar
-   * rules.
-   */
-  @Test
-  public void jplCorrectlyDefinesDirectJars_strictDepsEnabled() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "java_lite_proto_library(name = 'foo_lite_pb2', deps = [':foo'])",
-        "proto_library(",
-        "    name = 'foo',",
-        "    srcs = [ 'foo.proto' ],",
-        "    deps = [ ':bar' ],",
-        ")",
-        "java_lite_proto_library(name = 'bar_lite_pb2', deps = [':bar'])",
-        "proto_library(",
-        "    name = 'bar',",
-        "    srcs = [ 'bar.proto' ],",
-        "    deps = [ ':baz' ],",
-        ")",
-        "proto_library(",
-        "    name = 'baz',",
-        "    srcs = [ 'baz.proto' ],",
-        ")");
-
-    {
-      JavaCompilationArgsProvider compilationArgsProvider =
-          getProvider(JavaCompilationArgsProvider.class, getConfiguredTarget("//x:foo_lite_pb2"));
-
-      Iterable<String> directJars =
-          prettyArtifactNames(compilationArgsProvider.getDirectCompileTimeJars());
-
-      assertThat(directJars).containsExactly("x/libfoo-lite-hjar.jar");
-
-      JavaSourceJarsProvider sourceJarsProvider =
-          getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:foo_lite_pb2"));
-      assertThat(sourceJarsProvider).isNotNull();
-      assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/libfoo-lite-src.jar");
-    }
-
-    {
-      JavaCompilationArgsProvider compilationArgsProvider =
-          getProvider(JavaCompilationArgsProvider.class, getConfiguredTarget("//x:bar_lite_pb2"));
-
-      Iterable<String> directJars =
-          prettyArtifactNames(compilationArgsProvider.getDirectCompileTimeJars());
-
-      assertThat(directJars).containsExactly("x/libbar-lite-hjar.jar");
-
-      JavaSourceJarsProvider sourceJarsProvider =
-          getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:bar_lite_pb2"));
-      assertThat(sourceJarsProvider).isNotNull();
-      assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/libbar-lite-src.jar");
-    }
-  }
-
-  /**
    * Tests that a java_proto_library only provides direct jars corresponding on the proto_library
    * rules it directly depends on, excluding anything that the proto_library rules depends on
    * themselves. This does not concern strict-deps in the compilation of the generated Java code
@@ -431,6 +378,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
    * java_library/java_binary and similar rules.
    */
   @Test
+  @Ignore("TODO(b/216484418): Systematize this test with its new version.")
   public void jplCorrectlyDefinesDirectJars_strictDepsDisabled() throws Exception {
     scratch.file(
         "x/BUILD",

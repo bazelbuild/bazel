@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
@@ -103,7 +103,6 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   @Test
   public void testBadStat(@TestParameter boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     // Given a package, "parent",
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     // And a child, "badstat",
@@ -131,21 +130,8 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   @Test
   public void testBadStatPathAsTarget(@TestParameter boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
-    AtomicBoolean returnNull = new AtomicBoolean(false);
-    this.transformer =
-        new Transformer() {
-          @Nullable
-          @Override
-          public FileStatus stat(FileStatus stat, PathFragment path, boolean followSymlinks) {
-            if (path.endsWith(PathFragment.create("parent/BUILD")) && returnNull.getAndSet(true)) {
-              return null;
-            }
-            return stat;
-          }
-        };
-
+    delegatingSyscallCache.setDelegate(TestUtils.makeDisappearingFileCache("parent/BUILD"));
     TargetParsingException e =
         assertThrows(
             TargetParsingException.class,
@@ -163,11 +149,10 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   @Test
   public void testBadReaddirKeepGoing() throws Exception {
     reporter.removeHandler(failFastHandler);
-    skyframeExecutor.turnOffSyscallCacheForTesting();
     // Given a package, "parent",
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     // And a child, "badstat",
-    FileSystemUtils.createDirectoryAndParents(parent.getRelative("badstat"));
+    parent.getRelative("badstat").createDirectoryAndParents();
 
     // Such that badstat reports that it is a directory, but throws an error when its Dirents are
     // collected,

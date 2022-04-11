@@ -178,13 +178,31 @@ public final class NativePosixFiles {
    * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
    *
    * @param path the directory to read.
-   * @return the list of directory entries in the order they were returned by
-   *   the system, excluding "." and "..".
+   * @return the list of directory entries in the order they were returned by the system, excluding
+   *     "." and "..".
    * @throws IOException if the call to opendir failed for any reason.
    */
   public static String[] readdir(String path) throws IOException {
     return readdir(path, ReadTypes.NONE).names;
   }
+
+  /**
+   * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
+   *
+   * @param path the directory to read.
+   * @param readTypes How the types of individual entries should be returned. If {@code NONE}, the
+   *     "types" field in the result will be null.
+   * @return a Dirents object, containing "names", the list of directory entries (excluding "." and
+   *     "..") in the order they were returned by the system, and "types", an array of entry types
+   *     (file, directory, etc) corresponding positionally to "names".
+   * @throws IOException if the call to opendir failed for any reason.
+   */
+  public static Dirents readdir(String path, ReadTypes readTypes) throws IOException {
+    // Passing enums to native code is possible, but onerous; we use a char instead.
+    return readdir(path, readTypes.getCode());
+  }
+
+  private static native Dirents readdir(String path, char typeCode) throws IOException;
 
   /**
    * An enum for specifying now the types of the individual entries returned by
@@ -273,26 +291,6 @@ public final class NativePosixFiles {
       return Type.forChar((char) types[i]);
     }
   }
-
-  /**
-   * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
-   *
-   * @param path the directory to read.
-   * @param readTypes How the types of individual entries should be returned. If {@code NONE},
-   *   the "types" field in the result will be null.
-   * @return a Dirents object, containing "names", the list of directory entries
-   *   (excluding "." and "..") in the order they were returned by the system,
-   *   and "types", an array of entry types (file, directory, etc) corresponding
-   *   positionally to "names".
-   * @throws IOException if the call to opendir failed for any reason.
-   */
-  public static Dirents readdir(String path, ReadTypes readTypes) throws IOException {
-    // Passing enums to native code is possible, but onerous; we use a char instead.
-    return readdir(path, readTypes.getCode());
-  }
-
-  private static native Dirents readdir(String path, char typeCode)
-      throws IOException;
 
   /**
    * Native wrapper around POSIX rename(2) syscall.

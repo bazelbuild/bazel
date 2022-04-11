@@ -189,42 +189,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java15_test",
-    srcs = ["bazel_java15_test.sh"],
-    args = [
-        # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
-    ],
-    data = [
-        ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = ["local"],
-)
-
-sh_test(
-    name = "bazel_java16_test",
-    srcs = ["bazel_java16_test.sh"],
-    args = [
-        # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
-    ],
-    data = [
-        ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = ["local"],
-)
-
-sh_test(
     name = "bazel_java17_test",
     srcs = ["bazel_java17_test.sh"],
     args = [
@@ -260,11 +224,9 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11", "15", "16", "17")
+JAVA_VERSIONS = ("11", "17")
 
-# TODO(davido): Enable test coverage for JDK 16 toolchain when this issue is fixed:
-# https://github.com/bazelbuild/bazel/issues/13358
-JAVA_VERSIONS_COVERAGE = ("11", "15")
+JAVA_VERSIONS_COVERAGE = ("11",)
 
 [
     sh_test(
@@ -498,7 +460,6 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
-        "manual",
         "no_windows",
     ],
 )
@@ -522,7 +483,6 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
-            "manual",
             "no_windows",
         ],
     )
@@ -552,7 +512,8 @@ sh_test(
         ],
         tags = ["no_windows"],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    # TODO: Update JAVA_VERSIONS_COVERAGE on the next java_tools release.
+    for java_version in JAVA_VERSIONS_COVERAGE + ("17",)
 ]
 
 sh_test(
@@ -695,7 +656,10 @@ sh_test(
     name = "external_integration_test",
     size = "large",
     srcs = ["external_integration_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
+    ],
     shard_count = 15,
     tags = [
         "no_windows",
@@ -1011,18 +975,6 @@ sh_test(
 )
 
 sh_test(
-    name = "persistent_test_runner_test",
-    size = "large",
-    srcs = ["persistent_test_runner_test.sh"],
-    data = [
-        ":test-deps",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-sh_test(
     name = "bazel_workspace_status_test",
     size = "large",
     srcs = ["bazel_workspace_status_test.sh"],
@@ -1162,22 +1114,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-)
-
-sh_test(
-    name = "toolchain_test",
-    size = "large",
-    srcs = ["toolchain_test.sh"],
-    data = [":test-deps"],
-    shard_count = 5,
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "toolchain_transition_test",
-    srcs = ["toolchain_transition_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -1359,4 +1295,14 @@ sh_test(
         "no_windows",
         "requires-network",
     ],
+)
+
+sh_test(
+    name = "check_external_files_test",
+    srcs = ["check_external_files_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
 )

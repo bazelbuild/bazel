@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFut
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.Collections;
 import java.util.List;
+import java.util.OptionalInt;
 
 /**
  * A "same_pkg_direct_rdeps" query expression, which computes all of the targets in the same package
@@ -32,6 +33,7 @@ import java.util.List;
  * <pre>expr ::= SAME_PKG_DIRECT_RDEPS '(' expr ')'</pre>
  */
 public class SamePkgDirectRdepsFunction implements QueryFunction {
+  public static final OptionalInt DEPTH_ONE = OptionalInt.of(1);
 
   @Override
   public String getName() {
@@ -72,7 +74,7 @@ public class SamePkgDirectRdepsFunction implements QueryFunction {
           for (T target : partialResult) {
             ThreadSafeMutableSet<T> siblings = env.createThreadSafeMutableSet();
             siblings.addAll(env.getSiblingTargetsInPackage(target));
-            env.buildTransitiveClosure(expression, siblings, /*maxDepth=*/ 1);
+            env.buildTransitiveClosure(expression, siblings, DEPTH_ONE);
             Iterable<T> rdeps = env.getReverseDeps(Collections.singleton(target), context);
             callback.process(uniquifier.unique(Iterables.filter(rdeps, siblings::contains)));
           }

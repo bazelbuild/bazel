@@ -1522,6 +1522,39 @@ EOF
     || fail "Nondeterministic action key"
 }
 
+function test_execution_info() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+platform(
+    name = "exec",
+    exec_properties = {
+        "prop1": "foo",
+        "prop2": "bar",
+    },
+)
+
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/dummy.txt"
+
+  bazel aquery \
+    --extra_execution_platforms="//${pkg}:exec" \
+    --output=text \
+    "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Execution platform: //${pkg}:exec" output
+
+  # Verify the execution platform's exec_properties end up as execution requirements.
+  assert_contains "ExecutionInfo: {prop1: foo, prop2: bar}" output
+}
+
 # Usage: assert_matches expected_pattern actual
 function assert_matches() {
   [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"

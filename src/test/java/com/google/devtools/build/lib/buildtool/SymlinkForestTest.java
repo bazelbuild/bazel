@@ -138,7 +138,8 @@ public class SymlinkForestTest {
   @Test
   public void testDeleteTreesBelowNotPrefixed() throws IOException {
     createTestDirectoryTree();
-    new SymlinkForest(ImmutableMap.of(), topDir, "").deleteTreesBelowNotPrefixed(topDir, "file-");
+    SymlinkForest.deleteTreesBelowNotPrefixed(
+        topDir, "file-", /*notSymlinkedInExecrootDirectories=*/ ImmutableSortedSet.of());
     assertThat(file1.exists()).isTrue();
     assertThat(file2.exists()).isTrue();
     assertThat(aDir.exists()).isFalse();
@@ -216,7 +217,7 @@ public class SymlinkForestTest {
             .put(createPkg(rootA, rootB, "pkgB/dir/pkg"), rootA)
             .put(createPkg(rootA, rootB, "pkgB/pkg"), rootA)
             .put(createPkg(rootA, rootB, "pkgB/pkg/pkg"), rootA)
-            .build();
+            .buildOrThrow();
     createPkg(rootA, rootB, "pkgB/dir"); // create a file in there
 
     Path linkRoot = fileSystem.getPath("/linkRoot");
@@ -264,7 +265,7 @@ public class SymlinkForestTest {
         ImmutableMap.<PackageIdentifier, Root>builder()
             .put(createPkg(rootX, rootY, ""), rootX)
             .put(createPkg(rootX, rootY, "foo"), rootX)
-            .build();
+            .buildOrThrow();
 
     ImmutableList<Path> plantedSymlinks =
         new SymlinkForest(
@@ -433,7 +434,7 @@ public class SymlinkForestTest {
             .put(
                 createExternalPkg(outputBase, "X", "dir_x/pkg"),
                 externalSourceRoot(outputBase, "X"))
-            .build();
+            .buildOrThrow();
 
     ImmutableList<Path> plantedSymlinks =
         new SymlinkForest(
@@ -639,7 +640,7 @@ public class SymlinkForestTest {
             .put(
                 createExternalPkg(outputBase, "X", "dir_x/pkg"),
                 externalSourceRoot(outputBase, "X"))
-            .build();
+            .buildOrThrow();
 
     ImmutableList<Path> plantedSymlinks =
         new SymlinkForest(
@@ -814,7 +815,7 @@ public class SymlinkForestTest {
             .put(
                 createExternalPkg(outputBase, "X", "dir_x/pkg"),
                 externalSourceRoot(outputBase, "X"))
-            .build();
+            .buildOrThrow();
 
     ImmutableList<Path> plantedSymlinks =
         new SymlinkForest(
@@ -885,7 +886,7 @@ public class SymlinkForestTest {
         ImmutableMap.<PackageIdentifier, Root>builder()
             .put(createMainPkg(mainRepo, "dir1"), mainRepo)
             .put(createMainPkg(otherRepo, "dir2"), otherRepo)
-            .build();
+            .buildOrThrow();
 
     AbruptExitException exception =
         assertThrows(

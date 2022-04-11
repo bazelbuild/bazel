@@ -20,8 +20,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -89,11 +89,13 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
             return String.format("toolchain type %s", toolchainType);
           }
           if (input.argument() instanceof ToolchainContextKey) {
-            ImmutableSet<Label> toolchainTypes =
-                ((ToolchainContextKey) input.argument()).requiredToolchainTypeLabels();
-            return String.format(
-                "toolchain types %s",
-                toolchainTypes.stream().map(Label::toString).collect(joining(", ")));
+            ToolchainContextKey toolchainContextKey = (ToolchainContextKey) input.argument();
+            String toolchainTypes =
+                toolchainContextKey.toolchainTypes().stream()
+                    .map(ToolchainTypeRequirement::toolchainType)
+                    .map(Label::toString)
+                    .collect(joining(", "));
+            return String.format("toolchain types %s", toolchainTypes);
           }
 
           throw new UnsupportedOperationException();

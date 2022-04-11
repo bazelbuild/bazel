@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -220,7 +219,6 @@ public final class ImportDepsChecker implements Closeable {
 
   private void outputIncompleteClasses(
       StringBuilder builder, ImmutableList<IncompleteState> incompleteClasses) {
-    new LinkedHashMap<>();
     HashMultimap<String, ClassInfo> map = HashMultimap.create();
     for (IncompleteState incomplete : incompleteClasses) {
       ResolutionFailureChain chain = incomplete.resolutionFailureChain();

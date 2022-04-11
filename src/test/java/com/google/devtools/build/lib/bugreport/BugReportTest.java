@@ -36,22 +36,49 @@ import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ExtensionRegistry;
+import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.Permission;
 import java.util.Arrays;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 
-/** Tests for {@link BugReport}. */
+/**
+ * Tests for {@link BugReport}.
+ *
+ * <p>Assuming that {@link GoogleTestSecurityManager} is not already installed, uses {@link
+ * ExitProhibitingSecurityManager} to exercise attempting to halt the JVM without aborting the whole
+ * test.
+ */
+// TODO(b/222158599): Remove handling for GoogleTestSecurityManager.
 @RunWith(TestParameterInjector.class)
 public final class BugReportTest {
+
+  @BeforeClass
+  public static void installCustomSecurityManager() {
+    if (System.getSecurityManager() == null) {
+      System.setSecurityManager(new ExitProhibitingSecurityManager());
+    } else {
+      assertThat(System.getSecurityManager()).isInstanceOf(GoogleTestSecurityManager.class);
+    }
+  }
+
+  @AfterClass
+  public static void uninstallCustomSecurityManager() {
+    if (System.getSecurityManager() instanceof ExitProhibitingSecurityManager) {
+      System.setSecurityManager(null);
+    }
+  }
 
   private enum CrashType {
     CRASH(ExitCode.BLAZE_INTERNAL_ERROR, Code.CRASH_UNKNOWN) {
@@ -111,7 +138,12 @@ public final class BugReportTest {
     FailureDetail expectedFailureDetail =
         createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
 
-    assertThrows(SecurityException.class, () -> BugReport.handleCrash(t));
+    // TODO(b/222158599): This should always be ExitException.
+    SecurityException e = assertThrows(SecurityException.class, () -> BugReport.handleCrash(t));
+    if (e instanceof ExitException) {
+      int code = ((ExitException) e).code;
+      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
+    }
     assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
 
     verify(mockRuntime)
@@ -126,8 +158,15 @@ public final class BugReportTest {
     FailureDetail expectedFailureDetail =
         createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
 
-    assertThrows(
-        SecurityException.class, () -> BugReport.handleCrash(Crash.from(t), CrashContext.halt()));
+    // TODO(b/222158599): This should always be ExitException.
+    SecurityException e =
+        assertThrows(
+            SecurityException.class,
+            () -> BugReport.handleCrash(Crash.from(t), CrashContext.halt()));
+    if (e instanceof ExitException) {
+      int code = ((ExitException) e).code;
+      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
+    }
     assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
 
     verify(mockRuntime)
@@ -231,4 +270,26 @@ public final class BugReportTest {
                                 Arrays.asList(t.getStackTrace()), StackTraceElement::toString))))
         .build();
   }
+
+  private static final class ExitException extends SecurityException {
+    private final int code;
+
+    ExitException(int code) {
+      super("Tried to exit JVM with code " + code);
+      this.code = code;
+    }
+  }
+
+  /** Instead of exiting the JVM, throws {@link ExitException} to keep the test alive. */
+  private static final class ExitProhibitingSecurityManager extends SecurityManager {
+
+    @Override
+    public void checkExit(int code) {
+      throw new ExitException(code);
+    }
+
+    @Override
+    public void checkPermission(Permission p) {} // Allow everything else.
+  }
 }
+

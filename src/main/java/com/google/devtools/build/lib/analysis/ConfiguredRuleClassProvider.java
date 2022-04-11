@@ -99,31 +99,41 @@ public /*final*/ class ConfiguredRuleClassProvider
     void init(ConfiguredRuleClassProvider.Builder builder);
 
     /** List of required modules. */
-    ImmutableList<RuleSet> requires();
+    default ImmutableList<RuleSet> requires() {
+      return ImmutableList.of();
+    }
   }
 
   /** An InMemoryFileSystem for bundled builtins .bzl files. */
   public static class BundledFileSystem extends InMemoryFileSystem {
-
-    private static final byte[] EMPTY_DIGEST = new byte[0];
-
     public BundledFileSystem() {
       super(DigestHashFunction.SHA256);
     }
 
-    // Bundled files are guaranteed to not change throughout the lifetime of the Bazel server, so it
-    // is permissible to use a fake digest. This helps avoid peculiarities in the interaction of
-    // InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion, including of
-    // possible (but unlikely) future caveats of this approach.
+    // Pretend the digest of a bundled file is uniquely determined by its name, not its contents.
+    //
+    // The contents bundled files are guaranteed to not change throughout the lifetime of the Bazel
+    // server, we do not need to detect changes to a bundled file's contents. Not needing to worry
+    // about get the actual digest and detect changes to that digest helps avoid peculiarities in
+    // the interaction of InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion,
+    // including of possible (but unlikely) future caveats of this approach.
+    //
+    // On the other hand, we do need to want different bundled files to have different digests. That
+    // way the bzl environment hashes for bzl rule classes defined in two different bundled files
+    // are guaranteed to be different, even if their set of transitive load statements is the same.
+    // This is important because it's possible for bzl rule classes defined in different files to
+    // have the same name string, and various part of Blaze rely on the pair of
+    // "rule class name string" and "bzl environment hash" to uniquely identify a bzl rule class.
+    // See b/226379109 for details.
 
     @Override
     protected synchronized byte[] getFastDigest(PathFragment path) {
-      return EMPTY_DIGEST;
+      return getDigest(path);
     }
 
     @Override
-    protected synchronized byte[] getDigest(PathFragment path) throws IOException {
-      return EMPTY_DIGEST;
+    protected synchronized byte[] getDigest(PathFragment path) {
+      return getDigestFunction().getHashFunction().hashString(path.toString(), UTF_8).asBytes();
     }
   }
 
@@ -556,8 +566,8 @@ public /*final*/ class ConfiguredRuleClassProvider
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
-          starlarkAccessibleTopLevels.build(),
-          starlarkBuiltinsInternals.build(),
+          starlarkAccessibleTopLevels.buildOrThrow(),
+          starlarkBuiltinsInternals.buildOrThrow(),
           starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
@@ -771,7 +781,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
-    return factoryMapBuilder.build();
+    return factoryMapBuilder.buildOrThrow();
   }
 
   /**
@@ -815,7 +825,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(bindings);
     }
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   private static ImmutableMap<String, Object> createEnvironment(
@@ -825,7 +835,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     StarlarkModules.addPredeclared(envBuilder);
     // Add all the extensions registered with the rule class provider.
     envBuilder.putAll(nativeRuleSpecificBindings);
-    return envBuilder.build();
+    return envBuilder.buildOrThrow();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -837,7 +847,7 @@ public /*final*/ class ConfiguredRuleClassProvider
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
     }
-    return mapBuilder.build();
+    return mapBuilder.buildOrThrow();
   }
 
   @Override

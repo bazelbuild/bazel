@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import javax.annotation.Nullable;
 
@@ -30,14 +30,34 @@ public class MemoryPressureModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+
     retainedHeapLimiter = RetainedHeapLimiter.create(runtime.getBugReporter());
-    memoryPressureListener = MemoryPressureListener.create(ImmutableList.of(retainedHeapLimiter));
+    memoryPressureListener = MemoryPressureListener.create(retainedHeapLimiter);
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    if (memoryPressureListener != null) {
+      memoryPressureListener.setEventBus(env.getEventBus());
+    }
+
     CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+    HighWaterMarkLimiter highWaterMarkLimiter =
+        new HighWaterMarkLimiter(
+            env.getSkyframeExecutor(),
+            env.getSyscallCache(),
+            commonOptions.skyframeHighWaterMarkMemoryThreshold);
+
     retainedHeapLimiter.setThreshold(
         /*listening=*/ memoryPressureListener != null, commonOptions.oomMoreEagerlyThreshold);
+
+    env.getEventBus().register(highWaterMarkLimiter);
+  }
+
+  @Override
+  public void afterCommand() {
+    if (memoryPressureListener != null) {
+      memoryPressureListener.setEventBus(null);
+    }
   }
 }

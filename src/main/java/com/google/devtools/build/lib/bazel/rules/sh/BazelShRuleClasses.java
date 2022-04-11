@@ -53,24 +53,24 @@ public final class BazelShRuleClasses {
             <code>data</code> attribute.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("srcs", LABEL_LIST)
-              .mandatory()
-              .allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(attr("srcs", LABEL_LIST).mandatory().allowedFileTypes(FileTypeSet.ANY_FILE))
           /* <!-- #BLAZE_RULE($sh_target).ATTRIBUTE(deps) -->
           The list of "library" targets to be aggregated into this target.
           See general comments about <code>deps</code>
-          at <a href="${link common-definitions#common.deps}">Attributes common to all build rules
-          </a>.
+          at <a href="${link common-definitions#typical.deps}">Typical attributes defined by
+          most build rules</a>.
           <p>
             This attribute should be used to list other <code>sh_library</code> rules that provide
             interpreted program source code depended on by the code in <code>srcs</code>. The files
             provided by these rules will be present among the <code>runfiles</code> of this target.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .override(builder.copy("deps")
-              .allowedRuleClasses("sh_library")
-              .allowedRuleClassesWithWarning(ALLOWED_RULES_IN_DEPS_WITH_WARNING)
-              .allowedFileTypes())
+          .override(
+              builder
+                  .copy("deps")
+                  .allowedRuleClasses("sh_library")
+                  .allowedRuleClassesWithWarning(ALLOWED_RULES_IN_DEPS_WITH_WARNING)
+                  .allowedFileTypes())
           .build();
     }
 

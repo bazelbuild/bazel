@@ -204,18 +204,14 @@ public class ProxyHelperTest {
 
   @Test
   public void testProxyNoProtocol() throws Exception {
-    IOException e =
-        assertThrows(IOException.class, () -> ProxyHelper.createProxy("my.example.com"));
-    assertThat(e).hasMessageThat().contains("Proxy address my.example.com is not a valid URL");
+    Proxy proxy = ProxyHelper.createProxy("my.example.com");
+    assertThat(proxy.toString()).endsWith(":80");
   }
 
   @Test
   public void testProxyNoProtocolWithPort() throws Exception {
-    IOException e =
-        assertThrows(IOException.class, () -> ProxyHelper.createProxy("my.example.com:12345"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Proxy address my.example.com:12345 is not a valid URL");
+    Proxy proxy = ProxyHelper.createProxy("my.example.com:12345");
+    assertThat(proxy.toString()).endsWith(":12345");
   }
 
   @Test

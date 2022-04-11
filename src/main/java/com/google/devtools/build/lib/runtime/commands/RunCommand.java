@@ -307,20 +307,20 @@ public class RunCommand implements BlazeCommand  {
     // and that it is executable.
     // These checks should only fail if keepGoing is true, because we already did
     // validation before the build began.  See {@link #validateTargets()}.
-    Collection<ConfiguredTarget> targetsBuilt = result.getSuccessfulTargets();
+    Collection<ConfiguredTarget> topLevelTargets = result.getSuccessfulTargets();
     ConfiguredTarget targetToRun = null;
     ConfiguredTarget runUnderTarget = null;
 
-    if (targetsBuilt != null) {
+    if (topLevelTargets != null) {
       int maxTargets = runUnder != null && runUnder.getLabel() != null ? 2 : 1;
-      if (targetsBuilt.size() > maxTargets) {
+      if (topLevelTargets.size() > maxTargets) {
         return reportAndCreateFailureResult(
             env,
             makeErrorMessageForNotHavingASingleTarget(
-                targetString, Iterables.transform(targetsBuilt, ct -> ct.getLabel().toString())),
+                targetString, Iterables.transform(topLevelTargets, ct -> ct.getLabel().toString())),
             Code.TOO_MANY_TARGETS_SPECIFIED);
       }
-      for (ConfiguredTarget target : targetsBuilt) {
+      for (ConfiguredTarget target : topLevelTargets) {
         BlazeCommandResult targetValidation = fullyValidateTarget(env, target);
         if (!targetValidation.isSuccess()) {
           return targetValidation;
@@ -339,7 +339,8 @@ public class RunCommand implements BlazeCommand  {
           return reportAndCreateFailureResult(
               env,
               makeErrorMessageForNotHavingASingleTarget(
-                  targetString, Iterables.transform(targetsBuilt, ct -> ct.getLabel().toString())),
+                  targetString,
+                  Iterables.transform(topLevelTargets, ct -> ct.getLabel().toString())),
               Code.TOO_MANY_TARGETS_SPECIFIED);
         }
       }
@@ -370,17 +371,29 @@ public class RunCommand implements BlazeCommand  {
           Code.RUN_PREREQ_UNMET);
     }
 
-    Path runfilesDir;
-    FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
-    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
+    // Ensure runfiles directories are constructed, both for the target to run
+    // and the --run_under target. The path of the runfiles directory of the
+    // target to run needs to be preserved, as it acts as the working directory.
+    Path targetToRunRunfilesDir = null;
+    RunfilesSupport targetToRunRunfilesSupport = null;
+    for (ConfiguredTarget target : topLevelTargets) {
+      FilesToRunProvider provider = target.getProvider(FilesToRunProvider.class);
+      RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
 
-    if (runfilesSupport == null) {
-      runfilesDir = env.getWorkingDirectory();
-    } else {
+      if (runfilesSupport == null) {
+        continue;
+      }
       try {
-        runfilesDir = ensureRunfilesBuilt(env, runfilesSupport,
-            env.getSkyframeExecutor().getConfiguration(env.getReporter(),
-                targetToRun.getConfigurationKey()));
+        Path runfilesDir =
+            ensureRunfilesBuilt(
+                env,
+                runfilesSupport,
+                env.getSkyframeExecutor()
+                    .getConfiguration(env.getReporter(), target.getConfigurationKey()));
+        if (target == targetToRun) {
+          targetToRunRunfilesDir = runfilesDir;
+          targetToRunRunfilesSupport = runfilesSupport;
+        }
       } catch (RunfilesException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         return BlazeCommandResult.failureDetail(e.createFailureDetail());
@@ -472,9 +485,12 @@ public class RunCommand implements BlazeCommand  {
             InterruptedFailureDetails.detailedExitCode(message));
       }
     } else {
-      workingDir = runfilesDir;
-      if (runfilesSupport != null) {
-        runfilesSupport.getActionEnvironment().resolve(runEnvironment, env.getClientEnv());
+      workingDir =
+          targetToRunRunfilesDir != null ? targetToRunRunfilesDir : env.getWorkingDirectory();
+      if (targetToRunRunfilesSupport != null) {
+        targetToRunRunfilesSupport
+            .getActionEnvironment()
+            .resolve(runEnvironment, env.getClientEnv());
       }
       try {
         List<String> args = computeArgs(targetToRun, commandLineArgs);

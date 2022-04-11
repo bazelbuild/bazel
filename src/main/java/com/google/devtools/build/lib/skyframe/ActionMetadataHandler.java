@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
@@ -76,7 +77,6 @@ import javax.annotation.Nullable;
  * were in fact created and are valid.
  */
 final class ActionMetadataHandler implements MetadataHandler {
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
@@ -92,6 +92,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
       ImmutableSet<Artifact> outputs,
+      XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
@@ -102,6 +103,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         forInputDiscovery,
         archivedTreeArtifactsEnabled,
         outputs,
+        xattrProvider,
         tsgm,
         artifactPathResolver,
         execRoot,
@@ -118,6 +120,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
   private final ImmutableSet<Artifact> outputs;
 
+  private final XattrProvider xattrProvider;
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
   private final PathFragment execRoot;
@@ -131,6 +134,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
       ImmutableSet<Artifact> outputs,
+      XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
@@ -141,6 +145,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     this.forInputDiscovery = forInputDiscovery;
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputs = checkNotNull(outputs);
+    this.xattrProvider = xattrProvider;
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
     this.execRoot = checkNotNull(execRoot);
@@ -166,6 +171,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         /*forInputDiscovery=*/ false,
         archivedTreeArtifactsEnabled,
         outputs,
+        xattrProvider,
         tsgm,
         artifactPathResolver,
         execRoot,
@@ -367,7 +373,7 @@ final class ActionMetadataHandler implements MetadataHandler {
             archivedTreeArtifact,
             constructFileArtifactValue(
                 archivedTreeArtifact,
-                FileStatusWithDigestAdapter.adapt(statNoFollow),
+                FileStatusWithDigestAdapter.maybeAdapt(statNoFollow),
                 /*injectedDigest=*/ null));
       } else {
         logger.atInfo().atMostEvery(5, MINUTES).log(
@@ -396,7 +402,7 @@ final class ActionMetadataHandler implements MetadataHandler {
 
     // We already have a stat, so no need to call chmod.
     return constructFileArtifactValue(
-        output, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
+        output, FileStatusWithDigestAdapter.maybeAdapt(statNoFollow), digest);
   }
 
   @Override
@@ -504,6 +510,7 @@ final class ActionMetadataHandler implements MetadataHandler {
             artifactPathResolver,
             statNoFollow,
             injectedDigest != null,
+            xattrProvider,
             // Prevent constant metadata artifacts from notifying the timestamp granularity monitor
             // and potentially delaying the build for no reason.
             artifact.isConstantMetadata() ? null : tsgm);
@@ -570,6 +577,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   static FileArtifactValue fileArtifactValueFromArtifact(
       Artifact artifact,
       @Nullable FileStatusWithDigest statNoFollow,
+      XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     return fileArtifactValueFromArtifact(
@@ -577,6 +585,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         ArtifactPathResolver.IDENTITY,
         statNoFollow,
         /*digestWillBeInjected=*/ false,
+        xattrProvider,
         tsgm);
   }
 
@@ -585,6 +594,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ArtifactPathResolver artifactPathResolver,
       @Nullable FileStatusWithDigest statNoFollow,
       boolean digestWillBeInjected,
+      XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     checkState(!artifact.isTreeArtifact() && !artifact.isMiddlemanArtifact(), artifact);
@@ -599,15 +609,13 @@ final class ActionMetadataHandler implements MetadataHandler {
       // exists, it was most likely created by the current action. There is a race condition here if
       // an external process creates (or modifies) the file between the deletion and this stat,
       // which we cannot solve.
-      statNoFollow = FileStatusWithDigestAdapter.adapt(pathNoFollow.statIfFound(Symlinks.NOFOLLOW));
+      statNoFollow =
+          FileStatusWithDigestAdapter.maybeAdapt(pathNoFollow.statIfFound(Symlinks.NOFOLLOW));
     }
 
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
       return fileArtifactValueFromStat(
-          rootedPathNoFollow,
-          statNoFollow,
-          digestWillBeInjected,
-          tsgm);
+          rootedPathNoFollow, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
     }
 
     if (artifact.isSymlink()) {
@@ -630,18 +638,16 @@ final class ActionMetadataHandler implements MetadataHandler {
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
     // and is a source file (since changes to those are checked separately).
     FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
-    FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.adapt(realStat);
+    FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.maybeAdapt(realStat);
     return fileArtifactValueFromStat(
-        realRootedPath,
-        realStatWithDigest,
-        digestWillBeInjected,
-        tsgm);
+        realRootedPath, realStatWithDigest, digestWillBeInjected, xattrProvider, tsgm);
   }
 
   private static FileArtifactValue fileArtifactValueFromStat(
       RootedPath rootedPath,
       FileStatusWithDigest stat,
       boolean digestWillBeInjected,
+      XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     if (stat == null) {
@@ -649,7 +655,8 @@ final class ActionMetadataHandler implements MetadataHandler {
     }
 
     FileStateValue fileStateValue =
-        FileStateValue.createWithStatNoFollow(rootedPath, stat, digestWillBeInjected, tsgm);
+        FileStateValue.createWithStatNoFollow(
+            rootedPath, stat, digestWillBeInjected, xattrProvider, tsgm);
 
     return stat.isDirectory()
         ? FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime())

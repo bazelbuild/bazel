@@ -23,7 +23,7 @@ import javax.annotation.Nullable;
 public final class ActionUtils {
 
   @Nullable
-  static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
+  public static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
       throws InterruptedException {
     ActionLookupValue actionLookupValue =
         ArtifactFunction.getActionLookupValue(actionLookupData.getActionLookupKey(), env);

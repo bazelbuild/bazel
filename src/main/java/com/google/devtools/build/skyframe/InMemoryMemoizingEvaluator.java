@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -31,7 +29,6 @@ import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvali
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import java.io.PrintStream;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -43,15 +40,14 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * An inmemory implementation that uses the eager invalidation strategy. This class is, by itself,
- * not thread-safe. Neither is it thread-safe to use this class in parallel with any of the
- * returned graphs. However, it is allowed to access the graph from multiple threads as long as
+ * An in-memory {@link MemoizingEvaluator} that uses the eager invalidation strategy. This class is,
+ * by itself, not thread-safe. Neither is it thread-safe to use this class in parallel with any of
+ * the returned graphs. However, it is allowed to access the graph from multiple threads as long as
  * that does not happen in parallel with an {@link #evaluate} call.
  *
- * <p>This memoizing evaluator requires a sequential versioning scheme. Evaluations
- * must pass in a monotonically increasing {@link IntVersion}.
+ * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion}.
  */
-public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
+public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingEvaluator {
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   private final DirtyTrackingProgressReceiver progressReceiver;
@@ -82,7 +78,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
-    this(skyFunctions, differencer, null);
+    this(skyFunctions, differencer, /*progressReceiver=*/ null);
   }
 
   public InMemoryMemoizingEvaluator(
@@ -96,7 +92,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         GraphInconsistencyReceiver.THROWING,
         DEFAULT_STORED_EVENT_FILTER,
         new EmittedEventState(),
-        true);
+        /*keepEdges=*/ true);
   }
 
   public InMemoryMemoizingEvaluator(
@@ -143,8 +139,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public void deleteDirty(long versionAgeLimit) {
-    Preconditions.checkArgument(versionAgeLimit >= 0);
-    final Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    Preconditions.checkArgument(versionAgeLimit >= 0, versionAgeLimit);
+    Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
     valuesToDelete.addAll(
         Sets.filter(
             progressReceiver.getUnenqueuedDirtyKeys(),
@@ -158,14 +154,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, Version version, EvaluationContext evaluationContext)
+      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
-    IntVersion intVersion = (IntVersion) version;
-    Preconditions.checkState((lastGraphVersion == null && intVersion.getVal() == 0)
-        || version.equals(lastGraphVersion.next()),
-        "InMemoryGraph supports only monotonically increasing Integer versions: %s %s",
-        lastGraphVersion, version);
+    IntVersion graphVersion = lastGraphVersion == null ? IntVersion.of(0) : lastGraphVersion.next();
+    evaluationContext = ensureExecutorService(evaluationContext);
     setAndCheckEvaluateState(true, roots);
     try {
       // Mark for removal any inflight nodes from the previous evaluation.
@@ -176,7 +169,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       // diffs for historical versions. This makes the following code sensitive to interrupts.
       // Ideally we would simply not update lastGraphVersion if an interrupt occurs.
       Diff diff =
-          differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion, version);
+          differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion, graphVersion);
       if (!diff.isEmpty() || !valuesToInject.isEmpty() || !valuesToDelete.isEmpty()) {
         valuesToInject.putAll(diff.changedKeysWithNewValues());
         invalidate(diff.changedKeysWithoutNewValues());
@@ -184,7 +177,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         invalidate(valuesToInject.keySet());
 
         performInvalidation();
-        injectValues(intVersion);
+        injectValues(graphVersion);
       }
 
       EvaluationResult<T> result;
@@ -192,7 +185,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         ParallelEvaluator evaluator =
             new ParallelEvaluator(
                 graph,
-                version,
+                graphVersion,
                 skyFunctions,
                 evaluationContext.getEventHandler(),
                 emittedEventState,
@@ -201,15 +194,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
                 evaluationContext.getKeepGoing(),
                 progressReceiver,
                 graphInconsistencyReceiver,
-                evaluationContext
-                    .getExecutorServiceSupplier()
-                    .orElse(
-                        () ->
-                            AbstractQueueVisitor.createExecutorService(
-                                evaluationContext.getParallelism(), "skyframe-evaluator")),
+                evaluationContext.getExecutorServiceSupplier().get(),
                 new SimpleCycleDetector(),
                 evaluationContext.getCPUHeavySkyKeysThreadPoolSize(),
-                evaluationContext.getExecutionPhaseThreadPoolSize());
+                evaluationContext.getExecutionPhaseThreadPoolSize(),
+                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }
       return EvaluationResult.<T>builder()
@@ -217,9 +206,24 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
           .setWalkableGraph(new DelegatingWalkableGraph(graph))
           .build();
     } finally {
-      lastGraphVersion = intVersion;
+      lastGraphVersion = graphVersion;
       setAndCheckEvaluateState(false, roots);
     }
+  }
+
+  private static EvaluationContext ensureExecutorService(EvaluationContext evaluationContext) {
+    return evaluationContext.getExecutorServiceSupplier().isPresent()
+        ? evaluationContext
+        : evaluationContext
+            .builder()
+            .setNumThreads(evaluationContext.getParallelism())
+            .setExecutorServiceSupplier(
+                () ->
+                    AbstractQueueVisitor.createExecutorService(
+                        evaluationContext.getParallelism(),
+                        "skyframe-evaluator",
+                        evaluationContext.getUseForkJoinPool()))
+            .build();
   }
 
   /**
@@ -303,94 +307,13 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues() {
-    return graph.getValues();
-  }
-
-  @Override
-  public Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> getGraphEntries() {
-    return graph.getAllValuesMutable().entrySet();
-  }
-
-  @Override
-  public Map<SkyKey, SkyValue> getDoneValues() {
-    return graph.getDoneValues();
-  }
-
-  private static boolean isDone(@Nullable NodeEntry entry) {
-    return entry != null && entry.isDone();
-  }
-
-  @Override
-  @Nullable
-  public SkyValue getExistingValue(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    try {
-      return isDone(entry) ? entry.getValue() : null;
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("InMemoryGraph does not throw" + key + ", " + entry, e);
-    }
-  }
-
-  @Override
-  @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    try {
-      return isDone(entry) ? entry.getErrorInfo() : null;
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("InMemoryGraph does not throw" + key + ", " + entry, e);
-    }
-  }
-
-  @Nullable
-  @Override
-  public NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) {
-    return graph.get(null, Reason.OTHER, key);
-  }
-
-  @Override
   public void injectGraphTransformerForTesting(GraphTransformerForTesting transformer) {
     this.graph = transformer.transform(this.graph);
   }
 
-  public ProcessableGraph getGraphForTesting() {
-    return graph;
-  }
-
   @Override
-  public void dump(boolean summarize, PrintStream out) {
-    if (summarize) {
-      long nodes = 0;
-      long edges = 0;
-      for (InMemoryNodeEntry entry : graph.getAllValues().values()) {
-        nodes++;
-        if (entry.isDone()) {
-          edges += Iterables.size(entry.getDirectDeps());
-        }
-      }
-      out.println("Node count: " + nodes);
-      out.println("Edge count: " + edges);
-    } else {
-      Function<SkyKey, String> keyFormatter =
-          key ->
-              String.format(
-                  "%s:%s", key.functionName(), key.argument().toString().replace('\n', '_'));
-
-      for (Map.Entry<SkyKey, InMemoryNodeEntry> mapPair : graph.getAllValues().entrySet()) {
-        SkyKey key = mapPair.getKey();
-        InMemoryNodeEntry entry = mapPair.getValue();
-        if (entry.isDone()) {
-          out.print(keyFormatter.apply(key));
-          out.print("|");
-          if (entry.keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
-            out.println(" (direct deps not stored)");
-          } else {
-            out.println(
-                Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
-          }
-        }
-      }
-    }
+  protected InMemoryGraph inMemoryGraph() {
+    return graph;
   }
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionsForTesting() {
@@ -415,6 +338,4 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
           return true;
         }
       };
-
-  public static final EvaluatorSupplier SUPPLIER = InMemoryMemoizingEvaluator::new;
 }

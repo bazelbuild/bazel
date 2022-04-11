@@ -183,14 +183,15 @@ public class PackageOptions extends OptionsBase {
   public boolean fetch;
 
   @Option(
-    name = "experimental_check_output_files",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Check for modifications made to the output files of a build. Consider setting "
-            + "this flag to false to see the effect on incremental build times."
-  )
+      name = "experimental_check_output_files",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Check for modifications made to the output files of a build. Consider setting "
+              + "this flag to false if you don't expect these files to change outside of bazel "
+              + "since it will speed up subsequent runs as they won't have to check a "
+              + "previous run's cache.")
   public boolean checkOutputFiles;
 
   /**

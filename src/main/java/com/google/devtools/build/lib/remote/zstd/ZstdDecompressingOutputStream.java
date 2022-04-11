@@ -13,35 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.zstd;
 
-import com.github.luben.zstd.ZstdInputStream;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import org.apache.commons.compress.utils.CountingOutputStream;
 
-/** A {@link CountingOutputStream} that use zstd to decompress the content. */
-public class ZstdDecompressingOutputStream extends CountingOutputStream {
+/** An {@link OutputStream} that use zstd to decompress the content. */
+public final class ZstdDecompressingOutputStream extends OutputStream {
+  private final OutputStream out;
   private ByteArrayInputStream inner;
-  private final ZstdInputStream zis;
+  private final ZstdInputStreamNoFinalizer zis;
 
   public ZstdDecompressingOutputStream(OutputStream out) throws IOException {
-    super(out);
+    this.out = out;
     zis =
-        new ZstdInputStream(
-            new InputStream() {
-              @Override
-              public int read() {
-                return inner.read();
-              }
+        new ZstdInputStreamNoFinalizer(
+                new InputStream() {
+                  @Override
+                  public int read() {
+                    return inner.read();
+                  }
 
-              @Override
-              public int read(byte[] b, int off, int len) {
-                return inner.read(b, off, len);
-              }
-            });
-    zis.setContinuous(true);
+                  @Override
+                  public int read(byte[] b, int off, int len) {
+                    return inner.read(b, off, len);
+                  }
+                })
+            .setContinuous(true);
   }
 
   @Override
@@ -58,6 +58,19 @@ public class ZstdDecompressingOutputStream extends CountingOutputStream {
   public void write(byte[] b, int off, int len) throws IOException {
     inner = new ByteArrayInputStream(b, off, len);
     byte[] data = ByteString.readFrom(zis).toByteArray();
-    super.write(data, 0, data.length);
+    out.write(data, 0, data.length);
+  }
+
+  @Override
+  public void close() throws IOException {
+    closeShallow();
+    out.close();
+  }
+
+  /**
+   * Free resources related to decompression without closing the underlying {@link OutputStream}.
+   */
+  public void closeShallow() throws IOException {
+    zis.close();
   }
 }

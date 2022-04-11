@@ -19,12 +19,14 @@ import static com.google.devtools.build.lib.analysis.AnalysisUtils.checkProvider
 import static org.junit.Assert.assertThrows;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
+import com.google.devtools.build.lib.packages.TriState;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class AnalysisUtilsTest {
+public class AnalysisUtilsTest extends ConfigurationTestCase {
 
   @Test
   public void checkProviderSucceedsOnClassAnnotatedWithAutoValue() {
@@ -45,5 +47,45 @@ public class AnalysisUtilsTest {
   @AutoValue
   abstract static class AutoValuedClass implements TransitiveInfoProvider {
     abstract int foo();
+  }
+
+  @Test
+  public void stampingEnabled_yesIgnoresNostamp() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.YES, create("--nostamp"))).isTrue();
+  }
+
+  @Test
+  public void stampingEnabled_yesPlusStamp() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.YES, create("--stamp"))).isTrue();
+  }
+
+  @Test
+  public void stampingEnabled_noPlusNostamp() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.NO, create("--nostamp"))).isFalse();
+  }
+
+  @Test
+  public void stampingEnabled_noIgnoresStamp() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.NO, create("--stamp"))).isFalse();
+  }
+
+  @Test
+  public void stampingEnabled_autoUsesNostamp() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.AUTO, create("--nostamp"))).isFalse();
+  }
+
+  @Test
+  public void stampingEnabled_autoUsesStamp() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.AUTO, create("--stamp"))).isTrue();
+  }
+
+  @Test
+  public void stampingEnabled_stampDisabledInToolConfig_attributeYes() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.YES, createHost("--stamp"))).isFalse();
+  }
+
+  @Test
+  public void stampingEnabled_stampDisabledInToolConfig_attributeAuto() throws Exception {
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.AUTO, createHost("--stamp"))).isFalse();
   }
 }

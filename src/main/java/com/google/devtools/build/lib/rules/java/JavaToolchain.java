@@ -80,6 +80,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
+    Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
@@ -174,6 +175,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             oneVersion,
             oneVersionAllowlist,
             genClass,
+            depsChecker,
             resourceJarBuilder,
             timezoneData,
             ijar,
@@ -184,7 +186,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             semantics,
             javaRuntime);
     ToolchainInfo toolchainInfo =
-        new ToolchainInfo(ImmutableMap.<String, Object>builder().put("java", provider).build());
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder().put("java", provider).buildOrThrow());
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)

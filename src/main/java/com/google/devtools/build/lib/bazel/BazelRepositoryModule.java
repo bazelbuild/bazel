@@ -81,11 +81,11 @@ import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -175,7 +175,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
         .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
         .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
-        .build();
+        .buildOrThrow();
   }
 
   private static class RepositoryCacheInfoItem extends InfoItem {
@@ -204,12 +204,15 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.setManagedDirectoriesKnowledge(managedDirectoriesKnowledge);
+    // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
+    if ("bazel".equals(runtime.getProductName())) {
+      builder.setSkyframeExecutorRepositoryHelpersHolder(
+          SkyframeExecutorRepositoryHelpersHolder.create(
+              managedDirectoriesKnowledge,
+              new RepositoryDirectoryDirtinessChecker(
+                  directories.getWorkspace(), managedDirectoriesKnowledge)));
+    }
 
-    RepositoryDirectoryDirtinessChecker customDirtinessChecker =
-        new RepositoryDirectoryDirtinessChecker(
-            directories.getWorkspace(), managedDirectoriesKnowledge);
-    builder.addCustomDirtinessChecker(customDirtinessChecker);
     // Create the repository function everything flows through.
     RepositoryDelegatorFunction repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
@@ -267,6 +270,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     ProcessWrapper processWrapper = ProcessWrapper.fromCommandEnvironment(env);
     starlarkRepositoryFunction.setProcessWrapper(processWrapper);
+    starlarkRepositoryFunction.setSyscallCache(env.getSyscallCache());
     singleExtensionEvalFunction.setProcessWrapper(processWrapper);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
@@ -275,6 +279,7 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
+      downloadManager.setUrlsAsDefaultCanonicalId(repoOptions.urlsAsDefaultCanonicalId);
 
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
@@ -310,7 +315,7 @@ public class BazelRepositoryModule extends BlazeModule {
                 .getOutputUserRoot()
                 .getRelative(DEFAULT_CACHE_LOCATION);
         try {
-          FileSystemUtils.createDirectoryAndParents(repositoryCachePath);
+          repositoryCachePath.createDirectoryAndParents();
           repositoryCache.setRepositoryCachePath(repositoryCachePath);
         } catch (IOException e) {
           env.getReporter()
@@ -326,7 +331,10 @@ public class BazelRepositoryModule extends BlazeModule {
       try {
         UrlRewriter rewriter =
             UrlRewriter.getDownloaderUrlRewriter(
-                repoOptions == null ? null : repoOptions.downloaderConfig, env.getReporter());
+                repoOptions == null ? null : repoOptions.downloaderConfig,
+                env.getReporter(),
+                env.getClientEnv(),
+                env.getRuntime().getFileSystem());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for

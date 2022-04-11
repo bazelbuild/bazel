@@ -29,6 +29,6 @@ public class ImmutableTableCodecTest {
     builder.put("a", "b", 1);
     builder.put("c", "d", -200);
     builder.put("a", "d", 4);
-    new SerializationTester(ImmutableTable.of(), builder.build()).runTests();
+    new SerializationTester(ImmutableTable.of(), builder.buildOrThrow()).runTests();
   }
 }

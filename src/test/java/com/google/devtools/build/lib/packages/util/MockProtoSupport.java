@@ -39,7 +39,6 @@ public final class MockProtoSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     createNetProto2(config);
-    createJavascriptJspb(config);
   }
 
   /**
@@ -63,8 +62,6 @@ public final class MockProtoSupport {
           "java_import(name = 'protocol2',",
           "            jars = [ 'protocol2.jar' ])");
 
-      config.linkTool("net/proto2/compiler/public/release/protocol_compiler_linux",
-          "net/proto2/compiler/public/protocol_compiler");
       config.linkTool("javatests/com/google/devtools/build/lib/prepackaged_protocol_deploy.jar",
           "java/com/google/io/protocol/protocol.jar");
       config.linkTool("javatests/com/google/devtools/build/lib/prepackaged_protocol2_deploy.jar",
@@ -207,36 +204,6 @@ public final class MockProtoSupport {
         "licenses(['notice'])",
         "go_library(name = 'metadata',",
         "           srcs = [ 'metadata.go' ])");
-  }
-
-  /** Create a dummy jspb support package. */
-  private static void createJavascriptJspb(MockToolsConfig config) throws IOException {
-    config.create(
-        "net/proto2/compiler/js/internal/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "cc_binary(name = 'protoc-gen-js',",
-        "    srcs = ['plugin.cc'])");
-    config.create(
-        "javascript/apps/jspb/BUILD",
-        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'message',",
-        "       srcs = ['message.js'],",
-        "       deps_mgmt = 'legacy')");
-    config.create(
-        "javascript/closure/array/BUILD",
-        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'array',",
-        "       srcs = ['array.js'],",
-        "       deps_mgmt = 'legacy')");
-    config.create(
-        "javascript/apps/xid/BUILD",
-        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'xid',",
-        "       srcs = ['xid.js'],",
-        "       deps_mgmt = 'legacy')");
   }
 
   public static void setupWorkspace(Scratch scratch) throws Exception {

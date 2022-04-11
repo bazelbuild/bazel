@@ -74,7 +74,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(1)
                     .build())
-            .build();
+            .buildOrThrow();
 
     assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()))
         .containsExactly(
@@ -241,7 +241,7 @@ public class SelectionTest {
                     .setVersion(Version.parse("1.0"))
                     .setKey(createModuleKey("D", "1.0"))
                     .build())
-            .build();
+            .buildOrThrow();
 
     assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()))
         .containsExactly(
@@ -315,7 +315,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build();
+            .buildOrThrow();
 
     ExternalDepsException e =
         assertThrows(
@@ -401,7 +401,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("C", "1.1"))
                     .setCompatibilityLevel(1)
                     .build())
-            .build();
+            .buildOrThrow();
 
     // After selection, C 2.0 is gone, so we're okay.
     // A 1.0 -> B 1.1
@@ -477,7 +477,7 @@ public class SelectionTest {
                     .setVersion(Version.parse("2.0"))
                     .setKey(createModuleKey("B", "2.0"))
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "B",
@@ -522,7 +522,7 @@ public class SelectionTest {
                     .setVersion(Version.parse("2.0"))
                     .setKey(createModuleKey("B", "2.0"))
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "B",
@@ -589,7 +589,7 @@ public class SelectionTest {
                     .setVersion(Version.parse("1.5"))
                     .setKey(createModuleKey("B", "1.5"))
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "B",
@@ -649,7 +649,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "D",
@@ -740,7 +740,7 @@ public class SelectionTest {
                     .setVersion(Version.parse("2.0"))
                     .setKey(createModuleKey("D", "2.0"))
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "D",
@@ -887,7 +887,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",
@@ -1037,7 +1037,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",
@@ -1118,7 +1118,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("C", "3.0"))
                     .setCompatibilityLevel(3)
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",
@@ -1235,7 +1235,7 @@ public class SelectionTest {
                     .setKey(createModuleKey("C", "3.0"))
                     .setCompatibilityLevel(3)
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",

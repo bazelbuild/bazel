@@ -148,7 +148,8 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
             CollectPackagesUnderDirectoryValue.key(
                 repository, traversalInfo.rootedDir, traversalInfo.forbiddenSubdirectories));
       }
-      ImmutableMap<TraversalInfo, SkyKey> traversalToKeyMap = traversalToKeyMapBuilder.build();
+      ImmutableMap<TraversalInfo, SkyKey> traversalToKeyMap =
+          traversalToKeyMapBuilder.buildOrThrow();
       Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
 
       // NOTE: Use a TreeSet to ensure a deterministic (sorted) iteration order when we recurse.

@@ -27,6 +27,7 @@ filegroup(
             "darwin/fsevents.cc",
             "darwin/file_jni.cc",
             "darwin/sleep_prevention_jni.cc",
+            "darwin/system_cpu_speed_monitor_jni.cc",
             "darwin/system_disk_space_monitor_jni.cc",
             "darwin/system_load_advisory_monitor_jni.cc",
             "darwin/system_memory_pressure_jni.cc",
@@ -76,8 +77,9 @@ cc_binary(
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
         ":latin1_jni_path",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:port",
     ],
 )
 

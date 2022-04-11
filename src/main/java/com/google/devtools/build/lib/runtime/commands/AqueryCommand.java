@@ -165,6 +165,6 @@ public final class AqueryCommand implements BlazeCommand {
     for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
       functionsBuilder.put(queryFunction.getName(), queryFunction);
     }
-    return functionsBuilder.build();
+    return functionsBuilder.buildOrThrow();
   }
 }

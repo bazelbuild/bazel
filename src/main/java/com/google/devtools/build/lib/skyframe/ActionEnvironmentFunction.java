@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -23,6 +24,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -75,6 +77,7 @@ public final class ActionEnvironmentFunction implements SkyFunction {
    * Returns a map of environment variable key => values, getting them from Skyframe. Returns null
    * if and only if some dependencies from Skyframe still need to be resolved.
    */
+  @Nullable
   public static Map<String, String> getEnvironmentView(Environment env, Iterable<String> keys)
       throws InterruptedException {
     ImmutableList.Builder<SkyKey> skyframeKeysBuilder = ImmutableList.builder();
@@ -82,14 +85,20 @@ public final class ActionEnvironmentFunction implements SkyFunction {
       skyframeKeysBuilder.add(key(key));
     }
     ImmutableList<SkyKey> skyframeKeys = skyframeKeysBuilder.build();
-    Map<SkyKey, SkyValue> values = env.getValues(skyframeKeys);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(skyframeKeys);
     if (env.valuesMissing()) {
       return null;
     }
     // To return the initial order and support null values, we use a LinkedHashMap.
     LinkedHashMap<String, String> result = new LinkedHashMap<>();
     for (SkyKey key : skyframeKeys) {
-      ClientEnvironmentValue value = (ClientEnvironmentValue) values.get(key);
+      ClientEnvironmentValue value = (ClientEnvironmentValue) values.next();
+      if (value == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "ClientEnvironmentValue " + key + " was missing, this should never happen"));
+        return null;
+      }
       result.put(key.argument().toString(), value.getValue());
     }
     return Collections.unmodifiableMap(result);

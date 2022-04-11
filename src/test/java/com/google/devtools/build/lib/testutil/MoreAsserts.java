@@ -205,6 +205,16 @@ public class MoreAsserts {
         expectedExitCode, exitCode, recordingOutErr.outAsLatin1(), recordingOutErr.errAsLatin1());
   }
 
+  public static void assertEqualWithStdoutAndErr(
+      Object expected, Object actual, String stdout, String stderr) {
+    if (!expected.equals(actual)) {
+      fail(
+          String.format(
+              "expected <%s> but was <%s> and stdout was <%s> and stderr was <%s>",
+              expected, actual, stdout, stderr));
+    }
+  }
+
   public static void assertStdoutContainsString(String expected, String stdout, String stderr) {
     if (!stdout.contains(expected)) {
       fail("expected stdout to contain string <" + expected + "> but stdout was <"

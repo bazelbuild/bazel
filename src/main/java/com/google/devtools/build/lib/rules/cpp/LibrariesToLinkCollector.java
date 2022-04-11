@@ -330,8 +330,21 @@ public class LibrariesToLinkCollector {
         commonParent = commonParent.getParentDirectory();
       }
 
-      rpathRootsForExplicitSoDeps.add(
-          rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString());
+      // When all dynamic deps are built in transitioned configurations, the default solib dir is
+      // not created. While resolving paths, the dynamic linker stops at the first directory that
+      // does not exist, even when followed by "../". We thus have to normalize the relative path.
+      String relativePathToRoot =
+          rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString();
+      String normalizedPathToRoot = PathFragment.create(relativePathToRoot).getPathString();
+      rpathRootsForExplicitSoDeps.add(normalizedPathToRoot);
+
+      // Unless running locally, libraries will be available under the root relative path, so we
+      // should add that to the rpath as well.
+      if (inputArtifact.getRootRelativePathString().startsWith("_solib_")) {
+        PathFragment artifactPathUnderSolib = inputArtifact.getRootRelativePath().subFragment(1);
+        rpathRootsForExplicitSoDeps.add(
+            rpathRoot + artifactPathUnderSolib.getParentDirectory().getPathString());
+      }
     }
 
     librarySearchDirectories.add(inputArtifact.getExecPath().getParentDirectory().getPathString());

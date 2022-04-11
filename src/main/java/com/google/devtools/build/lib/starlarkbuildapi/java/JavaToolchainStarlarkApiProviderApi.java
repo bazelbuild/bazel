@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -106,4 +109,21 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       allowReturnNones = true)
   @Nullable
   FileApi getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "compatible_javacopts",
+      doc = "Return the map of target environment-specific javacopts",
+      parameters = {
+        @Param(
+            name = "key",
+            allowedTypes = {
+              @ParamType(type = String.class),
+            },
+            defaultValue = "")
+      },
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  ImmutableList<String> getCompatibleJavacOptionsForStarlark(String key, StarlarkThread thread)
+      throws EvalException;
 }
