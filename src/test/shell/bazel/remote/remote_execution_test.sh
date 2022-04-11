@@ -2227,9 +2227,7 @@ function genrule_combined_disk_remote_exec() {
   #   4)     exist        exist      no run    no update, no update
   #   5)  another rule that depends on 4, but run before 5
   # Our setup ensures the first 2 columns, our validation checks the last 3.
-  # NOTE that remote_exec will NOT update the disk cache, we expect the remote
-  # execution to update the remote_cache and when we pull from the remote cache
-  # we will then mirror to the disk cache.
+  # NOTE that remote_exec will UPDATE the disk cache.
   #
   # We measure if it was run remotely via the "1 remote." in the output and caches
   # from the cache hit on the same line.
@@ -2356,7 +2354,7 @@ EOF
 }
 
 function test_combined_disk_remote_exec_nocache_tag() {
-  local cache=$(mktemp -d)
+  local cache="${TEST_TMPDIR}/cache"
   local flags=("--disk_cache=$cache"
                "--remote_cache=grpc://localhost:${worker_port}"
                "--remote_executor=grpc://localhost:${worker_port}"
