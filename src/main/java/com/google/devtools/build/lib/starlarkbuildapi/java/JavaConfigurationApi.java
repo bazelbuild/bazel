@@ -55,6 +55,12 @@ public interface JavaConfigurationApi extends StarlarkValue {
   String starlarkOneVersionEnforcementLevel();
 
   @StarlarkMethod(
+      name = "run_android_lint",
+      structField = true,
+      doc = "The value of the --experimental_run_android_lint_on_java_rules flag.")
+  boolean runAndroidLint();
+
+  @StarlarkMethod(
       name = "multi_release_deploy_jars",
       structField = true,
       doc = "The value of the --incompatible_multi_release_deploy_jars flag.")

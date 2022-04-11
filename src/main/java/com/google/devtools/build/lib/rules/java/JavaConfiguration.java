@@ -386,6 +386,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return addTestSupportToCompileTimeDeps;
   }
 
+  @Override
   public boolean runAndroidLint() {
     return runAndroidLint;
   }
