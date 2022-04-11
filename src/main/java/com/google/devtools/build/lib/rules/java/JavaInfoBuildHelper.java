@@ -405,7 +405,7 @@ final class JavaInfoBuildHelper {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
     // ijar doubles as a stamping tool
-    FilesToRunProvider ijarTarget = (javaToolchain).getIjar();
+    FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath(inputJar)
