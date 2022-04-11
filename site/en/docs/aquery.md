@@ -343,7 +343,7 @@ The list of aquery issues/planned features can be found on
 ### The ActionKey remains the same even though the content of an input file changed. {:#actionkey-same}
 
 In the context of aquery, the `ActionKey` refers to the `String` gotten from
-`[ActionAnalysisMetadata#getKey](https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/ActionAnalysisMetadata.java;l=89;drc=8b856f5484f0117b2aebc302f849c2a15f273310){: .external}`:
+[ActionAnalysisMetadata#getKey](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/ActionAnalysisMetadata.java;l=89;drc=8b856f5484f0117b2aebc302f849c2a15f273310){: .external}:
 
 <pre>
   Returns a string encoding all of the significant behaviour of this Action that might affect the
@@ -366,7 +366,7 @@ In the context of aquery, the `ActionKey` refers to the `String` gotten from
 </pre>
 
 This excludes the changes to the content of the input files, and is not to be confused with
-`[RemoteCacheClient#ActionKey](https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/remote/common/RemoteCacheClient.java;l=38;drc=21577f202eb90ce94a337ebd2ede824d609537b6){: .external}`.
+[RemoteCacheClient#ActionKey](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/remote/common/RemoteCacheClient.java;l=38;drc=21577f202eb90ce94a337ebd2ede824d609537b6){: .external}.
 
 ## Updates {:#updates}
 
