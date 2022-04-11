@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -131,7 +130,6 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
                 ? ruleContext.getRequiredConfigFragments()
                 : RequiredConfigFragmentsProvider.EMPTY,
-            ImmutableSet.copyOf(constraintValueSettings),
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
