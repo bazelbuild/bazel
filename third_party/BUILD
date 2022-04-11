@@ -164,10 +164,13 @@ distrib_java_import(
     jars = [
         "api_client/google-api-client-1.22.0.jar",
         "api_client/google-api-client-jackson2-1.22.0.jar",
+        "api_client/google-api-client-gson-1.22.0.jar",
         "api_client/google-http-client-1.22.0-SNAPSHOT.jar",
         "api_client/google-http-client-jackson2-1.22.0.jar",
+        "api_client/google-http-client-gson-1.22.0.jar",
     ],
     runtime_deps = [
+        ":gson",
         ":jackson2",
     ],
 )
@@ -211,8 +214,8 @@ distrib_java_import(
     name = "auth",
     enable_distributions = ["debian"],
     jars = [
-        "auth/google-auth-library-oauth2-http-0.17.1.jar",
-        "auth/google-auth-library-credentials-0.17.1.jar",
+        "auth/google-auth-library-oauth2-http-1.6.0.jar",
+        "auth/google-auth-library-credentials-1.6.0.jar",
     ],
     runtime_deps = [
         ":api_client",
