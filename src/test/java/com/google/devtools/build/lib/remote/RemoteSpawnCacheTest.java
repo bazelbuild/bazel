@@ -284,7 +284,7 @@ public class RemoteSpawnCacheTest {
             (Answer<Void>)
                 invocation -> {
                   RemoteAction action = invocation.getArgument(0);
-                  RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
+                  RemoteActionExecutionContext context = action.getContext();
                   RequestMetadata meta = context.getRequestMetadata();
                   assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
                   assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
