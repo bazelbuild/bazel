@@ -128,6 +128,7 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
+        ":exclusive_test_build_driver_value",
         ":execution_finished_event",
         ":file_function",
         ":fileset_entry_function",
@@ -846,6 +847,7 @@ java_library(
         ":build_driver_key",
         ":build_driver_value",
         ":configured_target_key",
+        ":exclusive_test_build_driver_value",
         ":incremental_artifact_conflict_finder",
         ":precomputed_value",
         ":target_completion_value",
@@ -1238,6 +1240,16 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "exclusive_test_build_driver_value",
+    srcs = ["ExclusiveTestBuildDriverValue.java"],
+    deps = [
+        ":build_driver_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 
@@ -2186,6 +2198,7 @@ java_library(
         ":detailed_exceptions",
         ":sane_analysis_exception",
         ":sky_functions",
+        ":test_completion_value",
         ":top_level_conflict_exception",
         ":transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/actions",

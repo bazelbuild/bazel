@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.EXCLUSIVE;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.NOT_TEST;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PARALLEL;
 
@@ -133,7 +134,17 @@ public class BuildDriverFunction implements SkyFunction {
       requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
     }
 
-    return env.valuesMissing() ? null : new BuildDriverValue(topLevelSkyValue);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    if (EXCLUSIVE.equals(buildDriverKey.getTestType())) {
+      Preconditions.checkState(topLevelSkyValue instanceof ConfiguredTargetValue);
+      return new ExclusiveTestBuildDriverValue(
+          topLevelSkyValue, ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget());
+    }
+
+    return new BuildDriverValue(topLevelSkyValue);
   }
 
   private void requestConfiguredTargetExecution(
@@ -147,7 +158,7 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
-    if (buildDriverKey.getTestType() == NOT_TEST) {
+    if (NOT_TEST.equals(buildDriverKey.getTestType())) {
       declareDependenciesAndCheckValues(
           env,
           Iterables.concat(
@@ -171,20 +182,22 @@ public class BuildDriverFunction implements SkyFunction {
       state.sentTestAnalysisCompleteEvent = true;
     }
 
-    Preconditions.checkState(
-        PARALLEL.equals(buildDriverKey.getTestType()),
-        "Invalid test type, expect only parallel tests: %s",
-        buildDriverKey);
-    // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
-    declareDependenciesAndCheckValues(
-        env,
-        Iterables.concat(
-            artifactsToBuild.build(),
-            Collections.singletonList(
-                TestCompletionValue.key(
-                    (ConfiguredTargetKey) actionLookupKey,
-                    topLevelArtifactContext,
-                    /*exclusiveTesting=*/ false))));
+    if (PARALLEL.equals(buildDriverKey.getTestType())) {
+      // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
+      declareDependenciesAndCheckValues(
+          env,
+          Iterables.concat(
+              artifactsToBuild.build(),
+              Collections.singletonList(
+                  TestCompletionValue.key(
+                      (ConfiguredTargetKey) actionLookupKey,
+                      topLevelArtifactContext,
+                      /*exclusiveTesting=*/ false))));
+      return;
+    }
+
+    // Exclusive tests will be run with sequential Skyframe evaluations afterwards.
+    declareDependenciesAndCheckValues(env, artifactsToBuild.build());
   }
 
   private void requestAspectExecution(
