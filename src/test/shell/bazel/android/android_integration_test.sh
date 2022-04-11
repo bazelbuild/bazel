@@ -84,6 +84,67 @@ EOF
   assert_build //java/bazel/multidex:bin
 }
 
+function write_hello_android_files() {
+  mkdir -p java/com/example/hello
+  mkdir -p java/com/example/hello/res/values
+  cat > java/com/example/hello/res/values/strings.xml <<'EOF'
+<resources>
+    <string name="app_name">HelloWorld</string>
+    <string name="title_activity_main">Hello Main</string>
+</resources>
+EOF
+
+  cat > java/com/example/hello/AndroidManifest.xml <<'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.hello"
+    android:versionCode="1"
+    android:versionName="1.0" >
+
+    <uses-sdk
+        android:minSdkVersion="7"
+        android:targetSdkVersion="18" />
+
+    <application android:label="@string/app_name">
+        <activity
+            android:name="com.example.hello.MainActivity"
+            android:label="@string/title_activity_main" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+EOF
+
+  cat > java/com/example/hello/MainActivity.java <<'EOF'
+package com.example.hello;
+
+import android.app.Activity;
+
+public class MainActivity extends Activity {
+}
+EOF
+
+}
+
+function test_d8_compiles_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
 function test_android_tools_version() {
   create_new_workspace
   setup_android_sdk_support
