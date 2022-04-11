@@ -1044,9 +1044,7 @@ public class RemoteExecutionService {
       // When downloading outputs from just remotely executed action, the action result comes from
       // Execution response which means, if disk cache is enabled, action result hasn't been
       // uploaded to it. Upload action result to disk cache here so next build could hit it.
-      if (useDiskCache(remoteOptions)
-          && action.context.getExecuteResponse() != null
-          && shouldAcceptCachedResult(action.context.getSpawn())) {
+      if (useDiskCache(remoteOptions) && action.context.getExecuteResponse() != null) {
         remoteCache.uploadActionResult(action.context, action.actionKey, result.actionResult);
       }
     }

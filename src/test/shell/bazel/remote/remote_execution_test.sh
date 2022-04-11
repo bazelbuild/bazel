@@ -2198,7 +2198,6 @@ function test_combined_disk_remote_exec_with_flag_combinations() {
      # Should be some disk cache hits, just not remote.
      "--noremote_accept_cached --incompatible_remote_results_ignore_disk"
   )
-  #
 
   for flags in "${testcases[@]}"; do
     genrule_combined_disk_remote_exec "$flags"
@@ -2222,7 +2221,7 @@ function genrule_combined_disk_remote_exec() {
 
   # if exist in disk cache or  remote cache, don't run remote exec, don't update caches.
   # [CASE]disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
-  #   1)     notexist     notexist   run OK      -   ,    update
+  #   1)     notexist     notexist   run OK    update,    update
   #   2)     notexist     exist      no run    update,    no update
   #   3)     exist        notexist   no run    no update, no update
   #   4)     exist        exist      no run    no update, no update
@@ -2260,7 +2259,7 @@ EOF
   echo "INFO: RUNNING testcase($testcase_flags)"
   # Case 1)
   #     disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
-  #       notexist     notexist   run OK      -   ,    update
+  #       notexist     notexist   run OK       update,     update
   #
   # Do a build to populate the disk and remote cache.
   # Then clean and do another build to validate nothing updates.
@@ -2275,10 +2274,13 @@ EOF
   disk_action_cache_files="$(count_disk_ac_files "$cache")"
   remote_action_cache_files="$(count_remote_ac_files)"
 
-  [[ "$disk_action_cache_files" == 0 ]] || fail "Expected 0 disk action cache entries, not $disk_action_cache_files"
+  [[ "$disk_action_cache_files" == 1 ]] || fail "CASE 1: Expected 1 disk action cache entries, not $disk_action_cache_files"
   # Even though bazel isn't writing the remote action cache, we expect the worker to write one or the
   # the rest of our tests will fail.
-  [[ "$remote_action_cache_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_action_cache_files"
+  [[ "$remote_action_cache_files" == 1 ]] || fail "CASE 1: Expected 1 remote action cache entries, not $remote_action_cache_files"
+
+  rm -rf $cache
+  mkdir $cache
 
   # Case 2)
   #     disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
@@ -2295,10 +2297,8 @@ EOF
   # ensure disk and remote cache populated
   disk_action_cache_files="$(count_disk_ac_files "$cache")"
   remote_action_cache_files="$(count_remote_ac_files)"
-  if [[ "$testcase_flags" != --noremote_accept_cached* ]]; then
-    [[ "$disk_action_cache_files" == 1 ]] || fail "Expected 1 disk action cache entries, not $disk_action_cache_files"
-    [[ "$remote_action_cache_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_action_cache_files"
-  fi
+  [[ "$disk_action_cache_files" == 1 ]] || fail "CASE 2: Expected 1 disk action cache entries, not $disk_action_cache_files"
+  [[ "$remote_action_cache_files" == 1 ]] || fail "CASE 2: Expected 1 remote action cache entries, not $remote_action_cache_files"
 
   # Case 3)
   #     disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
@@ -2315,7 +2315,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "CASE 3 failed to build"
-  if [[ "$testcase_flags" == --noremote_accept_cached* ]]; then
+  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
     expect_log "2 processes: 1 internal, 1 remote." "CASE 3: unexpected action line [[$(grep processes $TEST_log)]]"
   else
     expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 3: unexpected action line [[$(grep processes $TEST_log)]]"
@@ -2329,7 +2329,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "CASE 4 failed to build"
-  if [[ "$testcase_flags" == --noremote_accept_cached* ]]; then
+  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
     expect_log "2 processes: 1 internal, 1 remote." "CASE 4: unexpected action line [[$(grep processes $TEST_log)]]"
   else
     expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 4: unexpected action line [[$(grep processes $TEST_log)]]"
@@ -2348,7 +2348,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
         || fail "CASE 5 failed to build //a:test2"
-  if [[ "$testcase_flags" == --noremote_accept_cached* ]]; then
+  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
     expect_log "3 processes: 1 internal, 2 remote." "CASE 5: unexpected action line [[$(grep processes $TEST_log)]]"
   else
     expect_log "3 processes: 1 disk cache hit, 1 internal, 1 remote." "CASE 5: unexpected action line [[$(grep processes $TEST_log)]]"
@@ -2356,7 +2356,7 @@ EOF
 }
 
 function test_combined_disk_remote_exec_nocache_tag() {
-  local cache="${TEST_TMPDIR}/disk_cache"
+  local cache=$(mktemp -d)
   local flags=("--disk_cache=$cache"
                "--remote_cache=grpc://localhost:${worker_port}"
                "--remote_executor=grpc://localhost:${worker_port}"
