@@ -540,7 +540,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "If set to true, rule attributes cannot set 'cfg = \"host\"'. Rules should set "
-              + "'cfg = \"host\"' instead.")
+              + "'cfg = \"exec\"' instead.")
   public boolean incompatibleDisableStarlarkHostTransitions;
 
   /**
