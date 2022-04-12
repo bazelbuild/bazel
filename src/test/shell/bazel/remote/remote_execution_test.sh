@@ -2354,7 +2354,8 @@ EOF
 }
 
 function test_combined_disk_remote_exec_nocache_tag() {
-  local cache="${TEST_TMPDIR}/cache"
+  rm -rf ${TEST_TMPDIR}/test_expected
+  local cache="${TEST_TMPDIR}/disk_cache"
   local flags=("--disk_cache=$cache"
                "--remote_cache=grpc://localhost:${worker_port}"
                "--remote_executor=grpc://localhost:${worker_port}"
