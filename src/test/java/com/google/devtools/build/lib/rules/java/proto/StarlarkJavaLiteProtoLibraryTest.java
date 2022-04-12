@@ -85,6 +85,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "    name = 'javalite',",
         "    command_line = '--java_out=lite,immutable,no_enforce_api_compatibility:$(OUT)',",
         "    runtime = '//protobuf:javalite_runtime',",
+        "    progress_message = 'Generating JavaLite proto_library %{label}',",
         ")");
   }
 

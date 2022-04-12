@@ -40,6 +40,7 @@ proto_lang_toolchain(
     command_line = "--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)",
     plugin = "//third_party/java/j2objc:proto_plugin",
     plugin_format_flag = "--plugin=protoc-gen-PLUGIN_j2objc=%s",
+    progress_message = "Generating j2objc proto_library %{label}",
     runtime = "//third_party/java/j2objc:proto_runtime",
     visibility = ["//visibility:public"],
 )

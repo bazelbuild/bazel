@@ -83,6 +83,7 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
         "    name = 'cc_toolchain',",
         "    command_line = '--cpp_out=$(OUT)',",
         "    blacklisted_protos = [],",
+        "    progress_message = 'Generating C++ proto_library %{label}',",
         ")");
 
     String existingWorkspace =
