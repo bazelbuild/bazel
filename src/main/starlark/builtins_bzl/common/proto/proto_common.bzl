@@ -238,12 +238,57 @@ def _experimental_should_generate_code(
 
     return bool(included)
 
+def _declare_generated_files(
+        actions,
+        proto_library_target,
+        extension,
+        name_mapper = None):
+    """Declares generated files with a specific extension.
+
+    Use this in lang_proto_library-es when protocol compiler generates files
+    that correspond to .proto file names.
+
+    The function removes ".proto" extension with given one (e.g. ".pb.cc") and
+    declares new output files.
+
+    Args:
+      actions:
+        (ActionFactory) Obtained by ctx.actions, used to declare the files.
+      proto_library_target:
+        (Target) The proto_library to generate the files for.
+        Obtained as the `target` parameter from an aspect's implementation.
+      extension: (str) The extension to use for generated files.
+      name_mapper: (str->str) A function mapped over the base filename without
+        the extension. Used it to replace characters in the name that
+        cause problems in a specific programming language.
+
+    Returns:
+      (list[File]) The list of declared files.
+    """
+    proto_info = proto_library_target[_builtins.toplevel.ProtoInfo]
+    proto_sources = proto_info.direct_sources
+    outputs = []
+
+    for src in proto_sources:
+        basename_no_ext = src.basename[:-(len(src.extension) + 1)]
+
+        if name_mapper:
+            basename_no_ext = name_mapper(basename_no_ext)
+
+        # Note that two proto_library rules can have the same source file, so this is actually a
+        # shared action. NB: This can probably result in action conflicts if the proto_library rules
+        # are not the same.
+        outputs.append(actions.declare_file(basename_no_ext + extension, sibling = src))
+
+    return outputs
+
 proto_common = struct(
     create_proto_compile_action = _create_proto_compile_action,
 )
 
 proto_common_do_not_use = struct(
     compile = _compile,
+    declare_generated_files = _declare_generated_files,
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
     ProtoLangToolchainInfo = _builtins.internal.ProtoLangToolchainInfo,

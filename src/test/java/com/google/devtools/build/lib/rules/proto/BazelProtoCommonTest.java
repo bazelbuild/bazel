@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -140,6 +141,24 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "  attrs = {",
         "     'proto_dep': attr.label(),",
         "     'toolchain': attr.label(default = '//foo:toolchain'),",
+        "  })");
+
+    scratch.file(
+        "foo/declare_generated_files.bzl",
+        "def _impl(ctx):",
+        "  files = proto_common_do_not_use.declare_generated_files(",
+        "    ctx.actions,",
+        "    ctx.attr.proto_dep,",
+        "    ctx.attr.extension,",
+        "    (lambda s: s.replace('-','_').replace('.','/')) if ctx.attr.python_names else None)",
+        "  for f in files:",
+        "    ctx.actions.write(f, '')",
+        "  return [DefaultInfo(files = depset(files))]",
+        "declare_generated_files = rule(_impl,",
+        "  attrs = {",
+        "     'proto_dep': attr.label(),",
+        "     'extension': attr.string(),",
+        "     'python_names': attr.bool(default = False),",
         "  })");
   }
 
@@ -565,5 +584,38 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
             + " third_party/x/descriptor.proto), in addition to protos for which it should"
             + " (third_party/x/something.proto).\n"
             + "Separate '//third_party/x:mixed' into 2 proto_library rules.");
+  }
+
+  /** Verifies <code>proto_common.declare_generated_files</code> call. */
+  @Test
+  public void declareGenerateFiles_basic() throws Exception {
+    scratch.file(
+        "bar/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('//foo:declare_generated_files.bzl', 'declare_generated_files')",
+        "proto_library(name = 'proto', srcs = ['A.proto', 'b/B.proto'])",
+        "declare_generated_files(name = 'simple', proto_dep = ':proto', extension = '.cc')");
+
+    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
+
+    assertThat(prettyArtifactNames(target.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("bar/A.cc", "bar/b/B.cc");
+  }
+
+  /** Verifies <code>proto_common.declare_generated_files</code> call for Python. */
+  @Test
+  public void declareGenerateFiles_pythonc() throws Exception {
+    scratch.file(
+        "bar/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('//foo:declare_generated_files.bzl', 'declare_generated_files')",
+        "proto_library(name = 'proto', srcs = ['my-proto.gen.proto'])",
+        "declare_generated_files(name = 'simple', proto_dep = ':proto', extension = '_pb2.py',",
+        "  python_names = True)");
+
+    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
+
+    assertThat(prettyArtifactNames(target.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("bar/my_proto/gen_pb2.py");
   }
 }
