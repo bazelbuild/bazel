@@ -180,6 +180,7 @@ proto_common = struct(
 
 proto_common_do_not_use = struct(
     compile = _compile,
+    declare_generated_files = _declare_generated_files,
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
     ProtoLangToolchainInfo = _builtins.internal.ProtoLangToolchainInfo,
