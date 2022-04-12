@@ -153,6 +153,29 @@ public class ProtoCommon {
     }
   }
 
+  public static ImmutableList<Artifact> declareGeneratedFiles(
+      RuleContext ruleContext, ConfiguredTarget protoTarget, String extension)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction declareGeneratedFiles =
+        (StarlarkFunction)
+            ruleContext.getStarlarkDefinedBuiltin("proto_common_declare_generated_files");
+    ruleContext.initStarlarkRuleContext();
+    Sequence<?> outputs =
+        (Sequence<?>)
+            ruleContext.callStarlarkOrThrowRuleError(
+                declareGeneratedFiles,
+                ImmutableList.of(
+                    /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+                    /* proto_library_target */ protoTarget,
+                    /* extension */ extension),
+                ImmutableMap.of());
+    try {
+      return Sequence.cast(outputs, Artifact.class, "declare_generated_files").getImmutableList();
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessageWithStack());
+    }
+  }
+
   public static void compile(
       RuleContext ruleContext,
       ConfiguredTarget protoTarget,

@@ -60,6 +60,7 @@ exported_rules = {
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
     "proto_common_compile": proto_common_do_not_use.compile,
+    "proto_common_declare_generated_files": proto_common_do_not_use.declare_generated_files,
     "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
