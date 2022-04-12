@@ -394,7 +394,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ImmutableList<Artifact> filteredProtoSources =
           ImmutableList.copyOf(ProtoCommon.filterSources(ruleContext, base, protoToolchain));
 
-      J2ObjcSource j2ObjcSource = protoJ2ObjcSource(ruleContext, filteredProtoSources);
+      J2ObjcSource j2ObjcSource = protoJ2ObjcSource(ruleContext, base, filteredProtoSources);
 
       J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider;
       if (j2ObjcSource.getObjcSrcs().isEmpty()) {
@@ -643,9 +643,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       J2ObjcSource j2ObjcSource)
       throws RuleErrorException, InterruptedException {
     ImmutableList<Artifact> outputHeaderMappingFiles =
-        ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
+        filteredProtoSources.isEmpty()
+            ? ImmutableList.of()
+            : ProtoCommon.declareGeneratedFiles(ruleContext, base, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
-        ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".clsmap.properties");
+        filteredProtoSources.isEmpty()
+            ? ImmutableList.of()
+            : ProtoCommon.declareGeneratedFiles(ruleContext, base, ".clsmap.properties");
     ImmutableList<Artifact> outputs =
         ImmutableList.<Artifact>builder()
             .addAll(j2ObjcSource.getObjcSrcs())
@@ -654,14 +658,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addAll(outputClassMappingFiles)
             .build();
 
-    String genfilesPath = getProtoOutputRoot(ruleContext).getPathString();
+    String bindirPath = getProtoOutputRoot(ruleContext).getPathString();
 
     ProtoCommon.compile(
         ruleContext,
         base,
         checkNotNull(protoToolchain),
         outputs,
-        genfilesPath,
+        bindirPath,
         "Generating j2objc proto_library %{label}");
 
     return new J2ObjcMappingFileProvider(
@@ -770,7 +774,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static J2ObjcSource protoJ2ObjcSource(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
+      RuleContext ruleContext, ConfiguredTarget protoTarget, ImmutableList<Artifact> protoSources)
+      throws RuleErrorException, InterruptedException {
     PathFragment objcFileRootExecPath = getProtoOutputRoot(ruleContext);
 
     List<PathFragment> headerSearchPaths =
@@ -778,8 +783,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     return new J2ObjcSource(
         ruleContext.getTarget().getLabel(),
-        ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.m"),
-        ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.h"),
+        protoSources.isEmpty()
+            ? ImmutableList.of()
+            : ProtoCommon.declareGeneratedFiles(ruleContext, protoTarget, ".j2objc.pb.m"),
+        protoSources.isEmpty()
+            ? ImmutableList.of()
+            : ProtoCommon.declareGeneratedFiles(ruleContext, protoTarget, ".j2objc.pb.h"),
         objcFileRootExecPath,
         SourceType.PROTO,
         headerSearchPaths,
@@ -788,10 +797,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
     if (ruleContext.getConfiguration().isSiblingRepositoryLayout()) {
-      return ruleContext.getGenfilesFragment();
+      return ruleContext.getBinFragment();
     }
     return ruleContext
-        .getGenfilesFragment()
+        .getBinFragment()
         .getRelative(ruleContext.getLabel().getRepository().getExecPath(false));
   }
 
