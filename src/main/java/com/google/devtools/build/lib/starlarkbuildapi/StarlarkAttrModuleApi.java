@@ -92,8 +92,13 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
       "<a href=\"https://bazel.build/rules/rules#configurations\">"
-          + "Configuration</a> of the attribute. It can be either <code>\"host\"</code>, "
-          + "<code>\"exec\"</code>, or <code>\"target\"</code>.";
+          + "Configuration</a> of the attribute. It can be either <code>\"exec\"</code>, which "
+          + "indicates that the dependency is built for the <code>execution platform</code>, or "
+          + "<code>\"target\"</code>, which indicates that the dependency is build for the "
+          + "<code>target platform</code>. A typical example of the difference is when building "
+          + "mobile apps, where the <code>target platform</code> is <code>Android</code> or "
+          + "<code>iOS</code> while the <code>execution platform</code> is <code>Linux</code>, "
+          + "<code>macOS</code>, or <code>Windows</code>.";
 
   String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
