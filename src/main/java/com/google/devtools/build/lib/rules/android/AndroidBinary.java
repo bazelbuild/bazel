@@ -863,7 +863,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
-        .addOutputGroup("android_deploy_info", deployInfo);
+        .addOutputGroup("android_deploy_info", deployInfo)
+        .addOutputGroup("android_deploy_info", resourceApk.getManifest());
   }
 
   static class Java8LegacyDexOutput {
