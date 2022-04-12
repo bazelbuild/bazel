@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.auto.value.AutoValue;
@@ -260,6 +262,30 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                       : null);
     }
 
+    Artifact manifestValidation = null;
+    if (Allowlist.hasAllowlist(ruleContext, "android_multidex_native_min_sdk_allowlist")
+        && !Allowlist.isAvailable(ruleContext, "android_multidex_native_min_sdk_allowlist")
+        && getMultidexMode(ruleContext) == MultidexMode.NATIVE
+        && ruleContext.isAttrDefined("$validate_manifest", LABEL)) {
+      manifestValidation =
+          ruleContext.getPackageRelativeArtifact(
+              ruleContext.getLabel().getName() + "_manifest_validation_output",
+              ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(
+          createSpawnActionBuilder(ruleContext)
+              .setExecutable(ruleContext.getExecutablePrerequisite("$validate_manifest"))
+              .setProgressMessage("Validating %{input}")
+              .setMnemonic("ValidateManifest")
+              .addInput(manifest.getManifest())
+              .addOutput(manifestValidation)
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath("--manifest", manifest.getManifest())
+                      .addExecPath("--output", manifestValidation)
+                      .build())
+              .build(ruleContext));
+    }
+
     boolean shrinkResourceCycles =
         shouldShrinkResourceCycles(
             dataContext.getAndroidConfig(), ruleContext, dataContext.isResourceShrinkingEnabled());
@@ -405,7 +431,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ImmutableList.of(),
         ImmutableList.of(),
         proguardMapping,
-        oneVersionOutputArtifact);
+        oneVersionOutputArtifact,
+        manifestValidation);
   }
 
   public static RuleConfiguredTargetBuilder createAndroidBinary(
@@ -425,7 +452,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
       Artifact proguardMapping,
-      @Nullable Artifact oneVersionEnforcementArtifact)
+      @Nullable Artifact oneVersionEnforcementArtifact,
+      @Nullable Artifact manifestValidation)
       throws InterruptedException, RuleErrorException {
 
     List<ProguardSpecProvider> proguardDeps = new ArrayList<>();
@@ -767,6 +795,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           signingKeys,
           signingLineage,
           additionalMergedManifests);
+    }
+
+    if (manifestValidation != null) {
+      builder.addOutputGroup(
+          OutputGroupInfo.VALIDATION, NestedSetBuilder.create(STABLE_ORDER, manifestValidation));
     }
 
     // First propagate validations from most rule attributes as usual; then handle "deps" separately
