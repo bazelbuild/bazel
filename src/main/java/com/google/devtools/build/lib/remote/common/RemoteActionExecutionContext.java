@@ -32,15 +32,15 @@ public class RemoteActionExecutionContext {
     UPLOAD_BES_FILES,
   }
 
-  private final Spawn spawn;
+  @Nullable private final Spawn spawn;
   private final RequestMetadata requestMetadata;
   private final NetworkTime networkTime;
 
   @Nullable private ExecuteResponse executeResponse;
   private Step step;
 
-  public RemoteActionExecutionContext(
-      Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
+  private RemoteActionExecutionContext(
+      @Nullable Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
     this.spawn = spawn;
     this.requestMetadata = requestMetadata;
     this.networkTime = networkTime;

@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -284,7 +283,7 @@ public class RemoteSpawnCacheTest {
             (Answer<Void>)
                 invocation -> {
                   RemoteAction action = invocation.getArgument(0);
-                  RemoteActionExecutionContext context = action.getContext();
+                  RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
                   RequestMetadata meta = context.getRequestMetadata();
                   assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
                   assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
