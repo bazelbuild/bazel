@@ -21,8 +21,6 @@
 # error This BSD is not supported
 #endif
 
-#include "src/main/native/unix_jni.h"
-
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -37,6 +35,8 @@
 #include <sys/types.h>
 
 #include <string>
+
+#include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 
@@ -65,8 +65,6 @@ int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctime;
     case STAT_MTIME:
       return statbuf.st_mtime;
-    default:
-      CHECK(false);
   }
 }
 
@@ -78,8 +76,6 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctimespec.tv_nsec;
     case STAT_MTIME:
       return statbuf.st_mtimespec.tv_nsec;
-    default:
-      CHECK(false);
   }
 }
 
@@ -109,9 +105,9 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 #endif
 }
 
-int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
 #if defined(HAVE_SYSCTLBYNAME)
-  return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
+  return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
 #else
   errno = ENOSYS;
   return -1;
@@ -130,19 +126,48 @@ int portable_pop_disable_sleep() {
   return -1;
 }
 
-int portable_suspend_count() {
+void portable_start_suspend_monitoring() {
+  // Currently not implemented.
+}
+
+void portable_start_thermal_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_thermal_load() {
   // Currently not implemented.
   return 0;
 }
 
-int portable_memory_pressure_warning_count() {
+void portable_start_system_load_advisory_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_system_load_advisory() {
   // Currently not implemented.
   return 0;
 }
 
-int portable_memory_pressure_critical_count() {
+void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
-  return 0;
+}
+
+MemoryPressureLevel portable_memory_pressure() {
+  // Currently not implemented.
+  return MemoryPressureLevelNormal;
+}
+
+void portable_start_disk_space_monitoring() {
+  // Currently not implemented.
+}
+
+void portable_start_cpu_speed_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_cpu_speed() {
+  // Currently not implemented.
+  return -1;
 }
 
 }  // namespace blaze_jni

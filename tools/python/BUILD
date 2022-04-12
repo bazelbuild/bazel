@@ -12,19 +12,8 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(
-        ["**"],
-        exclude = ["private/version.bzl"],
-    ) + [
+    srcs = glob(["**"]) + [
         "//tools/python/runfiles:embedded_tools",
-    ],
-    visibility = ["//tools:__pkg__"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//tools/python/runfiles:all_windows_tests",
     ],
     visibility = ["//tools:__pkg__"],
 )

@@ -20,14 +20,17 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Stream.concat;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import com.google.devtools.build.android.desugar.retarget.ClassMemberRetargetConfig;
 import com.google.errorprone.annotations.Immutable;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -35,6 +38,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -59,8 +63,8 @@ class CoreLibrarySupport {
   private final ImmutableSet<String> excludeFromEmulation;
   /** Internal names of interfaces whose default and static interface methods we'll emulate. */
   private final ImmutableSet<Class<?>> emulatedInterfaces;
-  /** Map from {@code owner#name} core library members to their new owners. */
-  private final ImmutableMap<String, String> memberMoves;
+
+  private final ClassMemberRetargetConfig retargetConfig;
 
   /** ASM {@link Remapper} based on {@link #renamedPrefixes}. */
   private final Remapper corePackageRemapper =
@@ -82,13 +86,19 @@ class CoreLibrarySupport {
       ClassLoader targetLoader,
       List<String> renamedPrefixes,
       List<String> emulatedInterfaces,
-      List<String> memberMoves,
-      List<String> excludeFromEmulation) {
+      List<String> excludeFromEmulation,
+      ClassMemberRetargetConfig retargetConfig) {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
+    this.retargetConfig = retargetConfig;
     checkArgument(
         renamedPrefixes.stream()
-            .allMatch(prefix -> prefix.startsWith("java/") || prefix.startsWith("javadesugar/")),
+            .allMatch(
+                prefix ->
+                    prefix.startsWith("java/")
+                        || prefix.startsWith("sun/")
+                        || prefix.startsWith("jdk/internal/")
+                        || prefix.startsWith("javadesugar/")),
         "Unexpected renamedPrefixes: Actual (%s).",
         renamedPrefixes);
     this.renamedPrefixes = ImmutableSet.copyOf(renamedPrefixes);
@@ -102,46 +112,14 @@ class CoreLibrarySupport {
       classBuilder.add(clazz);
     }
     this.emulatedInterfaces = classBuilder.build();
-
-    // We can call isRenamed and rename below b/c we initialized the necessary fields above
-    // Use LinkedHashMap to tolerate identical duplicates
-    // TODO(kmb): Make map parsing code more reusable
-    LinkedHashMap<String, String> mapBuilder = new LinkedHashMap<>();
-    Splitter splitter = Splitter.on("->").trimResults().omitEmptyStrings();
-    for (String move : memberMoves) {
-      List<String> pair = splitter.splitToList(move);
-      checkArgument(pair.size() == 2, "Doesn't split as expected: %s", move);
-      int sep = pair.get(0).indexOf('#');
-      checkArgument(sep > 0 && sep == pair.get(0).lastIndexOf('#'), "invalid member: %s", move);
-      checkArgument(
-          !isRenamedCoreLibrary(pair.get(0).substring(0, sep)),
-          "Original renamed, no need to move it: %s",
-          move);
-      checkArgument(
-          !(pair.get(1).startsWith("java/") || pair.get(1).startsWith("javadesugar/"))
-              || isRenamedCoreLibrary(pair.get(1)),
-          "Core library target not renamed: %s",
-          move);
-      checkArgument(
-          !this.excludeFromEmulation.contains(pair.get(0)),
-          "Retargeted invocation %s shouldn't overlap with excluded",
-          move);
-
-      String value = renameCoreLibrary(pair.get(1));
-      String existing = mapBuilder.put(pair.get(0), value);
-      checkArgument(
-          existing == null || existing.equals(value),
-          "Two move destinations %s and %s configured for %s",
-          existing,
-          value,
-          pair.get(0));
-    }
-    this.memberMoves = ImmutableMap.copyOf(mapBuilder);
   }
 
   public boolean isRenamedCoreLibrary(String internalName) {
     String unprefixedName = rewriter.unprefix(internalName);
-    if (!(unprefixedName.startsWith("java/") || unprefixedName.startsWith("javadesugar/"))
+    if (!(unprefixedName.startsWith("java/")
+            || unprefixedName.startsWith("sun/")
+            || unprefixedName.startsWith("jdk/internal/")
+            || unprefixedName.startsWith("javadesugar/"))
         || renamedPrefixes.isEmpty()) {
       return false; // shortcut
     }
@@ -156,6 +134,9 @@ class CoreLibrarySupport {
     if (internalName.startsWith("java/")) {
       return "j$/" + internalName.substring(/* cut away "java/" prefix */ 5);
     }
+    if (internalName.startsWith("sun/") || internalName.startsWith("jdk/internal")) {
+      return "j$/" + internalName;
+    }
     if (internalName.startsWith("javadesugar/")) {
       return "jd$/" + internalName.substring(/* cut away "javadesugar/" prefix */ 12);
     }
@@ -168,8 +149,26 @@ class CoreLibrarySupport {
   }
 
   @Nullable
-  public String getMoveTarget(String owner, String name) {
-    String result = memberMoves.get(rewriter.unprefix(owner) + '#' + name);
+  public String getMoveTarget(String owner, String name, String desc) {
+    final String result;
+    final MethodKey methodKey =
+        MethodKey.create(ClassName.create(owner), name, desc)
+            .acceptTypeMapper(ClassName.IN_PROCESS_LABEL_STRIPPER);
+    MethodInvocationSite replacementSite =
+        retargetConfig.findReplacementSite(
+            MethodInvocationSite.builder()
+                .setInvocationKind(MemberUseKind.INVOKEVIRTUAL)
+                .setIsInterface(false)
+                .setMethod(methodKey.acceptTypeMapper(ClassName.IN_PROCESS_LABEL_STRIPPER))
+                .build());
+    if (replacementSite == null) {
+      result = null;
+    } else {
+      MethodKey targetMethod =
+          replacementSite.acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER).method();
+      result = targetMethod.ownerName();
+    }
+
     if (result != null) {
       // Remember that we need the move target so we can include it in the output later
       usedRuntimeHelpers.add(result);
@@ -271,7 +270,7 @@ class CoreLibrarySupport {
         Class<?> impl = clazz; // we know clazz is not an interface because !itf
         while (impl != null) {
           String implName = impl.getName().replace('.', '/');
-          if (getMoveTarget(implName, name) != null) {
+          if (getMoveTarget(implName, name, desc) != null) {
             return impl;
           }
           impl = impl.getSuperclass();
@@ -385,15 +384,14 @@ class CoreLibrarySupport {
 
   private ImmutableList<Class<?>> findCustomOverrides(Class<?> root, String methodName) {
     ImmutableList.Builder<Class<?>> customOverrides = ImmutableList.builder();
-    for (ImmutableMap.Entry<String, String> move : memberMoves.entrySet()) {
+    for (Map.Entry<MethodInvocationSite, MethodInvocationSite> move :
+        retargetConfig.invocationReplacements().entrySet()) {
       // move.getKey is a string <owner>#<name> which we validated in the constructor.
       // We need to take the string apart here to compare owner and name separately.
-      if (!methodName.equals(move.getKey().substring(move.getKey().indexOf('#') + 1))) {
+      if (!methodName.equals(move.getKey().method().name())) {
         continue;
       }
-      Class<?> target =
-          loadFromInternal(
-              rewriter.getPrefix() + move.getKey().substring(0, move.getKey().indexOf('#')));
+      Class<?> target = loadFromInternal(rewriter.getPrefix() + move.getKey().method().ownerName());
       if (!root.isAssignableFrom(target)) {
         continue;
       }
@@ -450,13 +448,28 @@ class CoreLibrarySupport {
       String testedName = tested.getName().replace('.', '/');
 
       // In case of a class this must be a member move; for interfaces use the companion.
-      String target;
+      final String target;
       String calledMethod = method.name();
       if (tested.isInterface()) {
         target = InterfaceDesugaring.getCompanionClassName(testedName);
         calledMethod += InterfaceDesugaring.DEFAULT_COMPANION_METHOD_SUFFIX;
       } else {
-        target = checkNotNull(memberMoves.get(rewriter.unprefix(testedName) + '#' + method.name()));
+        MethodKey targetMethod =
+            checkNotNull(
+                    retargetConfig.findReplacementSite(
+                        MethodInvocationSite.builder()
+                            .setInvocationKind(MemberUseKind.INVOKEVIRTUAL)
+                            .setIsInterface(false)
+                            .setMethod(
+                                MethodKey.create(
+                                        ClassName.create(testedName),
+                                        method.name(),
+                                        method.descriptor())
+                                    .acceptTypeMapper(ClassName.IN_PROCESS_LABEL_STRIPPER))
+                            .build()))
+                .acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER)
+                .method();
+        target = targetMethod.ownerName();
       }
 
       dispatchMethod.visitVarInsn(Opcodes.ALOAD, 0); // load "receiver"
@@ -555,7 +568,10 @@ class CoreLibrarySupport {
 
   /** Checks whether the given class is (likely) generated by desugar itself. */
   private static boolean looksGenerated(String owner) {
-    return owner.contains("$$Lambda$") || owner.endsWith("$$CC") || owner.endsWith("$$Dispatch");
+    return owner.contains("$$Lambda$")
+        || owner.endsWith("$$CC")
+        || owner.endsWith("$NestCC")
+        || owner.endsWith("$$Dispatch");
   }
 
   @AutoValue

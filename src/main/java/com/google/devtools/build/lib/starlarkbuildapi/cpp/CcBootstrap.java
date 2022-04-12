@@ -28,18 +28,31 @@ public class CcBootstrap implements Bootstrap {
   private final CcModuleApi<
           ? extends StarlarkActionFactoryApi,
           ? extends FileApi,
-          ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
+          ? extends FdoContextApi<?>,
+          ? extends
+              CcToolchainProviderApi<
+                  ? extends FeatureConfigurationApi, ?, ? extends FdoContextApi<?>>,
           ? extends FeatureConfigurationApi,
           ? extends CcCompilationContextApi<? extends FileApi>,
+          ? extends LtoBackendArtifactsApi<? extends FileApi>,
           ? extends
-              LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
+              LinkerInputApi<
+                  ? extends
+                      LibraryToLinkApi<
+                          ? extends FileApi, ? extends LtoBackendArtifactsApi<? extends FileApi>>,
+                  ? extends LtoBackendArtifactsApi<? extends FileApi>,
+                  ? extends FileApi>,
           ? extends CcLinkingContextApi<? extends FileApi>,
-          ? extends LibraryToLinkApi<? extends FileApi>,
+          ? extends
+              LibraryToLinkApi<
+                  ? extends FileApi, ? extends LtoBackendArtifactsApi<? extends FileApi>>,
           ? extends CcToolchainVariablesApi,
           ? extends ConstraintValueInfoApi,
           ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
           ? extends CcToolchainConfigInfoApi,
-          ? extends CcCompilationOutputsApi<? extends FileApi>>
+          ? extends CcCompilationOutputsApi<? extends FileApi>,
+          ? extends CcDebugInfoContextApi,
+          ? extends CppModuleMapApi<? extends FileApi>>
       ccModule;
 
   private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
@@ -54,18 +67,32 @@ public class CcBootstrap implements Bootstrap {
       CcModuleApi<
               ? extends StarlarkActionFactoryApi,
               ? extends FileApi,
-              ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
+              ? extends FdoContextApi<?>,
+              ? extends
+                  CcToolchainProviderApi<
+                      ? extends FeatureConfigurationApi, ?, ? extends FdoContextApi<?>>,
               ? extends FeatureConfigurationApi,
               ? extends CcCompilationContextApi<? extends FileApi>,
+              ? extends LtoBackendArtifactsApi<? extends FileApi>,
               ? extends
-                  LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
+                  LinkerInputApi<
+                      ? extends
+                          LibraryToLinkApi<
+                              ? extends FileApi,
+                              ? extends LtoBackendArtifactsApi<? extends FileApi>>,
+                      ? extends LtoBackendArtifactsApi<? extends FileApi>,
+                      ? extends FileApi>,
               ? extends CcLinkingContextApi<? extends FileApi>,
-              ? extends LibraryToLinkApi<? extends FileApi>,
+              ? extends
+                  LibraryToLinkApi<
+                      ? extends FileApi, ? extends LtoBackendArtifactsApi<? extends FileApi>>,
               ? extends CcToolchainVariablesApi,
               ? extends ConstraintValueInfoApi,
               ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
               ? extends CcToolchainConfigInfoApi,
-              ? extends CcCompilationOutputsApi<? extends FileApi>>
+              ? extends CcCompilationOutputsApi<? extends FileApi>,
+              ? extends CcDebugInfoContextApi,
+              ? extends CppModuleMapApi<? extends FileApi>>
           ccModule,
       CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
       DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,

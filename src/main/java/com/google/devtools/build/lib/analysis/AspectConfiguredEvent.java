@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -30,10 +30,10 @@ import java.util.Collection;
 public class AspectConfiguredEvent implements BuildEventWithConfiguration {
   private final Label target;
   private final String aspect;
-  private final Collection<BuildConfiguration> configurations;
+  private final Collection<BuildConfigurationValue> configurations;
 
   AspectConfiguredEvent(
-      Label target, String aspect, Collection<BuildConfiguration> configurations) {
+      Label target, String aspect, Collection<BuildConfigurationValue> configurations) {
     this.configurations = configurations;
     this.target = target;
     this.aspect = aspect;
@@ -42,7 +42,7 @@ public class AspectConfiguredEvent implements BuildEventWithConfiguration {
   @Override
   public Collection<BuildEvent> getConfigurations() {
     ImmutableList.Builder<BuildEvent> builder = new ImmutableList.Builder<>();
-    for (BuildConfiguration config : configurations) {
+    for (BuildConfigurationValue config : configurations) {
       if (config != null) {
         builder.add(config.toBuildEvent());
       } else {
@@ -60,7 +60,7 @@ public class AspectConfiguredEvent implements BuildEventWithConfiguration {
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
-    for (BuildConfiguration config : configurations) {
+    for (BuildConfigurationValue config : configurations) {
       if (config != null) {
         childrenBuilder.add(BuildEventIdUtil.targetCompleted(target, config.getEventId()));
       } else {

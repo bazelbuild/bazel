@@ -13,18 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.function.Supplier;
 
 /**
  * Various utility methods for network related stuff.
  */
 public final class NetUtil {
 
-  private static String hostname;
+  private static String hostname = null;
+  private static Supplier<String> hostnameSupplier = NetUtil::computeShortHostName;
 
-  private NetUtil() {
-  }
+  private NetUtil() {}
 
   /**
    * Returns the *cached* short hostname (computed at most once per the lifetime of a server). Can
@@ -34,11 +39,24 @@ public final class NetUtil {
     if (hostname == null) {
       synchronized (NetUtil.class) {
         if (hostname == null) {
-          hostname = computeShortHostName();
+          hostname = firstNonNull(hostnameSupplier.get(), "unknown");
+          hostnameSupplier = null;
         }
       }
     }
     return hostname;
+  }
+
+  /**
+   * Sets a {@link Supplier} for the hostname to return from {@link #getCachedShortHostName}.
+   *
+   * <p>If not called, the hostname comes from {@link #computeShortHostName}. To prevent multiple
+   * different hostnames from being used, it is illegal to call this after {@link
+   * #getCachedShortHostName} has been called.
+   */
+  public static synchronized void overrideHostnameSupplier(Supplier<String> override) {
+    checkState(hostname == null, "Hostname already set to %s", hostname);
+    hostnameSupplier = checkNotNull(override);
   }
 
   /**

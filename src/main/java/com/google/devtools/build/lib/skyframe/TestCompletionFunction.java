@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -54,11 +56,11 @@ public final class TestCompletionFunction implements SkyFunction {
         }
       }
     } else {
-      env.getValues(
+      if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+          env,
           Iterables.transform(
               TestProvider.getTestStatusArtifacts(ct),
-              Artifact.DerivedArtifact::getGeneratingActionKey));
-      if (env.valuesMissing()) {
+              Artifact.DerivedArtifact::getGeneratingActionKey))) {
         return null;
       }
     }

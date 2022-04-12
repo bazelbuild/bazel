@@ -59,7 +59,7 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
             .setEventHandler(reporter)
             .build();
     EvaluationResult<PrepareDepsOfPatternValue> evaluationResult =
-        skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+        skyframeExecutor.getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
     Preconditions.checkState(!evaluationResult.hasError());
     return evaluationResult;
   }

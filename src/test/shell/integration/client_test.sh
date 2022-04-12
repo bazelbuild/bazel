@@ -106,6 +106,34 @@ function test_server_restart_if_number_of_option_instances_decreases() {
   expect_log "\\[INFO .*\\]   --host_jvm_args=-Dfoo"
 }
 
+function test_server_not_restarted_when_only_TMPDIR_changes() {
+  mkdir tmp1
+  mkdir tmp2
+  tmp1path="$(pwd)/tmp1"
+  tmp2path="$(pwd)/tmp2"
+  PID1=$(export TMPDIR="$tmp1path" && bazel info server_pid 2>$TEST_log) \
+     || fail "bazel info failed"
+  PID2=$(export TMPDIR="$tmp2path" && bazel info server_pid 2>$TEST_log) \
+     || fail "bazel info failed"
+  expect_not_log "Running B\\(azel\\|laze\\) server needs to be killed."
+
+  assert_equals "$PID1" "$PID2"
+}
+
+function test_server_restarted_on_explicit_heap_dump_path_change() {
+  mkdir tmp1
+  mkdir tmp2
+  tmp1path="$(pwd)/tmp1"
+  tmp2path="$(pwd)/tmp2"
+  PID1=$(bazel --host_jvm_args=-XX:HeapDumpPath="$tmp1path" info server_pid \
+     2>$TEST_log) || fail "bazel info failed"
+  PID2=$(bazel --host_jvm_args=-XX:HeapDumpPath="$tmp2path" info server_pid \
+     2>$TEST_log) || fail "bazel info failed"
+  expect_log "Running B\\(azel\\|laze\\) server needs to be killed."
+
+  assert_not_equals "$PID1" "$PID2"
+}
+
 function test_shutdown() {
   local server_pid1=$(bazel info server_pid 2>$TEST_log)
   bazel shutdown >& $TEST_log || fail "Expected success"
@@ -178,6 +206,34 @@ function test_install_base_races_dont_leave_temp_files() {
 function test_no_arguments() {
   bazel >&$TEST_log || fail "Expected zero exit"
   expect_log "Usage: b\\(laze\\|azel\\)"
+}
+
+function test_local_startup_timeout() {
+  local output_base=$(bazel info output_base 2>"$TEST_log") ||
+    fail "bazel info failed"
+
+  # --host-jvm_debug will cause the server to block, forcing the client
+  # into the timeout condition.
+  bazel --host_jvm_args="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=localhost:41687" \
+      --local_startup_timeout_secs=1 2>"$TEST_log" &
+  local timeout=20
+  while true; do
+    local jobs_output=$(jobs)
+    [[ $jobs_output =~ Exit ]] && break
+    [[ $jobs_output =~ Done ]] && fail "bazel should have exited non-zero"
+
+    timeout="$(( ${timeout} - 1 ))"
+    [[ "${timeout}" -gt 0 ]] || {
+      kill -9 %1
+      wait %1
+      fail "--local_startup_timeout_secs was not respected"
+    }
+    # Wait for the client to exit.
+    sleep 1
+  done
+
+  expect_log "Starting local.*server and connecting to it"
+  expect_log "FATAL: couldn't connect to server"
 }
 
 function test_max_idle_secs() {
@@ -326,7 +382,7 @@ function test_proxy_settings() {
 }
 
 function test_macos_qos_class() {
-  for class in user-interactive user-initiated default utility background; do
+  for class in utility background; do
     bazel --macos_qos_class="${class}" info >"${TEST_log}" 2>&1 \
       || fail "Unknown QoS class ${class}"
     # On macOS it'd be nice to verify that the server is indeed running at the
@@ -336,9 +392,13 @@ function test_macos_qos_class() {
     # real thing would be quite expensive.
   done
 
-  bazel --macos_qos_class=foo >"${TEST_log}" 2>&1 \
-    && fail "Expected failure with invalid QoS class name"
-  expect_log "Invalid argument.*qos_class.*foo"
+  for class in user-interactive user-initiated default ; do
+    bazel --macos_qos_class="${class}" >"${TEST_log}" 2>&1 \
+      && fail "Expected failure with invalid QoS class name"
+    expect_log "Invalid argument.*qos_class.*${class}"
+  done
+
+
 }
 
 run_suite "Tests of the bazel client."

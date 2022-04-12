@@ -6,6 +6,16 @@ def example_function(foo, bar = "bar"):
     Args:
         foo: This parameter does foo related things.
         bar: This parameter does bar related things.
+
+            For example, it does things that require **multiple paragraphs** to explain.
+
+            Note: we should preserve the nested indent in the following code:
+
+            ```json
+            {
+                "key": "value"
+            }
+            ```
     """
     pass
 

@@ -141,6 +141,7 @@ def _semifailing_aspect_impl(target, ctx):
         return struct(output_groups = {})
     bad_outputs = list()
     good_outputs = list()
+    mixed_outputs = list()
     for out in ctx.rule.attr.outs:
         if out.name[0] == "f":
             aspect_out = ctx.actions.declare_file(out.name + ".aspect.bad")
@@ -155,9 +156,21 @@ def _semifailing_aspect_impl(target, ctx):
             outputs = [aspect_out],
             command = cmd,
         )
+        mixed_out = ctx.actions.declare_file(out.name + ".aspect.mixed")
+        if out.name[3] == "2":  # only matches "out2.txt"
+            cmd = "false"
+        else:
+            cmd = "echo %s > %s" % (out.name, mixed_out.path)
+        mixed_outputs.append(mixed_out)
+        ctx.actions.run_shell(
+            inputs = [],
+            outputs = [mixed_out],
+            command = cmd,
+        )
     return [OutputGroupInfo(**{
         "bad-aspect-out": depset(bad_outputs),
         "good-aspect-out": depset(good_outputs),
+        "mixed-aspect-out": depset(mixed_outputs),
     })]
 
 semifailing_aspect = aspect(implementation = _semifailing_aspect_impl)
@@ -280,6 +293,12 @@ def _my_rule_impl(ctx):
         )
         group_kwargs[name + "_outputs"] = depset(
             [outfile], transitive=[group_kwargs[name + "_outputs"]])
+    valid = ctx.actions.declare_file(ctx.label.name + "-valid")
+    ctx.actions.run_shell(
+        outputs = [valid],
+        command = "printf valid > %s && exit %d" % (valid.path, 0),
+    )
+    group_kwargs["_validation"] = depset([valid])
     return [OutputGroupInfo(**group_kwargs)]
 
 my_rule = rule(implementation = _my_rule_impl, attrs = {
@@ -290,6 +309,11 @@ cat > outputgroups/BUILD <<EOF
 load("//outputgroups:rules.bzl", "my_rule")
 my_rule(name = "my_lib", outs=[])
 EOF
+}
+
+function tear_down() {
+  bazel shutdown
+  rm -f bep.txt
 }
 
 #### TESTS #############################################################
@@ -407,6 +431,15 @@ function test_workspace_status() {
   expect_log 'value.*workspace_status_value'
 }
 
+function test_target_summary() {
+  bazel test --experimental_bep_target_summary \
+      --build_event_text_file=$TEST_log pkg:true \
+    || fail "bazel test failed"
+  expect_log_once '^test_summary '
+  expect_log_once '^target_summary '
+  expect_log_once 'overall_test_status: PASSED'
+}
+
 function test_suite() {
   # ...same true when running a test suite containing that test
   bazel test --build_event_text_file=$TEST_log pkg:suite \
@@ -415,6 +448,9 @@ function test_suite() {
   expect_not_log 'aborted'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
+  expect_log_once 'test_suite_expansions'
+  expect_log_once 'suite_label: "//pkg:suite"'
+  expect_log_once 'test_labels: "//pkg:true"'
 }
 
 function test_test_summary() {
@@ -431,7 +467,19 @@ function test_test_summary() {
   expect_not_log 'status.*FLAKY'
 }
 
-function test_test_inidivual_results() {
+function test_target_summary_for_test() {
+  bazel test --experimental_bep_target_summary \
+      --build_event_text_file="$TEST_log" //pkg:true \
+    || fail "bazel test failed"
+  expect_log_once '^test_summary '
+  expect_not_log 'aborted'
+  expect_not_log 'status.*FAILED'
+  expect_not_log 'status.*FLAKY'
+  expect_log_once '^target_summary '
+  expect_log_once 'overall_test_status: PASSED'
+}
+
+function test_test_individual_results() {
   # Requesting a test, we expect
   # - precisely one test summary (for the single test we run)
   # - that is properly chained (no additional progress events)
@@ -453,13 +501,16 @@ function test_test_attempts() {
   # mentioned in the stream.
   # Moreover, as the test consistently fails, we expect the overall status
   # to be reported as failure.
-  (bazel test --build_event_text_file=$TEST_log pkg:flaky \
-      && fail "test failure expected" ) || true
+  (bazel test --experimental_bep_target_summary \
+      --build_event_text_file=$TEST_log pkg:flaky \
+    && fail "test failure expected" ) || true
   expect_log 'attempt.*1$'
   expect_log 'attempt.*2$'
   expect_log 'attempt.*3$'
   expect_log_once '^test_summary '
   expect_log 'status.*FAILED'
+  expect_log_once '^target_summary '
+  expect_log_once 'overall_test_status.*FAILED'
   expect_not_log 'status.*PASSED'
   expect_not_log 'status.*FLAKY'
   expect_not_log 'aborted'
@@ -472,6 +523,45 @@ function test_test_attempts() {
   expect_log 'name:.*test.xml'
   expect_log 'name:.*TESTS_FAILED'
   expect_not_log 'name:.*SUCCESS'
+}
+
+function test_undeclared_output_annotations() {
+  mkdir -p undeclared_annotations || fail "mkdir undeclared_annotations failed"
+  cat > undeclared_annotations/undeclared_annotations_test.sh <<'EOF'
+#!/bin/sh
+
+base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
+[ -d $base ] || exit 2
+[ ! -e $base/1.txt ]] | exit 2
+
+echo "some information" > $base/something.part
+EOF
+  chmod u+x undeclared_annotations/undeclared_annotations_test.sh
+  echo "sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
+    > undeclared_annotations/BUILD
+  bazel test  --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_test || fail "Expected success"
+  expect_log 'test_result'
+  expect_log 'test.outputs_manifest__ANNOTATIONS'
+  expect_not_log 'test.outputs_manifest__ANNOTATIONS.pb'
+}
+
+function test_undeclared_output_annotations_pb() {
+  mkdir -p undeclared_annotations || fail "mkdir undeclared_annotations failed"
+  cat > undeclared_annotations/undeclared_annotations_test.sh <<'EOF'
+#!/bin/sh
+
+base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
+[ -d $base ] || exit 2
+[ ! -e $base/1.txt ]] | exit 2
+
+echo "some information" > $base/something.pb
+EOF
+  chmod u+x undeclared_annotations/undeclared_annotations_test.sh
+  echo "sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
+    > undeclared_annotations/BUILD
+  bazel test --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_pb_test || fail "Expected success"
+  expect_log 'test_result'
+  expect_log 'test.outputs_manifest__ANNOTATIONS.pb'
 }
 
 function test_test_runtime() {
@@ -501,7 +591,7 @@ function test_test_start_times() {
 }
 
 function test_test_attempts_multi_runs() {
-  # Sanity check on individual test attempts. Even in more complicated
+  # Check individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
   ( bazel test --build_event_text_file=$TEST_log \
@@ -513,7 +603,7 @@ function test_test_attempts_multi_runs() {
 }
 
 function test_test_attempts_multi_runs_flake_detection() {
-  # Sanity check on individual test attempts. Even in more complicated
+  # Check individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
   ( bazel test --build_event_text_file=$TEST_log \
@@ -551,6 +641,19 @@ function test_target_complete() {
   expect_log 'out1.txt'
   expect_log 'tag1'
   expect_log 'tag2'
+}
+
+function test_target_summary_for_build() {
+  bazel build --experimental_bep_target_summary --verbose_failures \
+      --build_event_text_file=$TEST_log pkg:output_files_and_tags \
+    || fail "bazel build failed"
+  expect_log 'output_group'
+  expect_log 'out1.txt'
+  expect_log 'tag1'
+  expect_log 'tag2'
+  expect_log_once '^target_summary '
+  expect_log_once 'overall_build_success.*true'
+  expect_not_log 'overall_test_status'
 }
 
 function test_test_target_complete() {
@@ -613,30 +716,43 @@ function test_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
-  # We request the first three output groups and expect only bar_outputs to
-  # appear in BEP, because all actions contributing to bar_outputs succeeded.
+  # We request the first three output groups and expect foo_outputs and
+  # bar_outputs to appear in BEP, because both groups have at least one
+  # successful action.
   bazel build //outputgroups:my_lib \
    --keep_going\
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
    --output_groups=foo_outputs,bar_outputs,baz_outputs \
     && fail "expected failure" || true
 
-  for name in bar; do
+  for name in foo bar; do
     expect_log "\"name\":\"${name}_outputs\""
     expect_log "\"name\":\"outputgroups/my_lib-${name}.out\""
+  done
+  expect_log "\"name\":\"foo_outputs\".*\"incomplete\":true"
+  # Verify that a URI is produced for foo's successful action's output but not
+  # its failed action's output.
+  expect_log "\"name\":\"outputgroups/my_lib-foo.out\",\"uri\":"
+  expect_not_log "\"name\":\"outputgroups/my_lib-foo.fail.out\",\"uri\":"
+  # Verify that a URI is produced for all of bar's successful actions' outputs.
+  for suffix in out out2 out3 out4 out5; do
+    expect_log "\"name\":\"outputgroups/my_lib-bar.ok.${suffix}\",\"uri\":"
   done
   # Verify that nested NamedSetOfFiles structure is preserved in BEP.
   expect_log "namedSet.*\"1\".*bar.ok.*fileSets.*\"2\""
   expect_log "namedSet.*\"2\".*bar.ok.*fileSets.*\"3\""
   expect_log "namedSet.*\"3\".*bar.ok.*fileSets.*\"4\""
 
-  for name in foo baz skip; do
+  for name in baz skip; do
     expect_not_log "\"name\":\"${name}_outputs\""
     expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
+  expect_not_log "-valid\""  # validation outputs shouldn't appear in BEP
 }
 
 function test_aspect_artifacts() {
@@ -653,6 +769,21 @@ function test_aspect_artifacts() {
   expect_log_once '^build_tool_logs'
 }
 
+function test_aspect_target_summary() {
+  bazel build --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=simpleaspect.bzl%simple_aspect \
+    --output_groups=aspect-out \
+    pkg:output_files_and_tags || fail "bazel build failed"
+  expect_not_log 'aborted'
+  expect_log_n '^configured' 2
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_n '^completed' 2
+  expect_log_once '^target_summary '
+  expect_log_once 'overall_build_success.*true'
+}
+
 function test_failing_aspect() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=failingaspect.bzl%failing_aspect \
@@ -664,6 +795,23 @@ function test_failing_aspect() {
   expect_log_once '^build_tool_logs'
 }
 
+function test_aspect_analysis_failure_no_target_summary() {
+  bazel build -k --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=failingaspect.bzl%failing_aspect \
+    --output_groups=aspect-out \
+    pkg:output_files_and_tags && fail "expected failure" || true
+  expect_log 'aspect.*failing_aspect'
+  expect_log '^finished'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_once '^completed '  # target completes due to -k
+  # One "aborted" for failed aspect analysis, another for target_summary_id
+  # announced by "completed" event asserted above
+  expect_log_n 'aborted' 2
+  expect_not_log '^target_summary '  # no summary due to analysis failure
+}
+
 function test_failing_aspect_bep_output_groups() {
   # In outputgroups/rules.bzl, the `my_rule` definition defines four output
   # groups with different (successful/failed) action counts:
@@ -671,6 +819,7 @@ function test_failing_aspect_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
   # We request the first two output groups and expect only bar_outputs to
   # appear in BEP, because all actions contributing to bar_outputs succeeded.
@@ -683,32 +832,50 @@ function test_failing_aspect_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
+   --experimental_use_validation_aspect \
    --aspects=semifailingaspect.bzl%semifailing_aspect \
-   --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out \
+   --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out,mixed-aspect-out \
     && fail "expected failure" || true
 
-  for name in bar; do
+  for name in foo bar; do
     expect_log "\"name\":\"${name}_outputs\""
     expect_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
+  # Verify that a URI is produced for foo's successful action's output but not
+  # its failed action's output.
+  expect_log "\"name\":\"outputgroups/my_lib-foo.out\",\"uri\":"
+  expect_not_log "\"name\":\"outputgroups/my_lib-foo.fail.out\",\"uri\":"
 
-  for name in foo baz skip; do
+  for name in baz skip; do
     expect_not_log "\"name\":\"${name}_outputs\""
     expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
 
   expect_log "\"name\":\"good-aspect-out\""
+  expect_log "\"name\":\"mixed-aspect-out\""
   expect_not_log "\"name\":\"bad-aspect-out\""
+  expect_log "\"name\":\"mixed-aspect-out\".*\"incomplete\":true"
+  expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.good\",\"uri\":"
+  expect_log "\"name\":\"semifailingpkg/out2.txt.aspect.good\",\"uri\":"
+  expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.mixed\",\"uri\":"
+  expect_not_log "\"name\":\"semifailingpkg/out2.txt.aspect.mixed\",\"uri\":"
+
+  # Validation outputs shouldn't appear in BEP (incl. no output group)
+  expect_not_log "-valid\""
+  expect_log_n '^{"id":{"targetCompleted":{.*"aspect":"ValidateTarget".*}},"completed":{"success":true}}$' 2
 }
 
 function test_build_only() {
   # When building but not testing a test, there won't be a test summary
   # (as nothing was tested), so it should not be announced.
   # Still, no event should only be chained in by progress events.
-  bazel build --build_event_text_file=$TEST_log pkg:true \
+  bazel build --experimental_bep_target_summary \
+      --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel build failed"
   expect_not_log 'aborted'
   expect_not_log 'test_summary '
+  expect_log_once '^target_summary '
   # Build Finished
   expect_log 'build_finished'
   expect_log 'finish_time'
@@ -720,8 +887,6 @@ function test_build_only() {
 function test_command_whitelisting() {
   # We expect the "help" command to not generate a build-event stream,
   # but the "build" command to do.
-  bazel shutdown
-  rm -f bep.txt
   bazel help --build_event_text_file=bep.txt || fail "bazel help failed"
   ( [ -f bep.txt ] && fail "bazel help generated a build-event file" ) || :
   bazel version --build_event_text_file=bep.txt || fail "bazel help failed"
@@ -729,7 +894,6 @@ function test_command_whitelisting() {
   bazel build --build_event_text_file=bep.txt //pkg:true \
       || fail "bazel build failed"
   [ -f bep.txt ] || fail "build did not generate requested build-event file"
-  bazel shutdown
 }
 
 function test_multiple_transports() {
@@ -775,15 +939,43 @@ function test_root_cause_early() {
   expect_log_once '^build_tool_logs'
 }
 
+function test_root_cause_before_target_summary() {
+  (bazel build --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
+         pkg:fails_to_build && fail "build failure expected") || true
+  # We expect precisely one action being reported (the failed one) and
+  # precisely on report on a completed target; moreover, the action has
+  # to be reported first.
+  expect_log_once '^action'
+  expect_log 'type: "Genrule"'
+  expect_log_once '^completed'
+  expect_log_once '^target_summary'
+  expect_not_log 'success: true'
+  local naction=`grep -n '^action' $TEST_log | cut -f 1 -d :`
+  local ncomplete=`grep -n '^completed' $TEST_log | cut -f 1 -d :`
+  local nsummary=`grep -n '^target_summary' $TEST_log | cut -f 1 -d :`
+  [ $naction -lt $ncomplete ] \
+      || fail "failed action not before completed target"
+  [ $ncomplete -lt $nsummary ] \
+      || fail "completed not before target_summary"
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+}
+
 function test_action_conf() {
   # Verify that the expected configurations for actions are reported.
-  # The example contains a configuration transition (from building for
-  # target to building for host). As the action fails, we expect the
-  # configuration of the action to be reported as well.
-  (bazel build --build_event_text_file=$TEST_log \
+  # Expect the following configurations:
+  # 1. The top-level target configuration
+  # 2. Host configuration (since example contains transition to host).
+  # 3. Trimmed top-level target configuration (since non-test rule).
+  # As the action fails, we expect the configuration of the action to be
+  # reported as well.
+  # TODO(blaze-configurability-team): remove explicit trim_test_configuration
+  # once it is (very soon) default true.
+  (bazel build --trim_test_configuration --build_event_text_file=$TEST_log \
          -k failingtool/... && fail "build failure expected") || true
   count=`grep '^configuration' "${TEST_log}" | wc -l`
-  [ "${count}" -eq 2 ] || fail "Expected 2 configurations, found $count."
+  [ "${count}" -eq 3 ] || fail "Expected 3 configurations, found $count."
 }
 
 function test_loading_failure() {
@@ -801,25 +993,29 @@ function test_loading_failure() {
 }
 
 function test_visibility_failure() {
-  bazel shutdown
-  (bazel build --build_event_text_file=$TEST_log \
+  (bazel build --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
   expect_log 'reason: ANALYSIS_FAILURE'
   expect_log '^aborted'
+  expect_not_log '^completed'
+  expect_not_log '^target_summary'
 
   # The same should hold true, if the server has already analyzed the target
-  (bazel build --build_event_text_file=$TEST_log \
+  (bazel build --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
   expect_log 'reason: ANALYSIS_FAILURE'
   expect_log '^aborted'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
+  expect_not_log '^completed'
+  expect_not_log '^target_summary'
 }
 
 function test_visibility_indirect() {
   # verify that an indirect visibility error is reported, including the
   # target that violates visibility constraints.
-  bazel shutdown
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:indirect && fail "build failure expected") || true
   expect_log 'reason: ANALYSIS_FAILURE'
@@ -832,7 +1028,6 @@ function test_visibility_indirect() {
 }
 
 function test_independent_visibility_failures() {
-  bazel shutdown
   (bazel build -k --build_event_text_file=$TEST_log \
          //visibility:indirect //visibility:indirect2 \
        && fail "build failure expected") || true
@@ -919,9 +1114,27 @@ function test_srcfiles() {
 }
 
 function test_test_fails_to_build() {
-  (bazel test --build_event_text_file=$TEST_log \
+  (bazel test --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
          pkg:test_that_fails_to_build && fail "test failure expected") || true
-  expect_not_log '^test_summary'
+  expect_not_log 'test_summary'  # no test_summary events or references to them
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success'
+  expect_log 'last_message: true'
+  expect_log 'BUILD_FAILURE'
+  expect_log 'last_message: true'
+  expect_log 'command_line:.*This build will fail'
+  expect_log_once '^build_tool_logs'
+}
+
+function test_test_fails_to_build_without_default_output_group() {
+  (bazel test --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
+         --output_groups=extra \
+         pkg:test_that_fails_to_build && fail "test failure expected") || true
+  expect_not_log 'test_summary'  # no test_summary events or references to them
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success'
   expect_log 'last_message: true'
   expect_log 'BUILD_FAILURE'
   expect_log 'last_message: true'
@@ -930,9 +1143,12 @@ function test_test_fails_to_build() {
 }
 
 function test_no_tests_found() {
-  (bazel test --build_event_text_file=$TEST_log \
+  (bazel test --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
          pkg:not_a_test && fail "failure expected") || true
   expect_not_log '^test_summary'
+  expect_log_once '^target_summary '
+  expect_log 'overall_build_success: true'
   expect_log 'last_message: true'
   expect_log 'NO_TESTS_FOUND'
   expect_log 'last_message: true'
@@ -1025,7 +1241,7 @@ function test_tool_command_line() {
   bazel build --experimental_tool_command_line="foo bar" --build_event_text_file=$TEST_log \
     || fail "build failed"
 
-  # Sanity check the arglist
+  # Check the arglist
   expect_log_once 'args: "build"'
   expect_log_once 'args: "--experimental_tool_command_line='
 
@@ -1046,19 +1262,23 @@ function test_tool_command_line() {
 }
 
 function test_noanalyze() {
-  bazel build --noanalyze --build_event_text_file="${TEST_log}" pkg:true \
+  bazel build --noanalyze  --experimental_bep_target_summary \
+      --build_event_text_file="${TEST_log}" pkg:true \
     || fail "build failed"
   expect_log_once '^aborted'
   expect_log 'reason: NO_ANALYZE'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
+  expect_not_log '^target_summary'
 }
 
 function test_nobuild() {
-  bazel build --nobuild --build_event_text_file="${TEST_log}" pkg:true \
+  bazel build --nobuild  --experimental_bep_target_summary \
+      --build_event_text_file="${TEST_log}" pkg:true \
     || fail "build failed"
   expect_log_once '^aborted'
   expect_log 'reason: NO_BUILD'
+  expect_not_log '^target_summary'
 }
 
 function test_server_pid() {
@@ -1066,7 +1286,6 @@ function test_server_pid() {
     || fail "Build failed but should have succeeded"
   cat bep.txt | grep server_pid >> "$TEST_log"
   expect_log_once "server_pid:.*$(bazel info server_pid)$"
-  rm bep.txt
 }
 
 function test_bep_report_only_important_artifacts() {
@@ -1074,7 +1293,6 @@ function test_bep_report_only_important_artifacts() {
     //pkg:true || fail "Build failed but should have succeeded"
   cat bep.txt >> "$TEST_log"
   expect_not_log "_hidden_top_level_INTERNAL_"
-  rm bep.txt
 }
 
 function test_starlark_flags() {
@@ -1097,10 +1315,192 @@ EOF
     --//:my_int_setting=666 \
     //pkg:true || fail "Build failed but should have succeeded"
   cat bep.txt >> "$TEST_log"
-  rm bep.txt
 
   expect_log 'option_name: "//:my_int_setting"'
   expect_log 'option_value: "666"'
+}
+
+function test_empty_tree_in_named_files() {
+  mkdir -p foo
+  cat > foo/rule.bzl <<'EOF'
+def _leaf_impl(ctx):
+  ctx.actions.write(output = ctx.outputs.out2, content = 'hello\n')
+  ctx.actions.write(output = ctx.outputs.out1, content = 'hello\n')
+  return [DefaultInfo(files = depset([ctx.outputs.out1, ctx.outputs.out2]))]
+
+def _top_impl(ctx):
+  dir = ctx.actions.declare_directory('dir')
+  ctx.actions.run_shell(outputs = [dir], command = 'true')
+  return [DefaultInfo(files = depset([dir],
+                      transitive = [dep[DefaultInfo].files
+                                        for dep in ctx.attr.deps]))]
+
+leaf = rule(
+    implementation = _leaf_impl,
+    attrs = {"out1": attr.output(), "out2": attr.output()},
+)
+
+top = rule(
+    implementation = _top_impl,
+    attrs = { "deps": attr.label_list()}
+)
+EOF
+  cat > foo/BUILD <<'EOF'
+load('//foo:rule.bzl', 'leaf', 'top')
+
+leaf(name = 'leaf', out1 = '1.out', out2 = '2.out')
+top(name = 'top', deps = [':leaf'])
+EOF
+
+  bazel build --build_event_text_file=bep.txt //foo:top >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log ClassCastException
+  cat bep.txt > "$TEST_log"
+  expect_log "1.out"
+  expect_log "2.out"
+}
+
+function test_tree_to_split_in_named_files() {
+  mkdir -p foo
+  cat > foo/rule.bzl <<'EOF'
+def _leaf_impl(ctx):
+  ctx.actions.write(output = ctx.outputs.out2, content = 'hello\n')
+  ctx.actions.write(output = ctx.outputs.out1, content = 'hello\n')
+  return [DefaultInfo(files = depset([ctx.outputs.out1, ctx.outputs.out2]))]
+
+def _top_impl(ctx):
+  dir = ctx.actions.declare_directory('dir')
+  ctx.actions.run_shell(outputs = [dir],
+                        command = 'touch %s/{out1,out2,out3}' % dir.path)
+  return [DefaultInfo(files = depset([dir],
+                      transitive = [dep[DefaultInfo].files
+                                        for dep in ctx.attr.deps]))]
+
+leaf = rule(
+    implementation = _leaf_impl,
+    attrs = {"out1": attr.output(), "out2": attr.output()},
+)
+
+top = rule(
+    implementation = _top_impl,
+    attrs = { "deps": attr.label_list()}
+)
+EOF
+  cat > foo/BUILD <<'EOF'
+load('//foo:rule.bzl', 'leaf', 'top')
+
+leaf(name = 'leaf', out1 = '1.out', out2 = '2.out')
+top(name = 'top', deps = [':leaf'])
+EOF
+
+  bazel build --build_event_text_file=bep.txt \
+      --build_event_max_named_set_of_file_entries=2 //foo:top >& "$TEST_log" \
+      || fail "Expected success"
+  mv bep.txt "$TEST_log"
+  # Depending on a hard-coded index is a bit brittle, but 0 should be the index
+  # of the top-level nested set at least.
+  # Strip newlines. BSD grep doesn't support -z, so use tr first.
+  tr -s <"$TEST_log" '\n' ' ' |
+      grep -q \
+          'event { id { named_set { id: "0" } } named_set_of_files { file_sets { id: "[0-9]" } file_sets { id: "[0-9]" } } }' \
+      || fail "Couldn't find top-level named set"
+}
+
+function test_memory_profile() {
+  bazel build --build_event_text_file=bep.txt --memory_profile=/dev/null \
+      >& "$TEST_log" || fail "Expected success"
+  cp bep.txt "$TEST_log" || fail "cp failed"
+  # Non-zero used heap size.
+  expect_log 'used_heap_size_post_build: [1-9]'
+}
+
+function test_packages_loaded_contains_only_successfully_loaded_packages() {
+  mkdir just-to-get-packages-needed-for-toolchain-resolution
+  cat > just-to-get-packages-needed-for-toolchain-resolution/BUILD <<'EOF'
+sh_library(name = 'whatever')
+EOF
+  # Do an initial invocation to get Bazel to load packages necessary for
+  # toolchain resolution and also the //external package. This way we don't need
+  # to bother making careful assertions about these packages in our actual test
+  # logic below.
+  bazel build --nobuild \
+    //just-to-get-packages-needed-for-toolchain-resolution:whatever \
+    >& "$TEST_log" || fail "Expected success"
+
+  mkdir successful \
+    dep-of-successful \
+    unsuccessful-because-of-illegal-load \
+    unsuccessful-because-of-BUILD-file-syntax-error \
+    unsuccessful-because-of-BUILD-file-evaluation-error
+  cat > successful/BUILD <<'EOF'
+sh_library(
+  name = 'successful',
+  deps = ['//dep-of-successful:dep'],
+)
+EOF
+  cat > dep-of-successful/BUILD <<'EOF'
+sh_library(name = 'dep', visibility = ['//visibility:public'])
+EOF
+  # We use 3 different sorts of package loading errors to exercise different
+  # parts of the code...
+  #
+  # ... for this sort of BUILD file, PackageFunction notices the illegal load
+  # statement after parsing the file and doesn't proceed to BUILD file
+  # evaluation. It then throws a Skyframe error.
+  cat > unsuccessful-because-of-illegal-load/BUILD <<'EOF'
+load('//no/such/package:f.bzl', 'doesntmatter')
+EOF
+  # ... for this sort of BUILD file, PackageFunction notices the illegal syntax
+  # after parsing the BUILD file and doesn't proceed to BUILD file evaluation.
+  # But it doesn't throw a Skyframe error (instead, it returns a PackageValue
+  # that has an errorful Package).
+  cat > unsuccessful-because-of-BUILD-file-syntax-error/BUILD <<'EOF'
+@
+EOF
+  # ... for this sort of BUILD file, PackageFunction parses it successfully and
+  # then evaluates it. PackageFunction then encounters the evaluation error and
+  # returns a PackageValue that has an errorful Package.
+  cat > unsuccessful-because-of-BUILD-file-evaluation-error/BUILD <<'EOF'
+fail('bad')
+EOF
+
+  bazel build \
+    --nobuild \
+    --keep_going \
+    --build_event_text_file=bep.txt \
+    --bes_upload_mode=wait_for_upload_complete \
+    --experimental_ui_debug_all_events \
+    --show_progress_rate_limit=-1 \
+    //successful:all \
+    //unsuccessful-because-of-illegal-load:all \
+    //unsuccessful-because-of-BUILD-file-syntax-error:all \
+    //unsuccessful-because-of-BUILD-file-evaluation-error:all \
+    >& "$TEST_log" && fail "Expected failure"
+  expect_log "unsuccessful-because-of-illegal-load.*Label '//no/such/package:f.bzl' is invalid because 'no/such/package' is not a package"
+  expect_log "unsuccessful-because-of-BUILD-file-syntax-error.*invalid character: '@'"
+  expect_log "Error in fail: bad"
+
+  # On this invocation, Bazel attempts to load exactly 5 packages.
+  expect_log_n "PROGRESS.*Loading package" 5
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: successful"
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: unsuccessful-because-of-illegal-load"
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: unsuccessful-because-of-BUILD-file-syntax-error"
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: unsuccessful-because-of-BUILD-file-evaluation-error"
+  # This package is attempted to be loaded while traversing the dep edge
+  # //successful:successful -> //dep-of-successful:dep during the analysis
+  # phase.
+  expect_log "Loading package: dep-of-successful"
+
+  cp bep.txt "$TEST_log" || fail "cp failed"
+  # In contrast, the metric in the BEP counts only successfully loaded packages
+  # Of the 5 packages that are attempted to be loaded, 2 were successful:
+  #   * //successful
+  #   * //dep-of-successful
+  expect_log 'packages_loaded: 2'
 }
 
 run_suite "Integration tests for the build event stream"

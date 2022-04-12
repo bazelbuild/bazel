@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.testutil.ThrowableRecordingRunnableWrapper;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;

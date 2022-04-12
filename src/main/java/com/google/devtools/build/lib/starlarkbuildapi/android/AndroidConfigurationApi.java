@@ -67,6 +67,9 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   @StarlarkMethod(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV2();
 
+  @StarlarkMethod(name = "apk_signing_method_v4", structField = true, doc = "", documented = false)
+  Boolean apkSigningMethodV4();
+
   @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
   boolean assumeMinSdkVersion();
 
@@ -215,6 +218,13 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean useDataBindingUpdatedArgs();
 
   @StarlarkMethod(
+      name = "android_databinding_use_androidx",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useDataBindingAndroidX();
+
+  @StarlarkMethod(
       name = "persistent_busybox_tools",
       structField = true,
       doc = "",
@@ -234,4 +244,7 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   boolean incompatibleUseToolchainResolution();
+
+  @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
+  boolean isHwasan();
 }

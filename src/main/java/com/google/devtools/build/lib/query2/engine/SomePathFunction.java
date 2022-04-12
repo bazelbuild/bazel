@@ -25,10 +25,11 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCal
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
+import java.util.OptionalInt;
 
 /**
- * A somepath(x, y) query expression, which computes the set of nodes
- * on some arbitrary path from a target in set x to a target in set y.
+ * A somepath(x, y) query expression, which computes the set of nodes on some arbitrary path from a
+ * target in set x to a target in set y.
  *
  * <pre>expr ::= SOMEPATH '(' expr ',' expr ')'</pre>
  */
@@ -71,9 +72,6 @@ class SomePathFunction implements QueryFunction {
             public Void call() throws QueryException, InterruptedException {
               ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
               ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
-
-              env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
-
               ((CustomFunctionQueryEnvironment<T>) env)
                   .somePath(fromValue, toValue, expression, callback);
               return null;
@@ -93,7 +91,7 @@ class SomePathFunction implements QueryFunction {
             ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
             ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
 
-            env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+            env.buildTransitiveClosure(expression, fromValue, OptionalInt.empty());
 
             for (T x : fromValue) {
               // TODO(b/122548314): if x was already seen as part of a previous node's tc, we should

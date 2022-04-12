@@ -25,6 +25,7 @@ import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -100,7 +101,8 @@ public class SimpleJavaLibraryBuilder implements Closeable {
    *
    * @param build A JavaLibraryBuildRequest request object describing what to compile
    */
-  public BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build) throws Exception {
+  private BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build)
+      throws Exception {
     prepareSourceCompilation(build);
     if (build.getSourceFiles().isEmpty()) {
       return BlazeJavacResult.ok();
@@ -109,6 +111,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   }
 
   /** Perform the build. */
+  @CheckReturnValue
   public BlazeJavacResult run(JavaLibraryBuildRequest build) throws Exception {
     BlazeJavacResult result = BlazeJavacResult.error("");
     try {

@@ -76,22 +76,20 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
- * An output formatter that outputs a protocol buffer representation
- * of a query result and outputs the proto bytes to the output print stream.
- * By taking the bytes and calling {@code mergeFrom()} on a
- * {@code Build.QueryResult} object the full result can be reconstructed.
+ * An output formatter that outputs a protocol buffer representation of a query result and outputs
+ * the proto bytes to the output print stream. By taking the bytes and calling {@code mergeFrom()}
+ * on a {@code Build.QueryResult} object the full result can be reconstructed.
  */
 public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
-  /**
-   * A special attribute name for the rule implementation hash code.
-   */
-  public static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
+
+  /** A special attribute name for the rule implementation hash code. */
+  protected static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
 
   private static final Comparator<Build.Attribute> ATTRIBUTE_NAME =
       Comparator.comparing(Build.Attribute::getName);
 
   private static final ImmutableSet<Type<?>> SCALAR_TYPES =
-      ImmutableSet.<Type<?>>of(
+      ImmutableSet.of(
           Type.INTEGER,
           Type.STRING,
           BuildType.LABEL,
@@ -104,6 +102,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
   private boolean relativeLocations;
+  private boolean displaySourceFileLocation;
   private boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
@@ -128,6 +127,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.relativeLocations = options.relativeLocations;
+    this.displaySourceFileLocation = options.displaySourceFileLocation;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
@@ -195,9 +195,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
     if (target instanceof Rule) {
       Rule rule = (Rule) target;
-      Build.Rule.Builder rulePb = Build.Rule.newBuilder()
-          .setName(rule.getLabel().toString())
-          .setRuleClass(rule.getRuleClass());
+      Build.Rule.Builder rulePb =
+          Build.Rule.newBuilder()
+              .setName(rule.getLabel().toString())
+              .setRuleClass(rule.getRuleClass());
       if (includeLocations) {
         rulePb.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
@@ -248,11 +249,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
         // what is available from the attributes above, since it may also (depending on options)
         // include implicit outputs, host-configuration outputs, and default values.
-        rule.getLabels(dependencyFilter).stream()
-            .distinct()
+        rule.getSortedLabels(dependencyFilter)
             .forEach(input -> rulePb.addRuleInput(input.toString()));
-        rule.getOutputFiles()
-            .stream()
+        rule.getOutputFiles().stream()
             .distinct()
             .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
       }
@@ -261,7 +260,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (includeInstantiationStack) {
-        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toArray()) {
+        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toList()) {
           // Always report relative locations.
           // (New fields needn't honor relativeLocations.)
           rulePb.addInstantiationStack(
@@ -286,8 +285,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Rule generatingRule = outputFile.getGeneratingRule();
       GeneratedFile.Builder output =
           GeneratedFile.newBuilder()
-                       .setGeneratingRule(generatingRule.getLabel().toString())
-                       .setName(label.toString());
+              .setGeneratingRule(generatingRule.getLabel().toString())
+              .setName(label.toString());
 
       if (includeLocations) {
         output.setLocation(FormatUtils.getLocation(target, relativeLocations));
@@ -298,11 +297,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       InputFile inputFile = (InputFile) target;
       Label label = inputFile.getLabel();
 
-      Build.SourceFile.Builder input = Build.SourceFile.newBuilder()
-          .setName(label.toString());
+      Build.SourceFile.Builder input = Build.SourceFile.newBuilder().setName(label.toString());
 
       if (includeLocations) {
-        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
+        input.setLocation(
+            FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation));
       }
 
       if (inputFile.getName().equals("BUILD")) {
@@ -334,8 +333,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       targetPb.setSourceFile(input);
     } else if (target instanceof FakeLoadTarget) {
       Label label = target.getLabel();
-      SourceFile.Builder input = SourceFile.newBuilder()
-                                           .setName(label.toString());
+      SourceFile.Builder input = SourceFile.newBuilder().setName(label.toString());
 
       if (includeLocations) {
         input.setLocation(FormatUtils.getLocation(target, relativeLocations));
@@ -344,8 +342,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       targetPb.setSourceFile(input.build());
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
-      Build.PackageGroup.Builder packageGroupPb = Build.PackageGroup.newBuilder()
-          .setName(packageGroup.getLabel().toString());
+      Build.PackageGroup.Builder packageGroupPb =
+          Build.PackageGroup.newBuilder().setName(packageGroup.getLabel().toString());
       for (String containedPackage : packageGroup.getContainedPackages()) {
         packageGroupPb.addContainedPackage(containedPackage);
       }
@@ -358,9 +356,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     } else if (target instanceof EnvironmentGroup) {
       EnvironmentGroup envGroup = (EnvironmentGroup) target;
       Build.EnvironmentGroup.Builder envGroupPb =
-          Build.EnvironmentGroup
-              .newBuilder()
-              .setName(envGroup.getLabel().toString());
+          Build.EnvironmentGroup.newBuilder().setName(envGroup.getLabel().toString());
       for (Label env : envGroup.getEnvironments()) {
         envGroupPb.addEnvironment(env.toString());
       }
@@ -385,9 +381,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
       Object attributeValue;
       if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
-        attributeValue =
-            flattenAttributeValues(
-                attr.getType(), PossibleAttributeValues.forRuleAndAttribute(rule, attr));
+        attributeValue = getFlattenedAttributeValues(attr.getType(), rule, attr);
       } else {
         attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
       }
@@ -400,9 +394,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       serializedAttributes.put(attr, serializedAttribute);
     }
     rulePb.addAllAttribute(
-        serializedAttributes
-            .values()
-            .stream()
+        serializedAttributes.values().stream()
             .distinct()
             .sorted(ATTRIBUTE_NAME)
             .collect(Collectors.toList()));
@@ -473,20 +465,23 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   /**
-   * Coerces the list {@param possibleValues} of values of type {@param attrType} to a single
-   * value of that type, in the following way:
+   * Coerces the list {@code possibleValues} of values of type {@code attrType} to a single value of
+   * that type, in the following way:
    *
    * <p>If the list contains a single value, return that value.
    *
    * <p>If the list contains zero or multiple values and the type is a scalar type, return {@code
    * null}.
    *
-   * <p>If the list contains zero or multiple values and the type is a collection or map type,
-   * merge the collections/maps in the list and return the merged collection/map.
+   * <p>If the list contains zero or multiple values and the type is a collection or map type, merge
+   * the collections/maps in the list and return the merged collection/map.
    */
   @Nullable
   @SuppressWarnings("unchecked")
-  private static Object flattenAttributeValues(Type<?> attrType, Iterable<Object> possibleValues) {
+  private static Object getFlattenedAttributeValues(Type<?> attrType, Rule rule, Attribute attr) {
+    boolean treatMultipleAsNone = SCALAR_TYPES.contains(attrType);
+    Iterable<Object> possibleValues =
+        PossibleAttributeValues.forRuleAndAttribute(rule, attr, treatMultipleAsNone);
 
     // If there is only one possible value, return it.
     if (Iterables.size(possibleValues) == 1) {
@@ -512,9 +507,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         || attrType == BuildType.NODEP_LABEL_LIST
         || attrType == BuildType.OUTPUT_LIST
         || attrType == BuildType.DISTRIBUTIONS
-        || attrType == Type.INTEGER_LIST
-        || attrType == BuildType.FILESET_ENTRY_LIST) {
-      ImmutableList.Builder<Object> builder = ImmutableList.<Object>builder();
+        || attrType == Type.INTEGER_LIST) {
+      ImmutableList.Builder<Object> builder = ImmutableList.builder();
       for (Object possibleValue : possibleValues) {
         Collection<Object> collection = (Collection<Object>) possibleValue;
         for (Object o : collection) {

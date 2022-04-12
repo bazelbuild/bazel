@@ -92,9 +92,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInDependency() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
         "load('//java/bar:foo.bzl', 'extra_deps')",
@@ -149,9 +147,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInTest() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
         "load('//java/bar:foo.bzl', 'extra_deps')",
@@ -202,9 +198,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   @Test
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
         "load('//java/bar:foo.bzl', 'extra_deps')",
@@ -245,9 +239,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalidEvenIfNotUsed()
       throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
         "load('//java/bar:foo.bzl', 'extra_deps')",
@@ -276,9 +268,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
 
   @Test
   public void testFeatureFlagsAttributeSetsFeatureFlagProviderValues() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/reader.bzl",
         "def _impl(ctx):",
@@ -334,9 +324,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   @Test
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagIsAliased() throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
         "load('//java/bar:foo.bzl', 'extra_deps')",
@@ -400,9 +388,8 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
     assertContainsEvent(
         String.format(
-            "in feature_flags attribute of %s rule //java/com/google/android/foo:foo: the"
-                + " feature_flags attribute is not available in package"
-                + " 'java/com/google/android/foo'",
+            "in %s rule //java/com/google/android/foo:foo:"
+                + " the attribute feature_flags is not available in this package",
             getRuleName()));
   }
 

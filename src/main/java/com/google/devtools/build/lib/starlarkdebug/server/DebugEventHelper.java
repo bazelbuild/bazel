@@ -63,14 +63,14 @@ final class DebugEventHelper {
   static DebugEvent setBreakpointsResponse(long sequenceNumber) {
     return DebugEvent.newBuilder()
         .setSequenceNumber(sequenceNumber)
-        .setSetBreakpoints(SetBreakpointsResponse.newBuilder())
+        .setSetBreakpoints(SetBreakpointsResponse.getDefaultInstance())
         .build();
   }
 
   static DebugEvent continueExecutionResponse(long sequenceNumber) {
     return DebugEvent.newBuilder()
         .setSequenceNumber(sequenceNumber)
-        .setContinueExecution(ContinueExecutionResponse.newBuilder())
+        .setContinueExecution(ContinueExecutionResponse.getDefaultInstance())
         .build();
   }
 
@@ -91,14 +91,14 @@ final class DebugEventHelper {
   static DebugEvent startDebuggingResponse(long sequenceNumber) {
     return DebugEvent.newBuilder()
         .setSequenceNumber(sequenceNumber)
-        .setStartDebugging(StartDebuggingResponse.newBuilder())
+        .setStartDebugging(StartDebuggingResponse.getDefaultInstance())
         .build();
   }
 
   static DebugEvent pauseThreadResponse(long sequenceNumber) {
     return DebugEvent.newBuilder()
         .setSequenceNumber(sequenceNumber)
-        .setPauseThread(PauseThreadResponse.newBuilder())
+        .setPauseThread(PauseThreadResponse.getDefaultInstance())
         .build();
   }
 

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -33,8 +33,8 @@ class DisabledDataBindingV2Context implements DataBindingContext {
       Consumer<Iterable<String>> consumer) { }
 
   @Override
-  public void supplyAnnotationProcessor(RuleContext ruleContext,
-      BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) { }
+  public void supplyAnnotationProcessor(
+      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {}
 
   @Override
   public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
@@ -49,8 +49,8 @@ class DisabledDataBindingV2Context implements DataBindingContext {
   @Override
   public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
 
-    ImmutableList.Builder<Artifact> setterStores = ImmutableList.builder();
-    ImmutableList.Builder<Artifact> classInfos = ImmutableList.builder();
+    NestedSetBuilder<Artifact> setterStores = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> classInfos = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> brFiles = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<LabelJavaPackagePair> exportedLabelJavaPackages = ImmutableList.builder();
     NestedSetBuilder<LabelJavaPackagePair> targetNameAndJavaPackages =
@@ -61,8 +61,8 @@ class DisabledDataBindingV2Context implements DataBindingContext {
       Iterable<DataBindingV2Provider> exportsProviders =
           ruleContext.getPrerequisites("exports", DataBindingV2Provider.PROVIDER);
       for (DataBindingV2Provider provider : exportsProviders) {
-        setterStores.addAll(provider.getSetterStores());
-        classInfos.addAll(provider.getClassInfos());
+        setterStores.addTransitive(provider.getSetterStores());
+        classInfos.addTransitive(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());
         exportedLabelJavaPackages.addAll(provider.getLabelAndJavaPackages());
         targetNameAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
@@ -94,4 +94,10 @@ class DisabledDataBindingV2Context implements DataBindingContext {
 
   @Override
   public void supplyLayoutInfo(Consumer<Artifact> consumer) {  }
+
+  @Override
+  public boolean usesAndroidX() {
+    // AndroidX settings have no meaning if databinding is disabled.
+    return false;
+  }
 }

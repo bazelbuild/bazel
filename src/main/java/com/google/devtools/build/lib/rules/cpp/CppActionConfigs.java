@@ -44,8 +44,7 @@ public class CppActionConfigs {
       ImmutableSet<String> existingFeatureNames,
       String cppLinkDynamicLibraryToolPath,
       boolean supportsEmbeddedRuntimes,
-      boolean supportsInterfaceSharedLibraries,
-      boolean doNotSplitLinkingCmdline) {
+      boolean supportsInterfaceSharedLibraries) {
 
     ImmutableList.Builder<CToolchain.Feature> featureBuilder = ImmutableList.builder();
     try {
@@ -176,6 +175,7 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'per_object_debug_info_file'",
                         "      flag: '-gsplit-dwarf'",
+                        "      flag: '-g'",
                         "    }",
                         "  }")));
       }
@@ -382,6 +382,10 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
+      if (!existingFeatureNames.contains(
+          CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS)) {
+        featureBuilder.add(getFeature("name: 'propeller_optimize_thinlto_compile_actions'"));
+      }
       if (!existingFeatureNames.contains(CppRuleClasses.PROPELLER_OPTIMIZE)) {
         featureBuilder.add(
             getFeature(
@@ -395,6 +399,7 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'propeller_optimize_cc_path'",
                         "      flag: '-fbasic-block-sections=list=%{propeller_optimize_cc_path}'",
+                        "      flag: '-DBUILD_PROPELLER_TYPE=\"full\"'",
                         "    }",
                         "  }",
                         "  flag_set {",
@@ -658,12 +663,10 @@ public class CppActionConfigs {
                         "    action: 'lto-index-for-dynamic-library'",
                         "    action: 'lto-index-for-nodeps-dynamic-library'",
                         "    action: 'lto-index-for-executable'",
-                        ifTrue(
-                            doNotSplitLinkingCmdline,
-                            "    flag_group {",
-                            "      expand_if_true: 'thinlto_param_file'",
-                            "      flag: '-Wl,@%{thinlto_param_file}'",
-                            "    }"),
+                        "    flag_group {",
+                        "      expand_if_true: 'thinlto_param_file'",
+                        "      flag: '-Wl,@%{thinlto_param_file}'",
+                        "    }",
                         "    flag_group {",
                         "      expand_if_all_available: 'libraries_to_link'",
                         "      iterate_over: 'libraries_to_link'",
@@ -672,12 +675,17 @@ public class CppActionConfigs {
                         "          variable: 'libraries_to_link.type'",
                         "          value: 'object_file_group'",
                         "        }",
+                        "        expand_if_false: 'libraries_to_link.is_whole_archive'",
                         "        flag: '-Wl,--start-lib'",
                         "      }",
                         ifLinux(
                             platform,
                             "  flag_group {",
                             "    expand_if_true: 'libraries_to_link.is_whole_archive'",
+                            "    expand_if_equal: {",
+                            "        variable: 'libraries_to_link.type'",
+                            "        value: 'static_library'",
+                            "    }",
                             "    flag: '-Wl,-whole-archive'",
                             "  }",
                             "  flag_group {",
@@ -725,6 +733,10 @@ public class CppActionConfigs {
                             "  }",
                             "  flag_group {",
                             "    expand_if_true: 'libraries_to_link.is_whole_archive'",
+                            "    expand_if_equal: {",
+                            "        variable: 'libraries_to_link.type'",
+                            "        value: 'static_library'",
+                            "    }",
                             "    flag: '-Wl,-no-whole-archive'",
                             "  }"),
                         ifMac(
@@ -805,15 +817,10 @@ public class CppActionConfigs {
                         "          variable: 'libraries_to_link.type'",
                         "          value: 'object_file_group'",
                         "        }",
+                        "        expand_if_false: 'libraries_to_link.is_whole_archive'",
                         "        flag: '-Wl,--end-lib'",
                         "      }",
                         "    }",
-                        ifTrue(
-                            !doNotSplitLinkingCmdline,
-                            "    flag_group {",
-                            "      expand_if_true: 'thinlto_param_file'",
-                            "      flag: '-Wl,@%{thinlto_param_file}'",
-                            "    }"),
                         "  }")));
       }
       if (!existingFeatureNames.contains("force_pic_flags")) {
@@ -1353,26 +1360,6 @@ public class CppActionConfigs {
                         "      flag: '-o'",
                         "      flag: '%{output_file}'",
                         "    }",
-                        ifLinux(
-                            platform,
-                            "    flag_group {",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.quote_paths'",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.bracket_paths'",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.system_paths'",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.cpp_defines'",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.cpp_includes'",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.cl_args'",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.lipo_info'",
-                            "      flag: '-R'",
-                            "      flag: '.gnu.switches.text.annotation'",
-                            "    }"),
                         "    flag_group {",
                         "      iterate_over: 'stripopts'",
                         "      flag: '%{stripopts}'",
@@ -1393,7 +1380,7 @@ public class CppActionConfigs {
   // Note:  these feaures won't be added to the crosstools that defines no_legacy_features feature
   // (e.g. ndk, apple, enclave crosstools). Those need to be modified separately.
   public static ImmutableList<CToolchain.Feature> getFeaturesToAppearLastInFeaturesList(
-      ImmutableSet<String> existingFeatureNames, boolean doNotSplitLinkingCmdline) {
+      ImmutableSet<String> existingFeatureNames) {
     ImmutableList.Builder<CToolchain.Feature> featureBuilder = ImmutableList.builder();
     try {
       if (!existingFeatureNames.contains("fully_static_link")) {
@@ -1495,11 +1482,7 @@ public class CppActionConfigs {
                         "  }")));
       }
       if (!existingFeatureNames.contains("linker_param_file")) {
-        String dynamicLibraryParamFile = "      flag: '-Wl,@%{linker_param_file}'";
-        if (doNotSplitLinkingCmdline
-            || existingFeatureNames.contains(CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE)) {
-          dynamicLibraryParamFile = "      flag: '@%{linker_param_file}'";
-        }
+        String dynamicLibraryParamFile = "      flag: '@%{linker_param_file}'";
         featureBuilder.add(
             getFeature(
                 Joiner.on("\n")

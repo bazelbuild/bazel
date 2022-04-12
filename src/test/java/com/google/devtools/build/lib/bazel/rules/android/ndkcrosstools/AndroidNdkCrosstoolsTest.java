@@ -134,7 +134,7 @@ public class AndroidNdkCrosstoolsTest {
     // NDK test data is based on the x86 64-bit Linux Android NDK.
     NdkPaths ndkPaths =
         new NdkPaths(
-            REPOSITORY_NAME, HOST_PLATFORM, params.apiLevel, params.ndkRelease.majorRevision);
+            REPOSITORY_NAME, HOST_PLATFORM, params.apiLevel, params.ndkRelease.majorRevision, true);
 
     ImmutableList.Builder<CrosstoolRelease> crosstools = ImmutableList.builder();
     ImmutableMap.Builder<String, String> stlFilegroupsBuilder = ImmutableMap.builder();
@@ -162,7 +162,8 @@ public class AndroidNdkCrosstoolsTest {
         for (ToolPath toolpath : toolchain.getToolPathList()) {
           // TODO(tmsriram): Not all crosstools contain llvm-profdata tool yet, remove
           // the check once llvm-profdata becomes always available.
-          if (toolpath.getPath().contains("llvm-profdata")) {
+          if (toolpath.getPath().contains("llvm-profdata")
+              || toolpath.getPath().contains("llvm-cov")) {
             continue;
           }
           assertThat(ndkFiles).contains(toolpath.getPath());

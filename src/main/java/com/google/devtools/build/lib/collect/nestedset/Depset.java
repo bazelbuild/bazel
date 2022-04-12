@@ -18,12 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -58,7 +56,7 @@ import net.starlark.java.eval.StarlarkValue;
         "<p>A specialized data structure that supports efficient merge operations and has a"
             + " defined traversal order. Commonly used for accumulating data from transitive"
             + " dependencies in rules and aspects. For more information see <a"
-            + " href=\"../depsets.md\">here</a>."
+            + " href=\"/rules/depsets\">here</a>."
             + " <p>The elements of a depset must be hashable and all of the same type (as"
             + " defined by the built-in type(x) function), but depsets are not simply"
             + " hash sets and do not support fast membership tests."
@@ -93,13 +91,11 @@ import net.starlark.java.eval.StarlarkValue;
             + " these will be suppressed when iterating (using <code>to_list()</code>). Duplicates"
             + " may interfere with the ordering semantics.")
 @Immutable
-@AutoCodec
 public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttributes {
   private final ElementType elemType;
   private final NestedSet<?> set;
 
-  @AutoCodec.VisibleForSerialization
-  Depset(ElementType elemType, NestedSet<?> set) {
+  private Depset(ElementType elemType, NestedSet<?> set) {
     this.elemType = Preconditions.checkNotNull(elemType, "element type cannot be null");
     this.set = set;
   }
@@ -462,7 +458,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
         // because stardoc can't handle a type and a function with the same name.
         return cls;
       }
-      Class<?> superclass = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(cls);
+      Class<?> superclass = StarlarkAnnotations.getParentWithStarlarkBuiltin(cls);
       if (superclass != null) {
         return superclass;
       }
@@ -517,109 +513,31 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
    * StarlarkLibrary.CommonLibrary.depset.
    */
   public static Depset depset(
-      Object x,
-      String orderString,
-      Object direct,
-      Object transitive,
-      Object items,
-      StarlarkSemantics semantics)
+      String orderString, Object direct, Object transitive, StarlarkSemantics semantics)
       throws EvalException {
     Order order;
-    Depset result;
     try {
       order = Order.parse(orderString);
     } catch (IllegalArgumentException ex) {
       throw new EvalException(ex);
     }
 
-    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS)) {
-      if (x != Starlark.NONE) {
-        if (direct != Starlark.NONE) {
-          throw new EvalException(
-              "parameter 'direct' cannot be specified both positionally and by keyword");
-        }
-        direct = x;
-      }
-      if (direct instanceof Depset) {
-        throw new EvalException(
-            "parameter 'direct' must contain a list of elements, and may no longer accept a"
-                + " depset. The deprecated behavior may be temporarily re-enabled by setting"
-                + " --incompatible_disable_depset_items=false");
-      }
-      result =
-          fromDirectAndTransitive(
-              order,
-              Sequence.noneableCast(direct, Object.class, "direct"),
-              Sequence.noneableCast(transitive, Depset.class, "transitive"),
-              semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
-    } else {
-      if (x != Starlark.NONE) {
-        if (!isEmptyStarlarkList(items)) {
-          throw new EvalException(
-              "parameter 'items' cannot be specified both positionally and by keyword");
-        }
-        items = x;
-      }
-      result = legacyDepsetConstructor(items, order, direct, transitive, semantics);
-    }
+    Depset result =
+        fromDirectAndTransitive(
+            order,
+            Sequence.noneableCast(direct, Object.class, "direct"),
+            Sequence.noneableCast(transitive, Depset.class, "transitive"),
+            semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
 
     // check depth limit
     int depth = result.getSet().getApproxDepth();
-    int limit = depthLimit.get();
+    int limit = semantics.get(BuildLanguageOptions.NESTED_SET_DEPTH_LIMIT);
     if (depth > limit) {
       throw Starlark.errorf("depset depth %d exceeds limit (%d)", depth, limit);
     }
 
     return result;
   }
-
-  private static Depset legacyDepsetConstructor(
-      Object items, Order order, Object direct, Object transitive, StarlarkSemantics semantics)
-      throws EvalException {
-
-    if (transitive == Starlark.NONE && direct == Starlark.NONE) {
-      // Legacy behavior.
-      return legacyOf(order, items);
-    }
-
-    if (direct != Starlark.NONE && !isEmptyStarlarkList(items)) {
-      throw new EvalException(
-          "Do not pass both 'direct' and 'items' argument to depset constructor.");
-    }
-
-    // Non-legacy behavior: either 'transitive' or 'direct' were specified.
-    List<Object> directElements =
-        direct != Starlark.NONE
-            ? Sequence.cast(direct, Object.class, "direct")
-            : Sequence.cast(items, Object.class, "items");
-
-    List<Depset> transitiveList = Sequence.noneableCast(transitive, Depset.class, "transitive");
-
-    return fromDirectAndTransitive(
-        order,
-        directElements,
-        transitiveList,
-        semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
-  }
-
-  private static boolean isEmptyStarlarkList(Object o) {
-    return o instanceof Sequence && ((Sequence) o).isEmpty();
-  }
-
-  /**
-   * Sets the maximum depth for nested sets constructed by the Starlark {@code depset} function (as
-   * set by {@code --nested_set_depth_limit}).
-   *
-   * @return whether the new limit differs from the old
-   */
-  public static boolean setDepthLimit(int newLimit) {
-    int oldValue = depthLimit.getAndSet(newLimit);
-    return oldValue != newLimit;
-  }
-
-  // The effective default value comes from the --nested_set_depth_limit
-  // flag in NestedSetOptionsModule, which overrides this.
-  private static final AtomicInteger depthLimit = new AtomicInteger(3500);
 
   // Delegate equality to the underlying NestedSet. Otherwise, it's possible to create multiple
   // Depset instances wrapping the same NestedSet that aren't equal to each other.

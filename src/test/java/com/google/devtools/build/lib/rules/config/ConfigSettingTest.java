@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
@@ -109,23 +108,17 @@ public class ConfigSettingTest extends BuildViewTestCase {
     }
   }
 
-  @AutoCodec
-  static class DummyTestOptionsFragment extends Fragment {}
+  /** Test fragment. */
+  @RequiresOptions(options = {DummyTestOptions.class})
+  public static final class DummyTestOptionsFragment extends Fragment {
+    private final BuildOptions buildOptions;
 
-  private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions) {
-      return new DummyTestOptionsFragment();
+    public DummyTestOptionsFragment(BuildOptions buildOptions) {
+      this.buildOptions = buildOptions;
     }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return DummyTestOptionsFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(DummyTestOptions.class);
+    // Getter required to satisfy AutoCodec.
+    public BuildOptions getBuildOptions() {
+      return buildOptions;
     }
   }
 
@@ -134,8 +127,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
-    builder.addConfigurationOptions(DummyTestOptions.class);
-    builder.addConfigurationFragment(new DummyTestOptionsLoader());
+    builder.addConfigurationFragment(DummyTestOptionsFragment.class);
     return builder.build();
   }
 
@@ -297,7 +289,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         String.format(
             "option 'nonselectable_allowlisted_option' cannot be used in a config_setting (it is "
                 + "allowlisted to %s//tools/... only)",
-            RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getDefaultCanonicalForm()),
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
         "config_setting(",
         "    name = 'badoption',",
         "    values = {",
@@ -1514,6 +1506,30 @@ public class ConfigSettingTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:match");
     assertContainsEvent("'gouda' cannot be converted to //test:wishes type int");
+  }
+
+  @Test
+  public void buildsettings_allowMultipleWorks() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag = True, allow_multiple = True),",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'pepperjack',",
+        "    },",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'gouda')");
+    useConfiguration(ImmutableMap.of("//test:cheese", ImmutableList.of("pepperjack", "brie")));
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
   @Test

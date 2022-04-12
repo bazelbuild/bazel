@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.function.Consumer;
 
 /**
@@ -47,26 +45,6 @@ public final class SingleJarActionBuilder {
   private static final ImmutableList<String> SOURCE_JAR_COMMAND_LINE_ARGS =
       ImmutableList.of(
           "--compression", "--normalize", "--exclude_build_data", "--warn_duplicate_resources");
-
-  /** Constructs the base spawn for a singlejar action. */
-  private static SpawnAction.Builder singleJarActionBuilder(
-      JavaToolchainProvider provider, JavaRuntimeInfo hostJavabase) {
-    Artifact singleJar = provider.getSingleJar();
-    SpawnAction.Builder builder = new SpawnAction.Builder();
-    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
-    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
-    // the native singlejar is used on windows) remove support for the Java implementation
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
-          .setJarExecutable(
-              hostJavabase.javaBinaryExecPathFragment(), singleJar, provider.getJvmOptions())
-          .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
-    } else {
-      builder.setExecutable(singleJar);
-    }
-    return builder;
-  }
 
   /**
    * Creates an Action that packages files into a Jar file.
@@ -88,8 +66,7 @@ public final class SingleJarActionBuilder {
         resources,
         resourceJars,
         outputJar,
-        JavaToolchainProvider.from(ruleContext),
-        JavaRuntimeInfo.forHost(ruleContext));
+        JavaToolchainProvider.from(ruleContext));
   }
 
   /**
@@ -101,7 +78,6 @@ public final class SingleJarActionBuilder {
    * @param resourceJars the resource jars to merge into the jar
    * @param outputJar the Jar to create
    * @param toolchainProvider is used to retrieve jvm options
-   * @param hostJavabase the Java runtime to run the tools under
    */
   public static void createSourceJarAction(
       ActionRegistry actionRegistry,
@@ -110,15 +86,15 @@ public final class SingleJarActionBuilder {
       NestedSet<Artifact> resources,
       NestedSet<Artifact> resourceJars,
       Artifact outputJar,
-      JavaToolchainProvider toolchainProvider,
-      JavaRuntimeInfo hostJavabase) {
+      JavaToolchainProvider toolchainProvider) {
     requireNonNull(resourceJars);
     requireNonNull(outputJar);
     if (!resources.isEmpty()) {
       requireNonNull(semantics);
     }
     SpawnAction.Builder builder =
-        singleJarActionBuilder(toolchainProvider, hostJavabase)
+        new SpawnAction.Builder()
+            .setExecutable(toolchainProvider.getSingleJar())
             .addOutput(outputJar)
             .addTransitiveInputs(resources)
             .addTransitiveInputs(resourceJars)
@@ -143,8 +119,8 @@ public final class SingleJarActionBuilder {
     requireNonNull(jars);
     requireNonNull(output);
     SpawnAction.Builder builder =
-        singleJarActionBuilder(
-                JavaToolchainProvider.from(ruleContext), JavaRuntimeInfo.forHost(ruleContext))
+        new SpawnAction.Builder()
+            .setExecutable(JavaToolchainProvider.from(ruleContext).getSingleJar())
             .addOutput(output)
             .addTransitiveInputs(jars)
             .addCommandLine(
@@ -175,9 +151,7 @@ public final class SingleJarActionBuilder {
     return args.build();
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class ResourceArgMapFn extends CommandLineItem.ParametrizedMapFn<Artifact> {
+  private static final class ResourceArgMapFn extends CommandLineItem.ParametrizedMapFn<Artifact> {
     private final JavaSemantics semantics;
 
     ResourceArgMapFn(JavaSemantics semantics) {

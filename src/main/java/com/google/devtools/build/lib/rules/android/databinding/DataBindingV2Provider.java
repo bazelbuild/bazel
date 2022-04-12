@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 
@@ -37,27 +36,23 @@ public final class DataBindingV2Provider extends NativeInfo
 
   public static final Provider PROVIDER = new Provider();
 
-  private final ImmutableList<Artifact> classInfos;
+  private final NestedSet<Artifact> classInfos;
 
-  private final ImmutableList<Artifact> setterStores;
+  private final NestedSet<Artifact> setterStores;
 
   private final NestedSet<Artifact> transitiveBRFiles;
 
-  /**
-   * The label and java package of this rule and any rules that this rule exports.
-   */
-  @Nullable
+  /** The label and java package of this rule and any rules that this rule exports. */
   private final ImmutableList<LabelJavaPackagePair> labelAndJavaPackages;
 
   private final NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages;
 
   public DataBindingV2Provider(
-      ImmutableList<Artifact> classInfos,
-      ImmutableList<Artifact> setterStores,
+      NestedSet<Artifact> classInfos,
+      NestedSet<Artifact> setterStores,
       NestedSet<Artifact> transitiveBRFiles,
       ImmutableList<LabelJavaPackagePair> labelAndJavaPackages,
       NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages) {
-    super(PROVIDER);
     this.classInfos = classInfos;
     this.setterStores = setterStores;
     this.transitiveBRFiles = transitiveBRFiles;
@@ -66,12 +61,25 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
-  public ImmutableList<Artifact> getClassInfos() {
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  @Override
+  public Depset /*<Artifact>*/ getClassInfosForStarlark() {
+    return Depset.of(Artifact.TYPE, classInfos);
+  }
+
+  public NestedSet<Artifact> getClassInfos() {
     return classInfos;
   }
 
   @Override
-  public ImmutableList<Artifact> getSetterStores() {
+  public Depset /*<Artifact>*/ getSetterStoresForStarlark() {
+    return Depset.of(Artifact.TYPE, setterStores);
+  }
+
+  public NestedSet<Artifact> getSetterStores() {
     return setterStores;
   }
 
@@ -85,7 +93,6 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
-  @Nullable
   public ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages() {
     return labelAndJavaPackages;
   }
@@ -109,12 +116,12 @@ public final class DataBindingV2Provider extends NativeInfo
       Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInDeps,
       Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInExports) {
 
-    ImmutableList.Builder<Artifact> setterStoreFiles = ImmutableList.builder();
+    NestedSetBuilder<Artifact> setterStoreFiles = NestedSetBuilder.stableOrder();
     if (setterStoreFile != null) {
       setterStoreFiles.add(setterStoreFile);
     }
 
-    ImmutableList.Builder<Artifact> classInfoFiles = ImmutableList.builder();
+    NestedSetBuilder<Artifact> classInfoFiles = NestedSetBuilder.stableOrder();
     if (classInfoFile != null) {
       classInfoFiles.add(classInfoFile);
     }
@@ -149,8 +156,8 @@ public final class DataBindingV2Provider extends NativeInfo
       // depend on this target appear to depend on the exported targets.
       for (DataBindingV2ProviderApi<Artifact> p : databindingV2ProvidersInExports) {
         DataBindingV2Provider provider = (DataBindingV2Provider) p;
-        setterStoreFiles.addAll(provider.getSetterStores());
-        classInfoFiles.addAll(provider.getClassInfos());
+        setterStoreFiles.addTransitive(provider.getSetterStores());
+        classInfoFiles.addTransitive(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());
         labelAndJavaPackages.addAll(provider.getLabelAndJavaPackages());
         transitiveLabelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());

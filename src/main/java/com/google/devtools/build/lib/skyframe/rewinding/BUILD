@@ -1,0 +1,41 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//src:__subpackages__"])
+
+licenses(["notice"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
+java_library(
+    name = "rewinding",
+    srcs = [
+        "ActionRewindStrategy.java",
+        "ActionRewindingStats.java",
+        "ActionRewoundEvent.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_utils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_nested_set_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)

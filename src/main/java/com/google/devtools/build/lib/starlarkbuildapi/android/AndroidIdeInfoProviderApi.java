@@ -20,13 +20,15 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.OutputJarApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 
 /**
@@ -40,7 +42,7 @@ import net.starlark.java.eval.Sequence;
             + "you will be broken when it is removed.",
     documented = false)
 public interface AndroidIdeInfoProviderApi<
-        FileT extends FileApi, OutputJarT extends OutputJarApi<FileT>>
+        FileT extends FileApi, JavaOutputT extends JavaOutputApi<FileT>>
     extends StructApi {
 
   /** Name of this info object. */
@@ -133,7 +135,7 @@ public interface AndroidIdeInfoProviderApi<
       documented = false,
       allowReturnNones = true)
   @Nullable
-  OutputJarT getResourceJar();
+  JavaOutputT getResourceJarJavaOutput();
 
   @StarlarkMethod(
       name = "resource_apk",
@@ -178,7 +180,7 @@ public interface AndroidIdeInfoProviderApi<
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  interface Provider<FileT extends FileApi, OutputJarT extends OutputJarApi<FileT>>
+  interface Provider<FileT extends FileApi, OutputJarT extends JavaOutputApi<FileT>>
       extends ProviderApi {
 
     @StarlarkMethod(
@@ -191,98 +193,114 @@ public interface AndroidIdeInfoProviderApi<
               doc = "A string of the Java package.",
               positional = true,
               named = false,
-              noneable = true,
-              type = String.class),
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "manifest",
               doc = "An artifact of the Android manifest.",
               positional = true,
               named = false,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "generated_manifest",
               doc = "An artifact of the generated Android manifest.",
               positional = true,
               named = false,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "idl_import_root",
               doc = "A string of the idl import root.",
               positional = true,
               named = false,
-              noneable = true,
-              type = String.class),
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "idl_srcs",
               doc = "A list of artifacts of the idl srcs.",
               positional = true,
               named = false,
-              type = Sequence.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)}),
           @Param(
               name = "idl_generated_java_files",
               doc = "A list of artifacts of the idl generated java files.",
               positional = true,
               named = false,
-              type = Sequence.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)}),
           @Param(
               name = "idl_source_jar",
               doc = "An artifact of the source Jar with the idl generated java files.",
               positional = true,
               named = false,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "idl_class_jar",
               doc = "An artifact of the class Jar with the compiled idl generated java files.",
               positional = true,
               named = false,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "defines_android_resources",
               doc = "A boolean if target specifies Android resources.",
               positional = true,
-              named = false,
-              type = Boolean.class),
+              named = false),
           @Param(
               name = "resource_jar",
               doc = "An artifact of the Jar containing Android resources.",
               positional = true,
               named = false,
-              noneable = true,
-              type = OutputJarApi.class),
+              allowedTypes = {
+                @ParamType(type = JavaOutputApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "resource_apk",
               doc = "An artifact of the Apk containing Android resources.",
               positional = true,
               named = false,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "signed_apk",
               doc = "An artifact of the signed Apk.",
               positional = true,
               named = false,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "aar",
               doc = "An artifact of the Android archive.",
               positional = true,
               named = false,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "apks_under_test",
               doc = "A list of artifacts of the apks under test",
               positional = true,
               named = false,
-              type = Sequence.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)}),
           @Param(
               name = "native_libs",
               doc =
@@ -290,8 +308,7 @@ public interface AndroidIdeInfoProviderApi<
                       + "libs.",
               positional = true,
               named = false,
-              type = Dict.class,
-              generic1 = String.class)
+              allowedTypes = {@ParamType(type = Dict.class, generic1 = String.class)})
         },
         selfCall = true)
     @StarlarkConstructor

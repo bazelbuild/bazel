@@ -21,8 +21,8 @@ import java.util.Optional;
 /**
  * Holds information about the Bazel rule that created a certain jar.
  *
- * <p>Rules that use Aspects (http://www.bazel.build/docs/skylark/aspects.html) to compile jars will
- * result in 'aspect()' being populated.
+ * <p>Rules that use Aspects (http://bazel.build/rules/aspects) to compile jars will result in
+ * 'aspect()' being populated.
  */
 @AutoValue
 public abstract class JarOwner {

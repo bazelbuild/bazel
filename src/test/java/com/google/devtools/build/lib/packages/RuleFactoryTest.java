@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -55,14 +56,17 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
           new StarlarkThread.CallStackEntry(
               "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
+  private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
+    return packageFactory
+        .newPackageBuilder(
+            id, "TESTING", StarlarkSemantics.DEFAULT, RepositoryMapping.ALWAYS_FALLBACK)
+        .setFilename(RootedPath.toRootedPath(root, filename));
+  }
+
   @Test
   public void testCreateRule() throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
-    Package.Builder pkgBuilder =
-        packageFactory
-            .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
-            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
+    Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -70,7 +74,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
     Rule rule =
-        RuleFactory.createAndAddRuleImpl(
+        RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -127,7 +131,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     RuleClass ruleClass = provider.getRuleClassMap().get("bind");
     Rule rule =
-        RuleFactory.createAndAddRuleImpl(
+        RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -140,11 +144,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testWorkspaceRuleFailsInBuildFile() throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
-    Package.Builder pkgBuilder =
-        packageFactory
-            .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
-            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
+    Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -155,7 +155,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRuleImpl(
+                RuleFactory.createAndAddRule(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -168,11 +168,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testBuildRuleFailsInWorkspaceFile() throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
-    Package.Builder pkgBuilder =
-        packageFactory
-            .newPackageBuilder(
-                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING", StarlarkSemantics.DEFAULT)
-            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
+    Package.Builder pkgBuilder = newBuilder(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -183,7 +179,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRuleImpl(
+                RuleFactory.createAndAddRule(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -209,11 +205,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testOutputFileNotEqualDot() throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg");
-    Package.Builder pkgBuilder =
-        packageFactory
-            .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
-            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
+    Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("outs", Lists.newArrayList("."));
@@ -223,7 +215,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRuleImpl(
+                RuleFactory.createAndAddRule(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -235,20 +227,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         .isTrue();
   }
 
-  /**
-   * Tests mandatory attribute definitions for test rules.
-   */
+  /** Tests mandatory attribute definitions for test rules. */
   // TODO(ulfjack): Remove this check when we switch over to the builder
   // pattern, which will always guarantee that these attributes are present.
   @Test
   public void testTestRules() throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
-    Package pkg =
-        packageFactory
-            .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
-            .setFilename(RootedPath.toRootedPath(root, myPkgPath))
-            .build();
+    Package pkg = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath).build();
 
     for (String name : ruleFactory.getRuleClassNames()) {
       // Create rule instance directly so we'll avoid mandatory attribute check yet will be able

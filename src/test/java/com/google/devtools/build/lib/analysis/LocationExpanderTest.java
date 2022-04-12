@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +74,7 @@ public class LocationExpanderTest {
         ImmutableMap.<String, LocationFunction>of(
             "location", f1,
             "locations", f2),
-        ImmutableMap.of());
+        RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   private String expand(String input) throws Exception {
@@ -133,10 +134,11 @@ public class LocationExpanderTest {
         RepositoryName.create("@foo"),
         RepositoryName.create("@bar"));
 
-    LocationExpander locationExpander = new LocationExpander(
-        new Capture(),
-        ImmutableMap.<String, LocationFunction>of("location", f1),
-        repositoryMapping);
+    LocationExpander locationExpander =
+        new LocationExpander(
+            new Capture(),
+            ImmutableMap.<String, LocationFunction>of("location", f1),
+            RepositoryMapping.createAllowingFallback(repositoryMapping));
 
     String value = locationExpander.expand("$(location @foo//a)");
     assertThat(value).isEqualTo("src/a");

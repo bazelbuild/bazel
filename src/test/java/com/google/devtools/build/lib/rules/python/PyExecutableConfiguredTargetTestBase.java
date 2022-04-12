@@ -177,9 +177,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "    srcs = ['foo.py'],",
         ")");
     assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo",
-        PythonVersion.PY2,
-        "--incompatible_py3_is_default=false");
+        "//pkg:foo", PythonVersion.PY2, "--incompatible_py3_is_default=false");
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY3,
@@ -262,5 +260,40 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     // This is an execution-time error, not an analysis-time one. We fail by setting the generating
     // action to FailAction.
     assertNoEvents();
+  }
+
+  @Test
+  public void targetInPackageWithHyphensOkIfSrcsFromOtherPackage() throws Exception {
+    scratch.file(
+        "pkg/BUILD", //
+        "exports_files(['foo.py', 'bar.py'])");
+    scratch.file(
+        "pkg-with-hyphens/BUILD",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    main = '//pkg:foo.py',",
+        "    srcs = ['//pkg:foo.py', '//pkg:bar.py'])");
+    getOkPyTarget("//pkg-with-hyphens:foo"); // should not fail
+  }
+
+  @Test
+  public void targetInPackageWithHyphensOkIfOnlyExplicitMainHasHyphens() throws Exception {
+    scratch.file(
+        "pkg-with-hyphens/BUILD",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    main = 'foo.py',",
+        "    srcs = ['foo.py'])");
+    getOkPyTarget("//pkg-with-hyphens:foo"); // should not fail
+  }
+
+  @Test
+  public void targetInPackageWithHyphensOkIfOnlyImplicitMainHasHyphens() throws Exception {
+    scratch.file(
+        "pkg-with-hyphens/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'])");
+    getOkPyTarget("//pkg-with-hyphens:foo"); // should not fail
   }
 }

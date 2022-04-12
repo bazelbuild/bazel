@@ -298,7 +298,7 @@ def _impl(ctx):
         use_default_shell_env = True,
         input_manifests = tool_input_mfs,
     )
-    return DefaultInfo(files = depset(items = [ctx.outputs.out]))
+    return DefaultInfo(files = depset(direct = [ctx.outputs.out]))
 
 run_host_configured = rule(
     implementation = _impl,

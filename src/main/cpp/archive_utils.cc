@@ -37,7 +37,7 @@ struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
 
   // Scan the zip file "archive_path" until a file named "stop_entry" is seen,
   // then stop.
-  // If entry_names is not null, it receives a list of all file members
+  // If entry_names is not nullptr, it receives a list of all file members
   // up to and including "stop_entry".
   // If a callback is given, it is run with the name and contents of
   // each such member.

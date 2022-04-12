@@ -472,7 +472,7 @@ function test_blaze_run_with_custom_test_tmpdir() {
     # Translate from `/*` to a windows path.
     tmpdir="$(cygpath -m "${tmpdir}")"
   fi
-  # Sanity check to ensure we execute the intended scenario.
+  # Check that we execute the intended scenario.
   if [[ "${tmpdir}" == "${TEST_TMPDIR}"* ]]; then
     fail "Temp folder potentially overlaps with the exec root"
   fi
@@ -485,6 +485,37 @@ EOF
 
   bazel run --test_tmpdir="${tmpdir}/test_bazel_run_with_custom_tmpdir" //${pkg}:a
   assert_starts_with "${tmpdir}/test_bazel_run_with_custom_tmpdir" "$(cat "${TEST_TMPDIR}/tmpdir_value")"
+}
+
+function test_run_binary_with_env_attribute() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p ${pkg}
+  cat > $pkg/BUILD <<'EOF'
+sh_binary(
+  name = 't',
+  srcs = [':t.sh'],
+  data = [':t.dat'],
+  env = {
+    "ENV_A": "not_inherited",
+    "ENV_C": "no_surprise",
+    "ENV_DATA": "$(location :t.dat)",
+  },
+)
+EOF
+  cat > $pkg/t.sh <<'EOF'
+#!/bin/sh
+env
+cat $ENV_DATA
+exit 0
+EOF
+  touch $pkg/t.dat
+  chmod +x $pkg/t.sh
+  ENV_B=surprise ENV_C=surprise bazel run //$pkg:t > $TEST_log \
+      || fail "expected test to pass"
+  expect_log "ENV_A=not_inherited"
+  expect_log "ENV_B=surprise"
+  expect_log "ENV_C=no_surprise"
+  expect_log "ENV_DATA=$pkg/t.dat"
 }
 
 # Usage: assert_starts_with PREFIX STRING_TO_CHECK.

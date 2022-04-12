@@ -14,69 +14,149 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
-/** Provide a remote execution context. */
-final class RemoteActionContextProvider implements ExecutorLifecycleListener {
+/** Provides a remote execution context. */
+final class RemoteActionContextProvider {
 
+  private final Executor executor;
   private final CommandEnvironment env;
-  private final RemoteCache cache;
-  @Nullable private final GrpcRemoteExecutor executor;
+  @Nullable private final RemoteCache remoteCache;
+  @Nullable private final RemoteExecutionClient remoteExecutor;
   @Nullable private final ListeningScheduledExecutorService retryScheduler;
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
+  private RemoteExecutionService remoteExecutionService;
 
   private RemoteActionContextProvider(
+      Executor executor,
       CommandEnvironment env,
-      RemoteCache cache,
-      @Nullable GrpcRemoteExecutor executor,
+      @Nullable RemoteCache remoteCache,
+      @Nullable RemoteExecutionClient remoteExecutor,
       @Nullable ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       @Nullable Path logDir) {
-    this.env = Preconditions.checkNotNull(env, "env");
-    this.cache = Preconditions.checkNotNull(cache, "cache");
     this.executor = executor;
+    this.env = Preconditions.checkNotNull(env, "env");
+    this.remoteCache = remoteCache;
+    this.remoteExecutor = remoteExecutor;
     this.retryScheduler = retryScheduler;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
   }
 
-  public static RemoteActionContextProvider createForRemoteCaching(
+  public static RemoteActionContextProvider createForPlaceholder(
       CommandEnvironment env,
-      RemoteCache cache,
       ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil) {
     return new RemoteActionContextProvider(
-        env, cache, /*executor=*/ null, retryScheduler, digestUtil, /*logDir=*/ null);
+        directExecutor(),
+        env,
+        /*remoteCache=*/ null,
+        /*remoteExecutor=*/ null,
+        retryScheduler,
+        digestUtil,
+        /*logDir=*/ null);
+  }
+
+  public static RemoteActionContextProvider createForRemoteCaching(
+      Executor executor,
+      CommandEnvironment env,
+      RemoteCache remoteCache,
+      ListeningScheduledExecutorService retryScheduler,
+      DigestUtil digestUtil) {
+    return new RemoteActionContextProvider(
+        executor,
+        env,
+        remoteCache,
+        /*remoteExecutor=*/ null,
+        retryScheduler,
+        digestUtil,
+        /*logDir=*/ null);
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
+      Executor executor,
       CommandEnvironment env,
-      RemoteExecutionCache cache,
-      GrpcRemoteExecutor executor,
+      RemoteExecutionCache remoteCache,
+      RemoteExecutionClient remoteExecutor,
       ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       Path logDir) {
     return new RemoteActionContextProvider(
-        env, cache, executor, retryScheduler, digestUtil, logDir);
+        executor, env, remoteCache, remoteExecutor, retryScheduler, digestUtil, logDir);
+  }
+
+  private RemotePathResolver createRemotePathResolver() {
+    Path execRoot = env.getExecRoot();
+    BuildLanguageOptions buildLanguageOptions =
+        env.getOptions().getOptions(BuildLanguageOptions.class);
+    RemotePathResolver remotePathResolver;
+    if (buildLanguageOptions != null && buildLanguageOptions.experimentalSiblingRepositoryLayout) {
+      RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
+      remotePathResolver =
+          new SiblingRepositoryLayoutResolver(
+              execRoot, remoteOptions.incompatibleRemoteOutputPathsRelativeToInputRoot);
+    } else {
+      remotePathResolver = new DefaultRemotePathResolver(execRoot);
+    }
+    return remotePathResolver;
+  }
+
+  private RemoteExecutionService getRemoteExecutionService() {
+    if (remoteExecutionService == null) {
+      Path workingDirectory = env.getWorkingDirectory();
+      RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
+      Path captureCorruptedOutputsDir = null;
+      if (remoteOptions.remoteCaptureCorruptedOutputs != null
+          && !remoteOptions.remoteCaptureCorruptedOutputs.isEmpty()) {
+        captureCorruptedOutputsDir =
+            workingDirectory.getRelative(remoteOptions.remoteCaptureCorruptedOutputs);
+      }
+
+      boolean verboseFailures =
+          checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
+      remoteExecutionService =
+          new RemoteExecutionService(
+              executor,
+              env.getReporter(),
+              verboseFailures,
+              env.getExecRoot(),
+              createRemotePathResolver(),
+              env.getBuildRequestId(),
+              env.getCommandId().toString(),
+              digestUtil,
+              checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
+              remoteCache,
+              remoteExecutor,
+              filesToDownload,
+              captureCorruptedOutputsDir);
+      env.getEventBus().register(remoteExecutionService);
+    }
+
+    return remoteExecutionService;
   }
 
   /**
@@ -85,12 +165,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
    *
    * @param registryBuilder builder with which to register the strategy
    */
-  public void registerRemoteSpawnStrategyIfApplicable(
-      SpawnStrategyRegistry.Builder registryBuilder) {
-    if (executor == null) {
-      return; // Can't use a spawn strategy without executor.
-    }
-
+  public void registerRemoteSpawnStrategy(SpawnStrategyRegistry.Builder registryBuilder) {
     boolean verboseFailures =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
     RemoteSpawnRunner spawnRunner =
@@ -100,14 +175,9 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             env.getOptions().getOptions(ExecutionOptions.class),
             verboseFailures,
             env.getReporter(),
-            env.getBuildRequestId(),
-            env.getCommandId().toString(),
-            (RemoteExecutionCache) cache,
-            executor,
             retryScheduler,
-            digestUtil,
             logDir,
-            filesToDownload);
+            getRemoteExecutionService());
     registryBuilder.registerStrategy(
         new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, verboseFailures), "remote");
   }
@@ -123,36 +193,35 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
-            cache,
-            env.getBuildRequestId(),
-            env.getCommandId().toString(),
-            env.getReporter(),
-            digestUtil,
-            filesToDownload);
+            getRemoteExecutionService());
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");
   }
 
   /** Returns the remote cache. */
   RemoteCache getRemoteCache() {
-    return cache;
+    return remoteCache;
+  }
+
+  RemoteExecutionClient getRemoteExecutionClient() {
+    return remoteExecutor;
   }
 
   void setFilesToDownload(ImmutableSet<ActionInput> topLevelOutputs) {
     this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
   }
 
-  @Override
-  public void executorCreated() {}
-
-  @Override
-  public void executionPhaseStarting(
-      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels) {}
-
-  @Override
-  public void executionPhaseEnding() {
-    cache.close();
-    if (executor != null) {
-      executor.close();
+  public void afterCommand() {
+    if (remoteExecutionService != null) {
+      BlockWaitingModule blockWaitingModule =
+          checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));
+      blockWaitingModule.submit(() -> remoteExecutionService.shutdown());
+    } else {
+      if (remoteCache != null) {
+        remoteCache.release();
+      }
+      if (remoteExecutor != null) {
+        remoteExecutor.close();
+      }
     }
   }
 }

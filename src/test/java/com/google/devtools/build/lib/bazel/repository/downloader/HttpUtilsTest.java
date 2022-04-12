@@ -139,4 +139,14 @@ public class HttpUtilsTest {
     when(connection.getHeaderField("Location")).thenReturn(redirect);
     assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect).toURL());
   }
+
+  @Test
+  public void getLocation_preservesQuotingWithUserIfNotInheriting() throws Exception {
+    String redirect =
+        "http://redirected.example.org/foo?"
+            + "response-content-disposition=attachment%3Bfilename%3D%22bar.tar.gz%22";
+    when(connection.getURL()).thenReturn(new URL("http://a:b@original.example.org"));
+    when(connection.getHeaderField("Location")).thenReturn(redirect);
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect).toURL());
+  }
 }

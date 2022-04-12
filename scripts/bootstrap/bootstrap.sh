@@ -29,17 +29,18 @@ if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
 fi
 
-: ${JAVA_VERSION:="1.8"}
+: ${JAVA_VERSION:="11"}
 
 _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --distdir=derived/distdir \
-      --java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-      --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+      --extra_toolchains=//scripts/bootstrap:bootstrap_toolchain_definition \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
+
+cp scripts/bootstrap/BUILD.bootstrap scripts/bootstrap/BUILD
 
 if [ -z "${BAZEL-}" ]; then
   function _run_bootstrapping_bazel() {

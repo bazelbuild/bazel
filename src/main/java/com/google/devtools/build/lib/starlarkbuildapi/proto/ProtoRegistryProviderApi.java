@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -41,5 +42,6 @@ public interface ProtoRegistryProviderApi<FileT extends FileApi> extends StructA
       doc = "",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   String getError();
 }

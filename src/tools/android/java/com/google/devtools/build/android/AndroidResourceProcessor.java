@@ -145,6 +145,15 @@ public class AndroidResourceProcessor {
       help = "A list of resource config filters to pass to aapt."
     )
     public List<String> resourceConfigs;
+
+    @Option(
+        name = "useDataBindingAndroidX",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Indicates whether databinding generated files should depend on AndroidX.")
+    public boolean useDataBindingAndroidX;
   }
 
   /** {@link AaptOptions} backed by an {@link AaptConfigOptions}. */
@@ -185,7 +194,7 @@ public class AndroidResourceProcessor {
     this.stdLogger = stdLogger;
   }
 
-  // TODO(bazel-team): Clean up this method call -- 13 params is too many.
+  // TODO(bazel-team): Clean up this method call -- 18 params is too many.
   /**
    * Processes resources for generated sources, configs and packaging resources.
    *
@@ -202,6 +211,7 @@ public class AndroidResourceProcessor {
       String customPackageForR,
       AaptOptions aaptOptions,
       Collection<String> resourceConfigs,
+      boolean useDataBindingAndroidX,
       MergedAndroidData primaryData,
       List<DependencyAndroidData> dependencyData,
       @Nullable Path sourceOut,
@@ -218,7 +228,8 @@ public class AndroidResourceProcessor {
             primaryData.getResourceDir(),
             dataBindingInfoOut,
             customPackageForR,
-            /* shouldZipDataBindingInfo= */ true);
+            /* shouldZipDataBindingInfo= */ true,
+            useDataBindingAndroidX);
 
     final Path assetsDir = primaryData.getAssetDir();
     if (publicResourcesOut != null) {
@@ -251,7 +262,7 @@ public class AndroidResourceProcessor {
     return new MergedAndroidData(resourceDir, assetsDir, androidManifest);
   }
 
-  public void runAapt(
+  private void runAapt(
       Path tempRoot,
       Path aapt,
       Path androidJar,
@@ -392,7 +403,8 @@ public class AndroidResourceProcessor {
       Path inputResourcesDir,
       Path dataBindingInfoOut,
       String packagePath,
-      boolean shouldZipDataBindingInfo)
+      boolean shouldZipDataBindingInfo,
+      boolean useDataBindingAndroidX)
       throws IOException {
 
     if (dataBindingInfoOut == null) {
@@ -425,6 +437,7 @@ public class AndroidResourceProcessor {
     options.setResInput(inputResourcesDir.toFile());
     options.setResOutput(processedResourceDir.toFile());
     options.setLayoutInfoOutput(dataBindingInfoOut.toFile());
+    options.setUseAndroidX(useDataBindingAndroidX);
     // Whether or not to aggregate data-bound .xml files into a single .zip.
     options.setZipLayoutInfo(shouldZipDataBindingInfo);
 

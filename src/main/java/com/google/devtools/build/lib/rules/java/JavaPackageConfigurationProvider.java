@@ -14,25 +14,34 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A provider for Java per-package configuration. */
-@AutoCodec
 @AutoValue
 @Immutable
-public abstract class JavaPackageConfigurationProvider implements TransitiveInfoProvider {
+public abstract class JavaPackageConfigurationProvider
+    implements TransitiveInfoProvider, StarlarkValue {
 
   /** Creates a {@link JavaPackageConfigurationProvider}. */
-  @AutoCodec.Instantiator
   public static JavaPackageConfigurationProvider create(
       ImmutableList<PackageSpecificationProvider> packageSpecifications,
       ImmutableList<String> javacopts,
@@ -63,4 +72,31 @@ public abstract class JavaPackageConfigurationProvider implements TransitiveInfo
     }
     return false;
   }
+
+  @StarlarkMethod(
+      name = "matches",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "label",
+            allowedTypes = {@ParamType(type = Label.class)})
+      },
+      useStarlarkThread = true)
+  public boolean starlarkMatches(Label label, StarlarkThread starlarkThread) throws EvalException {
+    checkPrivateAccess(starlarkThread);
+    return matches(label);
+  }
+
+  @StarlarkMethod(name = "javac_opts", documented = false, useStarlarkThread = true)
+  public Sequence<String> starlarkJavacOpts(StarlarkThread starlarkThread) throws EvalException {
+    checkPrivateAccess(starlarkThread);
+    return StarlarkList.immutableCopyOf(javacopts());
+  }
+
+  @StarlarkMethod(name = "data", documented = false, useStarlarkThread = true)
+  public Depset starlarkData(StarlarkThread starlarkThread) throws EvalException {
+    checkPrivateAccess(starlarkThread);
+    return Depset.of(Artifact.TYPE, data());
+  }
+
 }

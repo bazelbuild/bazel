@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test that the embedded Starlark code is compliant with --all_incompatible_changes.
 #
 
 # Load the test setup defined in the parent directory
@@ -53,9 +52,9 @@ pkg_tar(
     srcs = glob(["*.txt"]),
 )
 EOF
-  bazel build --all_incompatible_changes $HOST_PY_FLAG ... &> $TEST_log \
+  bazel build $HOST_PY_FLAG ... &> $TEST_log \
     || fail "Expect success, even with all upcoming Starlark changes"
-  grep -q 'Hello World' `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/data.tar \
+  grep -q 'Hello World' `bazel info bazel-bin $HOST_PY_FLAG`/data.tar \
     || fail "Output not generated correctly"
 }
 
@@ -78,10 +77,10 @@ pkg_tar(
   symlinks = {"link_with_colons" : "some:dangling:link"},
 )
 EOF
-  bazel build --all_incompatible_changes $HOST_PY_FLAG :fancy &> $TEST_log \
+  bazel build $HOST_PY_FLAG :fancy &> $TEST_log \
       || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/fancy.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin $HOST_PY_FLAG`/fancy.tar
 
   grep equal ../out/foo=bar || fail "file with equal sign not packed correctly"
   grep option ../out/--foo || fail "file with double minus not packed correctly"
@@ -129,10 +128,10 @@ create_banana_directory = rule(
     implementation = _create_banana_directory_impl,
 )
 EOF
-  bazel build --all_incompatible_changes $HOST_PY_FLAG :banana_tarball &> $TEST_log \
+  bazel build $HOST_PY_FLAG :banana_tarball &> $TEST_log \
       || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/banana_tarball.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin $HOST_PY_FLAG`/banana_tarball.tar
 
   test -f ../out/pear/grape || fail "expected file to be present"
 }
@@ -169,7 +168,7 @@ genrule(
   executable = True,
 )
 EOF
-  bazel build --all_incompatible_changes :foo &> $TEST_log \
+  bazel build :foo &> $TEST_log \
     || fail "Expected to build even with incompatible changes"
   bazel run :foo | grep -q dragons || fail "wrong output"
 }
@@ -211,7 +210,7 @@ genrule(
   executable = True,
 )
 EOF
-  bazel build --all_incompatible_changes :foo &> $TEST_log \
+  bazel build :foo &> $TEST_log \
     || fail "Expected to build even with incompatible changes"
   bazel run :foo | grep -q dragons || fail "wrong output"
 }

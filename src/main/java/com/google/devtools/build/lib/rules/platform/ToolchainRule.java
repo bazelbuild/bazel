@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link Toolchain}. */
 public class ToolchainRule implements RuleDefinition {
@@ -33,6 +35,7 @@ public class ToolchainRule implements RuleDefinition {
   public static final String TOOLCHAIN_TYPE_ATTR = "toolchain_type";
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
   public static final String TARGET_COMPATIBLE_WITH_ATTR = "target_compatible_with";
+  public static final String TARGET_SETTING_ATTR = "target_settings";
   public static final String TOOLCHAIN_ATTR = "toolchain";
 
   @Override
@@ -46,8 +49,9 @@ public class ToolchainRule implements RuleDefinition {
                 .nonconfigurable("low-level attribute, used in platform configuration"))
         .removeAttribute("deps")
         .removeAttribute("data")
+        .removeAttribute(":action_listener")
         .exemptFromConstraintChecking("this rule *defines* a constraint")
-        .useToolchainResolution(false)
+        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
 
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain_type) -->
         The label of a <code>toolchain_type</code> target that represents the role that this
@@ -56,7 +60,7 @@ public class ToolchainRule implements RuleDefinition {
         .add(
             attr(TOOLCHAIN_TYPE_ATTR, BuildType.LABEL)
                 .mandatory()
-                .allowedFileTypes()
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .allowedRuleClasses("toolchain_type")
                 .mandatoryProviders(ToolchainTypeInfo.PROVIDER.id())
                 .nonconfigurable("part of toolchain configuration"))
@@ -67,7 +71,7 @@ public class ToolchainRule implements RuleDefinition {
         .override(
             attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                .allowedFileTypes()
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_compatible_with) -->
         A list of <code>constraint_value</code>s that must be satisfied by the target platform in
@@ -76,8 +80,16 @@ public class ToolchainRule implements RuleDefinition {
         .add(
             attr(TARGET_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                .allowedFileTypes()
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("part of toolchain configuration"))
+        /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_settings) -->
+        A list of <code>config_setting</code>s that must be satisfied by the target configuration
+        in order for this toolchain to be selected during toolchain resolution.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(TARGET_SETTING_ATTR, BuildType.LABEL_LIST)
+                .allowedRuleClasses("config_setting")
+                .allowedFileTypes(FileTypeSet.NO_FILE))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain) -->
         The target representing the actual tool or tool suite that is made available when this
         toolchain is selected.
@@ -92,7 +104,7 @@ public class ToolchainRule implements RuleDefinition {
   public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(Toolchain.class)
         .build();
   }
@@ -101,7 +113,7 @@ public class ToolchainRule implements RuleDefinition {
 
 <p>This rule declares a specific toolchain's type and constraints so that it can be selected
 during toolchain resolution. See the
-<a href="https://docs.bazel.build/versions/master/toolchains.html">Toolchains</a> page for more
+<a href="https://bazel.build/docs/toolchains">Toolchains</a> page for more
 details.
 
 <!-- #END_BLAZE_RULE -->*/

@@ -22,18 +22,18 @@ import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.BigIntegerFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -93,13 +93,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   public abstract FileContentsProxy getContentsProxy();
 
   @Nullable
-  public BigInteger getValueFingerprint() {
-    byte[] digest = getDigest();
-    if (digest != null) {
-      return new BigIntegerFingerprint().addDigestedBytes(digest).getFingerprint();
-    }
+  public byte[] getValueFingerprint() {
     // TODO(janakr): return fingerprint in other cases: symlink, directory.
-    return null;
+    return getDigest();
   }
 
   /**
@@ -183,17 +179,20 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   interface Singleton {}
 
-  @AutoCodec public static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
+  @SerializationConstant
+  public static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
   /** Data that marks that a file is not present on the filesystem. */
-  @AutoCodec public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
+  @SerializationConstant
+  public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
   /**
    * Represents an omitted file -- we are aware of it but it doesn't exist. All access methods are
    * unsupported.
    */
-  @AutoCodec public static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
+  @SerializationConstant
+  public static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
 
-  public static FileArtifactValue createForSourceArtifact(Artifact artifact, FileValue fileValue)
-      throws IOException {
+  public static FileArtifactValue createForSourceArtifact(
+      Artifact artifact, FileValue fileValue, XattrProvider xattrProvider) throws IOException {
     // Artifacts with known generating actions should obtain the derived artifact's SkyValue
     // from the generating action, instead.
     Preconditions.checkState(!artifact.hasKnownGeneratingAction());
@@ -205,38 +204,36 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         isFile ? fileValue.getSize() : 0,
         isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
         isFile ? fileValue.getDigest() : null,
-        /* isShareable=*/ true);
+        xattrProvider);
   }
 
   public static FileArtifactValue createFromInjectedDigest(
-      FileArtifactValue metadata, @Nullable byte[] digest, boolean isShareable) {
-    return createForNormalFile(
-        digest, metadata.getContentsProxy(), metadata.getSize(), isShareable);
+      FileArtifactValue metadata, @Nullable byte[] digest) {
+    return createForNormalFile(digest, metadata.getContentsProxy(), metadata.getSize());
   }
 
   @VisibleForTesting
   public static FileArtifactValue createForTesting(Artifact artifact) throws IOException {
-    Path path = artifact.getPath();
-    boolean isShareable = !artifact.isConstantMetadata();
-    // Caution: there's a race condition between stating the file and computing the
-    // digest. We need to stat first, since we're using the stat to detect changes.
-    // We follow symlinks here to be consistent with getDigest.
-    return createFromStat(path, path.stat(Symlinks.FOLLOW), isShareable);
+    return createForTesting(artifact.getPath());
   }
 
   @VisibleForTesting
   public static FileArtifactValue createForTesting(Path path) throws IOException {
-    /*isShareable=*/
-    // Caution: there's a race condition between stating the file and computing the
-    // digest. We need to stat first, since we're using the stat to detect changes.
-    // We follow symlinks here to be consistent with getDigest.
-    return createFromStat(path, path.stat(Symlinks.FOLLOW), true);
+    // Caution: there's a race condition between stating the file and computing the digest. We need
+    // to stat first, since we're using the stat to detect changes. We follow symlinks here to be
+    // consistent with getDigest.
+    return createFromStat(path, path.stat(Symlinks.FOLLOW), SyscallCache.NO_CACHE);
   }
 
-  public static FileArtifactValue createFromStat(Path path, FileStatus stat, boolean isShareable)
-      throws IOException {
+  public static FileArtifactValue createFromStat(
+      Path path, FileStatus stat, XattrProvider xattrProvider) throws IOException {
     return create(
-        path, stat.isFile(), stat.getSize(), FileContentsProxy.create(stat), null, isShareable);
+        path,
+        stat.isFile(),
+        stat.getSize(),
+        FileContentsProxy.create(stat),
+        /*digest=*/ null,
+        xattrProvider);
   }
 
   private static FileArtifactValue create(
@@ -245,7 +242,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       long size,
       FileContentsProxy proxy,
       @Nullable byte[] digest,
-      boolean isShareable)
+      XattrProvider xattrProvider)
       throws IOException {
     if (!isFile) {
       // In this case, we need to store the mtime because the action cache uses mtime for
@@ -254,10 +251,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
-      digest = DigestUtils.getDigestWithManualFallback(path, size);
+      digest = DigestUtils.getDigestWithManualFallback(path, size, xattrProvider);
     }
     Preconditions.checkState(digest != null, path);
-    return createForNormalFile(digest, proxy, size, isShareable);
+    return createForNormalFile(digest, proxy, size);
   }
 
   public static FileArtifactValue createForVirtualActionInput(byte[] digest, long size) {
@@ -284,19 +281,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   @VisibleForTesting
   public static FileArtifactValue createForNormalFile(
-      byte[] digest, @Nullable FileContentsProxy proxy, long size, boolean isShareable) {
-    return isShareable
-        ? new RegularFileArtifactValue(digest, proxy, size)
-        : new UnshareableRegularFileArtifactValue(digest, proxy, size);
+      byte[] digest, @Nullable FileContentsProxy proxy, long size) {
+    return new RegularFileArtifactValue(digest, proxy, size);
   }
 
   /**
    * Create a FileArtifactValue using the {@link Path} and size. FileArtifactValue#create will
    * handle getting the digest using the Path and size values.
    */
-  public static FileArtifactValue createForNormalFileUsingPath(Path path, long size)
-      throws IOException {
-    return create(path, true, size, null, null, true);
+  public static FileArtifactValue createForNormalFileUsingPath(
+      Path path, long size, XattrProvider xattrProvider) throws IOException {
+    return create(path, /*isFile=*/ true, size, /*proxy=*/ null, /*digest=*/ null, xattrProvider);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
@@ -313,7 +308,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public static FileArtifactValue createProxy(byte[] digest) {
     Preconditions.checkNotNull(digest);
-    return createForNormalFile(digest, /*proxy=*/ null, /*size=*/ 0, /*isShareable=*/ true);
+    return createForNormalFile(digest, /*proxy=*/ null, /*size=*/ 0);
   }
 
   private static String bytesToString(byte[] bytes) {
@@ -359,11 +354,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public BigInteger getValueFingerprint() {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addString(getClass().getCanonicalName());
-      fp.addLong(mtime);
-      return fp.getFingerprint();
+    public byte[] getValueFingerprint() {
+      return new Fingerprint()
+          .addString(getClass().getCanonicalName())
+          .addLong(mtime)
+          .digestAndReset();
     }
 
     @Override
@@ -450,8 +445,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  private static class RegularFileArtifactValue extends FileArtifactValue {
-
+  private static final class RegularFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     @Nullable private final FileContentsProxy proxy;
     private final long size;
@@ -465,20 +459,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
       if (!(o instanceof RegularFileArtifactValue)) {
         return false;
       }
-
       RegularFileArtifactValue that = (RegularFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && Objects.equals(proxy, that.proxy)
-          && size == that.size
-          && dataIsShareable() == that.dataIsShareable();
+          && size == that.size;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), proxy, size, dataIsShareable());
+      return Objects.hash(Arrays.hashCode(digest), proxy, size);
     }
 
     @Override
@@ -538,27 +533,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  private static final class UnshareableRegularFileArtifactValue extends RegularFileArtifactValue {
-    private UnshareableRegularFileArtifactValue(
-        byte[] digest, @Nullable FileContentsProxy proxy, long size) {
-      super(digest, proxy, size);
-    }
-
-    @Override
-    public boolean dataIsShareable() {
-      return false;
-    }
-  }
-
   /** Metadata for remotely stored files. */
-  public static final class RemoteFileArtifactValue extends FileArtifactValue {
+  public static class RemoteFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     private final long size;
     private final int locationIndex;
     private final String actionId;
 
     public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex, String actionId) {
-      this.digest = digest;
+      this.digest = Preconditions.checkNotNull(digest, actionId);
       this.size = size;
       this.locationIndex = locationIndex;
       this.actionId = actionId;
@@ -577,12 +560,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       RemoteFileArtifactValue that = (RemoteFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && size == that.size
-          && locationIndex == that.locationIndex;
+          && locationIndex == that.locationIndex
+          && Objects.equals(actionId, that.actionId);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, dataIsShareable());
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, actionId);
     }
 
     @Override
@@ -682,7 +666,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /** File stored inline in metadata. */
-  public static class InlineFileArtifactValue extends FileArtifactValue {
+  public static final class InlineFileArtifactValue extends FileArtifactValue {
+
+    public static InlineFileArtifactValue create(byte[] bytes, HashFunction hashFunction) {
+      return new InlineFileArtifactValue(bytes, hashFunction.hashBytes(bytes).asBytes());
+    }
+
     private final byte[] data;
     private final byte[] digest;
 
@@ -691,30 +680,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.digest = Preconditions.checkNotNull(digest);
     }
 
-    private InlineFileArtifactValue(byte[] bytes, HashFunction hashFunction) {
-      this(bytes, hashFunction.hashBytes(bytes).asBytes());
-    }
-
     @Override
     public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
       if (!(o instanceof InlineFileArtifactValue)) {
         return false;
       }
-
       InlineFileArtifactValue that = (InlineFileArtifactValue) o;
-      return Arrays.equals(digest, that.digest) && dataIsShareable() == that.dataIsShareable();
+      return Arrays.equals(digest, that.digest);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), dataIsShareable());
-    }
-
-    public static InlineFileArtifactValue create(
-        byte[] bytes, boolean shareable, HashFunction hashFunction) {
-      return shareable
-          ? new InlineFileArtifactValue(bytes, hashFunction)
-          : new UnshareableInlineFileArtifactValue(bytes, hashFunction);
+      return Arrays.hashCode(digest);
     }
 
     public ByteArrayInputStream getInputStream() {
@@ -749,17 +729,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
       throw new UnsupportedOperationException();
-    }
-  }
-
-  private static final class UnshareableInlineFileArtifactValue extends InlineFileArtifactValue {
-    UnshareableInlineFileArtifactValue(byte[] bytes, HashFunction hashFunction) {
-      super(bytes, hashFunction);
-    }
-
-    @Override
-    public boolean dataIsShareable() {
-      return false;
     }
   }
 
@@ -835,6 +804,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   private static final class SingletonMarkerValue extends FileArtifactValue implements Singleton {
+    private static final byte[] FINGERPRINT = new byte[] {0x10};
+
     @Override
     public FileStateType getType() {
       return FileStateType.NONEXISTENT;
@@ -866,10 +837,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return false;
     }
 
-    @Nullable
     @Override
-    public BigInteger getValueFingerprint() {
-      return BigInteger.TEN;
+    public byte[] getValueFingerprint() {
+      return FINGERPRINT;
     }
 
     @Override
@@ -905,7 +875,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+    public boolean wasModifiedSinceDigest(Path path) {
       return false;
     }
 

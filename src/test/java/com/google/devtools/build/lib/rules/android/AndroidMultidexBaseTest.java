@@ -21,14 +21,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import java.util.Set;
 import org.junit.Before;
 
 /** Base class for testing the multidex code of android_binary and android_test. */
-public class AndroidMultidexBaseTest extends BuildViewTestCase {
+public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception {

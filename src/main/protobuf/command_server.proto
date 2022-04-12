@@ -22,6 +22,7 @@ syntax = "proto3";
 
 package command_server;
 
+import "google/protobuf/any.proto";
 import "src/main/protobuf/failure_details.proto";
 
 option java_package = "com.google.devtools.build.lib.server";
@@ -58,6 +59,15 @@ message RunRequest {
   // came from. These options have already been parsed and already have had
   // their effect. This information should only be used for logging.
   repeated StartupOption startup_options = 6;
+
+  // Whether the resulting command can be preempted if additional commands
+  // are received.
+  bool preemptible = 7;
+
+  // Additional per-command information passed to the server in the form of
+  // arbitrary messages which the server may be programmed to recognize and
+  // consume. Unrecognized message types are ignored.
+  repeated google.protobuf.Any command_extensions = 8;
 }
 
 // Contains the a startup option with its source file. Uses bytes to preserve
@@ -122,6 +132,10 @@ message RunResponse {
   // this time.
   // TODO(mschaller): remove experimental warning
   failure_details.FailureDetail failure_detail = 9;
+
+  // Additional per-command information passed by the server in the form of
+  // arbitrary messages.
+  repeated google.protobuf.Any command_extensions = 10;
 }
 
 // Passed to CommandServer.cancel to initiate graceful cancellation of an

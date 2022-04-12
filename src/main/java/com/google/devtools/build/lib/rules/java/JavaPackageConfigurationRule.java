@@ -20,11 +20,11 @@ import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -46,7 +46,7 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
             attr("packages", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes()
-                .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class)))
+                .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
         /* <!-- #BLAZE_RULE(java_package_configuration).ATTRIBUTE(javacopts) -->
         Java compiler flags.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -63,7 +63,7 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_package_configuration")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(JavaPackageConfiguration.class)
         .build();
   }
@@ -76,7 +76,7 @@ Configurations can be added to
 <code><a href="${link java_toolchain.javacopts}">java_toolchain.javacopts</a></code>s.
 </p>
 
-<h4 id="java_package_configuration">Example:</h4>
+<h4 id="java_package_configuration_example">Example:</h4>
 
 <pre class="code">
 java_package_configuration(

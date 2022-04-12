@@ -18,13 +18,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A structured representation of the link outputs of a C++ rule. */
-public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
+public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBackendArtifacts> {
 
   public static final CcLinkingOutputs EMPTY = builder().build();
 
@@ -32,17 +35,14 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
   @Nullable private final Artifact executable;
 
   private final ImmutableList<LtoBackendArtifacts> allLtoArtifacts;
-  private final ImmutableList<Artifact> linkActionInputs;
 
   private CcLinkingOutputs(
       LibraryToLink libraryToLink,
       Artifact executable,
-      ImmutableList<LtoBackendArtifacts> allLtoArtifacts,
-      ImmutableList<Artifact> linkActionInputs) {
+      ImmutableList<LtoBackendArtifacts> allLtoArtifacts) {
     this.libraryToLink = libraryToLink;
     this.executable = executable;
     this.allLtoArtifacts = allLtoArtifacts;
-    this.linkActionInputs = linkActionInputs;
   }
 
   @Override
@@ -61,8 +61,11 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
     return allLtoArtifacts;
   }
 
-  public ImmutableList<Artifact> getLinkActionInputs() {
-    return linkActionInputs;
+  @Override
+  public Sequence<LtoBackendArtifacts> getAllLtoArtifactsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getAllLtoArtifacts());
   }
 
   public boolean isEmpty() {
@@ -84,21 +87,21 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
     return result.build();
   }
 
+  private static final ImmutableList<String> PIC_SUFFIXES =
+      ImmutableList.of(".pic.a", ".nopic.a", ".pic.lo");
+
   /**
    * Returns the library identifier of an artifact: a string that is different for different
    * libraries, but is the same for the shared, static and pic versions of the same library.
    */
   public static String libraryIdentifierOf(Artifact libraryArtifact) {
     String name = libraryArtifact.getRootRelativePath().getPathString();
-    String basename = FileSystemUtils.removeExtension(name);
-    // Need to special-case file types with double extension.
-    return name.endsWith(".pic.a")
-        ? FileSystemUtils.removeExtension(basename)
-        : name.endsWith(".nopic.a")
-        ? FileSystemUtils.removeExtension(basename)
-        : name.endsWith(".pic.lo")
-        ? FileSystemUtils.removeExtension(basename)
-        : basename;
+    for (String picSuffix : PIC_SUFFIXES) {
+      if (name.endsWith(picSuffix)) {
+        return name.substring(0, name.length() - picSuffix.length());
+      }
+    }
+    return FileSystemUtils.removeExtension(name);
   }
 
   public static Builder builder() {
@@ -118,11 +121,9 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
     // same list return the .pdb file for Windows.
     private final ImmutableList.Builder<LtoBackendArtifacts> allLtoArtifacts =
         ImmutableList.builder();
-    private final ImmutableList.Builder<Artifact> linkActionInputs = ImmutableList.builder();
 
     public CcLinkingOutputs build() {
-      return new CcLinkingOutputs(
-          libraryToLink, executable, allLtoArtifacts.build(), linkActionInputs.build());
+      return new CcLinkingOutputs(libraryToLink, executable, allLtoArtifacts.build());
     }
 
     public Builder setLibraryToLink(LibraryToLink libraryToLink) {
@@ -137,11 +138,6 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
 
     public Builder addAllLtoArtifacts(Iterable<LtoBackendArtifacts> allLtoArtifacts) {
       this.allLtoArtifacts.addAll(allLtoArtifacts);
-      return this;
-    }
-
-    public Builder addLinkActionInputs(NestedSet<Artifact> linkActionInputs) {
-      this.linkActionInputs.addAll(linkActionInputs.toList());
       return this;
     }
   }

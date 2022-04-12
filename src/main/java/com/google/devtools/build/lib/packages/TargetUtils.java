@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -84,16 +85,6 @@ public final class TargetUtils {
     return target instanceof Rule && isTestSuiteRuleName(((Rule) target).getRuleClass());
   }
 
-  /** Returns true iff {@code target} is an {@code alias} rule. */
-  public static boolean isAlias(Target target) {
-    if (!(target instanceof Rule)) {
-      return false;
-    }
-
-    Rule rule = (Rule) target;
-    return !rule.getRuleClassObject().isStarlark() && rule.getRuleClass().equals("alias");
-  }
-
   /**
    * Returns true iff {@code target} is a {@code *_test} or {@code test_suite}.
    */
@@ -144,6 +135,16 @@ public final class TargetUtils {
    */
   public static boolean isExternalTestRule(Rule rule) {
     return hasConstraint(rule, "external");
+  }
+
+  /**
+   * Returns true if test marked as "no-testloasd" by the appropriate keyword in the tags attribute.
+   *
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
+   */
+  public static boolean isNoTestloasdTestRule(Rule rule) {
+    return hasConstraint(rule, "no-testloasd");
   }
 
   public static List<String> getStringListAttr(Target target, String attrName) {
@@ -267,37 +268,34 @@ public final class TargetUtils {
    *     actions' execution requirements, for more details {@see
    *     StarlarkSematicOptions#experimentalAllowTagsPropagation}
    */
-  public static ImmutableMap<String, String> getFilteredExecutionInfo(
+  public static ImmutableSortedMap<String, String> getFilteredExecutionInfo(
       @Nullable Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
       throws EvalException {
-    Map<String, String> checkedExecutionRequirements =
-        TargetUtils.filter(
-            executionRequirementsUnchecked == null
-                ? ImmutableMap.of()
-                : Dict.noneableCast(
+    Map<String, String> executionInfo =
+        executionRequirementsUnchecked == null
+            ? ImmutableMap.of()
+            : TargetUtils.filter(
+                Dict.noneableCast(
                     executionRequirementsUnchecked,
                     String.class,
                     String.class,
                     "execution_requirements"));
 
-    Map<String, String> executionInfoBuilder = new HashMap<>();
-    // adding filtered execution requirements to the execution info map
-    executionInfoBuilder.putAll(checkedExecutionRequirements);
-
     if (allowTagsPropagation) {
+      executionInfo = new HashMap<>(executionInfo); // Make mutable.
       Map<String, String> checkedTags = getExecutionInfo(rule);
       // merging filtered tags to the execution info map avoiding duplicates
-      checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+      checkedTags.forEach(executionInfo::putIfAbsent);
     }
 
-    return ImmutableMap.copyOf(executionInfoBuilder);
+    return ImmutableSortedMap.copyOf(executionInfo);
   }
 
   /**
    * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
    * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
-  public static Map<String, String> filter(Map<String, String> executionInfo) {
+  private static Map<String, String> filter(Map<String, String> executionInfo) {
     return Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys);
   }
 
@@ -328,13 +326,23 @@ public final class TargetUtils {
       return true;
     }
 
-    for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-      if (rule.isAttributeValueExplicitlySpecified(depEdge.getAttribute())
-          && label.equals(depEdge.getLabel())) {
-        return true;
-      }
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    try {
+      mapper.visitLabels(
+          DependencyFilter.NO_IMPLICIT_DEPS,
+          (attribute, depLabel) -> {
+            if (label.equals(depLabel)) {
+              throw StopIteration.INSTANCE;
+            }
+          });
+    } catch (StopIteration e) {
+      return true;
     }
     return false;
+  }
+
+  private static final class StopIteration extends RuntimeException {
+    private static final StopIteration INSTANCE = new StopIteration();
   }
 
   /**

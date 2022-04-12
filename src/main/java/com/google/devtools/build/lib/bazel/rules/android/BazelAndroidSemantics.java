@@ -79,7 +79,7 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   public ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext) {
     switch (ruleContext.getRule().getRuleClass()) {
       case "android_binary":
-        return ImmutableList.of("deps");
+        return ImmutableList.of("application_resources", "deps");
       default:
         throw new UnsupportedOperationException("Only supported for top-level binaries");
     }
@@ -92,11 +92,17 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   /** Bazel does not currently support any dex postprocessing. */
   @Override
+  public boolean postprocessClassesRewritesMap(RuleContext ruleContext) {
+    return false;
+  }
+
+  @Override
   public AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
       Artifact classesDexZip,
-      ProguardOutput proguardOutput)
+      ProguardOutput proguardOutput,
+      Artifact proguardMapOutput)
       throws InterruptedException {
     return AndroidBinary.DexPostprocessingOutput.create(classesDexZip, proguardOutput.getMapping());
   }

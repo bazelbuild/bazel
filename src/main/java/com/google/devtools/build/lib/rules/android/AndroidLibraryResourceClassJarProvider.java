@@ -36,19 +36,23 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
   private final NestedSet<Artifact> resourceClassJars;
 
   private AndroidLibraryResourceClassJarProvider(NestedSet<Artifact> resourceClassJars) {
-    super(PROVIDER);
     this.resourceClassJars = resourceClassJars;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  // TODO(adonovan): rename to avoid unrelated overloading.
+  static AndroidLibraryResourceClassJarProvider getProvider(TransitiveInfoCollection target) {
+    return (AndroidLibraryResourceClassJarProvider)
+        target.get(AndroidLibraryResourceClassJarProvider.PROVIDER.getKey());
   }
 
   public static AndroidLibraryResourceClassJarProvider create(
       NestedSet<Artifact> resourceClassJars) {
     return new AndroidLibraryResourceClassJarProvider(resourceClassJars);
-  }
-
-  public static AndroidLibraryResourceClassJarProvider getProvider(
-      TransitiveInfoCollection target) {
-    return (AndroidLibraryResourceClassJarProvider)
-        target.get(AndroidLibraryResourceClassJarProvider.PROVIDER.getKey());
   }
 
   @Override

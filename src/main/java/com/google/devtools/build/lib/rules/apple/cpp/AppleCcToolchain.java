@@ -71,8 +71,7 @@ public class AppleCcToolchain extends CcToolchain {
 
   private static CcToolchainVariables computeCcToolchainVariables(
       XcodeConfigInfo xcodeConfig, BuildOptions buildOptions) {
-    AppleConfiguration.Loader appleConfigurationLoader = new AppleConfiguration.Loader();
-    AppleConfiguration appleConfiguration = appleConfigurationLoader.create(buildOptions);
+    AppleConfiguration appleConfiguration = new AppleConfiguration(buildOptions);
     ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
     String cpu = buildOptions.get(CoreOptions.class).cpu;
 

@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationAssembler;
@@ -27,7 +26,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingExcept
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -38,7 +37,24 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DeclarationAssemblerTest {
   @Test
-  public void testAssembleLines() throws GenericParsingException, IOException {
+  public void testOneCharacterFragment() throws Exception {
+    List<ByteBuffer> buffers = new ArrayList<>();
+    buffers.add(ByteBuffer.wrap("abcdefghij\na".getBytes(ISO_8859_1)));
+    buffers.add(ByteBuffer.wrap("bcdefg\n".getBytes(ISO_8859_1)));
+
+    List<FileFragment> fragments = new ArrayList<>();
+    fragments.add(new FileFragment(buffers.get(0), 0, 0, 11)); // abcdefghij\n
+    fragments.add(new FileFragment(buffers.get(0), 0, 11, 12)); // a
+    fragments.add(new FileFragment(buffers.get(1), 12, 0, 7)); // bcdefg\n
+
+    List<String> result = new ArrayList<>();
+    DeclarationAssembler assembler = new DeclarationAssembler(d -> result.add(d.toString()));
+    assembler.wrapUp(fragments);
+    assertThat(result).containsExactly("abcdefghij\n", "abcdefg\n").inOrder();
+  }
+
+  @Test
+  public void testAssembleLines() throws Exception {
     // Glue two parts of the same token together
     doSameBufferTest("0123456789", 1, 3, 3, 5, "1234");
     // The '\n' symbol happened to be the last in the buffer, we should correctly
@@ -59,7 +75,7 @@ public class DeclarationAssemblerTest {
   @Test
   public void testMergeTwoDifferentBuffers() throws Exception {
     List<Pair<Long, String>> offsetStringPairList = Lists.newArrayList();
-    String unrelatedFirstBuffer = Strings.repeat(" ", 100);
+    String unrelatedFirstBuffer = " ".repeat(100);
     String s1 = "hello";
     String s2 = "goodbye";
     byte[] chars1 = (unrelatedFirstBuffer + s1).getBytes(ISO_8859_1);
@@ -86,9 +102,9 @@ public class DeclarationAssemblerTest {
   private static void doTwoBuffersTest(String s1, String s2, String... expected)
       throws GenericParsingException, IOException {
     List<String> list = Lists.newArrayList();
-    final byte[] chars1 = s1.getBytes(StandardCharsets.ISO_8859_1);
+    final byte[] chars1 = s1.getBytes(ISO_8859_1);
     ByteBuffer bytes1 = ByteBuffer.wrap(chars1);
-    final byte[] chars2 = s2.getBytes(StandardCharsets.ISO_8859_1);
+    final byte[] chars2 = s2.getBytes(ISO_8859_1);
     ByteBuffer bytes2 = ByteBuffer.wrap(chars2);
 
     DeclarationAssembler assembler =
@@ -117,7 +133,7 @@ public class DeclarationAssemblerTest {
               assertThat(fragment.getFileOffset()).isEqualTo(0);
             });
 
-    byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);
+    byte[] chars = s.getBytes(ISO_8859_1);
     ByteBuffer bytes = ByteBuffer.wrap(chars);
     assembler.wrapUp(
         Lists.newArrayList(

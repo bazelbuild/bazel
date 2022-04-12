@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -54,7 +55,7 @@ public class SpawnActionTemplateTest {
   public void setRootDir() throws Exception  {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    root = ArtifactRoot.asDerivedRoot(execRoot, "root");
+    root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
   }
 
   @Test
@@ -134,7 +135,7 @@ public class SpawnActionTemplateTest {
   }
 
   @Test
-  public void getKey_same() {
+  public void getKey_same() throws Exception {
     ActionKeyContext keyContext = new ActionKeyContext();
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
@@ -163,7 +164,7 @@ public class SpawnActionTemplateTest {
   }
 
   @Test
-  public void getKey_differs() {
+  public void getKey_differs() throws Exception {
     ActionKeyContext keyContext = new ActionKeyContext();
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
@@ -378,7 +379,7 @@ public class SpawnActionTemplateTest {
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     SpecialArtifact result =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             root.getExecPath().getRelative(relpath),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,

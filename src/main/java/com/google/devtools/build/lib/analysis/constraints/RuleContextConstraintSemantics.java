@@ -14,21 +14,39 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FailAction;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection.EnvironmentWithGroup;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -40,6 +58,9 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -51,7 +72,6 @@ import javax.annotation.Nullable;
 
 /** Implementation of {@link ConstraintSemantics} using {@link RuleContext} to check constraints. */
 public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleContext> {
-  public RuleContextConstraintSemantics() {}
 
   /**
    * Logs an error message that the current rule violates constraints.
@@ -414,9 +434,9 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       EnvironmentCollection staticEnvironments,
       EnvironmentCollection.Builder refinedEnvironments,
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
-    Set<EnvironmentWithGroup> refinedEnvironmentsSoFar = new LinkedHashSet<>();
     // Start with the full set of static environments:
-    refinedEnvironmentsSoFar.addAll(staticEnvironments.getGroupedEnvironments());
+    Set<EnvironmentWithGroup> refinedEnvironmentsSoFar =
+        new LinkedHashSet<>(staticEnvironments.getGroupedEnvironments());
     Set<EnvironmentLabels> groupsWithEnvironmentsRemoved = new LinkedHashSet<>();
     // Maps the label results of getUnsupportedEnvironments() to EnvironmentWithGroups. We can't
     // have that method just return EnvironmentWithGroups because it also collects group defaults,
@@ -549,7 +569,10 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
             ? ImmutableSet.of()
             : Sets.difference(groupsWithEnvironmentsRemoved, refinedGroups);
     if (!newlyEmptyGroups.isEmpty()) {
-      ruleError(ruleContext, getOverRefinementError(newlyEmptyGroups, removedEnvironmentCulprits));
+      ruleError(
+          ruleContext,
+          getOverRefinementError(
+              ruleContext.getLabel(), newlyEmptyGroups, removedEnvironmentCulprits));
     }
   }
 
@@ -557,7 +580,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    * Constructs an error message for when all environments have been pruned out of one or more
    * environment groups due to refining.
    */
-  private static String getOverRefinementError(
+  private String getOverRefinementError(
+      Label currentTarget,
       Set<EnvironmentLabels> newlyEmptyGroups,
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
     StringJoiner message = new StringJoiner("\n")
@@ -575,21 +599,31 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         if (culprit != null) {
           message
               .add(" ")
-              .add(getMissingEnvironmentCulpritMessage(prunedEnvironment, culprit));
+              .add(getMissingEnvironmentCulpritMessage(currentTarget, prunedEnvironment, culprit));
         }
       }
     }
     return message.toString();
   }
 
-  static String getMissingEnvironmentCulpritMessage(Label environment,
-      RemovedEnvironmentCulprit reason) {
+  public String getMissingEnvironmentCulpritMessage(
+      Label currentTarget, Label environment, RemovedEnvironmentCulprit reason) {
     LabelAndLocation culprit = reason.culprit();
+    Label targetToExplore =
+        currentTarget.equals(culprit.getLabel())
+            ? reason.selectedDepForCulprit()
+            : culprit.getLabel();
+
     return new StringJoiner("\n")
         .add("  environment: " + environment)
         .add("    removed by: " + culprit.getLabel() + " (" + culprit.getLocation() + ")")
-        .add("    which has a select() that chooses dep: " + reason.selectedDepForCulprit())
+        .add("    because of a select() that chooses dep: " + reason.selectedDepForCulprit())
         .add("    which lacks: " + environment)
+        .add("")
+        .add(
+            String.format(
+                "To see why, run: blaze build --target_environment=%s %s",
+                environment, targetToExplore))
         .toString();
   }
 
@@ -705,8 +739,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
   }
 
   /**
-   * Returns all dependencies that should be constraint-checked against the current rule,
-   * including both "uncoditional" deps (outside selects) and deps that only appear in selects.
+   * Returns all dependencies that should be constraint-checked against the current rule, including
+   * both "unconditional" deps (outside selects) and deps that only appear in selects.
    */
   private static DepsToCheck getConstraintCheckedDependencies(RuleContext ruleContext) {
     Set<TransitiveInfoCollection> depsToCheck = new LinkedHashSet<>();
@@ -723,8 +757,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       if (!attrDef.checkConstraintsOverride()) {
         // Use the same implicit deps check that query uses. This facilitates running queries to
         // determine exactly which rules need to be constraint-annotated for depot migrations.
-        if (!DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
-            || attrDef.getTransitionFactory().isTool()) {
+        if (!DependencyFilter.NO_IMPLICIT_DEPS.test(ruleContext.getRule(), attrDef)
+            || attrDef.isToolDependency()) {
           continue;
         }
       }
@@ -770,28 +804,29 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    * Returns the deps for this attribute that only appear in selects.
    *
    * <p>For example:
+   *
    * <pre>
    *     deps = [":a"] + select({"//foo:cond": [":b"]}) + select({"//conditions:default": [":c"]})
    * </pre>
    *
    * returns {@code [":b"]}. Even though {@code [":c"]} also appears in a select, that's a
-   * degenerate case with only one always-chosen condition. So that's considered the same as
-   * an unconditional dep.
+   * degenerate case with only one always-chosen condition. So that's considered the same as an
+   * unconditional dep.
    *
    * <p>Note that just because a dep only appears in selects for this attribute doesn't mean it
    * won't appear unconditionally in another attribute.
    */
-  private static Set<Label> getDepsOnlyInSelects(RuleContext ruleContext, String attr,
-      Type<?> attrType) {
+  private static <T> Set<Label> getDepsOnlyInSelects(
+      RuleContext ruleContext, String attr, Type<T> attrType) {
     Rule rule = ruleContext.getRule();
     if (!rule.isConfigurableAttribute(attr) || !BuildType.isLabelType(attrType)) {
       return ImmutableSet.of();
     }
     Set<Label> unconditionalDeps = new LinkedHashSet<>();
     Set<Label> selectableDeps = new LinkedHashSet<>();
-    BuildType.SelectorList<?> selectList = (BuildType.SelectorList<?>)
-        RawAttributeMapper.of(rule).getRawAttributeValue(rule, attr);
-    for (BuildType.Selector<?> select : selectList.getSelectors()) {
+    BuildType.SelectorList<T> selectList =
+        RawAttributeMapper.of(rule).getSelectorList(attr, attrType);
+    for (BuildType.Selector<T> select : selectList.getSelectors()) {
       addSelectValuesToSet(select, select.isUnconditional() ? unconditionalDeps : selectableDeps);
     }
     return Sets.difference(selectableDeps, unconditionalDeps);
@@ -801,11 +836,205 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    * Adds all label values from the given select to the given set. Automatically handles different
    * value types (e.g. labels vs. label lists).
    */
-  private static void addSelectValuesToSet(BuildType.Selector<?> select, final Set<Label> set) {
-    Type<?> type = select.getOriginalType();
-    LabelVisitor<?> visitor = (label, dummy) -> set.add(label);
-    for (Object value : select.getEntries().values()) {
+  private static <T> void addSelectValuesToSet(BuildType.Selector<T> select, Set<Label> set) {
+    Type<T> type = select.getOriginalType();
+    LabelVisitor visitor = (label, dummy) -> set.add(label);
+    for (T value : select.getEntries().values()) {
       type.visitLabels(visitor, value, /*context=*/ null);
     }
+  }
+
+  /**
+   * Provides information about a target's incompatibility.
+   *
+   * <p>After calling {@code checkForIncompatibility()}, the {@code isIncompatible} getter tells you
+   * whether the target is incompatible. If the target is incompatible, then {@code
+   * underlyingTarget} tells you which underlying target provided the incompatibility. For the vast
+   * majority of targets this is the same one passed to {@code checkForIncompatibility()}. In some
+   * instances like {@link OutputFileConfiguredTarget}, however, the {@code underlyingTarget} is the
+   * rule that generated the file.
+   */
+  @AutoValue
+  public abstract static class IncompatibleCheckResult {
+    private static IncompatibleCheckResult create(
+        boolean isIncompatible, ConfiguredTarget underlyingTarget) {
+      return new AutoValue_RuleContextConstraintSemantics_IncompatibleCheckResult(
+          isIncompatible, underlyingTarget);
+    }
+
+    public abstract boolean isIncompatible();
+
+    public abstract ConfiguredTarget underlyingTarget();
+  }
+
+  /**
+   * Checks whether the target is incompatible.
+   *
+   * <p>See the documentation for {@link RuleContextConstraintSemantics.IncompatibleCheckResult} for
+   * more information.
+   */
+  public static IncompatibleCheckResult checkForIncompatibility(ConfiguredTarget target) {
+    if (target instanceof OutputFileConfiguredTarget) {
+      // For generated files, we want to query the generating rule for providers. genrule() for
+      // example doesn't attach providers like IncompatiblePlatformProvider to its outputs.
+      target = ((OutputFileConfiguredTarget) target).getGeneratingRule();
+    }
+    return IncompatibleCheckResult.create(
+        target.get(IncompatiblePlatformProvider.PROVIDER) != null, target);
+  }
+
+  /**
+   * Creates an incompatible {@link ConfiguredTarget} if the corresponding rule is incompatible.
+   *
+   * <p>Returns null if the target is not incompatible.
+   *
+   * <p>"Incompatible" here means either:
+   *
+   * <ol>
+   *   <li>the corresponding <code>target_compatible_with</code> list contains a constraint that the
+   *       current platform doesn't satisfy, or
+   *   <li>a transitive dependency is incompatible.
+   * </ol>
+   *
+   * @param ruleContext analysis context for the rule
+   * @param prerequisiteMap the dependencies of the rule
+   * @throws ActionConflictException if the underlying {@link RuleConfiguredTargetBuilder}
+   *     encounters a problem when assembling a dummy action for the incompatible {@link
+   *     ConfiguredTarget}.
+   */
+  @Nullable
+  public static ConfiguredTarget incompatibleConfiguredTarget(
+      RuleContext ruleContext,
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap)
+      throws ActionConflictException, InterruptedException {
+    // The target (ruleContext) is incompatible if explicitly specified to be. Any rule that
+    // provides its own meaning for the "target_compatible_with" attribute has to be excluded here.
+    // For example, the "toolchain" rule uses "target_compatible_with" for bazel's toolchain
+    // resolution.
+    if (!ruleContext.getRule().getRuleClass().equals("toolchain")
+        && ruleContext.attributes().has("target_compatible_with")) {
+      ImmutableList<ConstraintValueInfo> invalidConstraintValues =
+          PlatformProviderUtils.constraintValues(
+                  ruleContext.getPrerequisites("target_compatible_with"))
+              .stream()
+              .filter(cv -> !ruleContext.targetPlatformHasConstraint(cv))
+              .collect(toImmutableList());
+
+      if (!invalidConstraintValues.isEmpty()) {
+        return createIncompatibleConfiguredTarget(ruleContext, null, invalidConstraintValues);
+      }
+    }
+
+    // This is incompatible if one of the dependencies is as well.
+    ImmutableList<ConfiguredTarget> incompatibleDependencies =
+        prerequisiteMap.values().stream()
+            .map(value -> checkForIncompatibility(value.getConfiguredTarget()))
+            .filter(IncompatibleCheckResult::isIncompatible)
+            .map(IncompatibleCheckResult::underlyingTarget)
+            .collect(toImmutableList());
+    if (!incompatibleDependencies.isEmpty()) {
+      return createIncompatibleConfiguredTarget(ruleContext, incompatibleDependencies, null);
+    }
+
+    return null;
+  }
+
+  /**
+   * A helper function for incompatibleConfiguredTarget() to actually create the incompatible {@link
+   * ConfiguredTarget}.
+   *
+   * @param ruleContext analysis context for the rule
+   * @param targetsResponsibleForIncompatibility the targets that are responsible this target's
+   *     incompatibility. If null, that means that target is responsible for its own
+   *     incompatibility. I.e. it has constraints in target_compatible_with that were not satisfied
+   *     on the target platform. This must be null if violatedConstraints is set. This must be set
+   *     if violatedConstraints is null.
+   * @param violatedConstraints the constraints that the target platform doesn't satisfy. This must
+   *     be null if targetRsesponsibleForIncompatibility is set.
+   * @throws ActionConflictException if the underlying {@link RuleConfiguredTargetBuilder}
+   *     encounters a problem when assembling a dummy action for the incompatible {@link
+   *     ConfiguredTarget}.
+   */
+  private static ConfiguredTarget createIncompatibleConfiguredTarget(
+      RuleContext ruleContext,
+      @Nullable ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility,
+      @Nullable ImmutableList<ConstraintValueInfo> violatedConstraints)
+      throws ActionConflictException, InterruptedException {
+    // Create a dummy ConfiguredTarget that has the IncompatiblePlatformProvider set.
+    ImmutableList<Artifact> outputArtifacts = ruleContext.getOutputArtifacts();
+
+    if (ruleContext.isTestTarget() && outputArtifacts.isEmpty()) {
+      // Test targets require RunfilesSupport to be added to the RuleConfiguredTargetBuilder
+      // which needs an "executable".  Create one here if none exist already.
+      //
+      // It would be ideal if we could avoid this. Currently the problem is that some rules like
+      // sh_test only declare an output artifact in the corresponding ConfiguredTarget factory
+      // function (see ShBinary.java). Since this code path here replaces the factory function rules
+      // like sh_test never get a chance to declare an output artifact.
+      //
+      // On top of that, the rest of the code base makes the assumption that test targets provide an
+      // instance RunfilesSupport. This can be seen in the TestProvider, the TestActionBuilder, and
+      // the RuleConfiguredTargetBuilder classes. There might be a way to break this assumption, but
+      // it's currently too heavily baked in to work around it more nicely than this.
+      //
+      // Theoretically, this hack shouldn't be an issue because the corresponding actions will never
+      // get executed. They cannot be queried either.
+      outputArtifacts = ImmutableList.of(ruleContext.createOutputArtifact());
+    }
+
+    NestedSet<Artifact> filesToBuild =
+        NestedSetBuilder.<Artifact>stableOrder().addAll(outputArtifacts).build();
+
+    Runfiles.Builder runfilesBuilder =
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles());
+    Runfiles runfiles =
+        runfilesBuilder
+            .addTransitiveArtifacts(filesToBuild)
+            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+            .build();
+
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+    builder.setFilesToBuild(filesToBuild);
+
+    if (targetsResponsibleForIncompatibility != null) {
+      builder.addNativeDeclaredProvider(
+          IncompatiblePlatformProvider.incompatibleDueToTargets(
+              ruleContext.targetPlatform(), targetsResponsibleForIncompatibility));
+    } else if (violatedConstraints != null) {
+      builder.addNativeDeclaredProvider(
+          IncompatiblePlatformProvider.incompatibleDueToConstraints(
+              ruleContext.targetPlatform(), violatedConstraints));
+    } else {
+      throw new IllegalArgumentException(
+          "Both violatedConstraints and targetsResponsibleForIncompatibility are null");
+    }
+
+    // If this is an analysis test, RuleConfiguredTargetBuilder performs some additional sanity
+    // checks. Satisfy them with an appropriate provider.
+    if (ruleContext.getRule().isAnalysisTest()) {
+      builder.addNativeDeclaredProvider(
+          new AnalysisTestResultInfo(
+              /*success=*/ false,
+              "This test is incompatible and should not have been run. Please file a bug"
+                  + " upstream."));
+    }
+
+    builder.add(RunfilesProvider.class, RunfilesProvider.simple(runfiles));
+    if (!outputArtifacts.isEmpty()) {
+      Artifact executable = outputArtifacts.get(0);
+      RunfilesSupport runfilesSupport =
+          RunfilesSupport.withExecutableButNoArgs(ruleContext, runfiles, executable);
+      builder.setRunfilesSupport(runfilesSupport, executable);
+
+      ruleContext.registerAction(
+          new FailAction(
+              ruleContext.getActionOwner(),
+              outputArtifacts,
+              "Can't build this. This target is incompatible. Please file a bug upstream.",
+              Code.CANT_BUILD_INCOMPATIBLE_TARGET));
+    }
+    return builder.build();
   }
 }

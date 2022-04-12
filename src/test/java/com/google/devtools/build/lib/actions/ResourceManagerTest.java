@@ -19,12 +19,14 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import java.util.Collection;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,10 +36,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- *
- * Tests for @{link ResourceManager}.
- */
+/** Tests for {@link ResourceManager}. */
 @RunWith(JUnit4.class)
 public class ResourceManagerTest {
 
@@ -55,11 +54,17 @@ public class ResourceManagerTest {
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
+    rm.setPrioritizeLocalActions(true);
+  }
+
+  private ResourceHandle acquire(double ram, double cpu, int tests, ResourcePriority priority)
+      throws InterruptedException {
+    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests), priority);
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests)
       throws InterruptedException {
-    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
+    return acquire(ram, cpu, tests, ResourcePriority.LOCAL);
   }
 
   private ResourceHandle acquireNonblocking(double ram, double cpu, int tests) {
@@ -217,6 +222,7 @@ public class ResourceManagerTest {
   }
 
   @Test
+  @SuppressWarnings("ThreadPriorityCheck")
   public void testConcurrentLargeRequests() throws Exception {
     assertThat(rm.inUse()).isFalse();
     TestThread thread1 =
@@ -295,6 +301,7 @@ public class ResourceManagerTest {
   }
 
   @Test
+  @SuppressWarnings("ThreadPriorityCheck")
   public void testOutOfOrderAllocation() throws Exception {
     final CyclicBarrier sync3 = new CyclicBarrier(2);
     final CyclicBarrier sync4 = new CyclicBarrier(2);
@@ -389,6 +396,217 @@ public class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
   }
 
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testRelease_noPriority() throws Exception {
+    rm.setPrioritizeLocalActions(false);
+    assertThat(rm.inUse()).isFalse();
+
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0);
+              sync.await();
+              sync2.await();
+              release(700, 0, 0);
+            });
+    thread1.start();
+    // Wait for thread1 to have acquired its RAM
+    sync.await(1, TimeUnit.SECONDS);
+
+    // Set up threads that compete for resources
+    CyclicBarrier syncDynamicStandalone =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 1) {
+      Thread.yield();
+    }
+    CyclicBarrier syncDynamicWorker = startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 2) {
+      Thread.yield();
+    }
+    CyclicBarrier syncLocal = startAcquireReleaseThread(ResourcePriority.LOCAL);
+    while (rm.getWaitCount() < 3) {
+      Thread.yield();
+    }
+
+    sync2.await();
+
+    while (syncLocal.getNumberWaiting()
+            + syncDynamicWorker.getNumberWaiting()
+            + syncDynamicStandalone.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(2);
+    assertThat(syncDynamicStandalone.getNumberWaiting()).isEqualTo(1);
+    syncDynamicStandalone.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicWorker.getNumberWaiting() + syncLocal.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncDynamicWorker.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(1);
+
+    syncDynamicWorker.await(1, TimeUnit.SECONDS);
+    while (syncLocal.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncLocal.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(0);
+    syncLocal.await(1, TimeUnit.SECONDS);
+  }
+
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testRelease_highPriorityFirst() throws Exception {
+    assertThat(rm.inUse()).isFalse();
+
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0);
+              sync.await();
+              sync2.await();
+              release(700, 0, 0);
+            });
+    thread1.start();
+    // Wait for thread1 to have acquired its RAM
+    sync.await(1, TimeUnit.SECONDS);
+
+    // Set up threads that compete for resources
+    CyclicBarrier syncDynamicStandalone =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 1) {
+      Thread.yield();
+    }
+    CyclicBarrier syncDynamicWorker = startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 2) {
+      Thread.yield();
+    }
+    CyclicBarrier syncLocal = startAcquireReleaseThread(ResourcePriority.LOCAL);
+    while (rm.getWaitCount() < 3) {
+      Thread.yield();
+    }
+
+    sync2.await();
+
+    while (syncLocal.getNumberWaiting()
+            + syncDynamicWorker.getNumberWaiting()
+            + syncDynamicStandalone.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(2);
+    assertThat(syncLocal.getNumberWaiting()).isEqualTo(1);
+    syncLocal.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicWorker.getNumberWaiting() + syncDynamicStandalone.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncDynamicWorker.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(1);
+
+    syncDynamicWorker.await(1, TimeUnit.SECONDS);
+    while (syncDynamicStandalone.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncDynamicStandalone.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(0);
+    syncDynamicStandalone.await(1, TimeUnit.SECONDS);
+  }
+
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testRelease_dynamicLifo() throws Exception {
+    assertThat(rm.inUse()).isFalse();
+
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0);
+              sync.await();
+              sync2.await();
+              release(700, 0, 0);
+            });
+    thread1.start();
+    // Wait for thread1 to have acquired enough RAM to block the other threads.
+    sync.await(1, TimeUnit.SECONDS);
+
+    // Set up threads that compete for resources
+    final CyclicBarrier syncDynamicStandalone1 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 1) {
+      Thread.yield();
+    }
+    final CyclicBarrier syncDynamicWorker1 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 2) {
+      Thread.yield();
+    }
+    final CyclicBarrier syncDynamicStandalone2 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 3) {
+      Thread.yield();
+    }
+    final CyclicBarrier syncDynamicWorker2 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 4) {
+      Thread.yield();
+    }
+
+    // Wewease the kwaken!
+    sync2.await();
+
+    while (syncDynamicStandalone1.getNumberWaiting()
+            + syncDynamicStandalone2.getNumberWaiting()
+            + syncDynamicWorker1.getNumberWaiting()
+            + syncDynamicWorker2.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(3);
+    assertThat(syncDynamicWorker2.getNumberWaiting()).isEqualTo(1);
+    syncDynamicWorker2.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicStandalone1.getNumberWaiting()
+            + syncDynamicStandalone2.getNumberWaiting()
+            + syncDynamicWorker1.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(2);
+    assertThat(syncDynamicWorker1.getNumberWaiting()).isEqualTo(1);
+    syncDynamicWorker1.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicStandalone1.getNumberWaiting() + syncDynamicStandalone2.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(1);
+    assertThat(syncDynamicStandalone2.getNumberWaiting()).isEqualTo(1);
+    syncDynamicStandalone2.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicStandalone1.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(0);
+    assertThat(syncDynamicStandalone1.getNumberWaiting()).isEqualTo(1);
+    syncDynamicStandalone1.await(1, TimeUnit.SECONDS);
+  }
+
+  private CyclicBarrier startAcquireReleaseThread(ResourcePriority priority) {
+    final CyclicBarrier sync = new CyclicBarrier(2);
+    TestThread thread =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0, priority);
+              sync.await();
+              release(700, 0, 0);
+            });
+    thread.start();
+    return sync;
+  }
+
   private static class ResourceOwnerStub implements ActionExecutionMetadata {
 
     @Override
@@ -438,7 +656,7 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public Iterable<String> getClientEnvironmentVariables() {
+    public Collection<String> getClientEnvironmentVariables() {
       throw new IllegalStateException();
     }
 

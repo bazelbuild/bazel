@@ -68,4 +68,12 @@ public class BuildEventProtocolOptions extends OptionsBase {
           "If true, fully resolve relative Fileset symlinks in the BEP when presenting output"
               + " files. Requires --experimental_build_event_expand_filesets.")
   public boolean fullyResolveFilesetSymlinks;
+
+  @Option(
+      name = "experimental_bep_target_summary",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to publish TargetSummary events.")
+  public boolean publishTargetSummary;
 }

@@ -19,6 +19,7 @@ import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileStore;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -30,8 +31,9 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.util.EnumSet;
 
 /**
- * Creates a temporary directory that will be deleted once a scope closes. NOTE: If an error occurs
- * during deletion, it will just stop rather than try and continue.
+ * Creates a temporary directory that will be deleted once a scope closes. NOTE: errors during
+ * deletion are ignored, which can lead to inclomplete clean up of the temporary files. However, as
+ * they are created in the temp location, the system should eventually clean them up.
  */
 final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements Closeable {
 
@@ -91,7 +93,11 @@ final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements 
 
   @Override
   public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-    Files.delete(dir);
+    try {
+      Files.delete(dir);
+    } catch (DirectoryNotEmptyException e) {
+      // Ignore.
+    }
     return FileVisitResult.CONTINUE;
   }
 

@@ -325,7 +325,7 @@ public class AndroidResourceClassWriterTest {
                 .put("com_google_android_Swirls_Fancy_x_color", 0)
                 .put("com_google_android_Swirls_Fancy_y_color", 1)
                 .put("com_google_android_Swirls_Fancy_z_color", 2)
-                .build(),
+                .buildOrThrow(),
             ImmutableMap.<String, List<Integer>>of(
                 "com_google_android_Dots",
                 ImmutableList.of(0x7f010000, 0x7f010001, 0x7f010002),

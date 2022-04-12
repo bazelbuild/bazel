@@ -15,22 +15,26 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 
 /** Provider that contains the profile used for FDO. */
 @Immutable
 public final class FdoProfileProvider extends NativeInfo {
-  public static final NativeProvider<FdoProfileProvider> PROVIDER =
-      new NativeProvider<FdoProfileProvider>(FdoProfileProvider.class, "FdoProfileInfo") {};
+  public static final BuiltinProvider<FdoProfileProvider> PROVIDER =
+      new BuiltinProvider<FdoProfileProvider>("FdoProfileInfo", FdoProfileProvider.class) {};
 
   private final FdoInputFile fdoInputFile;
   private final Artifact protoProfileArtifact;
 
   public FdoProfileProvider(FdoInputFile fdoInputFile, Artifact protoProfileArtifact) {
-    super(PROVIDER);
     this.fdoInputFile = fdoInputFile;
     this.protoProfileArtifact = protoProfileArtifact;
+  }
+
+  @Override
+  public BuiltinProvider<FdoProfileProvider> getProvider() {
+    return PROVIDER;
   }
 
   public FdoInputFile getInputFile() {

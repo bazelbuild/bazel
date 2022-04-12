@@ -15,20 +15,17 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.CompletionContext.FAILED_COMPLETION_CTX;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OS;
@@ -41,34 +38,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link TargetCompleteEvent}. */
 @RunWith(JUnit4.class)
 public class TargetCompleteEventTest extends AnalysisTestCase {
-  /** Regression test for b/111653523. */
-  @Test
-  public void testReferencedLocalFilesIncludesBaselineCoverage() throws Exception {
-    scratch.file("java/a/BUILD", "java_test(name = 'Example', srcs = ['Example.java'])");
-    useConfiguration("--collect_code_coverage");
-    AnalysisResult result = update("//java/a:Example");
-    ConfiguredTarget ct = Iterables.getOnlyElement(result.getTargetsToBuild());
-    TargetAndConfiguration tac = Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs());
-    ConfiguredTargetAndData ctAndData =
-        new ConfiguredTargetAndData(ct, tac.getTarget(), tac.getConfiguration(), null);
-    TopLevelArtifactContext context =
-        new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
-    ArtifactsToBuild artifactsToBuild = TopLevelArtifactHelper.getAllArtifactsToBuild(ct, context);
-    TargetCompleteEvent event =
-        TargetCompleteEvent.successfulBuild(
-            ctAndData,
-            CompletionContext.FAILED_COMPLETION_CTX,
-            artifactsToBuild.getAllArtifactsByOutputGroup());
-    assertThat(event.referencedLocalFiles())
-        .contains(
-            new BuildEvent.LocalFile(
-                tac.getConfiguration()
-                    .getTestLogsDirectory(RepositoryName.DEFAULT)
-                    .getRoot()
-                    .asPath()
-                    .getRelative("java/a/Example/baseline_coverage.dat"),
-                LocalFileType.COVERAGE_OUTPUT));
-  }
 
   /** Regression test for b/165671166. */
   @Test
@@ -96,15 +65,18 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
             ctAndData,
-            CompletionContext.FAILED_COMPLETION_CTX,
-            artifactsToBuild.getAllArtifactsByOutputGroup());
+            FAILED_COMPLETION_CTX,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /*announceTargetSummary=*/ false);
 
     ArrayList<File> fileProtos = new ArrayList<>();
     ReportedArtifacts reportedArtifacts = event.reportedArtifacts();
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
-      artifactSet.forEachElement(
-          o -> true,
-          a -> fileProtos.add(newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT).build()));
+      for (Artifact a : artifactSet.toListInterruptibly()) {
+        fileProtos.add(
+            newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT, FAILED_COMPLETION_CTX)
+                .build());
+      }
     }
     // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
     String utf8FileName = new String(filenameBytes, UTF_8);

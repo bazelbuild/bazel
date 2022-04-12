@@ -45,8 +45,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -54,6 +52,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -76,7 +75,6 @@ import org.junit.runners.JUnit4;
  * Test suite for ParallelBuilder.
  *
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
@@ -252,7 +250,8 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     FileSystem fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+          public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+              throws IOException {
             final FileStatus stat = super.statIfFound(path, followSymlinks);
             if (path.toString().endsWith("/out/foo")) {
               return new FileStatus() {
@@ -682,7 +681,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
               ImmutableSet.of(out)) {
             @Override
             public ActionResult execute(ActionExecutionContext actionExecutionContext)
-                throws ActionExecutionException {
+                throws ActionExecutionException, InterruptedException {
               if (catastrophe && iCopy == 0) {
                 try {
                   Thread.sleep(300); // 300ms
@@ -727,7 +726,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   private Artifact createInputFile(String name) throws IOException {
     Artifact artifact = createSourceArtifact(name);
     Path path = artifact.getPath();
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
     return artifact;
   }

@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.server;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
-import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
 import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
+import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
@@ -32,15 +33,17 @@ import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.BytesValue;
+import com.google.protobuf.StringValue;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -63,24 +66,21 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Unit tests for the gRPC server. */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public class GrpcServerTest {
+public final class GrpcServerTest {
 
   private static final int SERVER_PID = 42;
   private static final String REQUEST_COOKIE = "request-cookie";
 
   private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-  private Path serverDirectory;
-  private GrpcServerImpl serverImpl;
   private Server server;
   private ManagedChannel channel;
 
   private void createServer(CommandDispatcher dispatcher) throws Exception {
-    serverDirectory = fileSystem.getPath("/bazel_server_directory");
+    Path serverDirectory = fileSystem.getPath("/bazel_server_directory");
     serverDirectory.createDirectoryAndParents();
 
-    serverImpl =
+    GrpcServerImpl serverImpl =
         new GrpcServerImpl(
             dispatcher,
             ShutdownHooks.createUnregistered(),
@@ -93,7 +93,8 @@ public class GrpcServerTest {
             SERVER_PID,
             1000,
             false,
-            false);
+            false,
+            "slow interrupt message suffix");
     String uniqueName = InProcessServerBuilder.generateName();
     server =
         InProcessServerBuilder.forName(uniqueName)
@@ -104,7 +105,7 @@ public class GrpcServerTest {
     channel = InProcessChannelBuilder.forName(uniqueName).directExecutor().build();
   }
 
-  private RunRequest createRequest(String... args) {
+  private static RunRequest createRequest(String... args) {
     return RunRequest.newBuilder()
         .setCookie(REQUEST_COOKIE)
         .setClientDescription("client-description")
@@ -112,9 +113,20 @@ public class GrpcServerTest {
         .build();
   }
 
+  private static RunRequest createPreemptibleRequest(String... args) {
+    return RunRequest.newBuilder()
+        .setCookie(REQUEST_COOKIE)
+        .setClientDescription("client-description")
+        .setPreemptible(true)
+        .addAllArg(Arrays.stream(args).map(ByteString::copyFromUtf8).collect(Collectors.toList()))
+        .build();
+  }
+
   @Test
   public void testSendingSimpleMessage() throws Exception {
+    Any commandExtension = Any.pack(EnvironmentVariable.getDefaultInstance()); // Arbitrary message.
     AtomicReference<List<String>> argsReceived = new AtomicReference<>();
+    AtomicReference<List<Any>> commandExtensionsReceived = new AtomicReference<>();
     CommandDispatcher dispatcher =
         new CommandDispatcher() {
           @Override
@@ -125,8 +137,10 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             argsReceived.set(args);
+            commandExtensionsReceived.set(commandExtensions);
             return BlazeCommandResult.success();
           }
         };
@@ -135,13 +149,15 @@ public class GrpcServerTest {
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
-    stub.run(createRequest("Foo"), createResponseObserver(responses, done));
+    stub.run(
+        createRequest("Foo").toBuilder().addCommandExtensions(commandExtension).build(),
+        createResponseObserver(responses, done));
     done.await();
     server.shutdown();
     server.awaitTermination();
 
-    assertThat(argsReceived.get()).isNotNull();
     assertThat(argsReceived.get()).containsExactly("Foo");
+    assertThat(commandExtensionsReceived.get()).containsExactly(commandExtension);
 
     assertThat(responses).hasSize(2);
     assertThat(responses.get(0).getFinished()).isFalse();
@@ -164,7 +180,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             synchronized (this) {
               assertThrows(InterruptedException.class, this::wait);
             }
@@ -210,7 +227,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             OutputStream out = outErr.getOutputStream();
             try {
               for (int i = 0; i < 10; i++) {
@@ -219,7 +237,11 @@ public class GrpcServerTest {
             } catch (IOException e) {
               throw new IllegalStateException(e);
             }
-            return BlazeCommandResult.success();
+            return BlazeCommandResult.withResponseExtensions(
+                BlazeCommandResult.success(),
+                ImmutableList.of(
+                    Any.pack(StringValue.of("foo")),
+                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))));
           }
         };
     createServer(dispatcher);
@@ -238,10 +260,15 @@ public class GrpcServerTest {
     for (int i = 1; i < 11; i++) {
       assertThat(responses.get(i).getFinished()).isFalse();
       assertThat(responses.get(i).getStandardOutput().toByteArray()).isEqualTo(new byte[1024]);
+      assertThat(responses.get(i).getCommandExtensionsList()).isEmpty();
     }
     assertThat(responses.get(11).getFinished()).isTrue();
     assertThat(responses.get(11).getExitCode()).isEqualTo(0);
     assertThat(responses.get(11).hasFailureDetail()).isFalse();
+    assertThat(responses.get(11).getCommandExtensionsList())
+        .containsExactly(
+            Any.pack(StringValue.of("foo")),
+            Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar"))));
   }
 
   @Test
@@ -266,7 +293,7 @@ public class GrpcServerTest {
 
   private void runBadCommandTest(RunRequest.Builder runRequestBuilder, FailureDetail failureDetail)
       throws Exception {
-    createServer(GrpcServerTest::unexpectedCommandExec);
+    createServer(throwingDispatcher());
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
@@ -287,7 +314,7 @@ public class GrpcServerTest {
 
   @Test
   public void unparseableInvocationPolicy() throws Exception {
-    createServer(GrpcServerTest::unexpectedCommandExec);
+    createServer(throwingDispatcher());
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
@@ -332,7 +359,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
             OutputStream out = outErr.getOutputStream();
             try {
               while (true) {
@@ -391,7 +419,8 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions)
               throws InterruptedException {
             synchronized (this) {
               this.wait();
@@ -457,7 +486,284 @@ public class GrpcServerTest {
     assertThat(secondResponse.get().hasFailureDetail()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
-        .isEqualTo(Code.COMMAND_DISPATCH);
+        .isEqualTo(Code.INTERRUPTED);
+  }
+
+  /**
+   * Ensure that if a command is marked as preemptible, running a second command interrupts the
+   * first command.
+   */
+  @Test
+  public void testPreeempt() throws Exception {
+    String firstCommandArg = "Foo";
+    String secondCommandArg = "Bar";
+
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions) {
+            if (args.contains(firstCommandArg)) {
+              while (true) {
+                try {
+                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                } catch (InterruptedException e) {
+                  return BlazeCommandResult.failureDetail(
+                      FailureDetail.newBuilder()
+                          .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
+                          .build());
+                }
+              }
+            } else {
+              return BlazeCommandResult.success();
+            }
+          }
+        };
+    createServer(dispatcher);
+
+    CountDownLatch gotFoo = new CountDownLatch(1);
+    AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
+    AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        createPreemptibleRequest(firstCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotFoo.countDown();
+            lastFooResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    // Wait for the first command to startup
+    gotFoo.await();
+
+    CountDownLatch gotBar = new CountDownLatch(1);
+    stub.run(
+        createRequest(secondCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotBar.countDown();
+            lastBarResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    gotBar.await();
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(lastBarResponse.get().getFinished()).isTrue();
+    assertThat(lastBarResponse.get().getExitCode()).isEqualTo(0);
+    assertThat(lastFooResponse.get().getFinished()).isTrue();
+    assertThat(lastFooResponse.get().getExitCode()).isEqualTo(8);
+    assertThat(lastFooResponse.get().hasFailureDetail()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().hasInterrupted()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().getInterrupted().getCode())
+        .isEqualTo(Code.INTERRUPTED);
+  }
+
+  /**
+   * Ensure that if a command is marked as preemptible, running a second preemptible command
+   * interupts the first command.
+   */
+  @Test
+  public void testMultiPreeempt() throws Exception {
+    String firstCommandArg = "Foo";
+    String secondCommandArg = "Bar";
+
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions)
+              throws InterruptedException {
+            if (args.contains(firstCommandArg)) {
+              while (true) {
+                try {
+                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                } catch (InterruptedException e) {
+                  return BlazeCommandResult.failureDetail(
+                      FailureDetail.newBuilder()
+                          .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
+                          .build());
+                }
+              }
+            } else {
+              return BlazeCommandResult.success();
+            }
+          }
+        };
+    createServer(dispatcher);
+
+    CountDownLatch gotFoo = new CountDownLatch(1);
+    AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
+    AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        createPreemptibleRequest(firstCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotFoo.countDown();
+            lastFooResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    // Wait for the first command to startup
+    gotFoo.await();
+
+    CountDownLatch gotBar = new CountDownLatch(1);
+    stub.run(
+        createPreemptibleRequest(secondCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            gotBar.countDown();
+            lastBarResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+
+    gotBar.await();
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(lastBarResponse.get().getFinished()).isTrue();
+    assertThat(lastBarResponse.get().getExitCode()).isEqualTo(0);
+    assertThat(lastFooResponse.get().getFinished()).isTrue();
+    assertThat(lastFooResponse.get().getExitCode()).isEqualTo(8);
+    assertThat(lastFooResponse.get().hasFailureDetail()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().hasInterrupted()).isTrue();
+    assertThat(lastFooResponse.get().getFailureDetail().getInterrupted().getCode())
+        .isEqualTo(Code.INTERRUPTED);
+  }
+
+  /**
+   * Ensure that when a command is not marked as preemptible, running a second command does not
+   * interrupt the first command.
+   */
+  @Test
+  public void testNoPreeempt() throws Exception {
+    String firstCommandArg = "Foo";
+    String secondCommandArg = "Bar";
+
+    CountDownLatch fooBlocked = new CountDownLatch(1);
+    CountDownLatch fooProceed = new CountDownLatch(1);
+    CountDownLatch barBlocked = new CountDownLatch(1);
+    CountDownLatch barProceed = new CountDownLatch(1);
+
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              List<Any> commandExtensions)
+              throws InterruptedException {
+            if (args.contains(firstCommandArg)) {
+              fooBlocked.countDown();
+              fooProceed.await();
+            } else {
+              barBlocked.countDown();
+              barProceed.await();
+            }
+            return BlazeCommandResult.success();
+          }
+        };
+    createServer(dispatcher);
+
+    AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
+    AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        createRequest(firstCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            lastFooResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+    fooBlocked.await();
+
+    stub.run(
+        createRequest(secondCommandArg),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            lastBarResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {}
+
+          @Override
+          public void onCompleted() {}
+        });
+    barBlocked.await();
+
+    // At this point both commands should be blocked on proceed latch, carry on...
+    fooProceed.countDown();
+    barProceed.countDown();
+
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(lastFooResponse.get().getFinished()).isTrue();
+    assertThat(lastFooResponse.get().getExitCode()).isEqualTo(0);
+    assertThat(lastBarResponse.get().getFinished()).isTrue();
+    assertThat(lastBarResponse.get().getExitCode()).isEqualTo(0);
   }
 
   @Test
@@ -522,8 +828,7 @@ public class GrpcServerTest {
         new StreamObserver<RunResponse>() {
           @Override
           public void onNext(RunResponse value) {
-            if (sentCount.get() < 3) {
-            } else {
+            if (sentCount.get() >= 3) {
               clientBlocks.countDown();
               try {
                 clientUnblocks.await();
@@ -754,14 +1059,16 @@ public class GrpcServerTest {
     };
   }
 
-  private static BlazeCommandResult unexpectedCommandExec(
-      InvocationPolicy invocationPolicy,
-      List<String> args,
-      OutErr outErr,
-      LockingMode lockingMode,
-      String clientDescription,
-      long firstContactTimeMillis,
-      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
-    throw new IllegalStateException("Command exec not expected");
+  private static CommandDispatcher throwingDispatcher() {
+    return (invocationPolicy,
+        args,
+        outErr,
+        lockingMode,
+        clientDescription,
+        firstContactTimeMillis,
+        startupOptionsTaggedWithBazelRc,
+        commandExtensions) -> {
+      throw new IllegalStateException("Command exec not expected");
+    };
   }
 }

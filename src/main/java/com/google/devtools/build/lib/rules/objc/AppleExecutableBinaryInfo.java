@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleExecutableBinaryApi;
 
 /**
@@ -39,9 +39,9 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
   public static final String STARLARK_NAME = "AppleExecutableBinary";
 
   /** Starlark constructor and identifier for AppleExecutableBinaryInfo. */
-  public static final NativeProvider<AppleExecutableBinaryInfo> STARLARK_CONSTRUCTOR =
-      new NativeProvider<AppleExecutableBinaryInfo>(
-          AppleExecutableBinaryInfo.class, STARLARK_NAME) {};
+  public static final BuiltinProvider<AppleExecutableBinaryInfo> STARLARK_CONSTRUCTOR =
+      new BuiltinProvider<AppleExecutableBinaryInfo>(
+          STARLARK_NAME, AppleExecutableBinaryInfo.class) {};
 
   private final Artifact appleExecutableBinary;
   private final ObjcProvider depsObjcProvider;
@@ -52,9 +52,13 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
    */
   public AppleExecutableBinaryInfo(Artifact appleExecutableBinary,
       ObjcProvider depsObjcProvider) {
-    super(STARLARK_CONSTRUCTOR);
     this.appleExecutableBinary = appleExecutableBinary;
     this.depsObjcProvider = depsObjcProvider;
+  }
+
+  @Override
+  public BuiltinProvider<AppleExecutableBinaryInfo> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   /**

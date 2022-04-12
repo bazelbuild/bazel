@@ -14,6 +14,8 @@
 
 package com.google.devtools.common.options;
 
+import static java.util.Map.Entry.comparingByKey;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -21,9 +23,9 @@ import com.google.common.collect.ListMultimap;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -58,7 +60,7 @@ public abstract class OptionValueDescription {
    * @return a bundle containing arguments that need to be parsed further.
    */
   abstract ExpansionBundle addOptionInstance(
-      ParsedOptionDescription parsedOption, List<String> warnings) throws OptionsParsingException;
+      ParsedOptionDescription parsedOption, Set<String> warnings) throws OptionsParsingException;
 
   /**
    * Grouping of convenience for the options that expand to other options, to attach an
@@ -129,7 +131,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, List<String> warnings) {
+    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings) {
       throw new IllegalStateException(
           "Cannot add values to the default option value. Create a modifiable "
               + "OptionValueDescription using createOptionValueDescription() instead.");
@@ -173,7 +175,7 @@ public abstract class OptionValueDescription {
 
     // Warnings should not end with a '.' because the internal reporter adds one automatically.
     @Override
-    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, List<String> warnings)
+    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {
       // This might be the first value, in that case, just store it!
       if (effectiveOptionInstance == null) {
@@ -277,11 +279,8 @@ public abstract class OptionValueDescription {
 
     @Override
     public String getSourceString() {
-      return parsedOptions
-          .asMap()
-          .entrySet()
-          .stream()
-          .sorted(Comparator.comparing(Map.Entry::getKey))
+      return parsedOptions.asMap().entrySet().stream()
+          .sorted(comparingByKey())
           .map(Map.Entry::getValue)
           .flatMap(Collection::stream)
           .map(ParsedOptionDescription::getSource)
@@ -294,14 +293,14 @@ public abstract class OptionValueDescription {
       // Sort the results by option priority and return them in a new list. The generic type of
       // the list is not known at runtime, so we can't use it here.
       return optionValues.asMap().entrySet().stream()
-          .sorted(Comparator.comparing(Map.Entry::getKey))
+          .sorted(comparingByKey())
           .map(Map.Entry::getValue)
           .flatMap(Collection::stream)
           .collect(ImmutableList.toImmutableList());
     }
 
     @Override
-    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, List<String> warnings)
+    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {
       // For repeatable options, we allow flags that take both single values and multiple values,
       // potentially collapsing them down.
@@ -318,11 +317,8 @@ public abstract class OptionValueDescription {
 
     @Override
     public ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
-      return parsedOptions
-          .asMap()
-          .entrySet()
-          .stream()
-          .sorted(Comparator.comparing(Map.Entry::getKey))
+      return parsedOptions.asMap().entrySet().stream()
+          .sorted(comparingByKey())
           .map(Map.Entry::getValue)
           .flatMap(Collection::stream)
           // Only provide the options that aren't implied elsewhere.
@@ -333,8 +329,8 @@ public abstract class OptionValueDescription {
 
   /**
    * The form of a value for an expansion option, one that does not have its own value but expands
-   * in place to other options. This should be used for both flags with a static expansion defined
-   * in {@link Option#expansion()} and flags with an {@link Option#expansionFunction()}.
+   * in place to other options. This should be used for flags with anN expansion defined in {@link
+   * Option#expansion()}.
    */
   private static class ExpansionOptionValueDescription extends OptionValueDescription {
     private final List<String> expansion;
@@ -360,7 +356,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, List<String> warnings) {
+    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings) {
       if (parsedOption.getUnconvertedValue() != null
           && !parsedOption.getUnconvertedValue().isEmpty()) {
         warnings.add(
@@ -400,7 +396,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, List<String> warnings)
+    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {
       // This is a valued flag, its value is handled the same way as a normal
       // SingleOptionValueDescription. (We check at compile time that these flags aren't

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.net.InetAddresses;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -65,10 +65,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * gRPC server class.
@@ -113,7 +115,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       int serverPid,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
-      boolean idleServerTasks) {
+      boolean idleServerTasks,
+      @Nullable String slowInterruptMessageSuffix) {
     SecureRandom random = new SecureRandom();
     return new GrpcServerImpl(
         dispatcher,
@@ -127,7 +130,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         serverPid,
         maxIdleSeconds,
         shutdownOnLowSysMem,
-        idleServerTasks);
+        idleServerTasks,
+        slowInterruptMessageSuffix);
   }
 
 
@@ -302,7 +306,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       int serverPid,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
-      boolean doIdleServerTasks) {
+      boolean doIdleServerTasks,
+      @Nullable String slowInterruptMessageSuffix) {
     this.dispatcher = dispatcher;
     this.shutdownHooks = shutdownHooks;
     this.pidFileWatcher = pidFileWatcher;
@@ -327,8 +332,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                     .setDaemon(true)
                     .build()));
 
-
-    commandManager = new CommandManager(doIdleServerTasks);
+    commandManager = new CommandManager(doIdleServerTasks, slowInterruptMessageSuffix);
   }
 
   private static String generateCookie(SecureRandom random, int byteCount) {
@@ -401,7 +405,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       } catch (IOException ipv4Exception) {
         throw new AbruptExitException(
             DetailedExitCode.of(
-                ExitCode.BUILD_FAILURE,
                 createFailureDetail(
                     String.format(
                         "gRPC server failed to bind to IPv4 and IPv6 localhosts on port %d: [IPv4] "
@@ -457,8 +460,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       serverInfoTmpFile.renameTo(serverInfoFile);
       shutdownHooks.deleteAtExit(serverInfoFile);
     } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Failed to write server info file: " + e.getMessage(), Code.SERVER_FILE_WRITE_FAILURE, e);
+      throw createFilesystemFailureException("Failed to write server info file", e);
     }
   }
 
@@ -467,16 +469,13 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     try {
       FileSystemUtils.writeContentAsLatin1(file, contents);
     } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Server file (" + file + ") write failed: " + e.getMessage(),
-          Code.SERVER_FILE_WRITE_FAILURE,
-          e);
+      throw createFilesystemFailureException("Server file (" + file + ") write failed", e);
     }
     shutdownHooks.deleteAtExit(file);
   }
 
   private void executeCommand(RunRequest request, BlockingStreamObserver<RunResponse> observer) {
-    boolean badCookie = !request.getCookie().equals(requestCookie);
+    boolean badCookie = !isValidRequestCookie(request.getCookie());
     if (badCookie || request.getClientDescription().isEmpty()) {
       try {
         FailureDetail failureDetail =
@@ -515,7 +514,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
           option.getOption().toString(StandardCharsets.ISO_8859_1)));
     }
 
-    try (RunningCommand command = commandManager.create()) {
+    commandManager.preemptEligibleCommands();
+
+    try (RunningCommand command =
+        request.getPreemptible()
+            ? commandManager.createPreemptibleCommand()
+            : commandManager.createCommand()) {
       commandId = command.getId();
 
       try {
@@ -541,7 +545,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
             .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
-        logger.atInfo().log(SafeRequestLogging.getRequestLogString(args));
+        logger.atInfo().log("%s", SafeRequestLogging.getRequestLogString(args));
         result =
             dispatcher.exec(
                 policy,
@@ -550,13 +554,13 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
-                Optional.of(startupOptions.build()));
+                Optional.of(startupOptions.build()),
+                request.getCommandExtensionsList());
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =
             BlazeCommandResult.detailedExitCode(
                 DetailedExitCode.of(
-                    ExitCode.COMMAND_LINE_ERROR,
                     FailureDetail.newBuilder()
                         .setMessage("Invocation policy parsing failed: " + e.getMessage())
                         .setCommand(
@@ -567,8 +571,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(
-              InterruptedFailureDetails.detailedExitCode(
-                  "Command dispatch interrupted", Interrupted.Code.COMMAND_DISPATCH));
+              InterruptedFailureDetails.detailedExitCode("Command dispatch interrupted"));
       commandId = ""; // The default value, the client will ignore it
     }
     RunResponse.Builder response = RunResponse.newBuilder()
@@ -588,7 +591,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     }
 
     try {
-      observer.onNext(response.build());
+      observer.onNext(response.addAllCommandExtensions(result.getResponseExtensions()).build());
       observer.onCompleted();
     } catch (StatusRuntimeException e) {
       logger.atInfo().withCause(e).log(
@@ -613,9 +616,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
   @Override
   public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
-    try (RunningCommand command = commandManager.create()) {
+    try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
-      if (pingRequest.getCookie().equals(requestCookie)) {
+      if (isValidRequestCookie(pingRequest.getCookie())) {
         response.setCookie(responseCookie);
       }
 
@@ -628,7 +631,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   public void cancel(
       final CancelRequest request, final StreamObserver<CancelResponse> streamObserver) {
     logger.atInfo().log("Got CancelRequest for command id %s", request.getCommandId());
-    if (!request.getCookie().equals(requestCookie)) {
+    if (!isValidRequestCookie(request.getCookie())) {
       streamObserver.onCompleted();
       return;
     }
@@ -650,14 +653,25 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     }
   }
 
+  /**
+   * Returns whether or not the provided cookie is valid for this server using a constant-time
+   * comparison in order to guard against timing attacks.
+   */
+  private boolean isValidRequestCookie(String incomingRequestCookie) {
+    // Note that cookie file was written as latin-1, so use that here.
+    return MessageDigest.isEqual(
+        incomingRequestCookie.getBytes(StandardCharsets.ISO_8859_1),
+        requestCookie.getBytes(StandardCharsets.ISO_8859_1));
+  }
+
   private static AbruptExitException createFilesystemFailureException(
-      String message, Code detailedCode, IOException e) {
+      String message, IOException e) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            ExitCode.BUILD_FAILURE,
             FailureDetail.newBuilder()
-                .setMessage(message)
-                .setFilesystem(Filesystem.newBuilder().setCode(detailedCode))
+                .setMessage(
+                    message + (Strings.isNullOrEmpty(e.getMessage()) ? "" : ": " + e.getMessage()))
+                .setFilesystem(Filesystem.newBuilder().setCode(Code.SERVER_FILE_WRITE_FAILURE))
                 .build()),
         e);
   }

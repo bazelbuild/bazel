@@ -37,10 +37,7 @@ public interface ConfigFeatureFlagProviderApi extends StructApi {
       name = "is_valid_value",
       doc = "The value of the flag in the configuration used by the flag rule.",
       parameters = {
-        @Param(
-            name = "value",
-            type = String.class,
-            doc = "String, the value to check for validity for this flag."),
+        @Param(name = "value", doc = "String, the value to check for validity for this flag."),
       })
   boolean isValidValue(String value);
 }

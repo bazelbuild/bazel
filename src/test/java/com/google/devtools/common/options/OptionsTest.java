@@ -497,25 +497,4 @@ public class OptionsTest {
       Options.parse(HttpOptions.class, new String[] { "--special" });
     assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
   }
-
-  @Test
-  public void usageForExpansionFunction() {
-    // Expect that the usage text contains the expansion appropriate to the options bases that were
-    // loaded into the options parser.
-    String usage = Options.getUsage(TestOptions.class);
-    assertThat(usage)
-        .contains(
-            "  --prefix_expansion\n"
-                + "    Expands to all options with a specific prefix.\n"
-                + "      Expands to: --specialexp_bar --specialexp_foo");
-  }
-
-  @Test
-  public void expansionFunction() throws Exception {
-    Options<TestOptions> options1 =
-        Options.parse(TestOptions.class, new String[] {"--prefix_expansion"});
-    Options<TestOptions> options2 =
-        Options.parse(TestOptions.class, new String[] {"--specialexp_foo", "--specialexp_bar"});
-    assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
-  }
 }

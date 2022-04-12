@@ -88,12 +88,16 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
       Artifact classJar,
       Artifact srcJar,
       NestedSet<Artifact> inputs) {
-    super(PROVIDER);
     this.generatingRuleLabel = generatingRuleLabel;
     this.isLite = isLite;
     this.classJar = classJar;
     this.srcJar = srcJar;
     this.inputs = inputs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /** A builder for {@link GeneratedExtensionRegistryProvider}. */

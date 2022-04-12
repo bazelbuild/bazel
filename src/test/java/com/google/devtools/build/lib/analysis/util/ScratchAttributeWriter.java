@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
@@ -154,7 +154,7 @@ public class ScratchAttributeWriter {
    * Writes this scratch target to this ScratchAttributeWriter's Scratch instance, and returns the
    * target in the given configuration.
    */
-  public ConfiguredTarget write(BuildConfiguration config) throws Exception {
+  public ConfiguredTarget write(BuildConfigurationValue config) throws Exception {
     Scratch scratch = testCase.getScratch();
 
     buildString.append(")");

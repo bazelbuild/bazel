@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -32,7 +30,6 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** The compile command line for the C++ compile action. */
-@AutoCodec
 public final class CompileCommandLine {
   private final Artifact sourceFile;
   private final CoptsFilter coptsFilter;
@@ -41,9 +38,7 @@ public final class CompileCommandLine {
   private final String actionName;
   private final Artifact dotdFile;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  CompileCommandLine(
+  private CompileCommandLine(
       Artifact sourceFile,
       CoptsFilter coptsFilter,
       FeatureConfiguration featureConfiguration,

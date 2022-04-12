@@ -34,16 +34,18 @@
 namespace bazel {
 namespace windows {
 
-using std::wstring;
 using std::unique_ptr;
 using std::wstring;
 
 static const wstring kUncPrefix = wstring(L"\\\\?\\");
+// Using `MAX_PATH` - 4 instead of `MAX_PATH` to fix
+// https://github.com/bazelbuild/bazel/issues/12310
+constexpr size_t kMaxPath = MAX_PATH - 4;
 
 // Retrieves TEST_TMPDIR as a shortened path. Result won't have a "\\?\" prefix.
 static void GetShortTempDir(wstring* result) {
   unique_ptr<WCHAR[]> buf;
-  DWORD size = ::GetEnvironmentVariableW(L"TEST_TMPDIR", NULL, 0);
+  DWORD size = ::GetEnvironmentVariableW(L"TEST_TMPDIR", nullptr, 0);
   ASSERT_GT(size, (DWORD)0);
   // `size` accounts for the null-terminator
   buf.reset(new WCHAR[size]);
@@ -59,18 +61,18 @@ static void GetShortTempDir(wstring* result) {
   std::replace(tmpdir.begin(), tmpdir.end(), '/', '\\');
 
   // Convert to 8dot3 style short path.
-  size = ::GetShortPathNameW(tmpdir.c_str(), NULL, 0);
+  size = ::GetShortPathNameW(tmpdir.c_str(), nullptr, 0);
   ASSERT_GT(size, (DWORD)0);
   // `size` accounts for the null-terminator
   buf.reset(new WCHAR[size]);
   ::GetShortPathNameW(tmpdir.c_str(), buf.get(), size);
 
   // Set the result, omit the "\\?\" prefix.
-  // Ensure that the result is shorter than MAX_PATH and also has room for a
+  // Ensure that the result is shorter than `kMaxPath` and also has room for a
   // backslash (1 wchar) and a single-letter executable name with .bat
   // extension (5 wchars).
   *result = wstring(buf.get() + 4);
-  ASSERT_LT(result->size(), MAX_PATH - 6);
+  ASSERT_LT(result->size(), kMaxPath - 6);
 }
 
 // If `success` is true, returns an empty string, otherwise an error message.
@@ -88,15 +90,15 @@ static wstring CreateDummyFile(wstring path) {
       /* lpFileName */ path.c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
       /* dwShareMode */ FILE_SHARE_READ,
-      /* lpSecurityAttributes */ NULL,
+      /* lpSecurityAttributes */ nullptr,
       /* dwCreationDisposition */ CREATE_ALWAYS,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
+      /* hTemplateFile */ nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     return ReturnEmptyOrError(false, L"CreateFileW", path);
   }
   DWORD actually_written = 0;
-  WriteFile(handle, "hello", 5, &actually_written, NULL);
+  WriteFile(handle, "hello", 5, &actually_written, nullptr);
   if (actually_written == 0) {
     return ReturnEmptyOrError(false, L"WriteFile", path);
   }
@@ -123,7 +125,7 @@ static wstring DeleteDummyFile(wstring path) {
 // Creates a directory under `path`. `path` should NOT have a "\\?\" prefix.
 static wstring CreateDir(wstring path) {
   path = kUncPrefix + path;
-  return ReturnEmptyOrError(::CreateDirectoryW(path.c_str(), NULL),
+  return ReturnEmptyOrError(::CreateDirectoryW(path.c_str(), nullptr),
                             L"CreateDirectoryW", path);
 }
 
@@ -165,14 +167,14 @@ static wstring DeleteDir(wstring path) {
 // `result_path` will be also a short path under `basedir`.
 //
 // Every directory in `result_path` will be created. The entire length of this
-// path will be exactly MAX_PATH - 7 (not including null-terminator).
+// path will be exactly `kMaxPath` - 7 (not including null-terminator).
 // Just by appending a file name segment between 6 and 8 characters long (i.e.
 // "\a.bat", "\ab.bat", or "\abc.bat") the caller can obtain a path that is
-// MAX_PATH - 1 long, or MAX_PATH long, or MAX_PATH + 1 long, respectively,
-// and cannot be shortened further.
+// `kMaxPath` - 1 long, or `kMaxPath` long, or `kMaxPath` + 1 long,
+// respectively, and cannot be shortened further.
 static void CreateShortDirsUnder(wstring basedir, wstring* result_path) {
-  ASSERT_LT(basedir.size(), MAX_PATH);
-  size_t remaining_len = MAX_PATH - 1 - basedir.size();
+  ASSERT_LT(basedir.size(), kMaxPath);
+  size_t remaining_len = kMaxPath - 1 - basedir.size();
   ASSERT_GE(remaining_len, 6);  // has room for suffix "\a.bat"
 
   // If `remaining_len` is odd, make it even.
@@ -188,7 +190,7 @@ static void CreateShortDirsUnder(wstring basedir, wstring* result_path) {
     basedir += wstring(L"\\a");
     CREATE_DIR(basedir);
   }
-  ASSERT_EQ(basedir.size(), MAX_PATH - 1 - 6);
+  ASSERT_EQ(basedir.size(), kMaxPath - 1 - 6);
   *result_path = basedir;
 }
 
@@ -260,7 +262,7 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   ASSERT_SHORTENING_FAILS(L"\\bar.exe", L"path is absolute");
 
   wstring dummy = L"hello";
-  while (dummy.size() < MAX_PATH) {
+  while (dummy.size() < kMaxPath) {
     dummy += dummy;
   }
   dummy += L".exe";
@@ -281,9 +283,9 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   CreateShortDirsUnder(tmpdir, &short_root);
 
   // Assert that we have enough room to append a file name that is just short
-  // enough to fit into MAX_PATH - 1, or one that's just long enough to make
-  // the whole path MAX_PATH long or longer.
-  ASSERT_EQ(short_root.size(), MAX_PATH - 1 - 6);
+  // enough to fit into `kMaxPath` - 1, or one that's just long enough to make
+  // the whole path `kMaxPath` long or longer.
+  ASSERT_EQ(short_root.size(), kMaxPath - 1 - 6);
 
   wstring actual;
   wstring error;
@@ -291,14 +293,14 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
     wstring wfilename = short_root;
 
     APPEND_FILE_SEGMENT(6 + i, &wfilename);
-    ASSERT_EQ(wfilename.size(), MAX_PATH - 1 + i);
+    ASSERT_EQ(wfilename.size(), kMaxPath - 1 + i);
 
-    // When i=0 then `wfilename` is MAX_PATH - 1 long, so
+    // When i=0 then `wfilename` is `kMaxPath` - 1 long, so
     // `AsExecutablePathForCreateProcess` will not attempt to shorten it, and
     // so it also won't notice that the file doesn't exist. If however we pass
     // a non-existent path to CreateProcessA, then it'll fail, so we'll find out
     // about this error in production code.
-    // When i>0 then `wfilename` is at least MAX_PATH long, so
+    // When i>0 then `wfilename` is at least `kMaxPath` long, so
     // `AsExecutablePathForCreateProcess` will attempt to shorten it, but
     // because the file doesn't yet exist, the shortening attempt will fail.
     if (i > 0) {
@@ -326,14 +328,14 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   // Finally construct a path that can and will be shortened. Just walk up a few
   // levels in `short_root` and create a long file name that can be shortened.
   wstring wshortenable_root = short_root;
-  while (wshortenable_root.size() > MAX_PATH - 1 - 13) {
+  while (wshortenable_root.size() > kMaxPath - 1 - 13) {
     wshortenable_root =
         wshortenable_root.substr(0, wshortenable_root.find_last_of(L'\\'));
   }
   wstring wshortenable = wshortenable_root + wstring(L"\\") +
-                         wstring(MAX_PATH - wshortenable_root.size(), L'a') +
+                         wstring(kMaxPath - wshortenable_root.size(), L'a') +
                          wstring(L".bat");
-  ASSERT_GT(wshortenable.size(), MAX_PATH);
+  ASSERT_GT(wshortenable.size(), kMaxPath);
 
   // Attempt to shorten. It will fail because the file doesn't exist yet.
   ASSERT_SHORTENING_FAILS(wshortenable, L"GetShortPathNameW");

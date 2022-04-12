@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 
 /** Provides information about transitive Android assets. */
 @StarlarkBuiltin(
@@ -70,6 +72,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   ImmutableList<FileT> getLocalAssets();
 
   /** Returns the local asset dir for the target. */
@@ -79,6 +82,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       documented = false,
       allowReturnNones = true,
       structField = true)
+  @Nullable
   String getLocalAssetDir();
 
   @StarlarkMethod(
@@ -116,50 +120,50 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
               name = "label",
               doc = "The label of the target.",
               positional = true,
-              named = false,
-              type = Label.class),
+              named = false),
           @Param(
               name = "validation_result",
               doc = "An artifact of the validation result.",
               positional = true,
               named = true,
-              noneable = true,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "direct_parsed_assets",
               doc = "A depset of all the parsed assets in the target.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = ParsedAndroidAssetsApi.class),
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = ParsedAndroidAssetsApi.class)
+              }),
           @Param(
               name = "transitive_parsed_assets",
               doc = "A depset of all the parsed assets in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = ParsedAndroidAssetsApi.class),
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = ParsedAndroidAssetsApi.class)
+              }),
           @Param(
               name = "transitive_assets",
               doc = "A depset of all the assets in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_symbols",
               doc = "A depset of all the symbols in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
           @Param(
               name = "transitive_compiled_symbols",
               doc = "A depset of all the compiled symbols in the transitive closure.",
               positional = true,
               named = true,
-              type = Depset.class,
-              generic1 = FileApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

@@ -37,6 +37,8 @@ const char *CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
 const char *KOTLIN_MODULE_EXTENSION = ".kotlin_module";
 const size_t KOTLIN_MODULE_EXTENSION_LENGTH = strlen(KOTLIN_MODULE_EXTENSION);
+const char *SCALA_TASTY_EXTENSION = ".tasty";
+const size_t SCALA_TASTY_EXTENSION_LENGTH = strlen(SCALA_TASTY_EXTENSION);
 
 const char *MANIFEST_DIR_PATH = "META-INF/";
 const size_t MANIFEST_DIR_PATH_LENGTH = strlen(MANIFEST_DIR_PATH);
@@ -52,6 +54,10 @@ const char *TARGET_LABEL_KEY = "Target-Label: ";
 const size_t TARGET_LABEL_KEY_LENGTH = strlen(TARGET_LABEL_KEY);
 const char *INJECTING_RULE_KIND_KEY = "Injecting-Rule-Kind: ";
 const size_t INJECTING_RULE_KIND_KEY_LENGTH = strlen(INJECTING_RULE_KIND_KEY);
+const char *DUMMY_FILE = "dummy";
+const size_t DUMMY_PATH_LENGTH = strlen(DUMMY_FILE);
+// The size of an output jar containing only an empty dummy file:
+const size_t JAR_WITH_DUMMY_FILE_SIZE = 98ull + 2 * DUMMY_PATH_LENGTH;
 
 class JarExtractorProcessor : public ZipExtractorProcessor {
  public:
@@ -101,9 +107,15 @@ static bool IsKotlinModule(const char *filename, const size_t filename_len) {
                   KOTLIN_MODULE_EXTENSION_LENGTH);
 }
 
+static bool IsScalaTasty(const char *filename, const size_t filename_len) {
+  return EndsWith(filename, filename_len, SCALA_TASTY_EXTENSION,
+                  SCALA_TASTY_EXTENSION_LENGTH);
+}
+
 bool JarStripperProcessor::Accept(const char *filename, const u4 /*attr*/) {
   const size_t filename_len = strlen(filename);
-  if (IsKotlinModule(filename, filename_len)) {
+  if (IsKotlinModule(filename, filename_len) ||
+      IsScalaTasty(filename, filename_len)) {
     return true;
   }
   if (filename_len < CLASS_EXTENSION_LENGTH ||
@@ -129,7 +141,8 @@ void JarStripperProcessor::Process(const char *filename, const u4 /*attr*/,
   if (verbose) {
     fprintf(stderr, "INFO: StripClass: %s\n", filename);
   }
-  if (IsModuleInfo(filename) || IsKotlinModule(filename, strlen(filename))) {
+  if (IsModuleInfo(filename) || IsKotlinModule(filename, strlen(filename)) ||
+      IsScalaTasty(filename, strlen(filename))) {
     u1 *q = builder_->NewFile(filename, 0);
     memcpy(q, data, size);
     builder_->FinishFile(size, /* compress: */ false, /* compute_crc: */ true);
@@ -289,7 +302,10 @@ u1 *JarCopierProcessor::AppendTargetLabelToManifest(
     const char *target_label, const char *injecting_rule_kind) {
   const char *line_start = (const char *)manifest_data;
   const char *data_end = (const char *)manifest_data + size;
-  while (line_start < data_end) {
+
+  // Write main attributes part
+  while (line_start < data_end && line_start[0] != '\r' &&
+         line_start[0] != '\n') {
     const char *line_end = strchr(line_start, '\n');
     // Go past return char to point to next line, or to end of data buffer
     line_end = line_end != nullptr ? line_end + 1 : data_end;
@@ -300,17 +316,23 @@ u1 *JarCopierProcessor::AppendTargetLabelToManifest(
         strncmp(line_start, INJECTING_RULE_KIND_KEY,
                 INJECTING_RULE_KIND_KEY_LENGTH) != 0) {
       size_t len = line_end - line_start;
-      // Skip empty lines
-      if (len > 0 && line_start[0] != '\r' && line_start[0] != '\n') {
-        memcpy(buf, line_start, len);
-        buf += len;
-      }
+      memcpy(buf, line_start, len);
+      buf += len;
     }
     line_start = line_end;
   }
+
+  // Append target label and, if given, rule kind
   buf = WriteManifestAttr(buf, TARGET_LABEL_KEY, target_label);
   if (injecting_rule_kind != nullptr) {
     buf = WriteManifestAttr(buf, INJECTING_RULE_KIND_KEY, injecting_rule_kind);
+  }
+
+  // Write the rest of the manifest file
+  size_t sections_len = data_end - line_start;
+  if (sections_len > 0) {
+    memcpy(buf, line_start, sections_len);
+    buf += sections_len;
   }
   return buf;
 }
@@ -359,9 +381,13 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
             strerror(errno));
     abort();
   }
-  u8 output_length =
-      in->CalculateOutputLength() +
+  u8 output_length = in->CalculateOutputLength();
+  if (output_length < JAR_WITH_DUMMY_FILE_SIZE) {
+    output_length = JAR_WITH_DUMMY_FILE_SIZE;
+  }
+  output_length +=
       EstimateManifestOutputSize(target_label, injecting_rule_kind);
+
   std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length));
   if (out == NULL) {
     fprintf(stderr, "Unable to open output file %s: %s\n", file_out,
@@ -379,7 +405,7 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
 
   // Add dummy file, since javac doesn't like truly empty jars.
   if (out->GetNumberFiles() == 0) {
-    out->WriteEmptyFile("dummy");
+    out->WriteEmptyFile(DUMMY_FILE);
   }
   // Finish writing the output file
   if (out->Finish() < 0) {

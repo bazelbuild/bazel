@@ -75,7 +75,7 @@ public class NinjaBuildRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("ninja_build")
         .type(RuleClassType.NORMAL)
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(NinjaBuild.class)
         .build();
   }

@@ -64,7 +64,8 @@ public class AndroidRuntimeJarProvider implements TransitiveInfoProvider {
 
     /** Returns the finished {@link AndroidRuntimeJarProvider}. */
     public AndroidRuntimeJarProvider build() {
-      return new AndroidRuntimeJarProvider(transitiveMappings.add(newlyDesugared.build()).build());
+      return new AndroidRuntimeJarProvider(
+          transitiveMappings.add(newlyDesugared.buildOrThrow()).build());
     }
   }
 

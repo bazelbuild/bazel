@@ -103,6 +103,47 @@ Use literally anything but this function.
 
 
 
+<a name="#param_doc_multiline"></a>
+
+## param_doc_multiline
+
+<pre>
+param_doc_multiline(<a href="#param_doc_multiline-complex">complex</a>)
+</pre>
+
+Has a complex parameter.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="param_doc_multiline-complex">
+      <td><code>complex</code></td>
+      <td>
+        required.
+        <p>
+          A parameter with some non-obvious behavior.
+
+ For example, it does things that require **multiple paragraphs** to explain.
+
+Note: we should preserve the nested indent in the following code:
+
+```json
+{
+    "key": "value"
+}
+```
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
 <a name="#returns_a_thing"></a>
 
 ## returns_a_thing

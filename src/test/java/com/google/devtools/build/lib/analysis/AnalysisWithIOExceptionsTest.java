@@ -20,7 +20,10 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.function.Function;
@@ -31,15 +34,13 @@ import org.junit.runners.JUnit4;
 /** {@link AnalysisTestCase} with custom filesystem that can throw on stat if desired. */
 @RunWith(JUnit4.class)
 public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
-  private static final Function<Path, String> NULL_FUNCTION = (path) -> null;
-
-  private Function<Path, String> crashMessage = NULL_FUNCTION;
+  private Function<PathFragment, String> crashMessage = (path) -> null;
 
   @Override
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
-      public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);
         if (crash != null) {
           throw new IOException(crash);
@@ -59,6 +60,24 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void testIncrementalGlobIOException() throws Exception {
+    scratch.file("b/BUILD", "sh_library(name = 'b', deps= ['//a:a'])");
+    scratch.file(
+        "a/BUILD",
+        "sh_library(name = 'a', srcs = glob(['a.sh']))",
+        "sh_library(name = 'expensive', srcs = ['expensive.sh'])");
+    Path aShFile = scratch.file("a/a.sh");
+    update("//b:b");
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
+        ModifiedFileSet.builder().modify(aShFile.relativeTo(rootDirectory)).build(),
+        Root.fromPath(rootDirectory));
+    crashMessage = path -> path.toString().contains("a.sh") ? "bork" : null;
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//b:b"));
+  }
+
+  @Test
   public void testWorkspaceError() throws IOException {
     scratch.file("a/BUILD");
     crashMessage = path -> path.toString().contains("WORKSPACE") ? "bork" : null;
@@ -66,5 +85,19 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
     assertThrows(
         TargetParsingException.class,
         () -> update(new FlagBuilder().with(Flag.KEEP_GOING), "//a:a"));
+  }
+
+  @Test
+  public void testGlobExceptionWithCrossingLabel() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    Path buildPath =
+        scratch.file(
+            "foo/BUILD",
+            "sh_library(name = 'foo', srcs = glob(['subdir/*.sh']))",
+            "sh_library(name = 'crosses/directory', srcs = ['foo.sh'])");
+    scratch.file("top/BUILD", "sh_library(name = 'top', deps = ['//foo:foo'], srcs = ['top.sh'])");
+    Path errorPath = buildPath.getParentDirectory().getChild("subdir");
+    crashMessage = path -> errorPath.asFragment().equals(path) ? "custom crash: bork" : null;
+    assertThrows(ViewCreationFailedException.class, () -> update("//top:top"));
   }
 }

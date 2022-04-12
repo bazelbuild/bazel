@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -25,6 +26,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Wrapper for every C++ compilation and linking provider. */
 @StarlarkBuiltin(
@@ -50,6 +52,21 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   CcLinkingContextApi<?> getCcLinkingContext();
 
+  @StarlarkMethod(
+      name = "debug_context",
+      documented = false,
+      doc = "Returns the <code>DebugContext</code>",
+      useStarlarkThread = true)
+  CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "transitive_native_libraries",
+      documented = false,
+      doc = "Returns a depset of the transitive native libraries",
+      useStarlarkThread = true)
+  Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException;
+
   /** The provider implementing this can construct CcInfo objects. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -62,13 +79,13 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
     @StarlarkMethod(
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
+        useStarlarkThread = true,
         parameters = {
           @Param(
               name = "compilation_context",
               doc = "The <code>CompilationContext</code>.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
               allowedTypes = {
                 @ParamType(type = CcCompilationContextApi.class),
@@ -79,16 +96,40 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               doc = "The <code>LinkingContext</code>.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
               allowedTypes = {
                 @ParamType(type = CcLinkingContextApi.class),
+                @ParamType(type = NoneType.class)
+              }),
+          @Param(
+              name = "debug_context",
+              doc = "The <code>DebugContext</code>.",
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              allowedTypes = {
+                @ParamType(type = CcDebugInfoContextApi.class),
+                @ParamType(type = NoneType.class)
+              }),
+          @Param(
+              name = "cc_native_library_info",
+              documented = false,
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              allowedTypes = {
+                @ParamType(type = CcNativeLibraryInfoApi.class),
                 @ParamType(type = NoneType.class)
               })
         },
         selfCall = true)
     @StarlarkConstructor
-    CcInfoApi<FileT> createInfo(Object ccCompilationContext, Object ccLinkingInfo)
+    CcInfoApi<FileT> createInfo(
+        Object ccCompilationContext,
+        Object ccLinkingInfo,
+        Object ccDebugInfo,
+        Object ccNativeLibraryInfo,
+        StarlarkThread thread)
         throws EvalException;
   }
 }

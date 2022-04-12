@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,12 +43,13 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
@@ -63,8 +63,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PackageLoadingTest extends FoundationTestCase {
 
-  private AnalysisMock analysisMock;
-  private ConfiguredRuleClassProvider ruleClassProvider;
   private SkyframeExecutor skyframeExecutor;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
@@ -78,8 +76,8 @@ public class PackageLoadingTest extends FoundationTestCase {
    *     this test performs, and the results compared to SkyFrame's result.
    */
   private void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
-    analysisMock = AnalysisMock.get();
-    ruleClassProvider = analysisMock.createRuleClassProvider();
+    AnalysisMock analysisMock = AnalysisMock.get();
+    ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
@@ -91,20 +89,14 @@ public class PackageLoadingTest extends FoundationTestCase {
     if (!doPackageLoadingChecks) {
       packageFactoryBuilder.disableChecks();
     }
-    BuildOptions defaultBuildOptions;
-    try {
-      defaultBuildOptions = BuildOptions.of(ImmutableList.of());
-    } catch (OptionsParsingException e) {
-      throw new RuntimeException(e);
-    }
     skyframeExecutor =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(packageFactoryBuilder.build(ruleClassProvider, fileSystem))
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setDefaultBuildOptions(defaultBuildOptions)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     setUpSkyframe(parsePackageOptions(), parseBuildLanguageOptions());
@@ -114,10 +106,10 @@ public class PackageLoadingTest extends FoundationTestCase {
       PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
-            null,
+            /*outputBase=*/ null,
             packageOptions.packagePath,
             reporter,
-            rootDirectory,
+            rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageOptions.showLoadingProgress = true;
@@ -125,19 +117,20 @@ public class PackageLoadingTest extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
   }
 
-  private OptionsParser parse(String... options) throws Exception {
+  private static OptionsParser parse(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
@@ -148,11 +141,12 @@ public class PackageLoadingTest extends FoundationTestCase {
     return parser;
   }
 
-  private PackageOptions parsePackageOptions(String... options) throws Exception {
+  private static PackageOptions parsePackageOptions(String... options) throws Exception {
     return parse(options).getOptions(PackageOptions.class);
   }
 
-  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  private static BuildLanguageOptions parseBuildLanguageOptions(String... options)
+      throws Exception {
     return parse(options).getOptions(BuildLanguageOptions.class);
   }
 
@@ -164,7 +158,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     return skyframeExecutor.getPackageManager();
   }
 
-  private void invalidatePackages() throws InterruptedException {
+  private void invalidatePackages() throws InterruptedException, AbruptExitException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
   }
@@ -189,7 +183,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   // Check that a substring is present in an error message.
-  private void checkGetPackageFails(String packageName, String expectedMessage) throws Exception {
+  private void checkGetPackageFails(String packageName, String expectedMessage) {
     NoSuchPackageException e =
         assertThrows(NoSuchPackageException.class, () -> getPackage(packageName));
     assertThat(e).hasMessageThat().contains(expectedMessage);
@@ -213,7 +207,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   @Test
-  public void testGetNonexistentPackage() throws Exception {
+  public void testGetNonexistentPackage() {
     checkGetPackageFails("not-there", "no such package 'not-there': " + "BUILD file not found");
   }
 

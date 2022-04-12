@@ -240,9 +240,9 @@ TEST_F(OptionProcessorTest, SplitCommandLineWithEmptyArgs) {
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithAllParams) {
   SuccessfulSplitStartupOptionsTest(
-      {"bazel", "--nomaster_bazelrc", "build", "--bar", ":mytarget"},
+      {"bazel", "--ignore_all_rc_files", "build", "--bar", ":mytarget"},
       CommandLine("bazel",
-                  {"--nomaster_bazelrc"},
+                  {"--ignore_all_rc_files"},
                   "build",
                   {"--bar", ":mytarget"}));
 }
@@ -276,9 +276,10 @@ TEST_F(OptionProcessorTest, SplitCommandLineWithIncompleteUnaryOption) {
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithMultipleStartup) {
   SuccessfulSplitStartupOptionsTest(
-      {"bazel", "--bazelrc", "foo", "--nomaster_bazelrc", "build", ":mytarget"},
+      {"bazel", "--bazelrc", "foo", "--ignore_all_rc_files", "build",
+       ":mytarget"},
       CommandLine("bazel",
-                  {"--bazelrc=foo", "--nomaster_bazelrc"},
+                  {"--bazelrc=foo", "--ignore_all_rc_files"},
                   "build",
                   {":mytarget"}));
 }
@@ -335,9 +336,9 @@ TEST_F(OptionProcessorTest,
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithDashDash) {
   SuccessfulSplitStartupOptionsTest(
-      {"bazel", "--nomaster_bazelrc", "build", "--b", "--", ":mytarget"},
+      {"bazel", "--ignore_all_rc_files", "build", "--b", "--", ":mytarget"},
       CommandLine("bazel",
-                  {"--nomaster_bazelrc"},
+                  {"--ignore_all_rc_files"},
                   "build",
                   {"--b", "--", ":mytarget"}));
 }
@@ -402,6 +403,15 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithSymbolicLink) {
   std::vector<std::string> input = {foo_path, sym_foo_path};
   std::vector<std::string> expected = {foo_path};
   ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
+}
+
+
+TEST_F(OptionProcessorTest,
+       SplitCommandLineFailsWithDeprecatedOptionInStartupArgs) {
+  FailedSplitStartupOptionsTest(
+      {"bazel", "--nomaster_bazelrc"},
+      "Unknown startup option: '--nomaster_bazelrc'.\n"
+          "  For more info, run 'bazel help startup_options'.");
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 

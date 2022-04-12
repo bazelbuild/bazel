@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -24,7 +25,6 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
-import org.apache.commons.lang.math.NumberUtils;
 
 /**
  * Converter for options that configure Bazel's resource usage.
@@ -112,7 +112,7 @@ public class ResourceConverter extends Converters.IntegerConverter {
   @Override
   public final Integer convert(String input) throws OptionsParsingException {
     int value;
-    if (NumberUtils.isNumber(input)) {
+    if (Ints.tryParse(input) != null) {
       value = super.convert(input);
       return checkAndLimit(value);
     }

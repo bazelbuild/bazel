@@ -29,7 +29,7 @@ public class DelegateSpawn implements Spawn {
 
   private final Spawn spawn;
 
-  public DelegateSpawn(Spawn spawn){
+  public DelegateSpawn(Spawn spawn) {
     this.spawn = spawn;
   }
 
@@ -74,12 +74,17 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
+  public boolean isMandatoryOutput(ActionInput output) {
+    return spawn.isMandatoryOutput(output);
+  }
+
+  @Override
   public ActionExecutionMetadata getResourceOwner() {
     return spawn.getResourceOwner();
   }
 
   @Override
-  public ResourceSet getLocalResources() {
+  public ResourceSet getLocalResources() throws ExecException {
     return spawn.getLocalResources();
   }
 
@@ -97,5 +102,10 @@ public class DelegateSpawn implements Spawn {
   @Nullable
   public PlatformInfo getExecutionPlatform() {
     return spawn.getExecutionPlatform();
+  }
+
+  @Override
+  public String toString() {
+    return "Delegate of " + spawn;
   }
 }

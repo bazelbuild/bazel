@@ -19,13 +19,13 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.hash.HashCode;
-import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,10 +33,11 @@ import java.io.OutputStream;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
-
+  private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
 
-  public DigestUtil(DigestHashFunction hashFn) {
+  public DigestUtil(XattrProvider xattrProvider, DigestHashFunction hashFn) {
+    this.xattrProvider = xattrProvider;
     this.hashFn = hashFn;
   }
 
@@ -61,7 +62,8 @@ public class DigestUtil {
   }
 
   public Digest compute(Path file, long fileSize) throws IOException {
-    return buildDigest(DigestUtils.getDigestWithManualFallback(file, fileSize), fileSize);
+    return buildDigest(
+        DigestUtils.getDigestWithManualFallback(file, fileSize, xattrProvider), fileSize);
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {
@@ -112,8 +114,8 @@ public class DigestUtil {
     return BaseEncoding.base16().lowerCase().encode(hash.asBytes());
   }
 
-  public HashingOutputStream newHashingOutputStream(OutputStream out) {
-    return new HashingOutputStream(hashFn.getHashFunction(), out);
+  public DigestOutputStream newDigestOutputStream(OutputStream out) {
+    return new DigestOutputStream(hashFn.getHashFunction(), out);
   }
 
   public static String toString(Digest digest) {

@@ -4,6 +4,8 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 licenses(["notice"])  # Apache 2.0
 
+exports_files(glob(["*.bzl"]))
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -61,5 +63,8 @@ pkg_tar(
     name = "doc",
     srcs = ["%s_md" % (name,) for name in REPO_BZL_FILES] + ["index.md"],
     strip_prefix = "/tools/build_defs/repo",
-    visibility = ["//site:__subpackages__"],
+    visibility = [
+        "//site:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )

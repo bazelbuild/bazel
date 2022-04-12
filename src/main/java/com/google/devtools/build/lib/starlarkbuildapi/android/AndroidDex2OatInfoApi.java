@@ -49,12 +49,11 @@ public interface AndroidDex2OatInfoApi<
         doc = "The <code>AndroidDex2OatInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(name = "enabled", positional = false, named = true, type = Boolean.class),
+          @Param(name = "enabled", positional = false, named = true),
           @Param(
               name = "execute_dex2oat_on_host",
               positional = false,
               named = true,
-              type = Boolean.class,
               defaultValue = "False"),
           @Param(
               name = "sandbox_for_pregenerating_oat_files_for_tests",
@@ -64,13 +63,11 @@ public interface AndroidDex2OatInfoApi<
                 @ParamType(type = NoneType.class),
                 @ParamType(type = FilesToRunProviderApi.class),
               },
-              noneable = true,
               defaultValue = "None"),
           @Param(
               name = "framework",
               positional = false,
               named = true,
-              noneable = true,
               allowedTypes = {
                 @ParamType(type = NoneType.class),
                 @ParamType(type = FileApi.class),
@@ -80,7 +77,6 @@ public interface AndroidDex2OatInfoApi<
               name = "dalvik_cache",
               positional = false,
               named = true,
-              noneable = true,
               allowedTypes = {
                 @ParamType(type = NoneType.class),
                 @ParamType(type = FileApi.class),
@@ -90,7 +86,6 @@ public interface AndroidDex2OatInfoApi<
               name = "device_props",
               positional = false,
               named = true,
-              noneable = true,
               allowedTypes = {
                 @ParamType(type = NoneType.class),
                 @ParamType(type = FileApi.class),

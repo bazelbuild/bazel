@@ -165,7 +165,7 @@ public class AaptCommandBuilder {
   public AaptCommandBuilder add(String flag, Optional<Path> optionalPath) {
     Preconditions.checkNotNull(flag);
     Preconditions.checkNotNull(optionalPath);
-    optionalPath.map(p -> add(flag, p));
+    optionalPath.ifPresent(p -> add(flag, p));
     return this;
   }
 

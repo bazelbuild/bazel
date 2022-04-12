@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
-
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -24,22 +22,27 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
 
-/**
- * Provides a way to access attributes that are common to all compilation rules.
- */
+/** Provides a way to access attributes that are common to all compilation rules. */
 // TODO(bazel-team): Delete and move into support-specific attributes classes once ObjcCommon is
 // gone.
-final class CompilationAttributes {
+final class CompilationAttributes implements StarlarkValue {
   static class Builder {
     private final NestedSetBuilder<Artifact> hdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> textualHdrs = NestedSetBuilder.stableOrder();
@@ -47,11 +50,10 @@ final class CompilationAttributes {
     private final NestedSetBuilder<PathFragment> sdkIncludes = NestedSetBuilder.stableOrder();
     private final ImmutableList.Builder<String> copts = ImmutableList.builder();
     private final ImmutableList.Builder<String> linkopts = ImmutableList.builder();
+    private final ImmutableList.Builder<Artifact> linkInputs = ImmutableList.builder();
     private final ImmutableList.Builder<String> defines = ImmutableList.builder();
-    private final NestedSetBuilder<CppModuleMap> moduleMapsForDirectDeps =
-        NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<SdkFramework> sdkFrameworks = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<SdkFramework> weakSdkFrameworks = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<String> sdkFrameworks = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<String> weakSdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> sdkDylibs = NestedSetBuilder.stableOrder();
     private Optional<PathFragment> packageFragment = Optional.absent();
     private boolean enableModules;
@@ -119,33 +121,26 @@ final class CompilationAttributes {
       return this;
     }
 
+    /** Adds additional linker inputs. */
+    public Builder addLinkInputs(Iterable<Artifact> linkInputs) {
+      this.linkInputs.addAll(linkInputs);
+      return this;
+    }
+
     /** Adds defines. */
     public Builder addDefines(Iterable<String> defines) {
       this.defines.addAll(defines);
       return this;
     }
 
-    /**
-     * Adds clang module maps for direct dependencies of the rule. These are needed to generate
-     * module maps.
-     */
-    public Builder addModuleMapsForDirectDeps(NestedSet<CppModuleMap> moduleMapsForDirectDeps) {
-      this.moduleMapsForDirectDeps.addTransitive(moduleMapsForDirectDeps);
-      return this;
-    }
-
-    /**
-     * Adds SDK frameworks to link against.
-     */
-    public Builder addSdkFrameworks(NestedSet<SdkFramework> sdkFrameworks) {
+    /** Adds SDK frameworks to link against. */
+    public Builder addSdkFrameworks(NestedSet<String> sdkFrameworks) {
       this.sdkFrameworks.addTransitive(sdkFrameworks);
       return this;
     }
 
-    /**
-     * Adds SDK frameworks to be linked weakly.
-     */
-    public Builder addWeakSdkFrameworks(NestedSet<SdkFramework> weakSdkFrameworks) {
+    /** Adds SDK frameworks to be linked weakly. */
+    public Builder addWeakSdkFrameworks(NestedSet<String> weakSdkFrameworks) {
       this.weakSdkFrameworks.addTransitive(weakSdkFrameworks);
       return this;
     }
@@ -193,12 +188,12 @@ final class CompilationAttributes {
           this.packageFragment,
           this.copts.build(),
           this.linkopts.build(),
+          this.linkInputs.build(),
           this.defines.build(),
-          this.moduleMapsForDirectDeps.build(),
           this.enableModules);
     }
 
-    private static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("hdrs", BuildType.LABEL_LIST)) {
         NestedSetBuilder<Artifact> headers = NestedSetBuilder.stableOrder();
         for (Pair<Artifact, Label> header : CcCommon.getHeaders(ruleContext)) {
@@ -212,7 +207,7 @@ final class CompilationAttributes {
       }
     }
 
-    private static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("includes", Type.STRING_LIST)) {
         NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
         includes.addAll(
@@ -231,20 +226,20 @@ final class CompilationAttributes {
       }
     }
 
-    private static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
-        NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
+        NestedSetBuilder<String> frameworks = NestedSetBuilder.stableOrder();
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
-          frameworks.add(new SdkFramework(explicit));
+          frameworks.add(explicit);
         }
         builder.addSdkFrameworks(frameworks.build());
       }
 
       if (ruleContext.attributes().has("weak_sdk_frameworks", Type.STRING_LIST)) {
-        NestedSetBuilder<SdkFramework> weakFrameworks = NestedSetBuilder.stableOrder();
+        NestedSetBuilder<String> weakFrameworks = NestedSetBuilder.stableOrder();
         for (String frameworkName :
             ruleContext.attributes().get("weak_sdk_frameworks", Type.STRING_LIST)) {
-          weakFrameworks.add(new SdkFramework(frameworkName));
+          weakFrameworks.add(frameworkName);
         }
         builder.addWeakSdkFrameworks(weakFrameworks.build());
       }
@@ -257,12 +252,26 @@ final class CompilationAttributes {
     }
 
     private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
+      addCompileOptionsFromRuleContext(builder, ruleContext, /* copts= */ null);
+    }
+
+    static void addCompileOptionsFromRuleContext(
+        Builder builder, RuleContext ruleContext, Iterable<String> copts) {
       if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
-        builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
+        if (copts == null) {
+          builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
+        } else {
+          builder.addCopts(copts);
+        }
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
-        builder.addLinkopts(ruleContext.getExpander().withDataLocations().tokenized("linkopts"));
+        builder.addLinkopts(CppHelper.getLinkopts(ruleContext));
+      }
+
+      if (ruleContext.attributes().has("additional_linker_inputs", BuildType.LABEL_LIST)) {
+        builder.addLinkInputs(
+            ruleContext.getPrerequisiteArtifacts("additional_linker_inputs").list());
       }
 
       if (ruleContext.attributes().has("defines", Type.STRING_LIST)) {
@@ -270,24 +279,9 @@ final class CompilationAttributes {
       }
     }
 
-    private static void addModuleOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
-      NestedSetBuilder<CppModuleMap> moduleMaps = NestedSetBuilder.stableOrder();
-      ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-      if (objcConfiguration.moduleMapsEnabled()) {
-        // Make sure all dependencies that have headers are included here. If a module map is
-        // missing, its private headers will be treated as public!
-        if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-          List<ObjcProvider> providers =
-              ruleContext.getPrerequisites("deps", ObjcProvider.STARLARK_CONSTRUCTOR);
-          for (ObjcProvider provider : providers) {
-            moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
-          }
-        }
-      }
-
-      builder.addModuleMapsForDirectDeps(moduleMaps.build());
-
-      PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getPackagePath();
+    protected static void addModuleOptionsFromRuleContext(
+        Builder builder, RuleContext ruleContext) {
+      PathFragment packageFragment = ruleContext.getPackageDirectory();
       if (packageFragment != null) {
         builder.setPackageFragment(packageFragment);
       }
@@ -303,14 +297,14 @@ final class CompilationAttributes {
   private final NestedSet<Artifact> textualHdrs;
   private final NestedSet<PathFragment> includes;
   private final NestedSet<PathFragment> sdkIncludes;
-  private final NestedSet<SdkFramework> sdkFrameworks;
-  private final NestedSet<SdkFramework> weakSdkFrameworks;
+  private final NestedSet<String> sdkFrameworks;
+  private final NestedSet<String> weakSdkFrameworks;
   private final NestedSet<String> sdkDylibs;
   private final Optional<PathFragment> packageFragment;
   private final ImmutableList<String> copts;
   private final ImmutableList<String> linkopts;
+  private final ImmutableList<Artifact> linkInputs;
   private final ImmutableList<String> defines;
-  private final NestedSet<CppModuleMap> moduleMapsForDirectDeps;
   private final boolean enableModules;
 
   private CompilationAttributes(
@@ -318,14 +312,14 @@ final class CompilationAttributes {
       NestedSet<Artifact> textualHdrs,
       NestedSet<PathFragment> includes,
       NestedSet<PathFragment> sdkIncludes,
-      NestedSet<SdkFramework> sdkFrameworks,
-      NestedSet<SdkFramework> weakSdkFrameworks,
+      NestedSet<String> sdkFrameworks,
+      NestedSet<String> weakSdkFrameworks,
       NestedSet<String> sdkDylibs,
       Optional<PathFragment> packageFragment,
       ImmutableList<String> copts,
       ImmutableList<String> linkopts,
+      ImmutableList<Artifact> linkInputs,
       ImmutableList<String> defines,
-      NestedSet<CppModuleMap> moduleMapsForDirectDeps,
       boolean enableModules) {
     this.hdrs = hdrs;
     this.textualHdrs = textualHdrs;
@@ -337,8 +331,8 @@ final class CompilationAttributes {
     this.packageFragment = packageFragment;
     this.copts = copts;
     this.linkopts = linkopts;
+    this.linkInputs = linkInputs;
     this.defines = defines;
-    this.moduleMapsForDirectDeps = moduleMapsForDirectDeps;
     this.enableModules = enableModules;
   }
 
@@ -347,6 +341,16 @@ final class CompilationAttributes {
    */
   public NestedSet<Artifact> hdrs() {
     return this.hdrs;
+  }
+
+  @StarlarkMethod(name = "hdrs", documented = false, structField = true)
+  public Depset hdrsForStarlark() {
+    return Depset.of(Artifact.TYPE, hdrs());
+  }
+
+  @StarlarkMethod(name = "textual_hdrs", documented = false, structField = true)
+  public Depset textualHdrsForStarlark() {
+    return Depset.of(Artifact.TYPE, textualHdrs());
   }
 
   /**
@@ -363,6 +367,28 @@ final class CompilationAttributes {
     return this.includes;
   }
 
+  @StarlarkMethod(name = "includes", documented = false, structField = true)
+  public Depset includesForStarlark() {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.wrap(
+            Order.COMPILE_ORDER,
+            includes().toList().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @StarlarkMethod(name = "sdk_includes", documented = false, structField = true)
+  public Depset sdkIncludesForStarlark() {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.wrap(
+            Order.COMPILE_ORDER,
+            sdkIncludes().toList().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
   /**
    * Returns the paths for SDK includes.
    */
@@ -370,18 +396,29 @@ final class CompilationAttributes {
     return this.sdkIncludes;
   }
 
-  /**
-   * Returns the SDK frameworks to link against.
-   */
-  public NestedSet<SdkFramework> sdkFrameworks() {
+  /** Returns the SDK frameworks to link against. */
+  public NestedSet<String> sdkFrameworks() {
     return this.sdkFrameworks;
   }
 
-  /**
-   * Returns the SDK frameworks to be linked weakly.
-   */
-  public NestedSet<SdkFramework> weakSdkFrameworks() {
+  @StarlarkMethod(name = "sdk_frameworks", documented = false, structField = true)
+  public Depset sdkFrameworksForStarlark() {
+    return Depset.of(ElementType.STRING, sdkFrameworks);
+  }
+
+  @StarlarkMethod(name = "weak_sdk_frameworks", documented = false, structField = true)
+  public Depset weakSdkFrameworksForStarlark() {
+    return Depset.of(ElementType.STRING, weakSdkFrameworks);
+  }
+
+  /** Returns the SDK frameworks to be linked weakly. */
+  public NestedSet<String> weakSdkFrameworks() {
     return this.weakSdkFrameworks;
+  }
+
+  @StarlarkMethod(name = "sdk_dylibs", documented = false, structField = true)
+  public Depset sdkDylibsForStarlark() {
+    return Depset.of(ElementType.STRING, sdkDylibs);
   }
 
   /**
@@ -389,6 +426,23 @@ final class CompilationAttributes {
    */
   public NestedSet<String> sdkDylibs() {
     return this.sdkDylibs;
+  }
+
+  @StarlarkMethod(
+      name = "header_search_paths",
+      documented = false,
+      parameters = {
+        @Param(name = "genfiles_dir", positional = false, named = true),
+      })
+  public Depset headerSearchPathsForStarlark(String genfilesDir) {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.stableOrder()
+            .addAll(
+                headerSearchPaths(PathFragment.create(genfilesDir)).toList().stream()
+                    .map(PathFragment::toString)
+                    .collect(ImmutableList.toImmutableList()))
+            .build());
   }
 
   /**
@@ -417,11 +471,26 @@ final class CompilationAttributes {
     return this.copts;
   }
 
+  @StarlarkMethod(name = "copts", documented = false, structField = true)
+  public Sequence<String> getCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(copts());
+  }
+
   /**
    * Returns the link-time options.
    */
   public ImmutableList<String> linkopts() {
     return this.linkopts;
+  }
+
+  /** Returns the additional link inputs. */
+  public ImmutableList<Artifact> linkInputs() {
+    return this.linkInputs;
+  }
+
+  @StarlarkMethod(name = "defines", documented = false, structField = true)
+  public Sequence<String> getDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(defines());
   }
 
   /** Returns the defines. */
@@ -430,17 +499,10 @@ final class CompilationAttributes {
   }
 
   /**
-   * Returns the clang module maps of direct dependencies of this rule. These are needed to generate
-   * this rule's module map.
-   */
-  public NestedSet<CppModuleMap> moduleMapsForDirectDeps() {
-    return this.moduleMapsForDirectDeps;
-  }
-
-  /**
    * Returns whether this target uses language features that require clang modules, such as
    * {@literal @}import.
    */
+  @StarlarkMethod(name = "enable_modules", documented = false, structField = true)
   public boolean enableModules() {
     return this.enableModules;
   }

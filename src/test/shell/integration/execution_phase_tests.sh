@@ -384,4 +384,51 @@ function test_resource_flags_syntax() {
       || fail "Empty build failed"
 }
 
+function test_track_directory_crossing_package() {
+  mkdir -p foo/dir/subdir
+  touch foo/dir/subdir/BUILD
+  echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
+  bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "WARNING: Directory artifact foo/dir crosses package boundary into"
+}
+
+# Regression test for b/174837755.
+# TODO(b/172462551) Clean this up after the experiment
+function test_skyframe_eval_with_ordered_list_incremental_with_error() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+cc_binary(
+    name = "main",
+    srcs = [
+        "main.cc",
+    ],
+    deps = [":lib"],
+)
+
+cc_library(
+    name = "lib",
+    srcs = [
+        "lib.cc",
+        "lib.h",
+    ],
+)
+EOF
+  touch foo/lib.h
+  touch foo/main.cc
+  echo "abc" > foo/lib.cc
+
+  bazel build --experimental_skyframe_eval_with_ordered_list //foo:main \
+    &> "$TEST_log" && fail "Expected failure"
+
+  bazel build --experimental_skyframe_eval_with_ordered_list //foo:main \
+    &> "$TEST_log" && fail "Expected failure"
+
+  # The incremental run shouldn't crash bazel.
+  exit_code="$?"
+  [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+
+  true  # reset the last exit code so the test won't be considered failed
+}
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."

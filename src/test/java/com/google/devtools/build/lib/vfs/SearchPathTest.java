@@ -39,7 +39,7 @@ public class SearchPathTest {
     assertThat(SearchPath.parse(fs, "/:/bin")).isEqualTo(searchPath);
     assertThat(SearchPath.parse(fs, ".:/:/bin")).isEqualTo(searchPath);
 
-    try (OutputStream out = fs.getOutputStream(fs.getPath("/bin/exe"))) {
+    try (OutputStream out = fs.getPath("/bin/exe").getOutputStream()) {
       out.write(new byte[5]);
     }
 

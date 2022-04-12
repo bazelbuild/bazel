@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
+import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.util.Map;
 import org.junit.Before;
@@ -51,8 +52,38 @@ public final class BuildEventArtifactUploaderFactoryMapTest {
               }
 
               @Override
-              public void shutdown() {
-                // Intentionally left empty.
+              public int refCnt() {
+                return 0;
+              }
+
+              @Override
+              public ReferenceCounted retain() {
+                return this;
+              }
+
+              @Override
+              public ReferenceCounted retain(int i) {
+                return this;
+              }
+
+              @Override
+              public ReferenceCounted touch() {
+                return this;
+              }
+
+              @Override
+              public ReferenceCounted touch(Object o) {
+                return this;
+              }
+
+              @Override
+              public boolean release() {
+                return false;
+              }
+
+              @Override
+              public boolean release(int i) {
+                return false;
               }
             };
     uploaderFactories =

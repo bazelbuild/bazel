@@ -39,6 +39,8 @@ public abstract class ClassAttributes
 
   public abstract ImmutableSet<MethodKey> desugarIgnoredMethods();
 
+  public abstract Optional<String> sourceFileName();
+
   // Include other class attributes as necessary.
 
   public static ClassAttributesBuilder builder() {
@@ -81,6 +83,8 @@ public abstract class ClassAttributes
     abstract ImmutableSet.Builder<MethodKey> privateInstanceMethodsBuilder();
 
     abstract ImmutableSet.Builder<MethodKey> desugarIgnoredMethodsBuilder();
+
+    public abstract ClassAttributesBuilder setSourceFileName(String value);
 
     public ClassAttributesBuilder addNestMember(ClassName nestMember) {
       nestMembersBuilder().add(nestMember);

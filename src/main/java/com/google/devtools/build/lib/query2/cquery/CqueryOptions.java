@@ -69,8 +69,8 @@ public class CqueryOptions extends CommonQueryOptions {
           "Shows the configuration fragments required by a rule and its transitive "
               + "dependencies. This can be useful for evaluating how much a configured target "
               + "graph can be trimmed.")
-  // This implicitly sets the BuildConfiguration option --include_config_fragments_provider, which
-  //  makes configured targets compute the data cquery needs to enable this feature.
+  // This implicitly sets the option --include_config_fragments_provider (see CoreOptions), which
+  // makes configured targets compute the data cquery needs to enable this feature.
   public IncludeConfigFragmentsEnum showRequiredConfigFragments;
 
   @Option(
@@ -85,11 +85,26 @@ public class CqueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "starlark:expr",
-      defaultValue = "str(target.label)",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "A Starlark expression to format each configured target in cquery's"
-              + " --output=starlark mode. The configured target is bound to 'target'.")
+              + " --output=starlark mode. The configured target is bound to 'target'."
+              + " If neither --starlark:expr nor --starlark:file is specified, this option will"
+              + " default to 'str(target.label)'. It is an error to specify both --starlark:expr"
+              + " and --starlark:file.")
   public String expr;
+
+  @Option(
+      name = "starlark:file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The name of a file that defines a Starlark function called 'format', of one argument,"
+              + " that is applied to each configured target to format it as a string. It is an"
+              + " error to specify both --starlark:expr and --starlark:file. See help for"
+              + " --output=starlark for additional detail.")
+  public String file;
 }

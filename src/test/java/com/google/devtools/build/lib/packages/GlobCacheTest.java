@@ -18,18 +18,21 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,6 +51,7 @@ public class GlobCacheTest {
 
   private Path packageDirectory;
   private Path buildFile;
+  private ExecutorService cacheThreadPool;
   private GlobCache cache;
 
   @Before
@@ -91,7 +95,16 @@ public class GlobCacheTest {
     createCache();
   }
 
+  @After
+  public void shutDownThreadPoolIfExists() {
+    if (cacheThreadPool != null) {
+      cacheThreadPool.shutdownNow();
+    }
+  }
+
   private void createCache(PathFragment... ignoredDirectories) {
+    shutDownThreadPoolIfExists();
+    cacheThreadPool = Executors.newFixedThreadPool(10);
     cache =
         new GlobCache(
             packageDirectory,
@@ -109,10 +122,17 @@ public class GlobCacheTest {
                   return null;
                 }
               }
+
+              @Override
+              public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+                Path buildFileForPackage = getBuildFileForPackage(packageName);
+                return buildFileForPackage == null ? null : buildFileForPackage.getBaseName();
+              }
             },
-            null,
-            TestUtils.getPool(),
-            -1);
+            SyscallCache.NO_CACHE,
+            cacheThreadPool,
+            -1,
+            ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @After
@@ -123,7 +143,7 @@ public class GlobCacheTest {
   @Test
   public void testIgnoredDirectory() throws Exception {
     createCache(PathFragment.create("isolated/foo"));
-    List<Path> paths = cache.safeGlobUnsorted("**/*.js", true).get();
+    List<Path> paths = cache.safeGlobUnsorted("**/*.js", Globber.Operation.FILES).get();
     assertPathsAre(
         paths,
         "/workspace/isolated/first.js",
@@ -134,7 +154,7 @@ public class GlobCacheTest {
 
   @Test
   public void testSafeGlob() throws Exception {
-    List<Path> paths = cache.safeGlobUnsorted("*.js", false).get();
+    List<Path> paths = cache.safeGlobUnsorted("*.js", Globber.Operation.FILES_AND_DIRS).get();
     assertPathsAre(paths,
         "/workspace/isolated/first.js", "/workspace/isolated/second.js");
   }
@@ -142,7 +162,9 @@ public class GlobCacheTest {
   @Test
   public void testSafeGlobInvalidPattern() throws Exception {
     String invalidPattern = "Foo?.txt";
-    assertThrows(BadGlobException.class, () -> cache.safeGlobUnsorted(invalidPattern, false).get());
+    assertThrows(
+        BadGlobException.class,
+        () -> cache.safeGlobUnsorted(invalidPattern, Globber.Operation.FILES_AND_DIRS).get());
   }
 
   @Test
@@ -162,38 +184,53 @@ public class GlobCacheTest {
     assertThat(cache.getKeySet()).isEmpty();
 
     cache.getGlobUnsorted("*.java");
-    assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false));
+    assertThat(cache.getKeySet())
+        .containsExactly(Pair.of("*.java", Globber.Operation.FILES_AND_DIRS));
 
     cache.getGlobUnsorted("*.java");
-    assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false));
+    assertThat(cache.getKeySet())
+        .containsExactly(Pair.of("*.java", Globber.Operation.FILES_AND_DIRS));
 
     cache.getGlobUnsorted("*.js");
-    assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false));
+    assertThat(cache.getKeySet())
+        .containsExactly(
+            Pair.of("*.java", Globber.Operation.FILES_AND_DIRS),
+            Pair.of("*.js", Globber.Operation.FILES_AND_DIRS));
 
-    cache.getGlobUnsorted("*.java", true);
-    assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false),
-        Pair.of("*.java", true));
+    cache.getGlobUnsorted("*.java", Globber.Operation.FILES);
+    assertThat(cache.getKeySet())
+        .containsExactly(
+            Pair.of("*.java", Globber.Operation.FILES_AND_DIRS),
+            Pair.of("*.js", Globber.Operation.FILES_AND_DIRS),
+            Pair.of("*.java", Globber.Operation.FILES));
 
     assertThrows(BadGlobException.class, () -> cache.getGlobUnsorted("invalid?"));
-    assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false),
-        Pair.of("*.java", true));
+    assertThat(cache.getKeySet())
+        .containsExactly(
+            Pair.of("*.java", Globber.Operation.FILES_AND_DIRS),
+            Pair.of("*.js", Globber.Operation.FILES_AND_DIRS),
+            Pair.of("*.java", Globber.Operation.FILES));
 
     cache.getGlobUnsorted("foo/first.*");
-    assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.java", true),
-        Pair.of("*.js", false), Pair.of("foo/first.*", false));
+    assertThat(cache.getKeySet())
+        .containsExactly(
+            Pair.of("*.java", Globber.Operation.FILES_AND_DIRS),
+            Pair.of("*.java", Globber.Operation.FILES),
+            Pair.of("*.js", Globber.Operation.FILES_AND_DIRS),
+            Pair.of("foo/first.*", Globber.Operation.FILES_AND_DIRS));
   }
 
   @Test
   public void testGlob() throws Exception {
-    assertEmpty(cache.globUnsorted(list("*.java"), NONE, false, true));
+    assertEmpty(cache.globUnsorted(list("*.java"), NONE, Globber.Operation.FILES, true));
 
-    assertThat(cache.globUnsorted(list("*.*"), NONE, false, true))
+    assertThat(cache.globUnsorted(list("*.*"), NONE, Globber.Operation.FILES, true))
         .containsExactly("first.js", "first.txt", "second.js", "second.txt");
 
-    assertThat(cache.globUnsorted(list("*.*"), list("first.js"), false, true))
+    assertThat(cache.globUnsorted(list("*.*"), list("first.js"), Globber.Operation.FILES, true))
         .containsExactly("first.txt", "second.js", "second.txt");
 
-    assertThat(cache.globUnsorted(list("*.txt", "first.*"), NONE, false, true))
+    assertThat(cache.globUnsorted(list("*.txt", "first.*"), NONE, Globber.Operation.FILES, true))
         .containsExactly("first.txt", "second.txt", "first.js");
   }
 
@@ -206,13 +243,17 @@ public class GlobCacheTest {
 
   @Test
   public void testSingleFileExclude_star() throws Exception {
-    assertThat(cache.globUnsorted(list("*"), list("first.txt"), false, true))
+    assertThat(
+            cache.globUnsorted(
+                list("*"), list("first.txt"), Globber.Operation.FILES_AND_DIRS, true))
         .containsExactly("BUILD", "bar", "first.js", "foo", "second.js", "second.txt");
   }
 
   @Test
   public void testSingleFileExclude_starStar() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("first.txt"), false, true))
+    assertThat(
+            cache.globUnsorted(
+                list("**"), list("first.txt"), Globber.Operation.FILES_AND_DIRS, true))
         .containsExactly(
             "BUILD",
             "bar",
@@ -228,48 +269,78 @@ public class GlobCacheTest {
 
   @Test
   public void testExcludeAll_star() throws Exception {
-    assertThat(cache.globUnsorted(list("*"), list("*"), false, true)).isEmpty();
+    assertThat(cache.globUnsorted(list("*"), list("*"), Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
   }
 
   @Test
   public void testExcludeAll_star_noMatchesAnyway() throws Exception {
-    assertThat(cache.globUnsorted(list("nope"), list("*"), false, true)).isEmpty();
+    assertThat(cache.globUnsorted(list("nope"), list("*"), Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
   }
 
   @Test
   public void testExcludeAll_starStar() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("**"), false, true)).isEmpty();
+    assertThat(cache.globUnsorted(list("**"), list("**"), Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
   }
 
   @Test
   public void testExcludeAll_manual() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("*", "*/*", "*/*/*"), false, true)).isEmpty();
+    assertThat(
+            cache.globUnsorted(
+                list("**"), list("*", "*/*", "*/*/*"), Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
   }
 
   @Test
   public void testSingleFileExcludeDoesntMatch() throws Exception {
-    assertThat(cache.globUnsorted(list("first.txt"), list("nope.txt"), false, true))
+    assertThat(
+            cache.globUnsorted(
+                list("first.txt"), list("nope.txt"), Globber.Operation.FILES_AND_DIRS, true))
         .containsExactly("first.txt");
   }
 
   @Test
   public void testExcludeDirectory() throws Exception {
-    assertThat(cache.globUnsorted(list("foo/*"), NONE, true, true))
+    assertThat(cache.globUnsorted(list("foo/*"), NONE, Globber.Operation.FILES, true))
         .containsExactly("foo/first.js", "foo/second.js");
-    assertThat(cache.globUnsorted(list("foo/*"), list("foo"), false, true))
+    assertThat(
+            cache.globUnsorted(list("foo/*"), list("foo"), Globber.Operation.FILES_AND_DIRS, true))
         .containsExactly("foo/first.js", "foo/second.js");
   }
 
   @Test
   public void testChildGlobWithChildExclude() throws Exception {
-    assertThat(cache.globUnsorted(list("foo/*"), list("foo/*"), false, true)).isEmpty();
     assertThat(
-            cache.globUnsorted(list("foo/first.js", "foo/second.js"), list("foo/*"), false, true))
+            cache.globUnsorted(
+                list("foo/*"), list("foo/*"), Globber.Operation.FILES_AND_DIRS, true))
         .isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("foo/first.js"), false, true))
+    assertThat(
+            cache.globUnsorted(
+                list("foo/first.js", "foo/second.js"),
+                list("foo/*"),
+                Globber.Operation.FILES_AND_DIRS,
+                true))
         .isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/first.js"), false, true)).isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/*"), false, true)).isEmpty();
+    assertThat(
+            cache.globUnsorted(
+                list("foo/first.js"), list("foo/first.js"), Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
+    assertThat(
+            cache.globUnsorted(
+                list("foo/first.js"), list("*/first.js"), Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
+    assertThat(
+            cache.globUnsorted(
+                list("foo/first.js"), list("*/*"), Globber.Operation.FILES_AND_DIRS, true))
+        .isEmpty();
+  }
+
+  @Test
+  public void testSubpackages() throws Exception {
+    assertThat(cache.globUnsorted(list("**"), list(), Globber.Operation.SUBPACKAGES, true))
+        .containsExactly("sub");
   }
 
   private void assertEmpty(Collection<?> glob) {

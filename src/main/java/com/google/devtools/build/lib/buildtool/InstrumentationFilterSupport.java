@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
@@ -124,9 +125,9 @@ public final class InstrumentationFilterSupport {
     if (iterator.hasNext()) {
       // Optimize away nested filters.
       iterator = packageFilters.iterator();
-      String prev = iterator.next();
+      PathFragment prev = PathFragment.create(iterator.next());
       while (iterator.hasNext()) {
-        String current = iterator.next();
+        PathFragment current = PathFragment.create(iterator.next());
         if (current.startsWith(prev)) {
           iterator.remove();
         } else {

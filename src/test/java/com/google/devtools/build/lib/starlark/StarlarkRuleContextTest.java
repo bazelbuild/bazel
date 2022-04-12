@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -29,15 +29,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkExecGroupCollection;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -54,6 +56,7 @@ import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -61,7 +64,6 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -76,8 +78,7 @@ import org.junit.runners.JUnit4;
 public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
-    return new StarlarkRuleContext(
-        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+    return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
   }
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
@@ -521,151 +522,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetRuleSelect() throws Exception {
-    scratch.file("test/starlark/BUILD");
-    scratch.file(
-        "test/starlark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
-
-    scratch.file(
-        "test/getrule/BUILD",
-        "load('//test/starlark:rulestr.bzl', 'rule_dict')",
-        "cc_library(name ='x', ",
-        "  srcs = select({'//conditions:default': []})",
-        ")",
-        "rule_dict('x')");
-
-    // Parse the BUILD file, to make sure select() makes it out of native.rule().
-    createRuleContext("//test/getrule:x");
-  }
-
-  @Test
-  public void testExistingRuleReturnNone() throws Exception {
-    scratch.file(
-        "test/rulestr.bzl",
-        "def test_rule(name, x):",
-        "  print(native.existing_rule(x))",
-        "  if native.existing_rule(x) == None:",
-        "    native.cc_library(name = name)");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:rulestr.bzl', 'test_rule')",
-        "test_rule('a', 'does not exist')",
-        "test_rule('b', 'BUILD')");
-
-    assertThat(getConfiguredTarget("//test:a")).isNotNull();
-    assertThat(getConfiguredTarget("//test:b")).isNotNull();
-  }
-
-  @Test
-  public void existingRuleWithSelect() throws Exception {
-    scratch.file(
-        "test/existing_rule.bzl",
-        "def macro():",
-        "  s = select({'//foo': ['//bar']})",
-        "  native.cc_library(name = 'x', srcs = s)",
-        "  print(native.existing_rule('x')['srcs'])");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:existing_rule.bzl', 'macro')",
-        "macro()",
-        "cc_library(name = 'a', srcs = [])");
-    getConfiguredTarget("//test:a");
-    assertContainsEvent("select({Label(\"//foo:foo\"): [Label(\"//bar:bar\")]})");
-  }
-
-  @Test
-  public void testGetRule() throws Exception {
-    scratch.file("test/starlark/BUILD");
-    scratch.file(
-        "test/starlark/rulestr.bzl",
-        "def rule_dict(name):",
-        "  return native.existing_rule(name)",
-        "def rules_dict():",
-        "  return native.existing_rules()",
-        "def nop(ctx):",
-        "  pass",
-        "nop_rule = rule(attrs = {'x': attr.label()}, implementation = nop)",
-        "consume_rule = rule(attrs = {'s': attr.string_list()}, implementation = nop)");
-
-    scratch.file(
-        "test/getrule/BUILD",
-        "load('//test/starlark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule',"
-            + "'consume_rule')",
-        "genrule(name = 'a', outs = ['a.txt'], ",
-        "        licenses = ['notice'],",
-        "        output_to_bindir = False,",
-        "        tools = [ '//test:bla' ], cmd = 'touch $@')",
-        "nop_rule(name = 'c', x = ':a')",
-        "rlist= rules_dict()",
-        "consume_rule(name = 'all_str', s = [rlist['a']['kind'], rlist['a']['name'], ",
-        "                                    rlist['c']['kind'], rlist['c']['name']])",
-        "adict = rule_dict('a')",
-        "cdict = rule_dict('c')",
-        "consume_rule(name = 'a_str', ",
-        "             s = [adict['kind'], adict['name'], adict['outs'][0], adict['tools'][0]])",
-        "consume_rule(name = 'genrule_attr', ",
-        "             s = adict.keys())",
-        "consume_rule(name = 'c_str', s = [cdict['kind'], cdict['name'], cdict['x']])");
-
-    StarlarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
-    setRuleContext(allContext);
-    List<?> result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result).containsExactly("genrule", "a", "nop_rule", "c");
-
-    setRuleContext(createRuleContext("//test/getrule:a_str"));
-    result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result).containsExactly("genrule", "a", ":a.txt", "//test:bla");
-
-    setRuleContext(createRuleContext("//test/getrule:c_str"));
-    result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result).containsExactly("nop_rule", "c", ":a");
-
-    setRuleContext(createRuleContext("//test/getrule:genrule_attr"));
-    result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result)
-        .containsAtLeast(
-            "name",
-            "visibility",
-            "transitive_configs",
-            "tags",
-            "generator_name",
-            "generator_function",
-            "generator_location",
-            "features",
-            "compatible_with",
-            "restricted_to",
-            "srcs",
-            "tools",
-            "toolchains",
-            "outs",
-            "cmd",
-            "output_to_bindir",
-            "local",
-            "message",
-            "executable",
-            "stamp",
-            "heuristic_label_expansion",
-            "kind");
-  }
-
-  @Test
-  public void testExistingRuleDictIsMutable() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
-    scratch.file(
-        "test/inc.bzl", //
-        "def f():",
-        "  native.config_setting(name='x', define_values={'key': 'value'})",
-        "  r = native.existing_rule('x')",
-        "  r['define_values']['key'] = 123"); // mutate the dict
-
-    // Logically this belongs among the loading-phase tests of existing_rules. Where are they?
-    assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error
-  }
-
-  @Test
   public void testGetRuleAttributeListValue() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
@@ -701,6 +557,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   public void testGetRuleAttributeBadAttributeName() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains("No attribute 'bad'", "ruleContext.attr.bad");
+  }
+
+  @Test
+  public void testGetRuleAttributeNoAspectHints() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains("No attribute 'aspect_hints'", "ruleContext.attr.aspect_hints");
   }
 
   @Test
@@ -747,6 +609,33 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testGetExecutablePrerequisite_forNativeRuleWithLabelList() throws Exception {
+    // Starlark rules only support executable=True on LABEL attributes, but native rules support it
+    // for LABEL_LIST as well. This became a problem when we started creating StarlarkRuleContexts
+    // for native rules for builtins injection. We work around it by not populating the executable
+    // field for these rules.
+    scratch.file(
+        "pkg/BUILD",
+        "extra_action(",
+        "    name = 'foo',",
+        "    cmd = 'cmd',",
+        "    out_templates = ['foo.out'],",
+        "    tools = [':tool1', ':tool2']", // not allowed in Starlark-defined rules
+        ")",
+        "cc_binary(",
+        "    name = 'tool1',",
+        "    srcs = ['tool1.cc'],",
+        ")",
+        "cc_binary(",
+        "    name = 'tool2',",
+        "    srcs = ['tool2.cc'],",
+        ")");
+    StarlarkRuleContext ruleContext = createRuleContext("//pkg:foo");
+    setRuleContext(ruleContext);
+    assertThat((Boolean) ev.eval("hasattr(ruleContext.executable, 'tools')")).isFalse();
+  }
+
+  @Test
   public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
@@ -764,6 +653,232 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
     assertThat(action.discoversInputs()).isTrue();
     assertThat(action.isShareable()).isFalse();
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_success() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  if os == \"osx\":",
+        "    return {\"cpu\": 2., \"memory\": 350. + inputs_size * 20, \"local_test\": 2.}",
+        "  return {\"cpu\": 1., \"memory\": 350. + inputs_size * 10, \"local_test\": 0.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(370, 1, 0));
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 2))
+        .isEqualTo(ResourceSet.create(390, 2, 2));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_flagDisabled() throws Exception {
+    setBuildLanguageOptions("--noexperimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  if os == \"osx\":",
+        "    return {\"cpu\": 2., \"memory\": 350. + inputs_size * 20, \"local_test\": 2.}",
+        "  return {\"cpu\": 1., \"memory\": 350. + inputs_size * 10, \"local_test\": 0.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(250, 1, 0));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_lambdaForbidden() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    Exception thrown =
+        assertThrows(
+            EvalException.class,
+            () ->
+                ev.exec(
+                    "ruleContext.actions.run(",
+                    "  inputs = ruleContext.files.srcs,",
+                    "  outputs = ruleContext.files.srcs,",
+                    "  resource_set = lambda os, inputs_size : {\"cpu\": 1., \"memory\": 1.,"
+                        + " \"local_test\": 1.} ,",
+                    "  executable = 'executable')"));
+
+    assertThat(thrown).hasMessageThat().contains("must be declared by a top-level def statement");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_illegalResource() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 2., \"memory\": 350., \"local_test\": 2., \"gpu\": 1.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown).hasMessageThat().contains("Illegal resource keys: (gpu)");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_defaultValue() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 2., \"local_test\": 2.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(250, 2, 2));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_intDict() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 1, \"memory\": 2, \"local_test\": 3}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(2, 1, 3));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_notDict() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return \"keks\"",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown).hasMessageThat().contains("got string for 'resource_set', want dict");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_wrongDict() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 1, \"memory\": 2, \"local_test\": \"hi\"}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown).hasMessageThat().contains("Illegal resource value type for key local_test");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_incorrectSignature()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os):",
+        "  return {\"cpu\": 1, \"memory\": 2, \"local_test\": \"hi\"}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("get_resources() accepts no more than 1 positional argument but got 2");
   }
 
   @Test
@@ -1445,43 +1560,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCallerRelativeLabelInExternalRepository() throws Exception {
-    scratch.file("BUILD");
-    scratch.file(
-        "external_rule.bzl",
-        "def _impl(ctx):",
-        "  return",
-        "external_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'internal_dep': attr.label(",
-        "        default = Label('//:dep', relative_to_caller_repository = True)",
-        "    )",
-        "  }",
-        ")");
-
-    scratch.file("/r/WORKSPACE");
-    scratch.file("/r/BUILD", "filegroup(name='dep')");
-
-    scratch.file(
-        "/r/a/BUILD", "load('@//:external_rule.bzl', 'external_rule')", "external_rule(name='r')");
-
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='/r')")
-            .build());
-
-    invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
-    setRuleContext(createRuleContext("@r//a:r"));
-    Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
-    assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep", ImmutableMap.of()));
-  }
-
-  @Test
   public void testExternalWorkspaceLoad() throws Exception {
+    // RepositoryDelegatorFunction deletes and creates symlink for the repository and as such is not
+    // safe to execute in parallel. Disable checks with package loader to avoid parallel
+    // evaluations.
+    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
     scratch.file(
         "/r1/BUILD",
         "filegroup(name = 'test',",
@@ -1794,6 +1877,221 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testForwardingDefaultInfoRetainsDataRunfiles() throws Exception {
+    scratch.file(
+        "bar/rules.bzl",
+        "def _forward_default_info_impl(ctx):",
+        "    return [",
+        "        ctx.attr.target[DefaultInfo],",
+        "    ]",
+        "forward_default_info = rule(",
+        "    implementation = _forward_default_info_impl,",
+        "    attrs = {",
+        "        'target': attr.label(",
+        "            mandatory = True,",
+        "        ),",
+        "    },",
+        ")");
+    scratch.file("bar/i_am_a_runfile");
+    scratch.file(
+        "bar/BUILD",
+        "load(':rules.bzl', 'forward_default_info')",
+        "java_library(",
+        "    name = 'lib',",
+        "    data = ['i_am_a_runfile'],",
+        ")",
+        "forward_default_info(",
+        "    name = 'forwarded_lib',",
+        "    target = ':lib',",
+        ")");
+
+    ConfiguredTarget nativeTarget = getConfiguredTarget("//bar:lib");
+
+    ImmutableList<Artifact> nativeRunfiles =
+        getDataRunfiles(nativeTarget).getAllArtifacts().toList();
+    ConfiguredTarget forwardedTarget = getConfiguredTarget("//bar:forwarded_lib");
+    ImmutableList<Artifact> forwardedRunfiles =
+        getDataRunfiles(forwardedTarget).getAllArtifacts().toList();
+    assertThat(forwardedRunfiles).isEqualTo(nativeRunfiles);
+    assertThat(forwardedRunfiles).hasSize(1);
+    assertThat(forwardedRunfiles.get(0).getPath().getBaseName()).isEqualTo("i_am_a_runfile");
+  }
+
+  @Test
+  public void testAccessingRunfilesSymlinksAsDepsets() throws Exception {
+    // Arrange
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def symlink_impl(ctx):",
+        "  symlinks = {",
+        "    'symlink_' + f.short_path: f",
+        "    for f in ctx.files.symlink",
+        "  }",
+        "  root_symlinks = {",
+        "    'root_symlink_' + f.short_path: f",
+        "    for f in ctx.files.symlink",
+        "  }",
+        "  runfiles_from_dict = ctx.runfiles(",
+        "    symlinks=symlinks,",
+        "    root_symlinks=root_symlinks,",
+        "  )",
+        "  runfiles_from_depset = ctx.runfiles(",
+        "    symlinks = runfiles_from_dict.symlinks,",
+        "    root_symlinks = runfiles_from_dict.root_symlinks,",
+        "  )",
+        "   ",
+        "  return DefaultInfo(runfiles = runfiles_from_depset,)",
+        "symlink_rule = rule(",
+        "  implementation = symlink_impl,",
+        "  attrs = {",
+        "    'symlink': attr.label(allow_files=True),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'symlink_rule')",
+        "symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')",
+        "sh_binary(",
+        "  name = 'test_with_symlink',",
+        "  srcs = ['test/b.py'],",
+        "  data = [':lib_with_symlink'],",
+        ")");
+    setRuleContext(createRuleContext("//test:test_with_symlink"));
+
+    // Act
+    Object symlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    Object rootSymlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
+
+    // Assert
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
+    assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
+    Object symlinkFilenames =
+        ev.eval(
+            "[s.target_file.short_path for s in"
+                + " ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkFilenamesList = (Sequence) symlinkFilenames;
+    assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
+    assertThat(rootSymlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkPathsList = (Sequence) rootSymlinkPaths;
+    assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
+    Object rootSymlinkFilenames =
+        ev.eval(
+            "[s.target_file.short_path for s in"
+                + " ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
+    assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkFilenamesList = (Sequence) rootSymlinkFilenames;
+    assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
+  }
+
+  @Test
+  public void runfiles_merge() throws Exception {
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file("test/other.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def symlink_merge_impl(ctx):",
+        "  runfiles = ctx.runfiles(symlinks = {",
+        "    'symlink_' + ctx.file.symlink.short_path: ctx.file.symlink",
+        "  })",
+        "  if ctx.attr.dep:",
+        "    runfiles = runfiles.merge(ctx.attr.dep[DefaultInfo].default_runfiles)",
+        "  return DefaultInfo(",
+        "    runfiles = runfiles",
+        "  )",
+        "symlink_merge_rule = rule(",
+        "  implementation = symlink_merge_impl,",
+        "  attrs = {",
+        "    'symlink': attr.label(allow_single_file=True),",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'symlink_merge_rule')",
+        "symlink_merge_rule(name = 'lib_a', symlink = ':a.py', dep = 'lib_b')",
+        "symlink_merge_rule(name = 'lib_b', symlink = ':b.py')",
+        "sh_binary(",
+        "  name = 'test',",
+        "  srcs = ['test/other.py'],",
+        "  data = [':lib_a'],",
+        ")");
+    setRuleContext(createRuleContext("//test:test"));
+    Object symlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
+    assertThat(symlinkPathsList)
+        .containsExactly("symlink_test/a.py", "symlink_test/b.py")
+        .inOrder();
+  }
+
+  @Test
+  public void runfiles_mergeAll() throws Exception {
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file("test/c.py");
+    scratch.file("test/other.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def symlink_merge_all_impl(ctx):",
+        "  runfiles = ctx.runfiles(symlinks = {",
+        "    'symlink_' + ctx.file.symlink.short_path: ctx.file.symlink",
+        "  })",
+        "  if ctx.attr.deps:",
+        "    runfiles = runfiles.merge_all([dep[DefaultInfo].default_runfiles",
+        "                                   for dep in ctx.attr.deps])",
+        "  return DefaultInfo(",
+        "    runfiles = runfiles",
+        "  )",
+        "symlink_merge_all_rule = rule(",
+        "  implementation = symlink_merge_all_impl,",
+        "  attrs = {",
+        "    'symlink': attr.label(allow_single_file=True),",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'symlink_merge_all_rule')",
+        "symlink_merge_all_rule(name = 'lib_a', symlink = ':a.py', deps = [':lib_b', ':lib_c'])",
+        "symlink_merge_all_rule(name = 'lib_b', symlink = ':b.py')",
+        "symlink_merge_all_rule(name = 'lib_c', symlink = ':c.py')",
+        "sh_binary(",
+        "  name = 'test',",
+        "  srcs = ['test/other.py'],",
+        "  data = [':lib_a'],",
+        ")");
+    setRuleContext(createRuleContext("//test:test"));
+    Object symlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = Sequence.cast(symlinkPaths, String.class, "symlinkPaths");
+    assertThat(symlinkPathsList)
+        .containsExactly("symlink_test/a.py", "symlink_test/b.py", "symlink_test/c.py")
+        .inOrder();
+  }
+
+  @Test
+  public void runfiles_incompatibleTransitiveFilesOrder() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _bad_runfiles_impl(ctx):",
+        "  ctx.runfiles(transitive_files = depset(order = 'preorder'))",
+        "bad_runfiles = rule(implementation = _bad_runfiles_impl)");
+    scratch.file("test/BUILD", "load(':rule.bzl', 'bad_runfiles')", "bad_runfiles(name = 'test')");
+    reporter.removeHandler(failFastHandler); // Error expected.
+    assertThat(getConfiguredTarget("//test:test")).isNull();
+    assertContainsEvent("Error in runfiles: order 'preorder' is invalid for transitive_files");
+  }
+
+  @Test
   public void testExternalShortPath() throws Exception {
     scratch.file("/bar/WORKSPACE");
     scratch.file("/bar/bar.txt");
@@ -2042,7 +2340,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Object argvUnchecked = ev.eval("action.argv");
     assertThat(argvUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> argv = (StarlarkList) argvUnchecked;
-    assertThat(argv).hasSize(3);
+    assertThat((List<?>) argv).hasSize(3);
     assertThat(argv.isImmutable()).isTrue();
     Object result = ev.eval("action.argv[2].startswith('echo foo123')");
     assertThat((Boolean) result).isTrue();
@@ -2272,6 +2570,63 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testArgsMapEachFunctionMustBeGlobal() throws Exception {
+    // lambda
+    scratch.file(
+        "p/inc.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.args().add_all([], map_each=lambda x: x)", // error
+        "r = rule(implementation=_impl)");
+    scratch.file("p/BUILD", "load('inc.bzl', 'r')", "r(name='r')");
+    AssertionError ex = assertThrows(AssertionError.class, () -> getConfiguredTarget("//p:r"));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "map_each function (declared at /workspace/p/inc.bzl:2:43) must be "
+                + "declared by a top-level def statement");
+
+    // non-global def
+    scratch.file(
+        "q/inc.bzl",
+        "def _impl(ctx):",
+        "  def id(x): return x",
+        "  ctx.actions.args().add_all([], map_each=id)", // error
+        "r = rule(implementation=_impl)");
+    scratch.file("q/BUILD", "load('inc.bzl', 'r')", "r(name='r')");
+    ex = assertThrows(AssertionError.class, () -> getConfiguredTarget("//q:r"));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "map_each function (declared at /workspace/q/inc.bzl:2:7) must be "
+                + "declared by a top-level def statement");
+  }
+
+  @Test
+  public void testArgsMapEachFunctionAllowClosure() throws Exception {
+    // lambda
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "def local_fn(x): return 'local:%s' % x",
+            "args = ctx.actions.args()",
+            "args.add_all(['a', 'b'], allow_closure=True, map_each=lambda x: 'lambda:%s' % x)",
+            "args.add_joined(['c', 'd'], join_with=';', allow_closure=True, map_each=local_fn)",
+            "args.set_param_file_format('multiline')",
+            "ctx.actions.write(output=out, content=args)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    // Args content ends the file with a newline
+    assertThat(ev.eval("action.content")).isEqualTo("lambda:a\nlambda:b\nlocal:c;local:d\n");
+  }
+
+  @Test
   public void testTemplateExpansionActionInterface() throws Exception {
     scratch.file(
         "test/rules.bzl",
@@ -2311,7 +2666,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     Object substitutionsUnchecked = ev.eval("action.substitutions");
     assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
-    assertThat(substitutionsUnchecked).isEqualTo(Dict.of((Mutability) null, "a", "b"));
+    assertThat(substitutionsUnchecked).isEqualTo(ImmutableMap.of("a", "b"));
   }
 
   private void setUpCoverageInstrumentedTest() throws Exception {
@@ -2408,7 +2763,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "aspect_ids",
           "var",
           "tokenize('foo')",
-          "expand('foo', [], Label('//test:main'))",
           "new_file('foo.txt')",
           "new_file(file, 'foo.txt')",
           "actions.declare_file('foo.txt')",
@@ -2421,6 +2775,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "actions.run_shell(command = 'foo', outputs = [file])",
           "actions.write(file, 'foo')",
           "check_placeholders('foo', [])",
+          "build_file_path",
           "runfiles()",
           "resolve_command(command = 'foo')",
           "resolve_tools()");
@@ -2632,6 +2987,51 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(buildSettingInfo.getValue("value")).isEqualTo(StarlarkInt.of(42));
   }
 
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testBuildSettingValue_allowMultipleSetting() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "BuildSettingInfo = provider(fields = ['name', 'value'])",
+        "def _impl(ctx):",
+        "  return [BuildSettingInfo(name = ctx.attr.name, value = ctx.build_setting_value)]",
+        "",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag = True, allow_multiple = True),",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'string_flag')",
+        "string_flag(name = 'string_flag', build_setting_default = 'some-value')");
+
+    // from default
+    ConfiguredTarget buildSetting = getConfiguredTarget("//test:string_flag");
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(List.class);
+    assertThat((List<String>) buildSettingInfo.getValue("value")).containsExactly("some-value");
+
+    // Set multiple times
+    useConfiguration(
+        ImmutableMap.of(
+            "//test:string_flag", ImmutableList.of("some-other-value", "some-other-other-value")));
+    buildSetting = getConfiguredTarget("//test:string_flag");
+    key =
+        new StarlarkProvider.Key(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(List.class);
+    assertThat((List<String>) buildSettingInfo.getValue("value"))
+        .containsExactly("some-other-value", "some-other-other-value");
+  }
+
   @Test
   public void testBuildSettingValue_nonBuildSettingRule() throws Exception {
     scratch.file(
@@ -2839,7 +3239,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "something/BUILD",
         "load('//something:defs.bzl', 'use_exec_groups')",
         "use_exec_groups(name = 'nectarine')");
-    setBuildLanguageOptions("--experimental_exec_groups=true");
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");
@@ -2857,9 +3256,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                     Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
-    assertThat(info.getValue("exec_groups")).isInstanceOf(ExecGroupCollection.class);
+    assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
     ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
-        ((ExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
+        ((StarlarkExecGroupCollection) info.getValue("exec_groups"))
+            .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
@@ -2900,7 +3300,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "constraint_value(name = 'extra', constraint_setting = ':setting')",
         "load('//something:defs.bzl', 'use_exec_groups')",
         "use_exec_groups(name = 'nectarine')");
-    setBuildLanguageOptions("--experimental_exec_groups=true");
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");
@@ -2913,9 +3312,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                     Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
-    assertThat(info.getValue("exec_groups")).isInstanceOf(ExecGroupCollection.class);
+    assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
     ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
-        ((ExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
+        ((StarlarkExecGroupCollection) info.getValue("exec_groups"))
+            .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet())
         .containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit", "passionfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
@@ -2994,5 +3394,50 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//something:nectarine"));
     assertContainsEvent("Exec group name '" + badName + "' is not a valid name.");
+  }
+
+  @Test
+  public void testBuildFilePath() throws Exception {
+    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/bar/BUILD", "genrule(name = 'baz', cmd = 'dummy_cmd', outs = ['a.txt'])");
+
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='foo', path='/foo')")
+            .build());
+
+    invalidatePackages(false);
+
+    setRuleContext(createRuleContext("@foo//bar:baz"));
+    Object result = ev.eval("ruleContext.build_file_path");
+    assertThat(result).isEqualTo("bar/BUILD");
+  }
+
+  @Test
+  public void testNoToolchainContext() throws Exception {
+    // Build setting rules do not have a toolchain context, as they are part of the configuration.
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'sample_setting')",
+        "toolchain_type(name = 'toolchain_type')",
+        "sample_setting(",
+        "    name = 'test',",
+        "    build_setting_default = True,",
+        ")");
+    scratch.file(
+        "test/rule.bzl",
+        "def _sample_impl(ctx):",
+        "    # This should raise an error.",
+        "    ctx.toolchains['//:toolchain_type']",
+        "    fail('Toolchain was not empty')",
+        "sample_setting = rule(",
+        "    implementation = _sample_impl,",
+        "    build_setting = config.bool(flag = True),",
+        ")");
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:test"));
+    assertContainsEvent("Toolchains are not valid in this context");
+    assertDoesNotContainEvent("Toolchain was not empty");
   }
 }

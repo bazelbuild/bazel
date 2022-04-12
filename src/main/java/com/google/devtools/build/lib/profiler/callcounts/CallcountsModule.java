@@ -67,7 +67,7 @@ public class CallcountsModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
-    if (!outputPath.isEmpty()) {
+    if (outputPath != null && !outputPath.isEmpty()) {
       try {
         Callcounts.dump(outputPath);
       } catch (IOException e) {
@@ -76,5 +76,6 @@ public class CallcountsModule extends BlazeModule {
     }
     Callcounts.reset();
     this.reporter = null;
+    this.outputPath = null;
   }
 }

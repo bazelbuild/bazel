@@ -18,25 +18,29 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.FormatMethod;
@@ -50,14 +54,11 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A customizable, serializable class for building memory efficient command lines. */
 @Immutable
-@AutoCodec
-public final class CustomCommandLine extends CommandLine {
-
+public class CustomCommandLine extends CommandLine {
   private interface ArgvFragment {
     /**
      * Expands this fragment into the passed command line vector.
@@ -65,16 +66,23 @@ public final class CustomCommandLine extends CommandLine {
      * @param arguments The command line's argument vector.
      * @param argi The index of the next available argument.
      * @param builder The command line builder to which we should add arguments.
+     * @param stripOutputPaths Strip output path config prefixes? See {@link PathStripper}.
      * @return The index of the next argument, after the ArgvFragment has consumed its args. If the
      *     ArgvFragment doesn't have any args, it should return {@code argi} unmodified.
      */
-    int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder);
+    int eval(
+        List<Object> arguments,
+        int argi,
+        ImmutableList.Builder<String> builder,
+        boolean stripOutputPaths)
+        throws CommandLineExpansionException, InterruptedException;
 
     int addToFingerprint(
         List<Object> arguments,
         int argi,
         ActionKeyContext actionKeyContext,
-        Fingerprint fingerprint);
+        Fingerprint fingerprint)
+        throws CommandLineExpansionException, InterruptedException;
   }
 
   /**
@@ -84,7 +92,11 @@ public final class CustomCommandLine extends CommandLine {
    */
   private abstract static class StandardArgvFragment implements ArgvFragment {
     @Override
-    public final int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+    public final int eval(
+        List<Object> arguments,
+        int argi,
+        ImmutableList.Builder<String> builder,
+        boolean stripOutputPaths) {
       eval(builder);
       return argi; // Doesn't consume any arguments, so return argi unmodified
     }
@@ -137,7 +149,6 @@ public final class CustomCommandLine extends CommandLine {
    * -> ["1:2:3"]
    * }</pre>
    */
-  @AutoCodec
   public static class VectorArg<T> {
     final boolean isNestedSet;
     final boolean isEmpty;
@@ -146,9 +157,7 @@ public final class CustomCommandLine extends CommandLine {
     final String beforeEach;
     final String joinWith;
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    VectorArg(
+    private VectorArg(
         boolean isNestedSet,
         boolean isEmpty,
         int count,
@@ -169,7 +178,6 @@ public final class CustomCommandLine extends CommandLine {
      * <p>Call {@link SimpleVectorArg#mapped} to produce a vector arg that maps from a given type to
      * a string.
      */
-    @AutoCodec
     public static class SimpleVectorArg<T> extends VectorArg<T> {
       private final Object values;
 
@@ -195,9 +203,7 @@ public final class CustomCommandLine extends CommandLine {
             values);
       }
 
-      @AutoCodec.Instantiator
-      @VisibleForSerialization
-      SimpleVectorArg(
+      private SimpleVectorArg(
           boolean isNestedSet,
           boolean isEmpty,
           int count,
@@ -335,8 +341,7 @@ public final class CustomCommandLine extends CommandLine {
       }
     }
 
-    @AutoCodec
-    static final class VectorArgFragment implements ArgvFragment {
+    private static final class VectorArgFragment implements ArgvFragment {
       private static Interner<VectorArgFragment> interner = BlazeInterners.newStrongInterner();
       private static final UUID FORMAT_EACH_UUID =
           UUID.fromString("f830781f-2e0d-4e3b-9b99-ece7f249e0f3");
@@ -351,8 +356,6 @@ public final class CustomCommandLine extends CommandLine {
       private final boolean hasBeforeEach;
       private final boolean hasJoinWith;
 
-      @AutoCodec.Instantiator
-      @VisibleForSerialization
       VectorArgFragment(
           boolean isNestedSet,
           boolean hasMapEach,
@@ -366,9 +369,14 @@ public final class CustomCommandLine extends CommandLine {
         this.hasJoinWith = hasJoinWith;
       }
 
-      @SuppressWarnings("unchecked")
       @Override
-      public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+      @SuppressWarnings("unchecked")
+      public int eval(
+          List<Object> arguments,
+          int argi,
+          ImmutableList.Builder<String> builder,
+          boolean stripOutputPaths)
+          throws CommandLineExpansionException, InterruptedException {
         final List<String> mutatedValues;
         CommandLineItem.MapFn<Object> mapFn =
             hasMapEach ? (CommandLineItem.MapFn<Object>) arguments.get(argi++) : null;
@@ -396,7 +404,13 @@ public final class CustomCommandLine extends CommandLine {
             }
           } else {
             for (int i = 0; i < count; ++i) {
-              mutatedValues.add(CommandLineItem.expandToCommandLine(arguments.get(argi++)));
+              Object arg = arguments.get(argi++);
+              if (arg instanceof DerivedArtifact && stripOutputPaths) {
+                // This argument is an output file and the command line creator strips output paths.
+                mutatedValues.add(PathStripper.strip((DerivedArtifact) arg));
+              } else {
+                mutatedValues.add(CommandLineItem.expandToCommandLine(arg));
+              }
             }
           }
         }
@@ -430,7 +444,8 @@ public final class CustomCommandLine extends CommandLine {
           List<Object> arguments,
           int argi,
           ActionKeyContext actionKeyContext,
-          Fingerprint fingerprint) {
+          Fingerprint fingerprint)
+          throws CommandLineExpansionException, InterruptedException {
         CommandLineItem.MapFn<Object> mapFn =
             hasMapEach ? (CommandLineItem.MapFn<Object>) arguments.get(argi++) : null;
         if (isNestedSet) {
@@ -489,9 +504,11 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static class FormatArg implements ArgvFragment {
-    @AutoCodec @AutoCodec.VisibleForSerialization static final FormatArg INSTANCE = new FormatArg();
+    @SerializationConstant @VisibleForSerialization
+    static final FormatArg INSTANCE = new FormatArg();
+
     private static final UUID FORMAT_UUID = UUID.fromString("377cee34-e947-49e0-94a2-6ab95b396ec4");
 
     private static void push(List<Object> arguments, String formatStr, Object... args) {
@@ -502,7 +519,11 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+    public int eval(
+        List<Object> arguments,
+        int argi,
+        ImmutableList.Builder<String> builder,
+        boolean stripOutputPaths) {
       int argCount = (Integer) arguments.get(argi++);
       String formatStr = (String) arguments.get(argi++);
       Object[] args = new Object[argCount];
@@ -529,9 +550,11 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static class PrefixArg implements ArgvFragment {
-    @AutoCodec @AutoCodec.VisibleForSerialization static final PrefixArg INSTANCE = new PrefixArg();
+    @SerializationConstant @VisibleForSerialization
+    static final PrefixArg INSTANCE = new PrefixArg();
+
     private static final UUID PREFIX_UUID = UUID.fromString("a95eccdf-4f54-46fc-b925-c8c7e1f50c95");
 
     private static void push(List<Object> arguments, String before, Object arg) {
@@ -541,7 +564,11 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+    public int eval(
+        List<Object> arguments,
+        int argi,
+        ImmutableList.Builder<String> builder,
+        boolean stripOutputPaths) {
       String before = (String) arguments.get(argi++);
       Object arg = arguments.get(argi++);
       builder.add(before + CommandLineItem.expandToCommandLine(arg));
@@ -616,28 +643,14 @@ public final class CustomCommandLine extends CommandLine {
     abstract String describe();
   }
 
-  @AutoCodec
-  static final class ExpandedTreeArtifactArg extends TreeArtifactExpansionArgvFragment {
-    private final Artifact treeArtifact;
+  private static final class ExpandedTreeArtifactArg extends TreeArtifactExpansionArgvFragment {
     private static final UUID TREE_UUID = UUID.fromString("13b7626b-c77d-4a30-ad56-ff08c06b1cee");
-    private final Function<Artifact, Iterable<String>> expandFunction;
+    private final Artifact treeArtifact;
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
     ExpandedTreeArtifactArg(Artifact treeArtifact) {
       Preconditions.checkArgument(
           treeArtifact.isTreeArtifact(), "%s is not a TreeArtifact", treeArtifact);
       this.treeArtifact = treeArtifact;
-      this.expandFunction = artifact -> ImmutableList.of(artifact.getExecPathString());
-    }
-
-    @VisibleForSerialization
-    ExpandedTreeArtifactArg(
-        Artifact treeArtifact, Function<Artifact, Iterable<String>> expandFunction) {
-      Preconditions.checkArgument(
-          treeArtifact.isTreeArtifact(), "%s is not a TreeArtifact", treeArtifact);
-      this.treeArtifact = treeArtifact;
-      this.expandFunction = expandFunction;
     }
 
     @Override
@@ -646,9 +659,7 @@ public final class CustomCommandLine extends CommandLine {
       artifactExpander.expand(treeArtifact, expandedArtifacts);
 
       for (Artifact expandedArtifact : expandedArtifacts) {
-        for (String commandLine : expandFunction.apply(expandedArtifact)) {
-          builder.add(commandLine);
-        }
+        builder.add(expandedArtifact.getExecPathString());
       }
     }
 
@@ -713,6 +724,10 @@ public final class CustomCommandLine extends CommandLine {
     // toString() results.
     private final List<Object> arguments = new ArrayList<>();
 
+    private boolean stripOutputPaths = false;
+
+    private PathFragment outputRoot = null;
+
     public boolean isEmpty() {
       return arguments.isEmpty();
     }
@@ -720,6 +735,27 @@ public final class CustomCommandLine extends CommandLine {
     private final NestedSetBuilder<Artifact> treeArtifactInputs = NestedSetBuilder.stableOrder();
 
     private boolean treeArtifactsRequested = false;
+
+    /**
+     * Strip output path config prefixes from the command line.
+     *
+     * <p>This offers better executor caching. But it's only safe for actions that don't vary when
+     * {@code /x86-fastbuild/} (or equivalent) changes in the executor's action key. This only
+     * affects {@link #addExecPath} and {@link #addPath(PathFragment)} entries. Output paths
+     * embedded in larger strings and added via {@link #add(String)} or other variants must be
+     * handled separately.
+     *
+     * <p>See {@link PathStripper} for details.
+     *
+     * @param outputRoot the output tree's root fragment (i.e. "bazel-out")
+     */
+    public Builder stripOutputPaths(PathFragment outputRoot) {
+      Preconditions.checkArgument(!stripOutputPaths);
+      Preconditions.checkArgument(this.outputRoot == null);
+      this.stripOutputPaths = true;
+      this.outputRoot = outputRoot;
+      return this;
+    }
 
     /**
      * Adds a constant-value string.
@@ -737,6 +773,15 @@ public final class CustomCommandLine extends CommandLine {
      */
     public Builder add(@CompileTimeConstant String arg, @Nullable String value) {
       return addObjectInternal(arg, value);
+    }
+
+    /**
+     * Adds a single argument to the command line, which is lazily converted to string.
+     *
+     * <p>If the value is null, neither the arg nor the value is added.
+     */
+    public Builder addObject(@Nullable Object value) {
+      return addObjectInternal(value);
     }
 
     /**
@@ -826,12 +871,12 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /** Adds a lazily expanded string. */
-    public Builder addLazyString(@Nullable LazyString value) {
+    public Builder addLazyString(@Nullable OnDemandString value) {
       return addObjectInternal(value);
     }
 
     /** Adds a lazily expanded string. */
-    public Builder addLazyString(@CompileTimeConstant String arg, @Nullable LazyString value) {
+    public Builder addLazyString(@CompileTimeConstant String arg, @Nullable OnDemandString value) {
       return addObjectInternal(arg, value);
     }
 
@@ -1067,34 +1112,6 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
-    public Builder addExpandedTreeArtifactExecPaths(String arg, Artifact treeArtifact) {
-      Preconditions.checkNotNull(arg);
-      Preconditions.checkNotNull(treeArtifact);
-      Preconditions.checkState(!treeArtifactsRequested);
-      treeArtifactInputs.add(treeArtifact);
-      arguments.add(
-          new ExpandedTreeArtifactArg(
-              treeArtifact, artifact -> ImmutableList.of(arg, artifact.getExecPathString())));
-      return this;
-    }
-
-    /**
-     * Adds the arguments for all {@link TreeFileArtifact}s under {@code treeArtifact}, one argument
-     * per file. Using {@code expandFunction} to expand each {@link TreeFileArtifact} to expected
-     * argument.
-     *
-     * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
-     * @param expandFunction the function to generate the argument for each{@link TreeFileArtifact}.
-     */
-    public Builder addExpandedTreeArtifact(
-        Artifact treeArtifact, Function<Artifact, Iterable<String>> expandFunction) {
-      Preconditions.checkNotNull(treeArtifact);
-      Preconditions.checkState(!treeArtifactsRequested);
-      treeArtifactInputs.add(treeArtifact);
-      arguments.add(new ExpandedTreeArtifactArg(treeArtifact, expandFunction));
-      return this;
-    }
-
     /** Gets all the tree artifact inputs for command line */
     public NestedSet<Artifact> getTreeArtifactInputs() {
       treeArtifactsRequested = true;
@@ -1102,7 +1119,14 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     public CustomCommandLine build() {
-      return new CustomCommandLine(arguments);
+      return stripOutputPaths
+          ? new PathStrippingCustomCommandline(
+              arguments,
+              /*substitutionMap=*/ null,
+              Verify.verifyNotNull(
+                  outputRoot,
+                  "path stripping needs an output root ('bazel-out') to identify output paths"))
+          : new CustomCommandLine(arguments, /*substitutionMap=*/ null);
     }
 
     private Builder addObjectInternal(@Nullable Object value) {
@@ -1190,7 +1214,7 @@ public final class CustomCommandLine extends CommandLine {
     builder.arguments.addAll(other.arguments);
     return builder;
   }
-  
+
   private final ImmutableList<Object> arguments;
 
   /**
@@ -1202,15 +1226,53 @@ public final class CustomCommandLine extends CommandLine {
    */
   private final Map<Artifact, TreeFileArtifact> substitutionMap;
 
-  private CustomCommandLine(List<Object> arguments) {
-    this(arguments, null);
-  }
-
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  CustomCommandLine(List<Object> arguments, Map<Artifact, TreeFileArtifact> substitutionMap) {
+  private CustomCommandLine(
+      List<Object> arguments, Map<Artifact, TreeFileArtifact> substitutionMap) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.substitutionMap = substitutionMap == null ? null : ImmutableMap.copyOf(substitutionMap);
+  }
+
+  protected boolean stripOutputPaths() {
+    return false;
+  }
+
+  protected PathFragment getOutputRoot() {
+    throw new UnsupportedOperationException(
+        "This should only be called for PathStrippingCustomCommandLine");
+  }
+
+  /**
+   * {@link CustomCommandLine} that strips config prefixes from output paths. See {@link
+   * PathStripper}.
+   *
+   * <p>We use inheritance vs. a {@code stripOutputPaths} field in {@link CustomCommandLine} because
+   * Java-heavy builds keep many {@link CustomCommandLine} objects in memory. So we need to minimize
+   * each one's memory footprint.
+   */
+  private static final class PathStrippingCustomCommandline extends CustomCommandLine {
+    // TODO(https://github.com/bazelbuild/bazel/issues/6526): outputRoot is just an indirect
+    // reference to "bazel-out". Java-heavy builds keep enough CustomCommandLine objects in memory
+    // such that each additional reference contributes observable extra memory on the host machine.
+    // Find a way to consolidate this into a single global reference.
+    private final PathFragment outputRoot;
+
+    private PathStrippingCustomCommandline(
+        List<Object> arguments,
+        Map<Artifact, TreeFileArtifact> substitutionMap,
+        @Nullable PathFragment outputRoot) {
+      super(arguments, substitutionMap);
+      this.outputRoot = outputRoot;
+    }
+
+    @Override
+    protected boolean stripOutputPaths() {
+      return true;
+    }
+
+    @Override
+    protected PathFragment getOutputRoot() {
+      return outputRoot;
+    }
   }
 
   /**
@@ -1225,20 +1287,23 @@ public final class CustomCommandLine extends CommandLine {
       substitutionMap.put(treeFileArtifact.getParent(), treeFileArtifact);
     }
 
-    return new CustomCommandLine(arguments, substitutionMap.build());
+    return new CustomCommandLine(arguments, substitutionMap.buildOrThrow());
   }
 
   @Override
-  public Iterable<String> arguments() {
+  public ImmutableList<String> arguments()
+      throws CommandLineExpansionException, InterruptedException {
     return argumentsInternal(null);
   }
 
   @Override
-  public Iterable<String> arguments(ArtifactExpander artifactExpander) {
+  public ImmutableList<String> arguments(ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException, InterruptedException {
     return argumentsInternal(Preconditions.checkNotNull(artifactExpander));
   }
 
-  private Iterable<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander) {
+  private ImmutableList<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     int count = arguments.size();
     for (int i = 0; i < count; ) {
@@ -1255,8 +1320,14 @@ public final class CustomCommandLine extends CommandLine {
               (TreeArtifactExpansionArgvFragment) substitutedArg;
           expansionArg.eval(builder, artifactExpander);
         } else {
-          i = ((ArgvFragment) substitutedArg).eval(arguments, i, builder);
+          i = ((ArgvFragment) substitutedArg).eval(arguments, i, builder, stripOutputPaths());
         }
+      } else if (substitutedArg instanceof DerivedArtifact && stripOutputPaths()) {
+        builder.add(PathStripper.strip((DerivedArtifact) substitutedArg));
+      } else if (substitutedArg instanceof PathFragment
+          && stripOutputPaths()
+          && PathStripper.isOutputPath((PathFragment) substitutedArg, getOutputRoot())) {
+        builder.add(PathStripper.strip(((PathFragment) substitutedArg)).getPathString());
       } else {
         builder.add(CommandLineItem.expandToCommandLine(substitutedArg));
       }
@@ -1266,7 +1337,10 @@ public final class CustomCommandLine extends CommandLine {
 
   private void evalSimpleVectorArg(Iterable<?> arg, ImmutableList.Builder<String> builder) {
     for (Object value : arg) {
-      builder.add(CommandLineItem.expandToCommandLine(value));
+      builder.add(
+          value instanceof DerivedArtifact && stripOutputPaths()
+              ? PathStripper.strip((DerivedArtifact) value)
+              : CommandLineItem.expandToCommandLine(value));
     }
   }
 
@@ -1291,7 +1365,8 @@ public final class CustomCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint) {
+      Fingerprint fingerprint)
+      throws CommandLineExpansionException, InterruptedException {
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);

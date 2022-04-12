@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 
 /**
  * Implementation for the sh_library rule.
@@ -51,10 +50,7 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addNativeDeclaredProvider(
-            InstrumentedFilesCollector.collectTransitive(
-                ruleContext,
-                ShCoverage.INSTRUMENTATION_SPEC,
-                /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+            InstrumentedFilesCollector.collect(ruleContext, ShCoverage.INSTRUMENTATION_SPEC))
         .build();
   }
 }

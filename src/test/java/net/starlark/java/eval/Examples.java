@@ -14,13 +14,13 @@
 package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -89,7 +89,8 @@ final class Examples {
     StarlarkFile file = StarlarkFile.parse(input);
 
     // Compile the program, with additional predeclared environment bindings.
-    Program prog = Program.compileFile(file, () -> ImmutableSet.of("zero", "square"));
+    // TODO(adonovan): supply Starlark.UNIVERSE somehow.
+    Program prog = Program.compileFile(file, Resolver.moduleWithPredeclared("zero", "square"));
 
     // . . .
 
@@ -113,7 +114,7 @@ final class Examples {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.put("zero", 0);
     Starlark.addMethods(env, new MyFunctions(), StarlarkSemantics.DEFAULT); // adds 'square'
-    return env.build();
+    return env.buildOrThrow();
   }
 
   /**
@@ -123,10 +124,10 @@ final class Examples {
   static final class MyFunctions {
     @StarlarkMethod(
         name = "square",
-        parameters = {@Param(name = "x", type = int.class)},
+        parameters = {@Param(name = "x")},
         doc = "Returns the square of its integer argument.")
-    public int square(int x) {
-      return x * x;
+    public StarlarkInt square(StarlarkInt x) {
+      return StarlarkInt.multiply(x, x);
     }
   }
 }

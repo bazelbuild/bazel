@@ -17,6 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import com.google.devtools.build.android.desugar.langmodel.MethodId;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocation;
+import com.google.devtools.build.android.desugar.retarget.ClassMemberRetargetConfig;
+import com.google.devtools.build.android.desugar.retarget.MethodInvocationReplacement;
+import com.google.devtools.build.android.desugar.retarget.ReplacementRange;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -40,7 +45,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of("java/time/"),
             ImmutableList.of(),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(support.isRenamedCoreLibrary("java/time/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("java/time/y/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("java/io/X")).isFalse();
@@ -58,7 +63,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of("java/time/"),
             ImmutableList.of(),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(support.isRenamedCoreLibrary("__/java/time/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("__/java/time/y/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("__/java/io/X")).isFalse();
@@ -76,7 +81,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(support.renameCoreLibrary("java/time/X")).isEqualTo("j$/time/X");
     assertThat(support.renameCoreLibrary("com/google/X")).isEqualTo("com/google/X");
   }
@@ -90,7 +95,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(support.renameCoreLibrary("__/java/time/X")).isEqualTo("j$/time/X");
     assertThat(support.renameCoreLibrary("com/google/X")).isEqualTo("com/google/X");
   }
@@ -99,19 +104,70 @@ public class CoreLibrarySupportTest {
   public void testMoveTarget() throws Exception {
     CoreLibrarySupport support =
         new CoreLibrarySupport(
-            new CoreLibraryRewriter("__/"),
+            new CoreLibraryRewriter("__desugar__/"),
             null,
             ImmutableList.of("java/util/Helper"),
             ImmutableList.of(),
-            ImmutableList.of(
-                "java/util/Existing#match -> java/util/Helper",
-                "java/util/Existing#unused -> com/google/Unused"),
-            ImmutableList.of());
-    assertThat(support.getMoveTarget("__/java/util/Existing", "match")).isEqualTo("j$/util/Helper");
-    assertThat(support.getMoveTarget("java/util/Existing", "match")).isEqualTo("j$/util/Helper");
-    assertThat(support.getMoveTarget("__/java/util/Existing", "matchesnot")).isNull();
-    assertThat(support.getMoveTarget("__/java/util/ExistingOther", "match")).isNull();
-    assertThat(support.usedRuntimeHelpers()).containsExactly("j$/util/Helper");
+            ImmutableList.of(),
+            ClassMemberRetargetConfig.builder()
+                .addInProcessReplacement(
+                    MethodInvocationReplacement.newBuilder()
+                        .setSource(
+                            MethodInvocation.newBuilder()
+                                .setOpcode(182)
+                                .setIsInterface(false)
+                                .setMethodId(
+                                    MethodId.newBuilder()
+                                        .setOwner("java/util/Existing")
+                                        .setName("match")
+                                        .setDesc("()V")))
+                        .setDestination(
+                            MethodInvocation.newBuilder()
+                                .setOpcode(182)
+                                .setIsInterface(false)
+                                .setMethodId(
+                                    MethodId.newBuilder()
+                                        .setOwner("java/util/DesugarHelper")
+                                        .setName("match")
+                                        .setDesc("()V")))
+                        .setAutoDeduceOpcodeAndDesc(true)
+                        .addRange(ReplacementRange.ALL)
+                        .build())
+                .addInProcessReplacement(
+                    MethodInvocationReplacement.newBuilder()
+                        .setSource(
+                            MethodInvocation.newBuilder()
+                                .setOpcode(182)
+                                .setIsInterface(false)
+                                .setMethodId(
+                                    MethodId.newBuilder()
+                                        .setOwner("java/util/Existing")
+                                        .setName("unused")
+                                        .setDesc("()V")))
+                        .setDestination(
+                            MethodInvocation.newBuilder()
+                                .setOpcode(182)
+                                .setIsInterface(false)
+                                .setMethodId(
+                                    MethodId.newBuilder()
+                                        .setOwner("com/google/Unused")
+                                        .setName("unused")
+                                        .setDesc("()V")))
+                        .addRange(ReplacementRange.ALL)
+                        .build())
+                .addEnabledInvocationReplacementRange(ReplacementRange.ALL)
+                .build());
+
+    assertThat(support.getMoveTarget("__desugar__/java/util/Existing", "match", "()V"))
+        .isEqualTo("j$/util/DesugarHelper");
+
+    assertThat(support.getMoveTarget("java/util/Existing", "match", "()V"))
+        .isEqualTo("j$/util/DesugarHelper");
+    assertThat(support.getMoveTarget("__desugar__/java/util/Existing", "matchesnot", "()V"))
+        .isNull();
+    assertThat(support.getMoveTarget("__desugar__/java/util/ExistingOther", "match", "()V"))
+        .isNull();
+    assertThat(support.usedRuntimeHelpers()).containsExactly("j$/util/DesugarHelper");
   }
 
   @Test
@@ -123,7 +179,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of("java/util/concurrent/"),
             ImmutableList.of("java/util/Map"),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map")).isTrue();
     assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map$$Lambda$17")).isFalse();
     assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map$$CC")).isFalse();
@@ -142,7 +198,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of(),
             ImmutableList.of("java/util/Collection"),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
@@ -177,8 +233,33 @@ public class CoreLibrarySupportTest {
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of("java/util/Moved"),
             ImmutableList.of("java/util/Map"),
-            ImmutableList.of("java/util/LinkedHashMap#forEach->java/util/Moved"),
-            ImmutableList.of());
+            ImmutableList.of(),
+            ClassMemberRetargetConfig.builder()
+                .addInProcessReplacement(
+                    MethodInvocationReplacement.newBuilder()
+                        .setSource(
+                            MethodInvocation.newBuilder()
+                                .setIsInterface(false)
+                                .setOpcode(182)
+                                .setMethodId(
+                                    MethodId.newBuilder()
+                                        .setOwner("java/util/LinkedHashMap")
+                                        .setName("forEach")
+                                        .setDesc("(Ljava/util/function/BiConsumer;)V")))
+                        .setDestination(
+                            MethodInvocation.newBuilder()
+                                .setIsInterface(false)
+                                .setOpcode(182)
+                                .setMethodId(
+                                    MethodId.newBuilder()
+                                        .setOwner("java/util/Moved")
+                                        .setName("forEach")
+                                        .setDesc("(Ljava/util/function/BiConsumer;)V")))
+                        .addRange(ReplacementRange.ALL)
+                        .build())
+                .addEnabledInvocationReplacementRange(ReplacementRange.ALL)
+                .build());
+
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
@@ -230,7 +311,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of(),
             ImmutableList.of("java/util/Collection"),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE, "java/util/Collection", "size", "()I", true))
@@ -250,7 +331,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of(),
             ImmutableList.of("java/util/Map"),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
@@ -286,7 +367,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of(),
             ImmutableList.of("java/util/Comparator"),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKESTATIC,
@@ -310,7 +391,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of("java/util/"),
             ImmutableList.of(),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
 
     // regular invocations of default methods: ignored
     assertThat(
@@ -375,7 +456,7 @@ public class CoreLibrarySupportTest {
             ImmutableList.of("java/util/concurrent/"), // should return null for these
             ImmutableList.of("java/util/Map"),
             ImmutableList.of(),
-            ImmutableList.of());
+            /* retargetConfig= */ null);
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
@@ -402,8 +483,8 @@ public class CoreLibrarySupportTest {
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of(),
             ImmutableList.of("java/util/Collection"),
-            ImmutableList.of(),
-            ImmutableList.of("java/util/Collection#removeIf"));
+            ImmutableList.of("java/util/Collection#removeIf"),
+            /* retargetConfig= */ null);
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,

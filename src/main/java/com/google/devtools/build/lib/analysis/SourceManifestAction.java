@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
@@ -35,7 +34,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -49,14 +47,13 @@ import javax.annotation.Nullable;
  *
  * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
-@AutoCodec
 @Immutable // if all ManifestWriter implementations are immutable
 public final class SourceManifestAction extends AbstractFileWriteAction {
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
   private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
-      (path1, path2) -> path1.getKey().compareTo(path2.getKey());
+      (path1, path2) -> path1.getKey().getPathString().compareTo(path2.getKey().getPathString());
 
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
@@ -72,12 +69,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      * @param rootRelativePath path of an entry relative to the manifest's root
      * @param symlink (optional) symlink that resolves the above path
      */
-    void writeEntry(Writer manifestWriter, PathFragment rootRelativePath,
-        @Nullable Artifact symlink) throws IOException;
+    void writeEntry(
+        Writer manifestWriter, PathFragment rootRelativePath, @Nullable Artifact symlink)
+        throws IOException;
 
-    /**
-     * Fulfills {@link com.google.devtools.build.lib.actions.AbstractAction#getMnemonic()}
-     */
+    /** Fulfills {@link com.google.devtools.build.lib.actions.AbstractAction#getMnemonic()} */
     String getMnemonic();
 
     /**
@@ -87,19 +83,16 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
     /**
      * Fulfills {@link AbstractFileWriteAction#isRemotable()}.
+     *
      * @return
      */
     boolean isRemotable();
   }
 
-  /**
-   * The strategy we use to write manifest entries.
-   */
+  /** The strategy we use to write manifest entries. */
   private final ManifestWriter manifestWriter;
 
-  /**
-   * The runfiles for which to create the symlink tree.
-   */
+  /** The runfiles for which to create the symlink tree. */
   private final Runfiles runfiles;
 
   private final boolean remotableSourceManifestActions;
@@ -128,7 +121,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    */
-  @AutoCodec.Instantiator
   public SourceManifestAction(
       ManifestWriter manifestWriter,
       ActionOwner owner,
@@ -142,8 +134,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler)
-      throws IOException {
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler) throws IOException {
     writeFile(out, runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation()));
   }
 
@@ -160,8 +151,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   /**
-   * Sort the entries in both the normal and root manifests and write the output
-   * file.
+   * Sort the entries in both the normal and root manifests and write the output file.
    *
    * @param out is the message stream to write errors to.
    * @param output The actual mapping of the output manifest.
@@ -170,8 +160,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   private void writeFile(OutputStream out, Map<PathFragment, Artifact> output) throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
-    Collections.sort(sortedManifest, ENTRY_COMPARATOR);
-
+    sortedManifest.sort(ENTRY_COMPARATOR);
     for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
       manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue());
     }
@@ -199,19 +188,16 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     runfiles.fingerprint(fp);
   }
 
-  /**
-   * Supported manifest writing strategies.
-   */
+  /** Supported manifest writing strategies. */
   public enum ManifestType implements ManifestWriter {
 
     /**
      * Writes each line as:
      *
-     * [rootRelativePath] [resolvingSymlink]
+     * <p>[rootRelativePath] [resolvingSymlink]
      *
-     * <p>This strategy is suitable for creating an input manifest to a source view tree. Its
-     * output is a valid input to
-     * {@link com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction}.
+     * <p>This strategy is suitable for creating an input manifest to a source view tree. Its output
+     * is a valid input to {@link com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction}.
      */
     SOURCE_SYMLINKS {
       @Override
@@ -246,11 +232,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     /**
      * Writes each line as:
      *
-     * [rootRelativePath]
+     * <p>[rootRelativePath]
      *
      * <p>This strategy is suitable for an input into a packaging system (notably .par) that
-     * consumes a list of all source files but needs that list to be constant with respect to
-     * how the user has their client laid out on local disk.
+     * consumes a list of all source files but needs that list to be constant with respect to how
+     * the user has their client laid out on local disk.
      */
     SOURCES_ONLY {
       @Override

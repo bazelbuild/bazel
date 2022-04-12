@@ -97,8 +97,7 @@ public class PreciseAspectResolver implements AspectResolver {
 
   @Override
   public Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException {
-    Set<Label> result = new LinkedHashSet<>();
-    result.addAll(pkg.getStarlarkFileDependencies());
+    Set<Label> result = new LinkedHashSet<>(pkg.getStarlarkFileDependencies());
 
     Set<PackageIdentifier> dependentPackages = new LinkedHashSet<>();
     // First compute with packages can possibly affect the aspect attributes of this package:
@@ -110,18 +109,18 @@ public class PreciseAspectResolver implements AspectResolver {
       }
 
       // ...figure out which direct dependencies can possibly have aspects attached to them...
+      Rule rule = (Rule) target;
       Multimap<Attribute, Label> depsWithPossibleAspects =
-          ((Rule) target)
-              .getTransitions(
-                  (Rule rule, Attribute attribute) -> {
-                    for (Aspect aspectWithParameters : attribute.getAspects(rule)) {
-                      if (!aspectWithParameters.getDefinition().getAttributes().isEmpty()) {
-                        return true;
-                      }
-                    }
+          rule.getTransitions(
+              (infoProvider, attribute) -> {
+                for (Aspect aspectWithParameters : attribute.getAspects(rule)) {
+                  if (!aspectWithParameters.getDefinition().getAttributes().isEmpty()) {
+                    return true;
+                  }
+                }
 
-                    return false;
-                  });
+                return false;
+              });
 
       // ...and add the package of the aspect.
       for (Label depLabel : depsWithPossibleAspects.values()) {

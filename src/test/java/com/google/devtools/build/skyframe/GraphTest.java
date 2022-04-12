@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -40,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Base class for sanity tests on {@link EvaluableGraph} implementations. */
+/** Base class for tests on {@link ProcessableGraph} implementations. */
 public abstract class GraphTest {
   protected ProcessableGraph graph;
   protected TestRunnableWrapper wrapper;
@@ -57,7 +58,11 @@ public abstract class GraphTest {
 
   protected abstract Version getNextVersion(Version version);
 
-  protected boolean checkRdeps() {
+  /**
+   * Can be overridden to return {@code false} if the graph under test does not support
+   * incrementality.
+   */
+  protected boolean shouldTestIncrementality() {
     return true;
   }
 
@@ -69,7 +74,7 @@ public abstract class GraphTest {
     this.wrapper = new TestRunnableWrapper("GraphConcurrencyTest");
   }
 
-  protected SkyKey key(String name) {
+  protected static SkyKey key(String name) {
     return GraphTester.toSkyKey(name);
   }
 
@@ -197,12 +202,12 @@ public abstract class GraphTest {
                 for (int k = chunkSize; k <= numIterations; k++) {
                   entry.removeReverseDep(key("rdep" + j));
                   entry.addReverseDepAndCheckIfDone(key("rdep" + j));
-                  if (checkRdeps()) {
+                  if (graph.storesReverseDeps()) {
                     entry.getReverseDepsForDoneEntry();
                   }
                 }
               } catch (InterruptedException e) {
-                fail("Test failed: " + e.toString());
+                fail("Test failed: " + e);
               }
             }
           };
@@ -211,14 +216,18 @@ public abstract class GraphTest {
     waitForStart.countDown();
     waitForAddedRdep.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     entry.markRebuilding();
-    entry.setValue(new StringValue("foo1"), startingVersion);
+    entry.setValue(new StringValue("foo1"), startingVersion, null);
     waitForSetValue.countDown();
     wrapper.waitForTasksAndMaybeThrow();
     assertThat(ExecutorUtil.interruptibleShutdown(pool)).isFalse();
     assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo1"));
-    if (checkRdeps()) {
+    if (graph.storesReverseDeps()) {
       assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
           .hasSize(numKeys + 1);
+    }
+
+    if (!shouldTestIncrementality()) {
+      return;
     }
 
     graph = getGraph(getNextVersion(startingVersion));
@@ -227,9 +236,9 @@ public abstract class GraphTest {
     sameEntry.markDirty(DirtyType.CHANGE);
     startEvaluation(sameEntry);
     sameEntry.markRebuilding();
-    sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
+    sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion), null);
     assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo2"));
-    if (checkRdeps()) {
+    if (graph.storesReverseDeps()) {
       assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
           .hasSize(numKeys + 1);
     }
@@ -258,7 +267,7 @@ public abstract class GraphTest {
                 @Override
                 public void run() {
                   for (SkyKey key : keys) {
-                    NodeEntry entry = null;
+                    NodeEntry entry;
                     try {
                       entry = graph.get(null, Reason.OTHER, key);
                     } catch (InterruptedException e) {
@@ -284,7 +293,7 @@ public abstract class GraphTest {
                         entry.markRebuilding();
                         assertThat(valuesSet.add(key)).isTrue();
                         // Set to done.
-                        entry.setValue(new StringValue("bar" + keyNum), startingVersion);
+                        entry.setValue(new StringValue("bar" + keyNum), startingVersion, null);
                         assertThat(entry.isDone()).isTrue();
                       }
                     } catch (InterruptedException e) {
@@ -322,6 +331,7 @@ public abstract class GraphTest {
    */
   @Test
   public void testDoneToDirty() throws Exception {
+    assumeTrue(shouldTestIncrementality());
     final int numKeys = 1000;
     int numThreads = 50;
     final int numBatchRequests = 100;
@@ -335,7 +345,7 @@ public abstract class GraphTest {
       NodeEntry entry = entries.get(key("foo" + i));
       startEvaluation(entry);
       entry.markRebuilding();
-      entry.setValue(new StringValue("bar"), startingVersion);
+      entry.setValue(new StringValue("bar"), startingVersion, null);
     }
 
     assertThat(graph.get(null, Reason.OTHER, key("foo" + 0))).isNotNull();
@@ -364,7 +374,7 @@ public abstract class GraphTest {
             } catch (InterruptedException e) {
               throw new AssertionError(e);
             }
-            NodeEntry entry = null;
+            NodeEntry entry;
             try {
               entry = graph.get(null, Reason.OTHER, key("foo" + keyNum));
             } catch (InterruptedException e) {
@@ -380,7 +390,7 @@ public abstract class GraphTest {
               Version nextVersion = getNextVersion(startingVersion);
               entry.signalDep(nextVersion, dep);
 
-              entry.setValue(new StringValue("bar" + keyNum), nextVersion);
+              entry.setValue(new StringValue("bar" + keyNum), nextVersion, null);
             } catch (InterruptedException e) {
               throw new IllegalStateException(keyNum + ", " + entry, e);
             }
@@ -396,7 +406,7 @@ public abstract class GraphTest {
               } catch (InterruptedException e) {
                 throw new AssertionError(e);
               }
-              NodeEntry entry = null;
+              NodeEntry entry;
               try {
                 entry = graph.get(null, Reason.OTHER, key("foo" + keyNum));
               } catch (InterruptedException e) {
@@ -434,7 +444,7 @@ public abstract class GraphTest {
               } catch (InterruptedException e) {
                 throw new AssertionError(e);
               }
-              Map<SkyKey, ? extends NodeEntry> batchMap = null;
+              Map<SkyKey, ? extends NodeEntry> batchMap;
               try {
                 batchMap = graph.getBatch(null, Reason.OTHER, batch);
               } catch (InterruptedException e) {
@@ -461,7 +471,7 @@ public abstract class GraphTest {
       NodeEntry entry = graph.get(null, Reason.OTHER, key("foo" + i));
       assertThat(entry.getValue()).isEqualTo(new StringValue("bar" + i));
       assertThat(entry.getVersion()).isEqualTo(getNextVersion(startingVersion));
-      if (checkRdeps()) {
+      if (graph.storesReverseDeps()) {
         for (SkyKey key : entry.getReverseDepsForDoneEntry()) {
           assertThat(key).isEqualTo(key("rdep"));
         }

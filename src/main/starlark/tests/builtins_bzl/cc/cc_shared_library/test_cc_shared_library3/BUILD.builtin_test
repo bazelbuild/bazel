@@ -1,0 +1,16 @@
+package(default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library:__subpackages__"])
+
+licenses(["notice"])
+
+cc_library(
+    name = "bar",
+    srcs = ["bar.cc"],
+    hdrs = ["bar.h"],
+)
+
+cc_shared_library_permissions(
+    name = "permissions",
+    targets = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
+    ],
+)

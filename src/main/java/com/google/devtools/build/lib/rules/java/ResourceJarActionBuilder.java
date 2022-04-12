@@ -44,7 +44,6 @@ public class ResourceJarActionBuilder {
   private ImmutableList<Artifact> classpathResources = ImmutableList.of();
   private List<Artifact> messages = ImmutableList.of();
   private JavaToolchainProvider javaToolchain;
-  private JavaRuntimeInfo javabase;
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   public ResourceJarActionBuilder setOutputJar(Artifact outputJar) {
@@ -83,26 +82,12 @@ public class ResourceJarActionBuilder {
     return this;
   }
 
-  public ResourceJarActionBuilder setHostJavaRuntime(JavaRuntimeInfo javaRuntimeInfo) {
-    this.javabase = javaRuntimeInfo;
-    return this;
-  }
-
   public void build(JavaSemantics semantics, RuleContext ruleContext) {
     checkNotNull(outputJar, "outputJar must not be null");
-    checkNotNull(javabase, "javabase must not be null");
     checkNotNull(javaToolchain, "javaToolchain must not be null");
+    checkNotNull(javaToolchain.getJavaRuntime(), "javabase must not be null");
 
-    Artifact singleJar = javaToolchain.getSingleJar();
     SpawnAction.Builder builder = new SpawnAction.Builder();
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .setJarExecutable(
-              javabase.javaBinaryExecPathFragment(), singleJar, javaToolchain.getJvmOptions())
-          .addTransitiveInputs(javabase.javaBaseInputsMiddleman());
-    } else {
-      builder.setExecutable(singleJar);
-    }
     CustomCommandLine.Builder command =
         CustomCommandLine.builder()
             .add("--normalize")
@@ -127,6 +112,7 @@ public class ResourceJarActionBuilder {
     }
     ruleContext.registerAction(
         builder
+            .setExecutable(javaToolchain.getSingleJar())
             .useDefaultShellEnvironment()
             .addOutput(outputJar)
             .addInputs(messages)

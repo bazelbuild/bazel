@@ -32,6 +32,7 @@ load(
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
 _FEATURE_NAMES = struct(
+    generate_pdb_file = "generate_pdb_file",
     no_legacy_features = "no_legacy_features",
     do_not_split_linking_cmdline = "do_not_split_linking_cmdline",
     supports_dynamic_linker = "supports_dynamic_linker",
@@ -60,12 +61,21 @@ _FEATURE_NAMES = struct(
     enable_fdo_thinlto = "enable_fdo_thinlto",
     xbinaryfdo_implicit_thinlto = "xbinaryfdo_implicit_thinlto",
     enable_xbinaryfdo_thinlto = "enable_xbinaryfdo_thinlto",
+    native_deps_link = "native_deps_link",
+    java_launcher_link = "java_launcher_link",
+    py_launcher_link = "py_launcher_link",
     autofdo = "autofdo",
     is_cc_fake_binary = "is_cc_fake_binary",
     xbinaryfdo = "xbinaryfdo",
     fdo_optimize = "fdo_optimize",
     fdo_implicit_thinlto = "fdo_implicit_thinlto",
+    split_functions = "split_functions",
+    enable_fdo_split_functions = "enable_fdo_split_functions",
+    fdo_split_functions = "fdo_split_functions",
     fdo_instrument = "fdo_instrument",
+    fsafdo = "fsafdo",
+    implicit_fsafdo = "implicit_fsafdo",
+    enable_fsafdo = "enable_fsafdo",
     supports_pic = "supports_pic",
     copy_dynamic_libraries_to_binary = "copy_dynamic_libraries_to_binary",
     per_object_debug_info = "per_object_debug_info",
@@ -86,12 +96,14 @@ _FEATURE_NAMES = struct(
     fission_flags_for_lto_backend = "fission_flags_for_lto_backend",
     min_os_version_flag = "min_os_version_flag",
     include_directories = "include_directories",
+    external_include_paths = "external_include_paths",
     absolute_path_directories = "absolute_path_directories",
     from_package = "from_package",
     change_tool = "change_tool",
     module_map_without_extern_module = "module_map_without_extern_module",
     generate_submodules = "generate_submodules",
     foo = "foo_feature",
+    check_additional_variables = "check_additional_variables_feature",
     library_search_directories = "library_search_directories",
     runtime_library_search_directories = "runtime_library_search_directories",
     uses_ifso_variables = "uses_ifso_variables",
@@ -100,7 +112,10 @@ _FEATURE_NAMES = struct(
     disable_pbh = "disable_pbh",
     optional_cc_flags_feature = "optional_cc_flags_feature",
     cpp_compile_with_requirements = "cpp_compile_with_requirements",
+    no_copts_tokenization = "no_copts_tokenization",
 )
+
+_no_copts_tokenization_feature = feature(name = _FEATURE_NAMES.no_copts_tokenization)
 
 _disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
 
@@ -578,6 +593,96 @@ _enable_xbinaryfdo_thinlto_feature = feature(
 
 _xbinaryfdo_implicit_thinlto_feature = feature(name = _FEATURE_NAMES.xbinaryfdo_implicit_thinlto)
 
+_split_functions_feature = feature(
+    name = _FEATURE_NAMES.split_functions,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.c_compile,
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.cpp_module_codegen,
+                ACTION_NAMES.lto_backend,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-fsplit-machine-functions",
+                        "-DBUILD_PROPELLER_TYPE=\"split\"",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+_enable_fdo_split_functions_feature = feature(
+    name = _FEATURE_NAMES.enable_fdo_split_functions,
+    requires = [feature_set(features = ["fdo_split_functions"])],
+    implies = ["split_functions"],
+)
+
+_fdo_split_functions_feature = feature(name = _FEATURE_NAMES.fdo_split_functions)
+
+_enable_fsafdo_feature = feature(
+    name = _FEATURE_NAMES.enable_fsafdo,
+    requires = [feature_set(features = ["implicit_fsafdo"])],
+    implies = ["fsafdo"],
+)
+
+_implicit_fsafdo_feature = feature(name = _FEATURE_NAMES.implicit_fsafdo)
+
+_fsafdo_feature = feature(
+    name = _FEATURE_NAMES.fsafdo,
+    requires = [feature_set(features = ["autofdo"])],
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.c_compile,
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.cpp_module_codegen,
+                ACTION_NAMES.lto_backend,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-fsafdo",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+_native_deps_link_feature = feature(
+    name = _FEATURE_NAMES.native_deps_link,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_dynamic_library],
+            flag_groups = [flag_group(flags = ["native_deps_link"])],
+        ),
+    ],
+)
+
+_java_launcher_link_feature = feature(
+    name = _FEATURE_NAMES.java_launcher_link,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [flag_group(flags = ["java_launcher_link"])],
+        ),
+    ],
+)
+
+_py_launcher_link_feature = feature(
+    name = _FEATURE_NAMES.py_launcher_link,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [flag_group(flags = ["py_launcher_link"])],
+        ),
+    ],
+)
+
 _autofdo_feature = feature(
     name = _FEATURE_NAMES.autofdo,
     flag_sets = [
@@ -696,6 +801,10 @@ _per_object_debug_info_feature = feature(
 
 _copy_dynamic_libraries_to_binary_feature = feature(
     name = _FEATURE_NAMES.copy_dynamic_libraries_to_binary,
+)
+
+_generate_pdb_file_feature = feature(
+    name = _FEATURE_NAMES.generate_pdb_file,
 )
 
 _supports_start_end_lib_feature = feature(
@@ -925,6 +1034,22 @@ _include_directories_feature = feature(
     ],
 )
 
+_external_include_paths_feature = feature(
+    name = _FEATURE_NAMES.external_include_paths,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-isystem",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
 _from_package_feature = feature(
     name = _FEATURE_NAMES.from_package,
     flag_sets = [
@@ -992,6 +1117,26 @@ _cpp_compile_with_requirements_action_config = action_config(
 
 _foo_feature = feature(
     name = _FEATURE_NAMES.foo,
+)
+
+_check_additional_variables_feature = feature(
+    name = _FEATURE_NAMES.check_additional_variables,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "string_variable",
+                    flags = ["--my_string=%{string_variable}"],
+                ),
+                flag_group(
+                    expand_if_available = "list_variable",
+                    iterate_over = "list_variable",
+                    flags = ["--my_list_element=%{list_variable}"],
+                ),
+            ],
+        ),
+    ],
 )
 
 _library_search_directories_feature = feature(
@@ -1166,8 +1311,17 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.autofdo_implicit_thinlto: _autofdo_implicit_thinlto_feature,
     _FEATURE_NAMES.enable_fdo_thinlto: _enable_fdo_thin_lto_feature,
     _FEATURE_NAMES.fdo_implicit_thinlto: _fdo_implicit_thinlto_feature,
+    _FEATURE_NAMES.split_functions: _split_functions_feature,
+    _FEATURE_NAMES.enable_fdo_split_functions: _enable_fdo_split_functions_feature,
+    _FEATURE_NAMES.fdo_split_functions: _fdo_split_functions_feature,
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
+    _FEATURE_NAMES.fsafdo: _fsafdo_feature,
+    _FEATURE_NAMES.implicit_fsafdo: _implicit_fsafdo_feature,
+    _FEATURE_NAMES.enable_fsafdo: _enable_fsafdo_feature,
+    _FEATURE_NAMES.native_deps_link: _native_deps_link_feature,
+    _FEATURE_NAMES.java_launcher_link: _java_launcher_link_feature,
+    _FEATURE_NAMES.py_launcher_link: _py_launcher_link_feature,
     _FEATURE_NAMES.autofdo: _autofdo_feature,
     _FEATURE_NAMES.is_cc_fake_binary: _is_cc_fake_binary_feature,
     _FEATURE_NAMES.xbinaryfdo: _xbinaryfdo_feature,
@@ -1191,11 +1345,13 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.fission_flags_for_lto_backend: _fission_flags_for_lto_backend_feature,
     _FEATURE_NAMES.min_os_version_flag: _min_os_version_flag_feature,
     _FEATURE_NAMES.include_directories: _include_directories_feature,
+    _FEATURE_NAMES.external_include_paths: _external_include_paths_feature,
     _FEATURE_NAMES.from_package: _from_package_feature,
     _FEATURE_NAMES.absolute_path_directories: _absolute_path_directories_feature,
     _FEATURE_NAMES.change_tool: _change_tool_feature,
     _FEATURE_NAMES.module_map_without_extern_module: _module_map_without_extern_module_feature,
     _FEATURE_NAMES.foo: _foo_feature,
+    _FEATURE_NAMES.check_additional_variables: _check_additional_variables_feature,
     _FEATURE_NAMES.library_search_directories: _library_search_directories_feature,
     _FEATURE_NAMES.runtime_library_search_directories: _runtime_library_search_directories_feature,
     _FEATURE_NAMES.generate_submodules: _generate_submodules_feature,
@@ -1203,8 +1359,10 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.def_feature: _def_feature,
     _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
     _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
+    _FEATURE_NAMES.no_copts_tokenization: _no_copts_tokenization_feature,
     _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
     _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
+    _FEATURE_NAMES.generate_pdb_file: _generate_pdb_file_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,

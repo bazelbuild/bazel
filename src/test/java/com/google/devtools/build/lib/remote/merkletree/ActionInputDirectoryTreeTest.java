@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
-import com.google.devtools.build.lib.remote.util.StringActionInput;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,9 +70,9 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        new FileNode("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        new FileNode("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"));
+        FileNode.createExecutable("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
   }
@@ -118,12 +117,12 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(3, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        new FileNode("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        new FileNode(
+        FileNode.createExecutable(
             "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"));
     FileNode expectedBuzzNode =
-        new FileNode(
+        FileNode.createExecutable(
             "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
@@ -131,10 +130,48 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(fileNodesAtDepth(tree, 3)).containsExactly(expectedBuzzNode);
   }
 
+  @Test
+  public void filesShouldBeDeduplicated() throws Exception {
+    // Test that a file specified as part of a directory and as an individual file is not counted
+    // twice.
+
+    SortedMap<PathFragment, ActionInput> sortedInputs = new TreeMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+
+    Path dirPath = execRoot.getRelative("srcs");
+    dirPath.createDirectoryAndParents();
+    Artifact dir = ActionsTestUtil.createArtifact(artifactRoot, dirPath);
+    sortedInputs.put(dirPath.relativeTo(execRoot), dir);
+    metadata.put(dir, FileArtifactValue.createForTesting(dirPath));
+
+    Path fooPath = dirPath.getRelative("foo.cc");
+    FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
+    ActionInput foo = ActionInputHelper.fromPath(fooPath.relativeTo(execRoot));
+    sortedInputs.put(fooPath.relativeTo(execRoot), foo);
+    metadata.put(foo, FileArtifactValue.createForTesting(fooPath));
+
+    DirectoryTree tree =
+        DirectoryTreeBuilder.fromActionInputs(
+            sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    assertLexicographicalOrder(tree);
+
+    assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
+    assertThat(directoriesAtDepth(1, tree)).isEmpty();
+
+    FileNode expectedFooNode =
+        FileNode.createExecutable(
+            "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"));
+    assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
+    assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
+
+    assertThat(tree.numFiles()).isEqualTo(1);
+  }
+
   private static VirtualActionInput addVirtualFile(
       String path, String content, SortedMap<PathFragment, ActionInput> sortedInputs) {
-    VirtualActionInput input = new StringActionInput(content, PathFragment.create(path));
-    sortedInputs.put(PathFragment.create(path), input);
+    PathFragment pathFragment = PathFragment.create(path);
+    VirtualActionInput input = ActionsTestUtil.createVirtualActionInput(pathFragment, content);
+    sortedInputs.put(pathFragment, input);
     return input;
   }
 

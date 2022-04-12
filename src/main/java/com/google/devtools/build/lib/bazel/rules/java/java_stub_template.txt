@@ -106,11 +106,6 @@ for ARG in "$@"; do
   fi
 done
 
-# A file storing the test's runtime classpath, excluding the test support.
-# The file is read by the persistent test runner. The jars inside the file are
-# loaded dynamically for every test run into a custom classloader.
-%test_runtime_classpath_file%
-
 # Find our runfiles tree.  We need this to construct the classpath
 # (unless --singlejar was passed).
 #
@@ -258,14 +253,11 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 %set_jacoco_metadata%
 %set_jacoco_main_class%
 %set_jacoco_java_runfiles_root%
+export JACOCO_IS_JAR_WRAPPED=0
 
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}
   JVM_DEBUG_FLAGS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=${JVM_DEBUG_SUSPEND},address=${JVM_DEBUG_PORT}"
-
-  if [[ "$PERSISTENT_TEST_RUNNER" == "true" ]]; then
-    JVM_DEBUG_FLAGS+=",quiet=y"
-  fi
 fi
 
 if [[ -n "$MAIN_ADVICE_CLASSPATH" ]]; then
@@ -299,7 +291,20 @@ function create_and_run_classpath_jar() {
   OLDIFS="$IFS"
   IFS="${CLASSPATH_SEPARATOR}" # Use a custom separator for the loop.
   for path in ${CLASSPATH}; do
-    # Convert spaces to %20
+    # Loop through the characters of the path and convert characters that are
+    # not alphanumeric nor -_.~/ to their 2-digit hexadecimal representation
+    local i c buff
+    local converted_path=""
+
+    for ((i=0; i<${#path}; i++)); do
+      c=${path:$i:1}
+      case ${c} in
+            [-_.~/a-zA-Z0-9] ) buff=${c} ;;
+            * )               printf -v buff '%%%02x' "'$c'"
+      esac
+      converted_path+="${buff}"
+    done
+    path=${converted_path}
 
     if is_windows; then
       path="file:/${path}" # e.g. "file:/C:/temp/foo.jar"
@@ -312,7 +317,6 @@ function create_and_run_classpath_jar() {
       path="file:${path}" # e.g. "file:/usr/local/foo.jar"
     fi
 
-    path=$(sed "s/ /%20/g" <<< "${path}")
     MANIFEST_CLASSPATH+=("${path}")
   done
   IFS="$OLDIFS"
@@ -359,6 +363,7 @@ if [ -z "$CLASSPATH_LIMIT" ]; then
 fi
 
 if (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
+  export JACOCO_IS_JAR_WRAPPED=1
   create_and_run_classpath_jar
 else
   exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"

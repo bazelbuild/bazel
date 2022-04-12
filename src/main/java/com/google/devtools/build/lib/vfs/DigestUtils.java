@@ -13,16 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheStats;
 import com.google.common.primitives.Longs;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Utility class for getting digests of files.
@@ -42,25 +38,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * fail.
  */
 public class DigestUtils {
-
-  // Object to synchronize on when serializing large file reads.
-  private static final Object DIGEST_LOCK = new Object();
-  private static final AtomicBoolean MULTI_THREADED_DIGEST = new AtomicBoolean(false);
-
   // Typical size for a digest byte array.
   public static final int ESTIMATED_SIZE = 32;
-
-  // Files of this size or less are assumed to be readable in one seek.
-  // (This is the default readahead window on Linux.)
-  @VisibleForTesting // the unittest is in a different package!
-  public static final int MULTI_THREADED_DIGEST_MAX_FILE_SIZE = 128 * 1024;
-
-  // The time that a digest computation has to take at least in order to be considered a slow-read.
-  private static final long SLOW_READ_MILLIS = 5000L;
-
-  // The average bytes-per-millisecond throughput that a digest computation has to go below in order
-  // to be considered a slow-read.
-  private static final long SLOW_READ_THROUGHPUT = (10 * 1024 * 1024) / 1000;
 
   /**
    * Keys used to cache the values of the digests for files where we don't have fast digests.
@@ -126,45 +105,15 @@ public class DigestUtils {
    *
    * <p>This is null when the cache is disabled.
    *
-   * <p>Note that we do not use a {@link com.google.common.cache.LoadingCache} because our keys
-   * represent the paths as strings, not as {@link Path} instances. As a result, the loading
-   * function cannot actually compute the digests of the files so we have to handle this externally.
+   * <p>Note that we do not use a {@link com.github.benmanes.caffeine.cache.LoadingCache} because
+   * our keys represent the paths as strings, not as {@link Path} instances. As a result, the
+   * loading function cannot actually compute the digests of the files so we have to handle this
+   * externally.
    */
   private static Cache<CacheKey, byte[]> globalCache = null;
 
   /** Private constructor to prevent instantiation of utility class. */
   private DigestUtils() {}
-
-  /**
-   * Obtain file's digset using synchronized method, ensuring that system is not overloaded in case
-   * when multiple threads are requesting digest calculations and underlying file system cannot
-   * provide it via extended attribute.
-   */
-  private static byte[] getDigestInExclusiveMode(Path path) throws IOException {
-    long startTime = Profiler.nanoTimeMaybe();
-    synchronized (DIGEST_LOCK) {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, path.getPathString());
-      return getDigestInternal(path);
-    }
-  }
-
-  private static byte[] getDigestInternal(Path path) throws IOException {
-    long startTime = System.nanoTime();
-    byte[] digest = path.getDigest();
-
-    // When using multi-threaded digesting, it makes no sense to use the throughput of a single
-    // digest operation to determine whether a read was abnormally slow (as the scheduler might just
-    // have preferred other reads).
-    if (!MULTI_THREADED_DIGEST.get()) {
-      long millis = (System.nanoTime() - startTime) / 1000000;
-      if (millis > SLOW_READ_MILLIS && (path.getFileSize() / millis) < SLOW_READ_THROUGHPUT) {
-        System.err.printf(
-            "Slow read: a %d-byte read from %s took %d ms.%n", path.getFileSize(), path, millis);
-      }
-    }
-
-    return digest;
-  }
 
   /**
    * Enables the caching of file digests based on file status data.
@@ -178,7 +127,7 @@ public class DigestUtils {
     if (maximumSize == 0) {
       globalCache = null;
     } else {
-      globalCache = CacheBuilder.newBuilder().maximumSize(maximumSize).recordStats().build();
+      globalCache = Caffeine.newBuilder().maximumSize(maximumSize).recordStats().build();
     }
   }
 
@@ -196,13 +145,6 @@ public class DigestUtils {
   }
 
   /**
-   * Enable or disable multi-threaded digesting even for large files.
-   */
-  public static void setMultiThreadedDigest(boolean multiThreadedDigest) {
-    DigestUtils.MULTI_THREADED_DIGEST.set(multiThreadedDigest);
-  }
-
-  /**
    * Gets the digest of {@code path}, using a constant-time xattr call if the filesystem supports
    * it, and calculating the digest manually otherwise.
    *
@@ -214,8 +156,9 @@ public class DigestUtils {
    *     serially or in parallel. Files larger than a certain threshold will be read serially, in
    *     order to avoid excessive disk seeks.
    */
-  public static byte[] getDigestWithManualFallback(Path path, long fileSize) throws IOException {
-    byte[] digest = path.getFastDigest();
+  public static byte[] getDigestWithManualFallback(
+      Path path, long fileSize, XattrProvider xattrProvider) throws IOException {
+    byte[] digest = xattrProvider.getFastDigest(path);
     return digest != null ? digest : manuallyComputeDigest(path, fileSize);
   }
 
@@ -229,8 +172,9 @@ public class DigestUtils {
    *
    * @param path Path of the file.
    */
-  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(Path path) throws IOException {
-    return getDigestWithManualFallback(path, -1);
+  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(
+      Path path, XattrProvider xattrProvider) throws IOException {
+    return getDigestWithManualFallback(path, -1, xattrProvider);
   }
 
   /**
@@ -248,24 +192,14 @@ public class DigestUtils {
     Cache<CacheKey, byte[]> cache = globalCache;
     CacheKey key = null;
     if (cache != null) {
-      Path canonicalPath = path.resolveSymbolicLinks();
-      key = new CacheKey(canonicalPath, canonicalPath.stat());
+      key = new CacheKey(path, path.stat());
       digest = cache.getIfPresent(key);
       if (digest != null) {
         return digest;
       }
     }
 
-    // Compute digest from the file contents.
-    if (fileSize > MULTI_THREADED_DIGEST_MAX_FILE_SIZE && !MULTI_THREADED_DIGEST.get()) {
-      // We'll have to read file content in order to calculate the digest.
-      // We avoid overlapping this process for multiple large files, as
-      // seeking back and forth between them will result in an overall loss of
-      // throughput.
-      digest = getDigestInExclusiveMode(path);
-    } else {
-      digest = getDigestInternal(path);
-    }
+    digest = path.getDigest();
 
     Preconditions.checkNotNull(digest, "Missing digest for %s (size %s)", path, fileSize);
     if (cache != null) {

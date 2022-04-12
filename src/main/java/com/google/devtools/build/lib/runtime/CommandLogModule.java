@@ -16,18 +16,20 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Supplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.logging.Level;
 
 /** This module logs complete stdout / stderr output of Bazel to a local file. */
 public class CommandLogModule extends BlazeModule {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private CommandEnvironment env;
   private OutputStream logOutputStream;
 
@@ -48,16 +50,18 @@ public class CommandLogModule extends BlazeModule {
     try {
       commandLog.delete();
     } catch (IOException ioException) {
-      LoggingUtil.logToRemote(Level.WARNING, "Unable to delete command.log", ioException);
+      env.getReporter()
+          .handle(Event.warn("Unable to delete command log: " + ioException.getMessage()));
     }
 
     try {
       if (writeCommandLog(env.getRuntime()) && !"clean".equals(env.getCommandName())) {
-        logOutputStream = commandLog.getOutputStream();
+        logOutputStream = commandLog.getOutputStream(/* append= */ false, /* internal= */ true);
         return OutErr.create(logOutputStream, logOutputStream);
       }
     } catch (IOException ioException) {
-      LoggingUtil.logToRemote(Level.WARNING, "Unable to delete or open command.log", ioException);
+      env.getReporter()
+          .handle(Event.warn("Unable to open command log: " + ioException.getMessage()));
     }
     return null;
   }
@@ -76,13 +80,20 @@ public class CommandLogModule extends BlazeModule {
 
   @Override
   public void commandComplete() {
+    CommandEnvironment localEnv = this.env;
     this.env = null;
     if (logOutputStream != null) {
       try {
         logOutputStream.flush();
         logOutputStream.close();
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        logger.atWarning().withCause(e).log("I/O exception closing log");
+        String msg = "I/O exception closing log: " + e.getMessage();
+        if (localEnv != null) {
+          localEnv.getReporter().handle(Event.error(msg));
+        } else {
+          System.err.println(msg);
+        }
       } finally {
         logOutputStream = null;
       }
@@ -101,7 +112,8 @@ public class CommandLogModule extends BlazeModule {
     }
 
     @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+    public byte[] get(
+        Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(env);
       return print(getCommandLogPath(env.getRuntime().getWorkspace().getOutputBase()));

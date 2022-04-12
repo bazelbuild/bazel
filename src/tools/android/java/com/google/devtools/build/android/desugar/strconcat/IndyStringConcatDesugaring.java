@@ -67,12 +67,31 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
           .setIsInterface(false)
           .build();
 
+  private static final MethodInvocationSite INVOKE_STRING_CONCAT_REPLACEMENT_CORE_LIB_METHOD =
+      MethodInvocationSite.builder()
+          .setInvocationKind(MemberUseKind.INVOKESTATIC)
+          .setMethod(
+              MethodKey.create(
+                  ClassName.create("java/lang/DesugarStringConcats"),
+                  "concat",
+                  "([Ljava/lang/Object;"
+                      + "Ljava/lang/String;"
+                      + "[Ljava/lang/Object;)"
+                      + "Ljava/lang/String;"))
+          .setIsInterface(false)
+          .build();
+
   private final ClassMemberUseCounter classMemberUseCounter;
+  private final MethodInvocationSite invokeStringConcatReplacementSite;
 
   public IndyStringConcatDesugaring(
-      ClassMemberUseCounter classMemberUseCounter, ClassVisitor classVisitor) {
+      ClassMemberUseCounter classMemberUseCounter, ClassVisitor classVisitor, boolean coreLibrary) {
     super(Opcodes.ASM8, classVisitor);
     this.classMemberUseCounter = classMemberUseCounter;
+    this.invokeStringConcatReplacementSite =
+        coreLibrary
+            ? INVOKE_STRING_CONCAT_REPLACEMENT_CORE_LIB_METHOD
+            : INVOKE_STRING_CONCAT_REPLACEMENT_METHOD;
   }
 
   @Override
@@ -81,17 +100,23 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
     return mv == null
         ? null
-        : new IndifiedStringConcatInvocationConverter(classMemberUseCounter, api, mv);
+        : new IndifiedStringConcatInvocationConverter(
+            classMemberUseCounter, api, mv, invokeStringConcatReplacementSite);
   }
 
   static final class IndifiedStringConcatInvocationConverter extends MethodVisitor {
 
     private final ClassMemberUseCounter classMemberUseCounter;
+    private final MethodInvocationSite invokeStringConcatReplacementSite;
 
     IndifiedStringConcatInvocationConverter(
-        ClassMemberUseCounter classMemberUseCounter, int api, MethodVisitor methodVisitor) {
+        ClassMemberUseCounter classMemberUseCounter,
+        int api,
+        MethodVisitor methodVisitor,
+        MethodInvocationSite invokeStringConcatReplacementSite) {
       super(api, methodVisitor);
       this.classMemberUseCounter = classMemberUseCounter;
+      this.invokeStringConcatReplacementSite = invokeStringConcatReplacementSite;
     }
 
     @Override
@@ -135,7 +160,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
           visitInsn(Opcodes.AASTORE);
         }
 
-        INVOKE_STRING_CONCAT_REPLACEMENT_METHOD.accept(mv);
+        invokeStringConcatReplacementSite.accept(mv);
         return;
       }
       super.visitInvokeDynamicInsn(

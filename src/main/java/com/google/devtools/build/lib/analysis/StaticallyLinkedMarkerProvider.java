@@ -14,16 +14,49 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A marker provider for rules that are to be linked statically.
  *
- * Used in license checking.
+ * <p>Used in license checking.
  */
 @Immutable
-public class StaticallyLinkedMarkerProvider implements TransitiveInfoProvider {
+@StarlarkBuiltin(
+    name = "StaticallyLinkedMarkerProvider",
+    category = DocCategory.BUILTIN,
+    documented = false)
+public class StaticallyLinkedMarkerProvider extends NativeInfo implements StarlarkValue {
   private final boolean isLinkedStatically;
+
+  /** Provider class for {@link StaticallyLinkedMarkerProvider} objects. */
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
+  public static class Provider extends BuiltinProvider<StaticallyLinkedMarkerProvider> {
+    private Provider() {
+      super("StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.class);
+    }
+
+    @StarlarkMethod(
+        name = "StaticallyLinkedMarkerProvider",
+        documented = false,
+        selfCall = true,
+        parameters = {@Param(name = "is_linked_statically", positional = false, named = true)})
+    @StarlarkConstructor
+    public StaticallyLinkedMarkerProvider createStaticallyLinkedMarkerProvider(
+        boolean isLinkedStatically) {
+      return new StaticallyLinkedMarkerProvider(isLinkedStatically);
+    }
+  }
+
+  public static final Provider PROVIDER = new Provider();
 
   public StaticallyLinkedMarkerProvider(boolean isLinkedStatically) {
     this.isLinkedStatically = isLinkedStatically;
@@ -31,5 +64,10 @@ public class StaticallyLinkedMarkerProvider implements TransitiveInfoProvider {
 
   public boolean isLinkedStatically() {
     return isLinkedStatically;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 }

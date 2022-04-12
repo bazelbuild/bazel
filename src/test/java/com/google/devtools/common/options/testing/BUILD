@@ -19,6 +19,9 @@ filegroup(
 java_library(
     name = "OptionsTesterTest_lib",
     srcs = glob(["*.java"]),
+    javacopts = [
+        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
+    ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/testing",
@@ -33,19 +36,4 @@ java_test(
     name = "OptionsTesterTest",
     test_class = "com.google.devtools.common.options.testing.AllTests",
     runtime_deps = [":OptionsTesterTest_lib"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
 )

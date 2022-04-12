@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.util.StreamWriter;
@@ -27,6 +26,11 @@ import java.io.OutputStream;
  * OutputStream.
  */
 public interface VirtualActionInput extends ActionInput, StreamWriter {
+  /**
+   * An empty virtual artifact <b>without</b> an execpath. This is used to denote empty files in
+   * runfiles and filesets.
+   */
+  public static final VirtualActionInput EMPTY_MARKER = new EmptyActionInput();
 
   /**
    * Gets a {@link ByteString} representation of the fake file. Used to avoid copying if the fake
@@ -48,15 +52,7 @@ public interface VirtualActionInput extends ActionInput, StreamWriter {
    * use instances of this class to represent those files.
    */
   final class EmptyActionInput implements VirtualActionInput {
-    private final PathFragment execPath;
-
-    public EmptyActionInput(PathFragment execPath) {
-      this.execPath = Preconditions.checkNotNull(execPath);
-    }
-
-    public EmptyActionInput(String execPath) {
-      this(PathFragment.create(execPath));
-    }
+    private EmptyActionInput() {}
 
     @Override
     public boolean isSymlink() {
@@ -65,12 +61,12 @@ public interface VirtualActionInput extends ActionInput, StreamWriter {
 
     @Override
     public String getExecPathString() {
-      return execPath.getPathString();
+      throw new UnsupportedOperationException("empty virtual artifact doesn't have an execpath");
     }
 
     @Override
     public PathFragment getExecPath() {
-      return execPath;
+      throw new UnsupportedOperationException("empty virtual artifact doesn't have an execpath");
     }
 
     @Override
@@ -85,7 +81,7 @@ public interface VirtualActionInput extends ActionInput, StreamWriter {
 
     @Override
     public String toString() {
-      return "EmptyActionInput: " + execPath;
+      return "EmptyActionInput";
     }
   }
 }

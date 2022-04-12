@@ -33,6 +33,10 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+if [[ "$1" = '--with_platforms' ]]; then
+  resolve_android_toolchains_with_platforms
+fi
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/1928.
 function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
   create_new_workspace
@@ -114,6 +118,14 @@ function test_android_binary_fat_apk_contains_all_shared_libraries() {
   create_new_workspace
   setup_android_sdk_support
   setup_android_ndk_support
+
+  # TODO(b/161709111): enable platform-based toolchain resolution when
+  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
+  # out --platforms. The mapping in android_helper.sh re-enables a test Android
+  # platform for ARM but not x86. Enabling it for x86 requires an
+  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
+  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+
   # sample.aar contains native shared libraries for x86 and armeabi-v7a
   cp "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/android/sample.aar" .
   cat > AndroidManifest.xml <<EOF

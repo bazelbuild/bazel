@@ -33,7 +33,6 @@ public class ExecRootPreparedEvent {
 
   public ExecRootPreparedEvent(Optional<ImmutableMap<PackageIdentifier, Root>> packageRootsMap) {
     this.packageRootsMap = packageRootsMap.orElse(null);
-    ;
   }
 
   /** Constructs an event indicating that the source symlink forest should not be planted. */

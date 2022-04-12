@@ -18,19 +18,18 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
+import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,15 +62,15 @@ public class PyRuleClasses {
    * returns a transition that sets the version to that value. Otherwise, the factory returns {@code
    * defaultTransition} instead.
    *
-   * <p>If the attribute has an unparsable value, then the factory returns {@code defaultTransition}
-   * and it is up to the rule's analysis phase ({@link PyCommon#validatePythonVersionAttr}) to
-   * report an attribute error to the user. This case should be prevented by attribute validation if
-   * the rule class is defined correctly.
+   * <p>If the attribute has an unparseable value, then the factory returns {@code
+   * defaultTransition} and it is up to the rule's analysis phase ({@link
+   * PyCommon#validatePythonVersionAttr}) to report an attribute error to the user. This case should
+   * be prevented by attribute validation if the rule class is defined correctly.
    */
-  public static TransitionFactory<Rule> makeVersionTransition(
+  public static TransitionFactory<RuleTransitionData> makeVersionTransition(
       PythonVersionTransition defaultTransition) {
-    return (rule) -> {
-      AttributeMap attrs = RawAttributeMapper.of(rule);
+    return (ruleData) -> {
+      AttributeMap attrs = RawAttributeMapper.of(ruleData.rule());
       // Fail fast if we're used on an ill-defined rule class.
       Preconditions.checkArgument(
           attrs.has(PyCommon.PYTHON_VERSION_ATTRIBUTE, Type.STRING),
@@ -101,7 +100,7 @@ public class PyRuleClasses {
    * A Python version transition that sets the version as specified by the target's attributes, with
    * a default determined by {@link PythonOptions#getDefaultPythonVersion}.
    */
-  public static final TransitionFactory<Rule> VERSION_TRANSITION =
+  public static final TransitionFactory<RuleTransitionData> VERSION_TRANSITION =
       makeVersionTransition(PythonVersionTransition.toDefault());
 
   /** The py2 and py3 symlinks. */
@@ -112,7 +111,7 @@ public class PyRuleClasses {
     private final String versionString;
     private final PythonVersionTransition transition;
 
-    private PySymlink(PythonVersion version) {
+    PySymlink(PythonVersion version) {
       this.versionString = Ascii.toLowerCase(version.toString());
       this.transition = PythonVersionTransition.toConstant(version);
     }
@@ -123,10 +122,10 @@ public class PyRuleClasses {
     }
 
     @Override
-    public Set<Path> getLinkPaths(
+    public ImmutableSet<Path> getLinkPaths(
         BuildRequestOptions buildRequestOptions,
-        Set<BuildConfiguration> targetConfigs,
-        Function<BuildOptions, BuildConfiguration> configGetter,
+        Set<BuildConfigurationValue> targetConfigs,
+        Function<BuildOptions, BuildConfigurationValue> configGetter,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
@@ -134,16 +133,13 @@ public class PyRuleClasses {
         return ImmutableSet.of();
       }
       EventHandler e =
-          new EventHandler() {
-            @Override
-            public void handle(Event event) {
-              throw new UnsupportedOperationException(
-                  "This transition shouldn't do anything that could fail.\n"
-                      + "TODO(bazel-team): refactor this to not call patch(). Blaze code should"
-                      + " not apply transitions unless it absolutely has to, since that requires"
-                      + " sequencing (likesupporting Starlark flags and handling exceptions)"
-                      + " that's easy to get wrong.");
-            }
+          event -> {
+            throw new UnsupportedOperationException(
+                "This transition shouldn't do anything that could fail.\n"
+                    + "TODO(bazel-team): refactor this to not call patch(). Blaze code should"
+                    + " not apply transitions unless it absolutely has to, since that requires"
+                    + " sequencing (like supporting Starlark flags and handling exceptions)"
+                    + " that's easy to get wrong.");
           };
       return targetConfigs.stream()
           .map(

@@ -18,6 +18,7 @@ import static com.google.common.truth.Fact.simpleFact;
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
+import com.google.common.truth.MapSubject;
 import com.google.common.truth.Subject;
 
 /**
@@ -63,5 +64,16 @@ public class EvaluationResultSubject extends Subject {
   public IterableSubject hasReverseDepsInGraphThat(SkyKey child) throws InterruptedException {
     return check("reverseDeps(%s)", child)
         .that(actual.getWalkableGraph().getReverseDeps(ImmutableList.of(child)).get(child));
+  }
+
+  public MapSubject hasErrorMapThat() {
+    return check("errorMap()").that(actual.errorMap());
+  }
+
+  public ErrorInfoSubject hasSingletonErrorThat(SkyKey key) {
+    hasError();
+    hasErrorMapThat().hasSize(1);
+    check("keyNames()").that(actual.keyNames()).isEmpty();
+    return hasErrorEntryForKeyThat(key);
   }
 }

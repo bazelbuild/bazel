@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
 /**
- * Super-interface for {@link com.google.devtools.build.lib.skyframe.ConfiguredTargetValue} and
- * {@link AspectValue}.
+ * Super-interface for {@link ConfiguredTargetValue} and {@link RuleConfiguredObjectValue}
+ * (transitively including {@link AspectValue}).
  */
-public interface ConfiguredObjectValue extends ActionLookupValue, NotComparableSkyValue {
+public interface ConfiguredObjectValue extends NotComparableSkyValue {
   /** Returns the configured target/aspect for this value. */
   ProviderCollection getConfiguredObject();
 
@@ -37,11 +36,10 @@ public interface ConfiguredObjectValue extends ActionLookupValue, NotComparableS
   NestedSet<Package> getTransitivePackagesForPackageRootResolution();
 
   /**
-   * Clears provider data from this value, leaving only the artifact->generating action map.
+   * Clears data from this value.
    *
    * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
-   * once per value, after which {@link #getConfiguredObject} and {@link #getActions} cannot be
-   * called.
+   * once per value, after which this object's other methods cannot be called.
    */
   void clear(boolean clearEverything);
 }

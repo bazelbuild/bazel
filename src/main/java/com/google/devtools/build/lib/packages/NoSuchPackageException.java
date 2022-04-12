@@ -58,13 +58,17 @@ public class NoSuchPackageException extends NoSuchThingException {
     return packageId;
   }
 
-  public String getRawMessage() {
+  String getRawMessage() {
     return super.getMessage();
   }
 
   @Override
   public String getMessage() {
     return String.format("no such package '%s': %s", packageId, getRawMessage());
+  }
+
+  public boolean hasExplicitDetailedExitCode() {
+    return getUncheckedDetailedExitCode() != null;
   }
 
   @Override

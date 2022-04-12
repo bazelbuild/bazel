@@ -49,7 +49,8 @@ public interface CoverageReportActionFactory {
     public CoverageReportActionsWrapper(
         ActionAnalysisMetadata lcovWriteAction,
         ActionAnalysisMetadata coverageReportAction,
-        ActionKeyContext actionKeyContext) {
+        ActionKeyContext actionKeyContext)
+        throws InterruptedException {
       this.coverageReportAction = coverageReportAction;
       try {
         this.processedActions =
@@ -57,7 +58,8 @@ public interface CoverageReportActionFactory {
                 actionKeyContext,
                 ImmutableList.of(lcovWriteAction, coverageReportAction),
                 CoverageReportValue.COVERAGE_REPORT_KEY);
-      } catch (MutableActionGraph.ActionConflictException e) {
+      } catch (MutableActionGraph.ActionConflictException
+          | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
     }
@@ -90,5 +92,6 @@ public interface CoverageReportActionFactory {
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
       ActionLookupKey actionLookupKey,
-      String workspaceName);
+      String workspaceName)
+      throws InterruptedException;
 }

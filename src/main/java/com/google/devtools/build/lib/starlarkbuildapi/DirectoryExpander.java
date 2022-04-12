@@ -40,7 +40,6 @@ public interface DirectoryExpander extends StarlarkValue {
       parameters = {
         @Param(
             name = "file",
-            type = FileApi.class,
             positional = true,
             named = false,
             doc = "The directory or file to expand."),

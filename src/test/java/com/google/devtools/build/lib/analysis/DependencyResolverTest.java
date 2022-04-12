@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.causes.Cause;
@@ -28,8 +30,6 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.Map;
 import java.util.function.Function;
@@ -42,8 +42,8 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link DependencyResolver}.
  *
- * <p>These use custom rules so that all usual and unusual cases related to aspect processing can
- * be tested.
+ * <p>These use custom rules so that all usual and unusual cases related to aspect processing can be
+ * tested.
  *
  * <p>It would be nicer is we didn't have a Skyframe executor, if we didn't have that, we'd need a
  * way to create a configuration, a package manager and a whole lot of other things, so it's just
@@ -54,7 +54,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
   private DependencyResolver dependencyResolver;
 
   @Before
-  public final void createResolver() throws Exception {
+  public final void createResolver() {
     dependencyResolver =
         new DependencyResolver() {
           @Override
@@ -81,28 +81,24 @@ public class DependencyResolverTest extends AnalysisTestCase {
   }
 
   private void pkg(String name, String... contents) throws Exception {
-    scratch.file("" + name + "/BUILD", contents);
+    scratch.file(name + "/BUILD", contents);
   }
 
   private OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
       String targetName, NativeAspectClass aspect) throws Exception {
     Target target =
         packageManager.getTarget(reporter, Label.parseAbsolute(targetName, ImmutableMap.of()));
-    OrderedSetMultimap<DependencyKind, DependencyKey> prerequisiteMap =
-        dependencyResolver.dependentNodeMap(
-            new TargetAndConfiguration(target, getTargetConfiguration()),
-            getHostConfiguration(),
-            aspect != null ? Aspect.forNative(aspect) : null,
-            ImmutableMap.of(),
-            /* toolchainContexts= */ null,
-            /*useToolchainTransition=*/ false,
-            /*trimmingTransitionFactory=*/ null);
 
-    return prerequisiteMap;
+    return dependencyResolver.dependentNodeMap(
+        new TargetAndConfiguration(target, getTargetConfiguration()),
+        aspect != null ? Aspect.forNative(aspect) : null,
+        ImmutableMap.of(),
+        /*toolchainContexts=*/ null,
+        /*useToolchainTransition=*/ false,
+        /*trimmingTransitionFactory=*/ null);
   }
 
-  @SafeVarargs
-  private final DependencyKey assertDep(
+  private static void assertDep(
       OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap,
       String attrName,
       String dep,
@@ -127,46 +123,34 @@ public class DependencyResolverTest extends AnalysisTestCase {
     assertWithMessage("Dependency '" + dep + "' on attribute '" + attrName + "' not found")
         .that(dependency)
         .isNotNull();
-    assertThat(dependency.getAspects().getAllAspects()).containsExactly((Object[]) aspects);
-    return dependency;
+    assertThat(Iterables.transform(dependency.getAspects().getUsedAspects(), AspectDeps::getAspect))
+        .containsExactlyElementsIn(aspects);
   }
 
   @Test
   public void hasAspectsRequiredByRule() throws Exception {
     setRulesAvailableInTests(TestAspects.ASPECT_REQUIRING_RULE, TestAspects.BASE_RULE);
-    pkg("a",
-        "aspect(name='a', foo=[':b'])",
-        "aspect(name='b', foo=[])");
+    pkg("a", "aspect(name='a', foo=[':b'])", "aspect(name='b', foo=[])");
     OrderedSetMultimap<DependencyKind, DependencyKey> map = dependentNodeMap("//a:a", null);
-    assertDep(
-        map, "foo", "//a:b",
-        new AspectDescriptor(TestAspects.SIMPLE_ASPECT));
+    assertDep(map, "foo", "//a:b", new AspectDescriptor(TestAspects.SIMPLE_ASPECT));
   }
 
   @Test
   public void hasAspectsRequiredByAspect() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE);
-    pkg("a",
-        "simple(name='a', foo=[':b'])",
-        "simple(name='b', foo=[])");
+    pkg("a", "simple(name='a', foo=[':b'])", "simple(name='b', foo=[])");
     OrderedSetMultimap<DependencyKind, DependencyKey> map =
         dependentNodeMap("//a:a", TestAspects.ATTRIBUTE_ASPECT);
-    assertDep(
-        map, "foo", "//a:b",
-        new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT));
+    assertDep(map, "foo", "//a:b", new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT));
   }
 
   @Test
   public void hasAllAttributesAspect() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE);
-    pkg("a",
-        "simple(name='a', foo=[':b'])",
-        "simple(name='b', foo=[])");
+    pkg("a", "simple(name='a', foo=[':b'])", "simple(name='b', foo=[])");
     OrderedSetMultimap<DependencyKind, DependencyKey> map =
         dependentNodeMap("//a:a", TestAspects.ALL_ATTRIBUTES_ASPECT);
-    assertDep(
-        map, "foo", "//a:b",
-        new AspectDescriptor(TestAspects.ALL_ATTRIBUTES_ASPECT));
+    assertDep(map, "foo", "//a:b", new AspectDescriptor(TestAspects.ALL_ATTRIBUTES_ASPECT));
   }
 
   @Test
@@ -177,15 +161,5 @@ public class DependencyResolverTest extends AnalysisTestCase {
     OrderedSetMultimap<DependencyKind, DependencyKey> map =
         dependentNodeMap("//a:a", TestAspects.EXTRA_ATTRIBUTE_ASPECT);
     assertDep(map, "$dep", "//extra:extra");
-  }
-
-  /** Runs the same test with trimmed configurations. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithTrimmedConfigurations extends DependencyResolverTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
-    }
   }
 }

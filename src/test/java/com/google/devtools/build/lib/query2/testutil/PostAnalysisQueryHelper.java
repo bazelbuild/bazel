@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
@@ -72,8 +73,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   public void setUp() throws Exception {
     super.setUp();
     parserPrefix = PathFragment.EMPTY_FRAGMENT;
-    analysisHelper = new AnalysisHelper();
     wholeTestUniverse = false;
+    this.analysisHelper = new AnalysisHelper();
     // Reverse the @Before method list, so that superclass is called before subclass.
     for (Method method :
         Lists.reverse(getMethodsAnnotatedWith(AnalysisHelper.class, Before.class))) {
@@ -96,6 +97,10 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   MockToolsConfig getMockToolsConfig() {
     return analysisHelper.getMockToolsConfig();
+  }
+
+  void setSyscallCache(SyscallCache syscallCache) {
+    this.analysisHelper.setSyscallCache(syscallCache);
   }
 
   public boolean isWholeTestUniverse() {
@@ -172,7 +177,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     Path rootDirectory = getRootDirectory();
     Path linkPath = rootDirectory.getRelative(link);
     Path targetPath = rootDirectory.getRelative(target);
-    FileSystemUtils.createDirectoryAndParents(linkPath.getParentDirectory());
+    linkPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.ensureSymbolicLink(linkPath, targetPath);
   }
 
@@ -182,7 +187,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
-      Collection<String> universe) throws QueryException, InterruptedException {
+      Collection<String> universe) throws Exception {
     if (ImmutableList.copyOf(universe)
         .equals(ImmutableList.of(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(
@@ -191,11 +196,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
           Query.Code.QUERY_UNKNOWN);
     }
     AnalysisResult analysisResult;
-    try {
-      analysisResult = analysisHelper.update(universe.toArray(new String[0]));
-    } catch (Exception e) {
-      throw new QueryException(e.getMessage(), Query.Code.QUERY_UNKNOWN);
-    }
+    analysisResult = analysisHelper.update(universe.toArray(new String[0]));
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());
 
@@ -222,8 +223,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       throws InterruptedException;
 
   @Override
-  public ResultAndTargets<T> evaluateQuery(String query)
-      throws QueryException, InterruptedException {
+  public ResultAndTargets<T> evaluateQuery(String query) throws Exception {
     PostAnalysisQueryEnvironment<T> env =
         getPostAnalysisQueryEnvironment(getUniverseScopeAsStringList());
     AggregateAllOutputFormatterCallback<T, ?> callback =
@@ -303,13 +303,17 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       return reporter;
     }
 
+    private void setSyscallCache(SyscallCache syscallCache) {
+      this.delegatingSyscallCache.setDelegate(syscallCache);
+    }
+
     @Override
-    protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
+    protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
       return super.getTargetConfiguration();
     }
 
     @Override
-    public BuildConfiguration getHostConfiguration() {
+    public BuildConfigurationValue getHostConfiguration() {
       return super.getHostConfiguration();
     }
 

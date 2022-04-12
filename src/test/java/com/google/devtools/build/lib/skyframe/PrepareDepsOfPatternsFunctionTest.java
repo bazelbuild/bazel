@@ -213,7 +213,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
             .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
-        getSkyframeExecutor().getDriver().evaluate(singletonTargetPattern, evaluationContext);
+        getSkyframeExecutor().getEvaluator().evaluate(singletonTargetPattern, evaluationContext);
     // Currently all callers either expect success or pass keepGoing=true, which implies success,
     // since PrepareDepsOfPatternsFunction swallows all errors. Will need to be changed if a test
     // that evaluates with keepGoing=false and expects errors is added.

@@ -32,7 +32,7 @@ public class ResourceFilter {
   private final boolean isEmpty;
 
   static final ResourceFilter empty() {
-    return new ResourceFilter(ImmutableSet.of(), (artifact -> {}), /* isEmpty= */ true);
+    return new ResourceFilter(ImmutableSet.of(), artifact -> {}, /* isEmpty= */ true);
   }
 
   static final ResourceFilter of(

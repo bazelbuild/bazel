@@ -13,29 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
-import com.google.common.util.concurrent.Futures;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
+import io.netty.util.AbstractReferenceCounted;
+import io.netty.util.ReferenceCounted;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** An uploader that simply turns paths into local file URIs. */
-public class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
+public class LocalFilesArtifactUploader extends AbstractReferenceCounted
+    implements BuildEventArtifactUploader {
   private static final FileUriPathConverter FILE_URI_PATH_CONVERTER = new FileUriPathConverter();
   private final ConcurrentHashMap<Path, Boolean> fileIsDirectory = new ConcurrentHashMap<>();
 
   @Override
   public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-    return Futures.immediateFuture(new PathConverterImpl(files.keySet()));
+    return immediateFuture(new PathConverterImpl(files));
   }
 
   @Override
-  public void shutdown() {
+  protected void deallocate() {
     // Intentionally left empty
+  }
+
+  @Override
+  public ReferenceCounted touch(Object o) {
+    return this;
   }
 
   @Override
@@ -44,20 +52,22 @@ public class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
   }
 
   private class PathConverterImpl implements PathConverter {
-    private final Set<Path> paths;
+    private final Map<Path, LocalFile> paths;
 
-    private PathConverterImpl(Set<Path> paths) {
+    private PathConverterImpl(Map<Path, LocalFile> paths) {
       this.paths = paths;
     }
 
     @Nullable
     @Override
     public String apply(Path path) {
-      if (!paths.contains(path)) {
+      LocalFile localFile = paths.get(path);
+      if (localFile == null) {
         // We should throw here, the file wasn't declared in BuildEvent#referencedLocalFiles
         return null;
       }
-      if (fileIsDirectory.computeIfAbsent(path, Path::isDirectory)) {
+      if (!localFile.type.isGuaranteedFile()
+          && fileIsDirectory.computeIfAbsent(path, Path::isDirectory)) {
         return null;
       }
       return FILE_URI_PATH_CONVERTER.apply(path);

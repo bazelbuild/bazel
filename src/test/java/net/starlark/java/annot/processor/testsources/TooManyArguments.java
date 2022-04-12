@@ -28,7 +28,7 @@ public class TooManyArguments implements StarlarkValue {
       name = "method_with_too_many_arguments",
       documented = false,
       parameters = {
-        @Param(name = "parameter_one", type = String.class, named = true),
+        @Param(name = "parameter_one", named = true),
       })
   public String methodWithTooManyArguments(String parameterOne, String parameterTwo) {
     return "dolphin";

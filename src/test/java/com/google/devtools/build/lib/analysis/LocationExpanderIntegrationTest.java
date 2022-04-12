@@ -161,6 +161,58 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void otherPathExternalExpansionNoLegacyExternalRunfiles() throws Exception {
+    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
+
+    // Invalidate WORKSPACE so @r can be resolved.
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
+
+    FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
+    scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
+    scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
+
+    useConfiguration("--nolegacy_external_runfiles");
+    LocationExpander expander = makeExpander("//expansion:lib");
+    assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
+        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+    assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
+        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+  }
+
+  @Test
+  public void otherPathExternalExpansionNoLegacyExternalRunfilesSiblingRepositoryLayout()
+      throws Exception {
+    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
+
+    // Invalidate WORKSPACE so @r can be resolved.
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
+
+    FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
+    scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
+    scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
+
+    useConfiguration("--nolegacy_external_runfiles");
+    setBuildLanguageOptions("--experimental_sibling_repository_layout");
+    LocationExpander expander = makeExpander("//expansion:lib");
+    assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
+        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
+    assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
+        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
+    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+  }
+
+  @Test
   public void otherPathMultiExpansion() throws Exception {
     scratch.file(
         "expansion/BUILD",

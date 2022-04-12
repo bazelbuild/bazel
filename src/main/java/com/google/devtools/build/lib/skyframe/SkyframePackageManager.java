@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -25,47 +29,28 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.skyframe.CyclesReporter;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
-/**
- * Skyframe-based package manager.
- *
- * <p>This is essentially a compatibility shim between the native Skyframe and non-Skyframe
- * parts of Blaze and should not be long-lived.
- */
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
-
   private final SkyframePackageLoader packageLoader;
-  private final SkyframeTransitivePackageLoader transitiveLoader;
-  private final AtomicReference<UnixGlob.FilesystemCalls> syscalls;
-  private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
-  private final AtomicReference<PathPackageLocator> pkgLocator;
-  private final AtomicInteger numPackagesLoaded;
-  private final SkyframeExecutor skyframeExecutor;
+  private final SyscallCache syscallCache;
+  private final Supplier<PathPackageLocator> pkgLocator;
+  private final AtomicInteger numPackagesSuccessfullyLoaded;
 
-  public SkyframePackageManager(
+  SkyframePackageManager(
       SkyframePackageLoader packageLoader,
-      SkyframeTransitivePackageLoader transitiveLoader,
-      AtomicReference<UnixGlob.FilesystemCalls> syscalls,
-      AtomicReference<CyclesReporter> skyframeCyclesReporter,
-      AtomicReference<PathPackageLocator> pkgLocator,
-      AtomicInteger numPackagesLoaded,
-      SkyframeExecutor skyframeExecutor) {
+      SyscallCache syscallCache,
+      Supplier<PathPackageLocator> pkgLocator,
+      AtomicInteger numPackagesSuccessfullyLoaded) {
     this.packageLoader = packageLoader;
-    this.transitiveLoader = transitiveLoader;
-    this.skyframeCyclesReporter = skyframeCyclesReporter;
     this.pkgLocator = pkgLocator;
-    this.syscalls = syscalls;
-    this.numPackagesLoaded = numPackagesLoaded;
-    this.skyframeExecutor = skyframeExecutor;
+    this.syscallCache = syscallCache;
+    this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
   }
 
   @ThreadSafe
@@ -84,23 +69,19 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
 
   @Override
   public PackageManagerStatistics getAndClearStatistics() {
-    int packagesLoaded = numPackagesLoaded.getAndSet(0);
-    return new PackageManagerStatistics() {
-      @Override
-      public int getPackagesLoaded() {
-        return packagesLoaded;
-      }
-    };
+    int packagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded.getAndSet(0);
+    return () -> packagesSuccessfullyLoaded;
   }
 
   @Override
-  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+      throws InconsistentFilesystemException, InterruptedException {
     return getBuildFileForPackage(packageName) != null;
   }
 
   @Override
   public void dump(PrintStream printStream) {
-    skyframeExecutor.dumpPackages(printStream);
+    packageLoader.dumpPackages(printStream);
   }
 
   @ThreadSafe
@@ -114,7 +95,19 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     // TODO(bazel-team): Use a PackageLookupValue here [skyframe-loading]
     // TODO(bazel-team): The implementation in PackageCache also checks for duplicate packages, see
     // BuildFileCache#getBuildFile [skyframe-loading]
-    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscalls);
+    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscallCache);
+  }
+
+  @Override
+  public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+    PackageLookupValue pkgLookupValue =
+        checkNotNull(
+            packageLoader.getPackageLookupValue(packageName),
+            "Package should already have been visited: %s",
+            packageName);
+    checkState(
+        pkgLookupValue.packageExists(), "Package must exist: %s %s", packageName, pkgLookupValue);
+    return pkgLookupValue.getBuildFileName().getFilenameFragment().getBaseName();
   }
 
   @Override
@@ -122,13 +115,4 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     return pkgLocator.get();
   }
 
-  @Override
-  public TransitivePackageLoader newTransitiveLoader() {
-    return new SkyframeLabelVisitor(transitiveLoader, skyframeCyclesReporter);
-  }
-
-  @Override
-  public TargetPatternPreloader newTargetPatternPreloader() {
-    return new SkyframeTargetPatternEvaluator(skyframeExecutor);
-  }
 }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -31,14 +30,14 @@ import javax.annotation.Nullable;
  * prerequisite {@link SkyValue}s. The {@link MemoizingEvaluator} implementation makes sure that
  * those are created beforehand.
  *
- * <p>The graph caches previously computed value values. Arbitrary values can be invalidated between
- * calls to {@link #evaluate}; they will be recreated the next time they are requested.
+ * <p>The graph caches previously computed values. Arbitrary values can be invalidated between calls
+ * to {@link #evaluate}; they will be recreated the next time they are requested.
  */
 public interface MemoizingEvaluator {
 
   /**
-   * Computes the transitive closure of a given set of values at the given {@link Version}. See
-   * {@link EagerInvalidator#invalidate}.
+   * Computes the transitive closure of a given set of values. See {@link
+   * EagerInvalidator#invalidate}.
    *
    * <p>The returned EvaluationResult is guaranteed to contain a result for at least one root if
    * keepGoing is false. It will contain a result for every root if keepGoing is true, <i>unless</i>
@@ -46,7 +45,7 @@ public interface MemoizingEvaluator {
    * missing.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, Version version, EvaluationContext evaluationContext)
+      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException;
 
   /**
@@ -177,23 +176,21 @@ public interface MemoizingEvaluator {
   }
 
   /**
-   * Write the graph to the output stream. Not necessarily thread-safe. Use only for debugging
-   * purposes.
+   * Writes a brief summary about the graph to the given output stream.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
   @ThreadHostile
-  void dump(boolean summarize, PrintStream out);
+  void dumpSummary(PrintStream out);
 
-  /** A supplier for creating instances of a particular evaluator implementation. */
-  interface EvaluatorSupplier {
-    MemoizingEvaluator create(
-        ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-        Differencer differencer,
-        EvaluationProgressReceiver progressReceiver,
-        GraphInconsistencyReceiver graphInconsistencyReceiver,
-        EventFilter eventFilter,
-        EmittedEventState emittedEventState,
-        boolean keepEdges);
-  }
+  /**
+   * Writes a detailed summary of the graph to the given output stream, omitting keys that do not
+   * match the given filter.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpDetailed(PrintStream out, Predicate<SkyKey> filter);
 
   /**
    * Keeps track of already-emitted events. Users of the graph should instantiate an

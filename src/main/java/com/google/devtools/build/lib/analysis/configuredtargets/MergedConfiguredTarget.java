@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -27,14 +25,19 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Provider.Key;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 
 /**
@@ -125,11 +128,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /** Creates an instance based on a configured target and a set of aspects. */
-  public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
+  public static ConfiguredTarget of(ConfiguredTarget base, Collection<ConfiguredAspect> aspects)
       throws DuplicateException {
-    if (Iterables.isEmpty(aspects)) {
-      // If there are no aspects, don't bother with creating a proxy object
-      return base;
+    if (aspects.isEmpty()) {
+      return base; // If there are no aspects, don't bother with creating a proxy object.
     }
 
     TransitiveInfoProviderMapBuilder nonBaseProviders = new TransitiveInfoProviderMapBuilder();
@@ -139,6 +141,12 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         OutputGroupInfo.merge(getAllOutputGroupProviders(base, aspects));
     if (mergedOutputGroupInfo != null) {
       nonBaseProviders.put(mergedOutputGroupInfo);
+    }
+
+    // Merge analysis failures.
+    List<NestedSet<AnalysisFailure>> analysisFailures = getAnalysisFailures(base, aspects);
+    if (!analysisFailures.isEmpty()) {
+      nonBaseProviders.put(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
     }
 
     // Merge extra-actions provider.
@@ -160,6 +168,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       for (int i = 0; i < providers.getProviderCount(); ++i) {
         Object providerKey = providers.getProviderKeyAt(i);
         if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
+            || AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
             || ExtraActionArtifactsProvider.class.equals(providerKey)
             || RequiredConfigFragmentsProvider.class.equals(providerKey)) {
           continue;
@@ -181,8 +190,15 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
           }
           nonBaseProviders.put(legacyId, providers.getProviderInstanceAt(i));
         } else if (providerKey instanceof Provider.Key) {
-          Provider.Key key = (Key) providerKey;
-          if (base.get(key) != null || nonBaseProviders.contains(key)) {
+          Provider.Key key = (Provider.Key) providerKey;
+          // If InstrumentedFilesInfo is on both the base target and an aspect, ignore the one from
+          // the base. Otherwise, sharing implementation between a rule which returns
+          // InstrumentedFilesInfo (e.g. *_library) and a related aspect (e.g. *_proto_library) can
+          // add an implicit brittle assumption that the underlying rule (e.g. proto_library) does
+          // not return InstrumentedFilesInfo.
+          if ((!InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey().equals(key)
+                  && base.get(key) != null)
+              || nonBaseProviders.contains(key)) {
             throw new DuplicateException("Provider " + key + " provided twice");
           }
           nonBaseProviders.put((Info) providers.getProviderInstanceAt(i));
@@ -210,6 +226,23 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return providers.build();
   }
 
+  private static ImmutableList<NestedSet<AnalysisFailure>> getAnalysisFailures(
+      ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
+    ImmutableList.Builder<NestedSet<AnalysisFailure>> analysisFailures = ImmutableList.builder();
+    AnalysisFailureInfo baseFailureInfo = base.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR);
+    if (baseFailureInfo != null) {
+      analysisFailures.add(baseFailureInfo.getCausesNestedSet());
+    }
+    for (ConfiguredAspect configuredAspect : aspects) {
+      AnalysisFailureInfo aspectFailureInfo =
+          configuredAspect.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR);
+      if (aspectFailureInfo != null) {
+        analysisFailures.add(aspectFailureInfo.getCausesNestedSet());
+      }
+    }
+    return analysisFailures.build();
+  }
+
   private static <T extends TransitiveInfoProvider> List<T> getAllProviders(
       ConfiguredTarget base, Iterable<ConfiguredAspect> aspects, Class<T> providerClass) {
     T baseProvider = base.getProvider(providerClass);
@@ -233,8 +266,12 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     printer.append("<merged target " + getLabel() + ">");
   }
 
-  @VisibleForTesting
-  public ConfiguredTarget getBaseConfiguredTargetForTesting() {
+  @Override
+  public Dict<String, Object> getProvidersDict() {
+    return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
+  }
+
+  public ConfiguredTarget getBaseConfiguredTarget() {
     return base;
   }
 }

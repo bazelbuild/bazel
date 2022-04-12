@@ -26,7 +26,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -47,8 +48,6 @@ public final class BuildResult {
   private long startTimeMillis = 0; // milliseconds since UNIX epoch.
   private long stopTimeMillis = 0;
 
-  private boolean wasSuspended = false;
-
   private Throwable crash = null;
   private boolean catastrophe = false;
   private boolean stopOnFirstFailure;
@@ -63,45 +62,37 @@ public final class BuildResult {
 
   private final BuildToolLogCollection buildToolLogCollection = new BuildToolLogCollection();
 
+  @Nullable private FailureDetail postBuildCallbackFailureDetail;
+
   public BuildResult(long startTimeMillis) {
     this.startTimeMillis = startTimeMillis;
   }
 
   /**
-   * Record the time (according to System.currentTimeMillis()) at which the
-   * service of this request was completed.
+   * Record the time (according to System.currentTimeMillis()) at which the service of this request
+   * was completed.
    */
   public void setStopTime(long stopTimeMillis) {
     this.stopTimeMillis = stopTimeMillis;
   }
 
   /**
-   * Return the time (according to System.currentTimeMillis()) at which the
-   * service of this request was completed.
+   * Return the time (according to System.currentTimeMillis()) at which the service of this request
+   * was completed.
    */
   public long getStopTime() {
     return stopTimeMillis;
   }
 
   /**
-   * Returns the elapsed time in seconds for the service of this request.  Not
-   * defined for requests that have not been serviced.
+   * Returns the elapsed time in seconds for the service of this request. Not defined for requests
+   * that have not been serviced.
    */
   public double getElapsedSeconds() {
     if (startTimeMillis == 0 || stopTimeMillis == 0) {
       throw new IllegalStateException("BuildRequest has not been serviced");
     }
     return (stopTimeMillis - startTimeMillis) / 1000.0;
-  }
-
-  /** Record if the build was suspended (SIGSTOP or hardware put to sleep). */
-  public void setWasSuspended(boolean wasSuspended) {
-    this.wasSuspended = wasSuspended;
-  }
-
-  /** Whether the build was suspended (SIGSTOP or hardware put to sleep). */
-  public boolean getWasSuspended() {
-    return wasSuspended;
   }
 
   public void setDetailedExitCode(DetailedExitCode detailedExitCode) {
@@ -132,38 +123,30 @@ public final class BuildResult {
     this.crash = crash;
   }
 
-  /**
-   * Sets a "catastrophe": A build failure severe enough to halt a keep_going build.
-   */
+  /** Sets a "catastrophe": A build failure severe enough to halt a keep_going build. */
   public void setCatastrophe() {
     this.catastrophe = true;
   }
 
-  /**
-   * Was the build a "catastrophe": A build failure severe enough to halt a keep_going build.
-   */
+  /** Was the build a "catastrophe": A build failure severe enough to halt a keep_going build. */
   public boolean wasCatastrophe() {
     return catastrophe;
   }
 
-  /**
-   * Whether some targets were skipped because of {@code setStopOnFirstFailure}.
-   */
+  /** Whether some targets were skipped because of {@code setStopOnFirstFailure}. */
   public boolean getStopOnFirstFailure() {
     return stopOnFirstFailure;
   }
 
   /**
-   * Indicates that remaining targets should be skipped once a target breaks/fails.
-   * This will be set when --nokeep_going or --notest_keep_going is set.
+   * Indicates that remaining targets should be skipped once a target breaks/fails. This will be set
+   * when --nokeep_going or --notest_keep_going is set.
    */
   public void setStopOnFirstFailure(boolean stopOnFirstFailure) {
     this.stopOnFirstFailure = stopOnFirstFailure;
   }
 
-  /**
-   * Gets the Blaze crash Throwable. Null if Blaze did not crash.
-   */
+  /** Gets the Blaze crash Throwable. Null if Blaze did not crash. */
   public Throwable getUnhandledThrowable() {
     return crash;
   }
@@ -172,55 +155,44 @@ public final class BuildResult {
     this.configurations = configurations;
   }
 
-  /**
-   * Returns the build configuration collection used for the build.
-   */
+  /** Returns the build configuration collection used for the build. */
   public BuildConfigurationCollection getBuildConfigurationCollection() {
     return configurations;
   }
 
-  /**
-   * @see #getActualTargets
-   */
+  /** @see #getActualTargets */
   public void setActualTargets(Collection<ConfiguredTarget> actualTargets) {
     this.actualTargets = actualTargets;
   }
 
   /**
-   * Returns the actual set of targets which we attempted to build.  This value
-   * is set during the build, after the target patterns have been parsed and
-   * resolved.  If --keep_going is specified, this set may exclude targets that
-   * could not be found or successfully analyzed.  It may be examined after the
-   * build.  May be null even after the build, if there were errors in the
-   * loading or analysis phases.
+   * Returns the actual set of targets which we attempted to build. This value is set during the
+   * build, after the target patterns have been parsed and resolved. If --keep_going is specified,
+   * this set may exclude targets that could not be found or successfully analyzed. It may be
+   * examined after the build. May be null even after the build, if there were errors in the loading
+   * or analysis phases.
    */
   public Collection<ConfiguredTarget> getActualTargets() {
     return actualTargets;
   }
 
-  /**
-   * @see #getTestTargets
-   */
+  /** @see #getTestTargets */
   public void setTestTargets(@Nullable Collection<ConfiguredTarget> testTargets) {
     this.testTargets = testTargets == null ? null : Collections.unmodifiableCollection(testTargets);
   }
 
   /**
-   * Returns the actual unmodifiable collection of targets which we attempted to
-   * test. This value is set at the end of the build analysis phase, after the
-   * test target patterns have been parsed and resolved. If --keep_going is
-   * specified, this collection may exclude targets that could not be found or
-   * successfully analyzed. It may be examined after the build. May be null even
-   * after the build, if there were errors in the loading or analysis phases or
-   * if testing was not requested.
+   * Returns the actual unmodifiable collection of targets which we attempted to test. This value is
+   * set at the end of the build analysis phase, after the test target patterns have been parsed and
+   * resolved. If --keep_going is specified, this collection may exclude targets that could not be
+   * found or successfully analyzed. It may be examined after the build. May be null even after the
+   * build, if there were errors in the loading or analysis phases or if testing was not requested.
    */
   public Collection<ConfiguredTarget> getTestTargets() {
     return testTargets;
   }
 
-  /**
-   * @see #getSuccessfulTargets
-   */
+  /** @see #getSuccessfulTargets */
   void setSuccessfulTargets(Collection<ConfiguredTarget> successfulTargets) {
     this.successfulTargets = successfulTargets;
   }
@@ -228,6 +200,16 @@ public final class BuildResult {
   /** See #getSuccessfulAspects */
   void setSuccessfulAspects(ImmutableSet<AspectKey> successfulAspects) {
     this.successfulAspects = successfulAspects;
+  }
+
+  void setPostBuildCallbackFailureDetail(FailureDetail failureDetail) {
+    this.postBuildCallbackFailureDetail = failureDetail;
+  }
+
+  @Nullable
+  /** @return only set if build was successful; if callback is successful as well, returns null. */
+  public FailureDetail getPostBuildCallBackFailureDetail() {
+    return postBuildCallbackFailureDetail;
   }
 
   /**
@@ -250,22 +232,19 @@ public final class BuildResult {
    * null if the execution phase was not attempted, as may happen if there are errors in the loading
    * phase, for example.
    */
-  ImmutableSet<AspectKey> getSuccessfulAspects() {
+  public ImmutableSet<AspectKey> getSuccessfulAspects() {
     return successfulAspects;
   }
 
-  /**
-   * See {@link #getSkippedTargets()}.
-   */
+  /** See {@link #getSkippedTargets()}. */
   void setSkippedTargets(Collection<ConfiguredTarget> skippedTargets) {
     this.skippedTargets = skippedTargets;
   }
 
   /**
-   * Returns the set of targets which were skipped (Blaze didn't attempt to execute them)
-   * because they're not compatible with the build's target platform.
+   * Returns the set of targets which were skipped (Blaze didn't attempt to execute them) because
+   * they're not compatible with the build's target platform.
    */
-  @VisibleForTesting
   public Collection<ConfiguredTarget> getSkippedTargets() {
     return skippedTargets;
   }
@@ -295,9 +274,7 @@ public final class BuildResult {
         .toString();
   }
 
-  /**
-   * Collection of data for the build tool logs event. See {@link BuildToolLogs} for details.
-   */
+  /** Collection of data for the build tool logs event. See {@link BuildToolLogs} for details. */
   public static final class BuildToolLogCollection {
     private final List<Pair<String, ByteString>> directValues = new ArrayList<>();
     private final List<Pair<String, ListenableFuture<String>>> futureUris = new ArrayList<>();

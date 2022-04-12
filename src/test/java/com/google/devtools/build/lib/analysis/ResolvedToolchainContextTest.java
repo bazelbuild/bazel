@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
@@ -49,22 +50,21 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
-                ImmutableMap.of(testToolchainTypeLabel, testToolchainType))
+                ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
                     .put(
-                        testToolchainType,
+                        testToolchainTypeInfo,
                         Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"))
                     .build())
             .build();
@@ -77,7 +77,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            toolchain.getTarget().getPackage().getRepositoryMapping(),
             unloadedToolchainContext,
             "test",
             ImmutableList.of(toolchain));
@@ -103,21 +102,20 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
-                ImmutableMap.of(testToolchainTypeLabel, testToolchainType))
+                ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
-                    .put(testToolchainType, Label.parseAbsoluteUnchecked("//alias:toolchain"))
+                    .put(testToolchainTypeInfo, Label.parseAbsoluteUnchecked("//alias:toolchain"))
                     .build())
             .build();
 
@@ -128,7 +126,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            toolchain.getTarget().getPackage().getRepositoryMapping(),
             unloadedToolchainContext,
             "test",
             ImmutableList.of(toolchain));
@@ -147,21 +144,22 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
-                ImmutableMap.of(testToolchainTypeLabel, testToolchainType))
+                ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
-                    .put(testToolchainType, Label.parseAbsoluteUnchecked("//foo:not_a_toolchain"))
+                    .put(
+                        testToolchainTypeInfo,
+                        Label.parseAbsoluteUnchecked("//foo:not_a_toolchain"))
                     .build())
             .build();
 
@@ -173,7 +171,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         ToolchainException.class,
         () ->
             ResolvedToolchainContext.load(
-                toolchain.getTarget().getPackage().getRepositoryMapping(),
                 unloadedToolchainContext,
                 "test",
                 ImmutableList.of(toolchain)));
@@ -184,7 +181,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Add new toolchain rule that provides template variables.
     Label variableToolchainTypeLabel =
         Label.parseAbsoluteUnchecked("//variable:variable_toolchain_type");
-    ToolchainTypeInfo variableToolchainType = ToolchainTypeInfo.create(variableToolchainTypeLabel);
+    ToolchainTypeRequirement variableToolchainType =
+        ToolchainTypeRequirement.create(variableToolchainTypeLabel);
+    ToolchainTypeInfo variableToolchainTypeInfo =
+        ToolchainTypeInfo.create(variableToolchainTypeLabel);
     scratch.file(
         "variable/variable_toolchain_def.bzl",
         "def _impl(ctx):",
@@ -208,22 +208,21 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(variableToolchainType))
+            .setRequiredToolchainTypes(ImmutableSet.of(variableToolchainTypeInfo))
             .setRequestedLabelToToolchainType(
-                ImmutableMap.of(variableToolchainTypeLabel, variableToolchainType))
+                ImmutableMap.of(variableToolchainTypeLabel, variableToolchainTypeInfo))
             .setToolchainTypeToResolved(
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
                     .put(
-                        variableToolchainType,
+                        variableToolchainTypeInfo,
                         Label.parseAbsoluteUnchecked("//variable:variable_toolchain_impl"))
                     .build())
             .build();
@@ -234,7 +233,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             Label.parseAbsoluteUnchecked("//variable:variable_toolchain_impl"), targetConfig);
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            toolchain.getTarget().getPackage().getRepositoryMapping(),
             unloadedToolchainContext,
             "test",
             ImmutableList.of(toolchain));

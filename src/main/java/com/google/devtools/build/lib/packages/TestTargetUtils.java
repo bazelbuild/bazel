@@ -128,11 +128,9 @@ public final class TestTargetUtils {
         excludedTags.add(tag.substring(1));
       } else if (tag.startsWith("+")) {
         requiredTags.add(tag.substring(1));
-      } else if (tag.equals("manual")) {
-        // Ignore manual attribute because it is an exception: it is not a filter
-        // but a property of test_suite
-        continue;
-      } else {
+      } else if (!tag.equals("manual")) {
+        // Ignore manual attribute because it is an exception: it is not a filter but a property of
+        // test_suite.
         requiredTags.add(tag);
       }
     }

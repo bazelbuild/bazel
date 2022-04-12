@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -60,7 +59,7 @@ public final class ConfigFunction implements QueryFunction {
 
   /**
    * This function is only viable with ConfiguredTargetQueryEnvironment which extends {@link
-   * AbstractBlazeQueryEnvironment <ConfiguredTarget>}
+   * AbstractBlazeQueryEnvironment <KeyedConfiguredTarget>}.
    */
   @Override
   @SuppressWarnings("unchecked")
@@ -76,16 +75,16 @@ public final class ConfigFunction implements QueryFunction {
     // Turn "'string'" to "string" (remove the surrounding apostrophes).
     configuration = configuration.substring(1, configuration.length() - 1);
 
-    final QueryTaskFuture<ThreadSafeMutableSet<T>> targets =
+    QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture =
         QueryUtil.evalAll(env, context, targetExpression.getExpression());
 
     return env.whenSucceedsCall(
-        targets,
+        targetsFuture,
         ((ConfiguredTargetQueryEnvironment) env)
             .getConfiguredTargetsForConfigFunction(
                 targetExpression.toString(),
-                (ThreadSafeMutableSet<ConfiguredTarget>) targets.getIfSuccessful(),
+                targetsFuture,
                 configuration,
-                (Callback<ConfiguredTarget>) callback));
+                (Callback<KeyedConfiguredTarget>) callback));
   }
 }

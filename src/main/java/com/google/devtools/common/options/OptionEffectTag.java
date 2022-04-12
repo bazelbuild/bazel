@@ -57,8 +57,8 @@ public enum OptionEffectTag {
    * This option's effect or intent is unknown.
    *
    * <p>Please do not use this value for new flags. This is meant to aid transition and for a very
-   * specific set of flags that actually have unknown effect, such as --config and
-   * --all_incompatible_changes, where the effect depends on what other options are triggered.
+   * specific set of flags that actually have unknown effect, such as --config where the effect
+   * depends on what other options are triggered.
    */
   UNKNOWN(0),
 

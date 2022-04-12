@@ -17,12 +17,9 @@ package com.google.devtools.build.lib.rules.filegroup;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -31,7 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -48,7 +45,7 @@ import java.util.List;
  */
 public class Filegroup implements RuleConfiguredTargetFactory {
 
-  /** Error message for output groups that are explicitly blacklisted for filegroup reference. */
+  /** Error message for output groups that are explicitly forbidden from filegroup reference. */
   public static final String ILLEGAL_OUTPUT_GROUP_ERROR =
       "Output group %s is not permitted for " + "reference in filegroups.";
 
@@ -56,7 +53,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String outputGroupName = ruleContext.attributes().get("output_group", Type.STRING);
-    BuildConfiguration configuration = checkNotNull(ruleContext.getConfiguration());
+    BuildConfigurationValue configuration = checkNotNull(ruleContext.getConfiguration());
     if (outputGroupName.endsWith(INTERNAL_SUFFIX)) {
       ruleContext.throwWithAttributeError(
           "output_group", String.format(ILLEGAL_OUTPUT_GROUP_ERROR, outputGroupName));
@@ -68,7 +65,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             : getArtifactsForOutputGroup(outputGroupName, ruleContext.getPrerequisites("srcs"));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
-        InstrumentedFilesCollector.collectTransitive(
+        InstrumentedFilesCollector.collect(
             ruleContext,
             // Seems strange to have "srcs" in "dependency attributes" instead of "source
             // attributes", but that's correct behavior here because this rule just forwards
@@ -106,17 +103,8 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             .setFilesToBuild(filesToBuild)
             .setRunfilesSupport(null, getExecutable(filesToBuild))
             .addNativeDeclaredProvider(instrumentedFilesProvider)
-            .addProvider(
-                FilegroupPathProvider.class,
-                new FilegroupPathProvider(getFilegroupPath(ruleContext)));
+            .addNativeDeclaredProvider(new FilegroupPathProvider(getFilegroupPath(ruleContext)));
 
-    if (configuration.enableAggregatingMiddleman()) {
-      builder.addProvider(
-          MiddlemanProvider.class,
-          new MiddlemanProvider(
-              CompilationHelper.getAggregatingMiddleman(
-                  ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild)));
-    }
     return builder.build();
   }
 

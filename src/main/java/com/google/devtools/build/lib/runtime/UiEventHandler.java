@@ -20,8 +20,12 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
+import com.google.devtools.build.lib.actions.CachingActionEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -29,6 +33,7 @@ import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
@@ -38,6 +43,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Event.ProcessOutput;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -69,22 +75,24 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
-/** An experimental new output stream. */
-public class UiEventHandler implements EventHandler {
+/** Presents events to the user in the terminal. */
+public final class UiEventHandler implements EventHandler {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** Latest refresh of the progress bar, if contents other than time changed */
-  static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
+  private static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
-  static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
+  private static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
   /**
    * Minimal rate limiting, as fraction of the request time so far, if the progress bar cannot be
    * updated in place
    */
-  static final double NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT = 0.15;
+  private static final double NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT = 0.15;
   /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
-  static final long SHORT_REFRESH_MILLIS = 1000L;
+  private static final long SHORT_REFRESH_MILLIS = 1000L;
   /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
-  static final long LONG_REFRESH_MILLIS = 20000L;
+  private static final long LONG_REFRESH_MILLIS = 20000L;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -118,12 +126,12 @@ public class UiEventHandler implements EventHandler {
   private ByteArrayOutputStream stderrLineBuffer;
 
   private final int maxStdoutErrBytes;
-  public final int terminalWidth;
+  private final int terminalWidth;
 
   /**
    * An output stream that wraps another output stream and that fully buffers writes until flushed.
    */
-  private static class FullyBufferedOutputStream extends ByteArrayOutputStream {
+  private static final class FullyBufferedOutputStream extends ByteArrayOutputStream {
     /** The (possibly unbuffered) stream wrapped by this one. */
     private final OutputStream wrapped;
 
@@ -180,7 +188,7 @@ public class UiEventHandler implements EventHandler {
         this.cursorControl
             ? new UiStateTracker(clock, this.terminalWidth - 2)
             : new UiStateTracker(clock);
-    this.stateTracker.setProgressMode(options.uiProgressMode, options.uiSamplesShown);
+    this.stateTracker.setProgressSampleSize(options.uiActionsShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
       this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
@@ -235,7 +243,6 @@ public class UiEventHandler implements EventHandler {
     dateShown = true;
     handle(
         Event.info(
-            null,
             "Current date is "
                 + DATE_FORMAT.format(
                     Instant.ofEpochMilli(clock.currentTimeMillis())
@@ -301,13 +308,15 @@ public class UiEventHandler implements EventHandler {
             stream.write(event.getMessageBytes());
             stream.flush();
           } else {
-            writeToStream(
-                stream,
-                event.getKind(),
-                event.getMessageBytes(),
-                /* readdProgressBar= */ showProgress && cursorControl);
+            boolean clearedProgress =
+                writeToStream(stream, event.getKind(), event.getMessageBytes());
+            if (clearedProgress && showProgress && cursorControl) {
+              addProgressBar();
+            }
+            terminal.flush();
           }
           break;
+        case FATAL:
         case ERROR:
         case FAIL:
         case WARNING:
@@ -344,6 +353,14 @@ public class UiEventHandler implements EventHandler {
           if (incompleteLine) {
             crlf();
           }
+          if (stderr != null) {
+            writeToStream(outErr.getErrorStream(), EventKind.STDERR, stderr);
+            outErr.getErrorStream().flush();
+          }
+          if (stdout != null) {
+            writeToStream(outErr.getOutputStream(), EventKind.STDOUT, stdout);
+            outErr.getOutputStream().flush();
+          }
           if (showProgress && buildRunning && cursorControl) {
             addProgressBar();
           }
@@ -353,50 +370,37 @@ public class UiEventHandler implements EventHandler {
           if (stateTracker.progressBarTimeDependent()) {
             refresh();
           }
-          break;
+          // Fall through.
         case START:
         case FINISH:
         case PASS:
         case TIMEOUT:
         case DEPCHECKER:
+          if (stdout != null || stderr != null) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "stdout/stderr should not be present for this event " + event));
+          }
           break;
-      }
-      if (stdout != null || stderr != null) {
-        clearProgressBar();
-        terminal.flush();
-        if (stderr != null) {
-          writeToStream(
-              outErr.getErrorStream(), EventKind.STDERR, stderr, /* readdProgressBar= */ false);
-          outErr.getErrorStream().flush();
-        }
-        if (stdout != null) {
-          writeToStream(
-              outErr.getOutputStream(), EventKind.STDOUT, stdout, /* readdProgressBar= */ false);
-          outErr.getOutputStream().flush();
-        }
-        if (showProgress && cursorControl) {
-          addProgressBar();
-        }
-        terminal.flush();
       }
     }
   }
 
   @Nullable
   private byte[] getContentIfSmallEnough(
-      String name, long size, Supplier<byte[]> getContent, Supplier<PathFragment> getPath) {
+      String name, long size, Supplier<byte[]> getContent, Supplier<String> getPath) {
     if (size == 0) {
       // Avoid any possible I/O when we know it'll be empty anyway.
       return null;
     }
 
-    if (size < maxStdoutErrBytes) {
+    if (size <= maxStdoutErrBytes) {
       return getContent.get();
     } else {
       return String.format(
-              "%s (%s) exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
+              "%s (%s) %d exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
                   + " skipping\n",
-              name, getPath.get(), maxStdoutErrBytes)
+              name, getPath.get(), size, maxStdoutErrBytes)
           .getBytes(StandardCharsets.ISO_8859_1);
     }
   }
@@ -411,13 +415,20 @@ public class UiEventHandler implements EventHandler {
       // much memory.
       byte[] stdout = null;
       byte[] stderr = null;
-      if (event.hasStdoutStderr()) {
+      ProcessOutput processOutput = event.getProcessOutput();
+      if (processOutput != null) {
         stdout =
             getContentIfSmallEnough(
-                "stdout", event.getStdOutSize(), event::getStdOut, event::getStdOutPathFragment);
+                "stdout",
+                processOutput.getStdOutSize(),
+                processOutput::getStdOut,
+                processOutput::getStdOutPath);
         stderr =
             getContentIfSmallEnough(
-                "stderr", event.getStdErrSize(), event::getStdErr, event::getStdErrPathFragment);
+                "stderr",
+                processOutput.getStdErrSize(),
+                processOutput::getStdErr,
+                processOutput::getStdErrPath);
       }
 
       if (debugAllEvents) {
@@ -439,21 +450,29 @@ public class UiEventHandler implements EventHandler {
             || event.getKind() == EventKind.PASS
             || event.getKind() == EventKind.TIMEOUT
             || event.getKind() == EventKind.DEPCHECKER)) {
-      // Keep this in sync with the list of no-op event kinds in actuallyHandle above.
+      // Keep this in sync with the list of no-op event kinds in handleLocked above.
       return;
     }
+
+    // Ensure that default progress messages are not displayed after a FATAL event.
+    if (event.getKind() == EventKind.FATAL) {
+      synchronized (this) {
+        buildRunning = false;
+      }
+      stopUpdateThread();
+    }
+
     handleInternal(event);
   }
 
-  private void writeToStream(
-      OutputStream stream, EventKind eventKind, byte[] message, boolean readdProgressBar)
+  private boolean writeToStream(OutputStream stream, EventKind eventKind, byte[] message)
       throws IOException {
     int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
     ByteArrayOutputStream outLineBuffer =
         eventKind == EventKind.STDOUT ? stdoutLineBuffer : stderrLineBuffer;
     if (eolIndex < 0) {
       outLineBuffer.write(message);
-      return;
+      return false;
     }
 
     clearProgressBar();
@@ -467,14 +486,12 @@ public class UiEventHandler implements EventHandler {
     stream.flush();
 
     outLineBuffer.write(message, eolIndex + 1, message.length - eolIndex - 1);
-    if (readdProgressBar) {
-      addProgressBar();
-      terminal.flush();
-    }
+    return true;
   }
 
   private void setEventKindColor(EventKind kind) throws IOException {
     switch (kind) {
+      case FATAL:
       case ERROR:
       case FAIL:
         terminal.setTextColor(Color.RED);
@@ -504,7 +521,7 @@ public class UiEventHandler implements EventHandler {
       buildRunning = true;
     }
     maybeAddDate();
-    stateTracker.buildStarted(event);
+    stateTracker.buildStarted();
     // As a new phase started, inform immediately.
     ignoreRefreshLimitOnce();
     refresh();
@@ -560,9 +577,8 @@ public class UiEventHandler implements EventHandler {
       ignoreRefreshLimitOnce();
       refresh();
 
-      // After a build has completed, only stop updating the UI if there is no more BEP
-      // upload happening.
-      if (stateTracker.pendingTransports() == 0) {
+      // After a build has completed, only stop updating the UI if there is no more activities.
+      if (!stateTracker.hasActivities()) {
         buildRunning = false;
         done = true;
       }
@@ -668,6 +684,13 @@ public class UiEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void checkingActionCache(CachingActionEvent event) {
+    stateTracker.cachingAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void schedulingAction(SchedulingActionEvent event) {
     stateTracker.schedulingAction(event);
     refresh();
@@ -678,6 +701,13 @@ public class UiEventHandler implements EventHandler {
   public void runningAction(RunningActionEvent event) {
     stateTracker.runningAction(event);
     refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionProgress(ActionProgressEvent event) {
+    stateTracker.actionProgress(event);
+    refreshSoon();
   }
 
   @Subscribe
@@ -694,6 +724,30 @@ public class UiEventHandler implements EventHandler {
     refreshSoon();
   }
 
+  private void checkActivities() {
+    if (stateTracker.hasActivities()) {
+      refreshSoon();
+    } else {
+      stopUpdateThread();
+      flushStdOutStdErrBuffers();
+      ignoreRefreshLimitOnce();
+      refresh();
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionUploadStarted(ActionUploadStartedEvent event) {
+    stateTracker.actionUploadStarted(event);
+    refreshSoon();
+  }
+
+  @Subscribe
+  public void actionUploadFinished(ActionUploadFinishedEvent event) {
+    stateTracker.actionUploadFinished(event);
+    checkActivities();
+  }
+
   @Subscribe
   public void testFilteringComplete(TestFilteringCompleteEvent event) {
     stateTracker.testFilteringComplete(event);
@@ -704,7 +758,7 @@ public class UiEventHandler implements EventHandler {
    * Return true, if the test summary provides information that is both worth being shown in the
    * scroll-back buffer and new with respect to the alreay shown failure messages.
    */
-  private boolean testSummaryProvidesNewInformation(TestSummary summary) {
+  private static boolean testSummaryProvidesNewInformation(TestSummary summary) {
     ImmutableSet<BlazeTestStatus> statusToIgnore =
         ImmutableSet.of(
             BlazeTestStatus.PASSED,
@@ -715,10 +769,7 @@ public class UiEventHandler implements EventHandler {
     if (statusToIgnore.contains(summary.getStatus())) {
       return false;
     }
-    if (summary.getStatus() == BlazeTestStatus.FAILED && summary.getFailedLogs().size() == 1) {
-      return false;
-    }
-    return true;
+    return summary.getStatus() != BlazeTestStatus.FAILED || summary.getFailedLogs().size() != 1;
   }
 
   @Subscribe
@@ -731,7 +782,7 @@ public class UiEventHandler implements EventHandler {
         crlf();
         setEventKindColor(
             summary.getStatus() == BlazeTestStatus.FLAKY ? EventKind.WARNING : EventKind.ERROR);
-        terminal.writeString("" + summary.getStatus() + ": ");
+        terminal.writeString(summary.getStatus() + ": ");
         terminal.resetTerminal();
         terminal.writeString(summary.getLabel().toString());
         terminal.writeString(" (Summary)");
@@ -771,14 +822,7 @@ public class UiEventHandler implements EventHandler {
       this.handle(Event.info(null, "Transport " + event.transport().name() + " closed"));
     }
 
-    if (stateTracker.pendingTransports() == 0) {
-      stopUpdateThread();
-      flushStdOutStdErrBuffers();
-      ignoreRefreshLimitOnce();
-      refresh();
-    } else {
-      refresh();
-    }
+    checkActivities();
   }
 
   private void refresh() {
@@ -884,7 +928,7 @@ public class UiEventHandler implements EventHandler {
                         && mustRefreshAfterMillis < clock.currentTimeMillis()) {
                       progressBarNeedsRefresh = true;
                     }
-                    eventHandler.doRefresh(/* fromUpdateThread= */ true);
+                    eventHandler.doRefresh(/*fromUpdateThread=*/ true);
                   }
                 } catch (InterruptedException e) {
                   // Ignore
@@ -942,7 +986,7 @@ public class UiEventHandler implements EventHandler {
           TIMESTAMP_FORMAT.format(
               Instant.ofEpochMilli(clock.currentTimeMillis()).atZone(ZoneId.systemDefault()));
     }
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ !cursorControl, timestamp);
+    stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
     terminalWriter.newline();
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
     if (progressInTermTitle) {

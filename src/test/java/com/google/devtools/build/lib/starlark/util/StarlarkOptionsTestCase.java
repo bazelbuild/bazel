@@ -54,7 +54,8 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
         OptionsParser.builder()
             .optionsClasses(
                 Iterables.concat(
-                    requiredOptionsClasses, ruleClassProvider.getConfigurationOptions()))
+                    requiredOptionsClasses,
+                    ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
             .build();
     starlarkOptionsParser =
         StarlarkOptionsParser.newStarlarkOptionsParserForTesting(

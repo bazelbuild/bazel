@@ -24,7 +24,8 @@ public class KnownPathFragments extends BaseCache<PathFragment, AnalysisProtosV2
   }
 
   @Override
-  AnalysisProtosV2.PathFragment createProto(PathFragment pathFragment, int id) throws IOException {
+  AnalysisProtosV2.PathFragment createProto(PathFragment pathFragment, int id)
+      throws IOException, InterruptedException {
     AnalysisProtosV2.PathFragment.Builder pathFragmentProtoBuilder =
         AnalysisProtosV2.PathFragment.newBuilder().setId(id).setLabel(pathFragment.getBaseName());
 

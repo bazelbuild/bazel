@@ -31,8 +31,7 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
   static final PackageFactoryBuilderFactoryForBazelUnitTests INSTANCE =
       new PackageFactoryBuilderFactoryForBazelUnitTests();
 
-  private PackageFactoryBuilderFactoryForBazelUnitTests() {
-  }
+  private PackageFactoryBuilderFactoryForBazelUnitTests() {}
 
   @Override
   public PackageFactoryBuilderWithSkyframeForTesting builder(BlazeDirectories directories) {
@@ -54,12 +53,16 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
           ruleClassProvider,
           PackageFactory.makeDefaultSizedForkJoinPoolForGlobbing(),
           environmentExtensions,
-          version,
+          VERSION,
           DefaultPackageSettings.INSTANCE,
           packageValidator,
+          packageOverheadEstimator,
           doChecksForTesting
               ? new BazelPackageLoadingListenerForTesting(
-                  (ConfiguredRuleClassProvider) ruleClassProvider, directories)
+                  (ConfiguredRuleClassProvider) ruleClassProvider,
+                  directories,
+                  extraPrecomputedValues,
+                  extraSkyFunctions)
               : PackageLoadingListener.NOOP_LISTENER);
     }
   }

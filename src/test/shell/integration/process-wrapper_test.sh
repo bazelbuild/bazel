@@ -23,8 +23,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/execution_statistics_utils.sh" \
   || { echo "execution_statistics_utils.sh not found!" >&2; exit 1; }
 
-enable_errexit
-
 readonly CPU_TIME_SPENDER="${CURRENT_DIR}/../../../test/shell/integration/spend_cpu_time"
 
 readonly OUT_DIR="${TEST_TMPDIR}/out"

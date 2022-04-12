@@ -158,4 +158,52 @@ public class AttributeContainerTest {
   public void testFreezeWorks_largeImplementation() {
     checkFreezeWorks((short) 150, AttributeContainer.Large.class);
   }
+
+  private void testContainerSize(int size) {
+    AttributeContainer container = new Mutable(size);
+    for (int i = 0; i < size; i++) {
+      container.setAttributeValue(i, "value " + i, i % 2 == 0);
+    }
+    AttributeContainer frozen = container.freeze();
+    // Check values.
+    for (int i = 0; i < size; i++) {
+      assertThat(frozen.getAttributeValue(i)).isEqualTo("value " + i);
+      assertThat(frozen.isAttributeValueExplicitlySpecified(i)).isEqualTo(i % 2 == 0);
+    }
+  }
+
+  @Test
+  public void testSmallContainer() {
+    // At 127 attributes, we shift from AttributeContainer.Small to AttributeContainer.Large.
+    testContainerSize(126);
+  }
+
+  @Test
+  public void testLargeContainer() {
+    // AttributeContainer.Large can handle at max 254 attributes.
+    testContainerSize(254);
+  }
+
+  @Test
+  public void testMutableGetRawAttributeValuesReturnsNullSafeCopy() {
+    AttributeContainer container = new Mutable(1);
+    assertThat(container.getRawAttributeValues()).containsExactly((Object) null);
+
+    container.getRawAttributeValues().set(0, "foo");
+    assertThat(container.getRawAttributeValues()).containsExactly((Object) null);
+  }
+
+  @Test
+  public void testGetRawAttributeValuesReturnsCopy() {
+    AttributeContainer mutable = new Mutable(2);
+    mutable.setAttributeValue(0, "hi", /*explicit=*/ true);
+    mutable.setAttributeValue(1, null, /*explicit=*/ false);
+
+    AttributeContainer container = mutable.freeze();
+    // Nulls don't make it into the frozen representation.
+    assertThat(container.getRawAttributeValues()).containsExactly("hi");
+
+    container.getRawAttributeValues().set(0, "foo");
+    assertThat(container.getRawAttributeValues()).containsExactly("hi");
+  }
 }

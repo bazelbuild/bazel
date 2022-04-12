@@ -308,6 +308,7 @@ class BlazeServer final {
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
+  const bool preemptible_;
   const blaze_util::Path output_base_;
 };
 
@@ -355,10 +356,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    workspace_layout.GetPrettyWorkspaceName(workspace) + ")");
   startup_options.AddJVMArgumentPrefix(jvm_path.GetParent().GetParent(),
                                        &result);
-
-  result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
-  result.push_back("-XX:HeapDumpPath=" +
-                   startup_options.output_base.AsJvmArgument());
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
   if (!startup_options.GetEmbeddedJavabase().IsEmpty()) {
@@ -457,7 +454,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    startup_options.output_base.AsCommandLineArgument());
   result.push_back("--workspace_directory=" +
                    blaze_util::ConvertPath(workspace));
-  result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  if (startup_options.autodetect_server_javabase) {
+    result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  }
 
   if (!startup_options.server_jvm_out.IsEmpty()) {
     result.push_back("--server_jvm_out=" +
@@ -470,11 +469,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
         startup_options.failure_detail_out.AsCommandLineArgument());
   }
 
-  if (startup_options.deep_execroot) {
-    result.push_back("--deep_execroot");
-  } else {
-    result.push_back("--nodeep_execroot");
-  }
   if (startup_options.expand_configs_in_place) {
     result.push_back("--expand_configs_in_place");
   } else {
@@ -740,7 +734,7 @@ static void WriteFileToStderrOrDie(const blaze_util::Path &path) {
   FILE *fp = fopen(path.AsNativePath().c_str(), "r");
 #endif
 
-  if (fp == NULL) {
+  if (fp == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "opening " << path.AsPrintablePath()
         << " failed: " << GetLastErrorString();
@@ -783,7 +777,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
   const auto start_time = std::chrono::system_clock::now();
-  const auto try_until_time = start_time + std::chrono::seconds(120);
+  const auto try_until_time =
+      start_time +
+      std::chrono::seconds(startup_options.local_startup_timeout_secs);
   // Print an update at most once every 10 seconds if we are still trying to
   // connect.
   const auto min_message_interval = std::chrono::seconds(10);
@@ -801,8 +797,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
       auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
           attempt_time - start_time);
       BAZEL_LOG(USER) << "... still trying to connect to local "
-                      << startup_options.product_name << " server after "
-                      << elapsed_time.count() << " seconds ...";
+                      << startup_options.product_name << " server ("
+                      << server_pid << ") after " << elapsed_time.count()
+                      << " seconds ...";
       last_message_time = attempt_time;
     }
 
@@ -825,7 +822,8 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
     }
   }
   BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "couldn't connect to server (" << server_pid << ") after 120 seconds.";
+      << "couldn't connect to server (" << server_pid << ") after "
+      << startup_options.local_startup_timeout_secs << " seconds.";
 }
 
 // Ensures that any server previously associated with `server_dir` is no longer
@@ -954,7 +952,7 @@ static void BlessFiles(const string &embedded_binaries) {
 // no-one has modified the extracted files beneath this directory once
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
-// becomes visible automically at the new path.
+// becomes visible atomically at the new path.
 static DurationMillis ExtractData(const string &self_path,
                                   const vector<string> &archive_contents,
                                   const string &expected_install_md5,
@@ -1053,7 +1051,12 @@ static bool IsVolatileArg(const string &arg) {
   // server command line difference logic can be simplified then.
   static const std::set<string> volatile_startup_options = {
       "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
-      "--client_debug="};
+      "--local_startup_timeout_secs=", "--client_debug=", "--preemptible=",
+      // Internally, -XX:HeapDumpPath is set automatically via the user's TMPDIR
+      // environment variable. Since that can change based on the shell, we
+      // tolerate changes to it. Note that an explicit setting of
+      // -XX:HeapDumpPath via --host_jvm_args *will* trigger a restart.
+      "-XX:HeapDumpPath="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');
@@ -1383,7 +1386,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // environment variables to modify the current process, we may actually use
   // such map to configure a process from scratch (via interfaces like execvpe
   // or posix_spawn), so we need to inherit any untouched variables.
-  for (char **entry = environ; *entry != NULL; entry++) {
+  for (char **entry = environ; *entry != nullptr; entry++) {
     const std::string var_value = *entry;
     std::string::size_type equals = var_value.find('=');
     if (equals == std::string::npos) {
@@ -1637,6 +1640,10 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   // than emit a help message.
   if (!workspace_layout->InWorkspace(workspace)) {
     startup_options->batch = true;
+    BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
+                       << " in batch mode since it is not invoked from within"
+                       << " a workspace (below a directory having a WORKSPACE"
+                       << " file).";
   }
 
   vector<string> archive_contents;
@@ -1673,6 +1680,7 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
       block_for_lock_(startup_options.block_for_lock),
+      preemptible_(startup_options.preemptible),
       output_base_(startup_options.output_base) {
   if (!startup_options.client_debug) {
     gpr_set_log_function(null_grpc_log_function);
@@ -1711,14 +1719,19 @@ bool BlazeServer::Connect() {
   assert(!Connected());
 
   blaze_util::Path server_dir = output_base_.GetRelative("server");
-  std::string port;
-  std::string ipv4_prefix = "127.0.0.1:";
-  std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
-  std::string ipv6_prefix_2 = "[::1]:";
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("command_port"), &port)) {
+  command_server::ServerInfo server_info;
+  std::string bytes;
+  if (!blaze_util::ReadFile(server_dir.GetRelative("server_info.rawproto"),
+                            &bytes) ||
+      !server_info.ParseFromString(bytes)) {
     return false;
   }
+
+  const std::string port = server_info.address();
+  const std::string ipv4_prefix = "127.0.0.1:";
+  const std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
+  const std::string ipv6_prefix_2 = "[::1]:";
 
   // Make sure that we are being directed to localhost
   if (port.compare(0, ipv4_prefix.size(), ipv4_prefix) &&
@@ -1727,17 +1740,10 @@ bool BlazeServer::Connect() {
     return false;
   }
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("request_cookie"),
-                            &request_cookie_)) {
-    return false;
-  }
+  request_cookie_ = server_info.request_cookie();
+  response_cookie_ = server_info.response_cookie();
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("response_cookie"),
-                            &response_cookie_)) {
-    return false;
-  }
-
-  pid_t server_pid = GetServerPid(blaze_util::Path(server_dir));
+  const pid_t server_pid = server_info.pid();
   if (server_pid < 0) {
     return false;
   }
@@ -1947,6 +1953,7 @@ unsigned int BlazeServer::Communicate(
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(block_for_lock_);
+  request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {
     request.add_arg(arg);
@@ -2085,7 +2092,7 @@ unsigned int BlazeServer::Communicate(
 
     // Execute the requested program, but before doing so, flush everything
     // we still have to say.
-    fflush(NULL);
+    fflush(nullptr);
     ExecuteRunRequest(blaze_util::Path(request.argv(0)), argv);
   }
 

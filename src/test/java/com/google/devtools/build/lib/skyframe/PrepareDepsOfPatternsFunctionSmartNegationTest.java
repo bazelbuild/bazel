@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.analysis.util.DefaultBuildOptionsForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -90,9 +90,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
-            .setDefaultBuildOptions(
-                DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
                     PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
@@ -106,7 +105,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         Options.getDefaults(PackageOptions.class),
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -117,7 +116,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     scratch.file(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING);
   }
 
@@ -131,9 +131,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
     // When PrepareDepsOfPatternsFunction completes evaluation (with no error because it was
     // recovered from),
-    WalkableGraph walkableGraph =
-        getGraphFromPatternsEvaluation(
-            patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
+    WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains package values for "@//foo" and "@//foo/foo",
     assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
@@ -173,11 +171,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
   private void assertSkipsFoo(ImmutableList<String> patternSequence) throws Exception {
 
-
     // When PrepareDepsOfPatternsFunction completes evaluation (successfully),
-    WalkableGraph walkableGraph =
-        getGraphFromPatternsEvaluation(
-            patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
+    WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a package value for "@//foo",
     assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
@@ -197,7 +192,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     ImmutableList<String> patternSequence = ImmutableList.of("-//foo/bar");
 
     // When PrepareDepsOfPatternsFunction completes evaluation,
-    getGraphFromPatternsEvaluation(patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
+    getGraphFromPatternsEvaluation(patternSequence);
 
     // Then a event is published that says that negative non-TBD patterns are skipped.
     assertContainsEvent(
@@ -207,8 +202,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
   // Helpers:
 
-  private WalkableGraph getGraphFromPatternsEvaluation(
-      ImmutableList<String> patternSequence, boolean successExpected, boolean keepGoing)
+  private WalkableGraph getGraphFromPatternsEvaluation(ImmutableList<String> patternSequence)
       throws InterruptedException {
     SkyKey independentTarget =
         PrepareDepsOfPatternsValue.key(patternSequence, PathFragment.EMPTY_FRAGMENT);
@@ -217,14 +211,14 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     // When PrepareDepsOfPatternsFunction completes evaluation,
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
-            .setKeepGoing(keepGoing)
+            .setKeepGoing(true)
             .setNumThreads(100)
             .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
-        skyframeExecutor.getDriver().evaluate(singletonTargetPattern, evaluationContext);
+        skyframeExecutor.getEvaluator().evaluate(singletonTargetPattern, evaluationContext);
     // The evaluation has no errors if success was expected.
-    assertThat(evaluationResult.hasError()).isNotEqualTo(successExpected);
+    assertThat(evaluationResult.hasError()).isFalse();
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
   }
 

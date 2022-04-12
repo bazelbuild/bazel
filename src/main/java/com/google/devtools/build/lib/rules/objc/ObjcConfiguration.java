@@ -17,19 +17,21 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
+@RequiresOptions(options = {CppOptions.class, ObjcCommandLineOptions.class})
 public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
@@ -51,24 +53,21 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final String watchosSimulatorDevice;
   private final DottedVersion tvosSimulatorVersion;
   private final String tvosSimulatorDevice;
-  private final boolean generateDsym;
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
   private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
   private final ImmutableList<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
-  private final boolean moduleMapsEnabled;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
-  private final boolean enableAppleBinaryNativeProtos;
-  private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
-  private final boolean shouldScanIncludes;
-  private final boolean compileInfoMigration;
+  private final boolean avoidHardcodedCompilationFlags;
 
-  ObjcConfiguration(
-      CppOptions cppOptions, ObjcCommandLineOptions objcOptions, CoreOptions options) {
+  public ObjcConfiguration(BuildOptions buildOptions) {
+    CoreOptions options = buildOptions.get(CoreOptions.class);
+    ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
+
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
     this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
@@ -79,22 +78,13 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
-    this.generateDsym =
-        cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && this.compilationMode == CompilationMode.DBG);
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
-    this.moduleMapsEnabled = objcOptions.enableModuleMaps;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
-    this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
-    this.dotdPruningPlan =
-        objcOptions.useDotdPruning
-            ? HeaderDiscovery.DotdPruningMode.USE
-            : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
-    this.shouldScanIncludes = objcOptions.scanIncludes;
-    this.compileInfoMigration = objcOptions.incompatibleObjcCompileInfoMigration;
+    this.avoidHardcodedCompilationFlags =
+        objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
   }
 
   /**
@@ -143,14 +133,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   }
 
   /**
-   * Returns whether dSYM generation is enabled.
-   */
-  @Override
-  public boolean generateDsym() {
-    return generateDsym;
-  }
-
-  /**
    * Returns whether linkmap generation is enabled.
    */
   @Override
@@ -177,18 +159,18 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
-        if (this.debugWithGlibcxx) {
-          return ImmutableList.<String>builder()
-              .addAll(DBG_COPTS)
-              .addAll(GLIBCXX_DBG_COPTS)
-              .build();
-        } else {
-          return DBG_COPTS;
+        ImmutableList.Builder<String> opts = ImmutableList.builder();
+        if (!this.avoidHardcodedCompilationFlags) {
+          opts.addAll(DBG_COPTS);
         }
+        if (this.debugWithGlibcxx) {
+          opts.addAll(GLIBCXX_DBG_COPTS);
+        }
+        return opts.build();
       case FASTBUILD:
         return fastbuildOptions;
       case OPT:
-        return OPT_COPTS;
+        return this.avoidHardcodedCompilationFlags ? ImmutableList.of() : OPT_COPTS;
       default:
         throw new AssertionError();
     }
@@ -204,16 +186,10 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   }
 
   /**
-   * Whether module map generation and interpretation is enabled.
-   */
-  public boolean moduleMapsEnabled() {
-    return moduleMapsEnabled;
-  }
-
-  /**
    * Returns whether to perform symbol and dead-code strippings on linked binaries. The strippings
    * are performed iff --compilation_mode=opt and --objc_enable_binary_stripping are specified.
    */
+  @Override
   public boolean shouldStripBinary() {
     return this.enableBinaryStripping && getCompilationMode() == CompilationMode.OPT;
   }
@@ -236,26 +212,5 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
-  }
-
-  /** Returns true if apple_binary targets should generate and link Objc protos. */
-  @Override
-  public boolean enableAppleBinaryNativeProtos() {
-    return enableAppleBinaryNativeProtos;
-  }
-
-  /** Returns the DotdPruningPlan for compiles in this build. */
-  public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
-    return dotdPruningPlan;
-  }
-
-  /** Returns true iff we should do "include scanning" during this build. */
-  public boolean shouldScanIncludes() {
-    return shouldScanIncludes;
-  }
-
-  /** Whether native rules can assume compile info has been migrated to CcInfo. */
-  public boolean compileInfoMigration() {
-    return compileInfoMigration;
   }
 }

@@ -15,94 +15,212 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.OutputGroupInfo.DEFAULT;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.determineOutputGroups;
 import static java.util.Arrays.asList;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo.ValidationMode;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link OutputGroupInfo}.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link OutputGroupInfo}. */
+@RunWith(TestParameterInjector.class)
 public final class OutputGroupProviderTest {
 
   @Test
-  public void testDetermineOutputGroupsOverridesDefaults() throws Exception {
+  public void testDetermineOutputGroupsOverridesDefaults(@TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("a", "b", "c"), false);
-    assertThat(outputGroups).containsExactly("a", "b", "c");
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("a", "b", "c"),
+            ValidationMode.OFF,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(shouldRunTests, "a", "b", "c"));
   }
 
   @Test
-  public void testDetermineOutputGroupsAddsToDefaults() throws Exception {
+  public void testDetermineOutputGroupsAddsToDefaults(@TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a"), false);
-    assertThat(outputGroups).containsExactly("x", "y", "z", "a");
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("+a"),
+            ValidationMode.OFF,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(shouldRunTests, "x", "y", "z", "a"));
   }
 
   @Test
-  public void testDetermineOutputGroupsRemovesFromDefaults() throws Exception {
+  public void testDetermineOutputGroupsRemovesFromDefaults(@TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-y"), false);
-    assertThat(outputGroups).containsExactly("x", "z");
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("-y"),
+            ValidationMode.OFF,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(outputGroupsWithDefaultIfRunningTests(shouldRunTests, "x", "z"));
   }
 
   @Test
-  public void testDetermineOutputGroupsMixedOverrideAdditionOverrides() throws Exception {
+  public void testDetermineOutputGroupsMixedOverrideAdditionOverrides(
+      @TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("a", "+b"), false);
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("a", "+b"),
+            ValidationMode.OFF,
+            /*shouldRunTests=*/ shouldRunTests);
     // The plain "a" causes the default output groups to be overridden.
-    assertThat(outputGroups).containsExactly("a", "b");
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(outputGroupsWithDefaultIfRunningTests(shouldRunTests, "a", "b"));
   }
 
   @Test
-  public void testDetermineOutputGroupsIgnoresUnknownGroup() throws Exception {
+  public void testDetermineOutputGroupsIgnoresUnknownGroup(@TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-foo"), false);
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("-foo"),
+            ValidationMode.OFF,
+            /*shouldRunTests=*/ shouldRunTests);
     // "foo" doesn't exist, but that shouldn't be a problem.
-    assertThat(outputGroups).containsExactly("x", "y", "z");
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(shouldRunTests, "x", "y", "z"));
   }
 
   @Test
-  public void testDetermineOutputGroupsRemovesPreviouslyAddedGroup() throws Exception {
+  public void testDetermineOutputGroupsRemovesPreviouslyAddedGroup(
+      @TestParameter boolean shouldRunTests) {
     Set<String> outputGroups;
-    outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a", "-a"), false);
-    assertThat(outputGroups).containsExactly("x", "y", "z");
+    outputGroups =
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("+a", "-a"),
+            ValidationMode.OFF,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(shouldRunTests, "x", "y", "z"));
 
     // Order matters here.
-    outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-a", "+a"), false);
-    assertThat(outputGroups).containsExactly("x", "y", "z", "a");
+    outputGroups =
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("-a", "+a"),
+            ValidationMode.OFF,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(shouldRunTests, "x", "y", "z", "a"));
   }
 
   @Test
-  public void testDetermineOutputGroupsContainsValidationGroup() throws Exception {
+  public void testDetermineOutputGroupsContainsValidationGroup(
+      @TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList(), true);
-    assertThat(outputGroups).containsExactly("x", "y", "z", OutputGroupInfo.VALIDATION);
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList(),
+            ValidationMode.OUTPUT_GROUP,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(
+                shouldRunTests, "x", "y", "z", OutputGroupInfo.VALIDATION));
   }
 
   @Test
-  public void testDetermineOutputGroupsContainsValidationGroupAfterOverride() throws Exception {
+  public void testDetermineOutputGroupsContainsValidationGroupAfterOverride(
+      @TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("foo"), true);
-    assertThat(outputGroups).containsExactly("foo", OutputGroupInfo.VALIDATION);
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("foo"),
+            ValidationMode.OUTPUT_GROUP,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(
+                shouldRunTests, "foo", OutputGroupInfo.VALIDATION));
   }
 
   @Test
-  public void testDetermineOutputGroupsContainsValidationGroupAfterAdd() throws Exception {
+  public void testDetermineOutputGroupsContainsValidationGroupAfterAdd(
+      @TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a"), true);
-    assertThat(outputGroups).containsExactly("x", "y", "z", "a", OutputGroupInfo.VALIDATION);
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("+a"),
+            ValidationMode.OUTPUT_GROUP,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(
+                shouldRunTests, "x", "y", "z", "a", OutputGroupInfo.VALIDATION));
   }
 
   @Test
-  public void testDetermineOutputGroupsContainsValidationGroupAfterRemove() throws Exception {
+  public void testDetermineOutputGroupsContainsValidationGroupAfterRemove(
+      @TestParameter boolean shouldRunTests) {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-x"), true);
-    assertThat(outputGroups).containsExactly("y", "z", OutputGroupInfo.VALIDATION);
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("-x"),
+            ValidationMode.OUTPUT_GROUP,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(
+                shouldRunTests, "y", "z", OutputGroupInfo.VALIDATION));
+  }
+
+  @Test
+  public void testDetermineOutputGroupsContainsValidationGroupDespiteRemove(
+      @TestParameter boolean shouldRunTests) {
+    Set<String> outputGroups =
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("-" + OutputGroupInfo.VALIDATION),
+            ValidationMode.OUTPUT_GROUP,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(
+                shouldRunTests, "x", "y", "z", OutputGroupInfo.VALIDATION));
+  }
+
+  @Test
+  public void testDetermineOutputGroupsContainsTopLevelValidationGroup(
+      @TestParameter boolean shouldRunTests) {
+    Set<String> outputGroups =
+        determineOutputGroups(
+            ImmutableSet.of("x", "y", "z"),
+            asList("-" + OutputGroupInfo.VALIDATION_TOP_LEVEL),
+            ValidationMode.ASPECT,
+            /*shouldRunTests=*/ shouldRunTests);
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(
+                shouldRunTests, "x", "y", "z", OutputGroupInfo.VALIDATION_TOP_LEVEL));
+  }
+
+  private static Iterable<String> outputGroupsWithDefaultIfRunningTests(
+      boolean shouldRunTests, String... groups) {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    result.add(groups);
+    if (shouldRunTests) {
+      result.add(DEFAULT);
+    }
+    return result.build();
   }
 }

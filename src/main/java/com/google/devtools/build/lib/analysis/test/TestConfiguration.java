@@ -20,12 +20,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TestTimeout;
@@ -34,6 +33,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -43,11 +43,12 @@ import java.util.List;
 import java.util.Map;
 
 /** Test-related options. */
+@RequiresOptions(options = {TestConfiguration.TestOptions.class})
 public class TestConfiguration extends Fragment {
   public static final OptionsDiffPredicate SHOULD_INVALIDATE_FOR_OPTION_DIFF =
       (options, changedOption, oldValue, newValue) -> {
-        if (TestOptions.TRIM_TEST_CONFIGURATION.equals(changedOption)) {
-          // changes in --trim_test_configuration itself always prompt invalidation
+        if (TestOptions.ALWAYS_INVALIDATE_WHEN_CHANGED.contains(changedOption)) {
+          // changes in --trim_test_configuration itself or related flags always prompt invalidation
           return true;
         }
         if (!changedOption.getField().getDeclaringClass().equals(TestOptions.class)) {
@@ -60,8 +61,11 @@ public class TestConfiguration extends Fragment {
 
   /** Command-line options. */
   public static class TestOptions extends FragmentOptions {
-    private static final OptionDefinition TRIM_TEST_CONFIGURATION =
-        OptionsParser.getOptionDefinitionByName(TestOptions.class, "trim_test_configuration");
+    private static final ImmutableSet<OptionDefinition> ALWAYS_INVALIDATE_WHEN_CHANGED =
+        ImmutableSet.of(
+            OptionsParser.getOptionDefinitionByName(TestOptions.class, "trim_test_configuration"),
+            OptionsParser.getOptionDefinitionByName(
+                TestOptions.class, "experimental_retain_test_configuration_across_testonly"));
 
     @Option(
         name = "test_timeout",
@@ -126,18 +130,34 @@ public class TestConfiguration extends Fragment {
     public int testResultExpiration;
 
     @Option(
-      name = "trim_test_configuration",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      help = "When enabled, test-related options will be cleared below the top level of the build. "
-          + "When this flag is active, tests cannot be built as dependencies of non-test rules, "
-          + "but changes to test-related options will not cause non-test rules to be re-analyzed."
-    )
+        name = "trim_test_configuration",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help =
+            "When enabled, test-related options will be cleared below the top level of the build."
+                + " When this flag is active, tests cannot be built as dependencies of non-test"
+                + " rules, but changes to test-related options will not cause non-test rules to be"
+                + " re-analyzed.")
     public boolean trimTestConfiguration;
+
+    @Option(
+        name = "experimental_retain_test_configuration_across_testonly",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help =
+            "When enabled, --trim_test_configuration will not trim the test configuration for rules"
+                + " marked testonly=1. This is meant to reduce action conflict issues when non-test"
+                + " rules depend on cc_test rules. No effect if --trim_test_configuration is"
+                + " false.")
+    public boolean experimentalRetainTestConfigurationAcrossTestonly;
 
     @Option(
         name = "test_arg",
@@ -163,18 +183,6 @@ public class TestConfiguration extends Fragment {
                 + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is "
                 + "present. 'disabled' to never use test sharding.")
     public TestShardingStrategy testShardingStrategy;
-
-    @Option(
-        name = "experimental_persistent_test_runner",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Allows running java_test targets locally within a persistent worker. "
-                + "To enable the persistent test runner one must run bazel test with the flags:"
-                + "--test_strategy=local --strategy=TestRunner=worker "
-                + " --experimental_persistent_test_runner")
-    public boolean persistentTestRunner;
 
     @Option(
         name = "runs_per_test",
@@ -259,6 +267,33 @@ public class TestConfiguration extends Fragment {
                 + "coverage run.")
     public boolean fetchAllCoverageOutputs;
 
+    @Option(
+        name = "incompatible_exclusive_test_sandboxed",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "If true, exclusive tests will run with sandboxed strategy. Add 'local' tag to force "
+                + "an exclusive test run locally")
+    public boolean incompatibleExclusiveTestSandboxed;
+
+    @Option(
+        name = "experimental_split_coverage_postprocessing",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
+    public boolean splitCoveragePostProcessing;
+
+    @Option(
+        name = "zip_undeclared_test_outputs",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.TEST_RUNNER},
+        help = "If true, undeclared test outputs will be archived in a zip file.")
+    public boolean zipUndeclaredTestOutputs;
+
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
@@ -268,38 +303,31 @@ public class TestConfiguration extends Fragment {
       hostOptions.coverageReportGenerator = this.coverageReportGenerator;
       // trimTestConfiguration is a global analysis option and should be platform-agnostic
       hostOptions.trimTestConfiguration = this.trimTestConfiguration;
+      hostOptions.experimentalRetainTestConfigurationAcrossTestonly =
+          this.experimentalRetainTestConfigurationAcrossTestonly;
       return hostOptions;
-    }
-  }
-
-  /** Configuration loader for test options */
-  public static class Loader implements ConfigurationFragmentFactory {
-    @Override
-    public Fragment create(BuildOptions buildOptions)
-        throws InvalidConfigurationException {
-      if (!buildOptions.contains(TestOptions.class)) {
-        return null;
-      }
-      return new TestConfiguration(buildOptions.get(TestOptions.class));
-    }
-
-    @Override
-    public Class<? extends Fragment> creates() {
-      return TestConfiguration.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of(TestOptions.class);
     }
   }
 
   private final TestOptions options;
   private final ImmutableMap<TestTimeout, Duration> testTimeout;
+  private final boolean shouldInclude;
 
-  private TestConfiguration(TestOptions options) {
-    this.options = options;
-    this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
+  public TestConfiguration(BuildOptions buildOptions) {
+    this.shouldInclude = buildOptions.contains(TestOptions.class);
+    if (shouldInclude) {
+      TestOptions options = buildOptions.get(TestOptions.class);
+      this.options = options;
+      this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
+    } else {
+      this.options = null;
+      this.testTimeout = null;
+    }
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return shouldInclude;
   }
 
   /** Returns test timeout mapping as set by --test_timeout options. */
@@ -327,21 +355,11 @@ public class TestConfiguration extends Fragment {
     return options.testShardingStrategy;
   }
 
-  /**
-   * Whether the persistent test runner is enabled. Note that not all test rules support this
-   * feature, in which case Bazel should fall back to the normal test runner. Therefore, this method
-   * must only be called by test rules, and never for test actions. For actions, use {@code
-   * TestTargetProperties.isPersistentTestRunner} instead.
-   */
-  public boolean isPersistentTestRunner() {
-    return options.persistentTestRunner;
-  }
-
-  public Label getCoverageSupport(){
+  public Label getCoverageSupport() {
     return options.coverageSupport;
   }
 
-  public Label getCoverageReportGenerator(){
+  public Label getCoverageReportGenerator() {
     return options.coverageReportGenerator;
   }
 
@@ -368,6 +386,18 @@ public class TestConfiguration extends Fragment {
 
   public boolean fetchAllCoverageOutputs() {
     return options.fetchAllCoverageOutputs;
+  }
+
+  public boolean incompatibleExclusiveTestSandboxed() {
+    return options.incompatibleExclusiveTestSandboxed;
+  }
+
+  public boolean splitCoveragePostProcessing() {
+    return options.splitCoveragePostProcessing;
+  }
+
+  public boolean getZipUndeclaredTestOutputs() {
+    return options.zipUndeclaredTestOutputs;
   }
 
   /**

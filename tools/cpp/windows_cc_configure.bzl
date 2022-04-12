@@ -254,14 +254,17 @@ def find_vc_path(repository_ctx):
     auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
 
-def _is_vs_2017_or_2019(vc_path):
-    """Check if the installed VS version is Visual Studio 2017."""
+def _is_vs_2017_or_2019(repository_ctx, vc_path):
+    """Check if the installed VS version is Visual Studio 2017 or 2019."""
 
-    # In VS 2017 and 2019, the location of VC is like:
-    # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\
-    # In VS 2015 or older version, it is like:
-    # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
-    return vc_path.find("2017") != -1 or vc_path.find("2019") != -1
+    # The layout of VC folder in VS 2017 and 2019 is different from that in VS 2015 and older versions.
+    # In VS 2017 and 2019, it contains only three directories:
+    # "Auxiliary", "Redist", "Tools"
+
+    vc_2017_or_2019_contents = ["auxiliary", "redist", "tools"]
+    vc_path_contents = [d.basename.lower() for d in repository_ctx.path(vc_path).readdir()]
+    vc_path_contents = sorted(vc_path_contents)
+    return vc_path_contents == vc_2017_or_2019_contents
 
 def _is_msbuildtools(vc_path):
     """Check if the installed VC version is from MSBuildTools."""
@@ -272,7 +275,7 @@ def _is_msbuildtools(vc_path):
 
 def _find_vcvars_bat_script(repository_ctx, vc_path):
     """Find batch script to set up environment variables for VC. Doesn't %-escape the result."""
-    if _is_vs_2017_or_2019(vc_path):
+    if _is_vs_2017_or_2019(repository_ctx, vc_path):
         vcvars_script = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
     else:
         vcvars_script = vc_path + "\\VCVARSALL.BAT"
@@ -290,7 +293,7 @@ def _is_support_vcvars_ver(vc_full_version):
 
 def _is_support_winsdk_selection(repository_ctx, vc_path):
     """Windows SDK selection is supported with VC 2017 / 2019 or with full VS 2015 installation."""
-    if _is_vs_2017_or_2019(vc_path):
+    if _is_vs_2017_or_2019(repository_ctx, vc_path):
         return True
 
     # By checking the source code of VCVARSALL.BAT in VC 2015, we know that
@@ -316,10 +319,14 @@ def _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch):
         dictionary of envvars
     """
     env = {}
-    if _is_vs_2017_or_2019(vc_path):
+    if _is_vs_2017_or_2019(repository_ctx, vc_path):
         lib = msvc_vars_x64["%{msvc_env_lib_x64}"]
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         tools_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s" % (vc_path, full_version, target_arch)
+
+        # For native windows(10) on arm64 builds host toolchain runs in an emulated x86 environment
+        if not repository_ctx.path(tools_path).exists:
+            tools_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX86\\%s" % (vc_path, full_version, target_arch)
     else:
         lib = msvc_vars_x64["%{msvc_env_lib_x64}"].replace("amd64", _targets_lib_folder[target_arch])
         tools_path = vc_path + "\\bin\\" + _targets_archs[target_arch]
@@ -360,7 +367,7 @@ def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False
 
     # Get VC version set by user. Only supports VC 2017 & 2019.
     vcvars_ver = ""
-    if _is_vs_2017_or_2019(vc_path):
+    if _is_vs_2017_or_2019(repository_ctx, vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
 
         # Because VCVARSALL.BAT is from the latest VC installed, so we check if the latest
@@ -441,10 +448,14 @@ def _find_msvc_tools(repository_ctx, vc_path, target_arch = "x64"):
 def find_msvc_tool(repository_ctx, vc_path, tool, target_arch = "x64"):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     tool_path = None
-    if _is_vs_2017_or_2019(vc_path) or _is_msbuildtools(vc_path):
+    if _is_vs_2017_or_2019(repository_ctx, vc_path) or _is_msbuildtools(vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         if full_version:
             tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s\\%s" % (vc_path, full_version, target_arch, tool)
+
+            # For native windows(10) on arm64 builds host toolchain runs in an emulated x86 environment
+            if not repository_ctx.path(tool_path).exists:
+                tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX86\\%s\\%s" % (vc_path, full_version, target_arch, tool)
     else:
         # For VS 2015 and older version, the tools are under:
         # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64
@@ -682,12 +693,12 @@ def _get_msvc_vars(repository_ctx, paths, target_arch = "x64", msvc_vars_x64 = N
     }
     return msvc_vars
 
-def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
+def _get_clang_cl_vars(repository_ctx, paths, msvc_vars, target_arch):
     """Get the variables we need to populate the clang-cl toolchains."""
     llvm_path = find_llvm_path(repository_ctx)
     error_script = None
-    if msvc_vars["%{msvc_cl_path_x64}"] == "vc_installation_error_x64.bat":
-        error_script = "vc_installation_error_x64.bat"
+    if msvc_vars["%{msvc_cl_path_" + target_arch + "}"] == "vc_installation_error_{}.bat".format(target_arch):
+        error_script = "vc_installation_error_{}.bat".format(target_arch)
     elif not llvm_path:
         repository_ctx.template(
             "clang_installation_error.bat",
@@ -715,17 +726,17 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
     if error_script:
         write_builtin_include_directory_paths(repository_ctx, "clang-cl", [], file_suffix = "_clangcl")
         clang_cl_vars = {
-            "%{clang_cl_env_tmp}": "clang_cl_not_found",
-            "%{clang_cl_env_path}": "clang_cl_not_found",
-            "%{clang_cl_env_include}": "clang_cl_not_found",
-            "%{clang_cl_env_lib}": "clang_cl_not_found",
-            "%{clang_cl_cl_path}": error_script,
-            "%{clang_cl_link_path}": error_script,
-            "%{clang_cl_lib_path}": error_script,
-            "%{clang_cl_ml_path}": error_script,
-            "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
-            "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
-            "%{clang_cl_cxx_builtin_include_directories}": "",
+            "%{clang_cl_env_tmp_" + target_arch + "}": "clang_cl_not_found",
+            "%{clang_cl_env_path_" + target_arch + "}": "clang_cl_not_found",
+            "%{clang_cl_env_include_" + target_arch + "}": "clang_cl_not_found",
+            "%{clang_cl_env_lib_" + target_arch + "}": "clang_cl_not_found",
+            "%{clang_cl_cl_path_" + target_arch + "}": error_script,
+            "%{clang_cl_link_path_" + target_arch + "}": error_script,
+            "%{clang_cl_lib_path_" + target_arch + "}": error_script,
+            "%{clang_cl_ml_path_" + target_arch + "}": error_script,
+            "%{clang_cl_dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG",
+            "%{clang_cl_fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG",
+            "%{clang_cl_cxx_builtin_include_directories_" + target_arch + "}": "",
         }
         return clang_cl_vars
 
@@ -738,21 +749,21 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
     clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
     clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
 
-    clang_cl_include_directories = msvc_vars["%{msvc_cxx_builtin_include_directories_x64}"] + (",\n        \"%s\"" % clang_include_path)
+    clang_cl_include_directories = msvc_vars["%{msvc_cxx_builtin_include_directories_" + target_arch + "}"] + (",\n        \"%s\"" % clang_include_path)
     write_builtin_include_directory_paths(repository_ctx, "clang-cl", [clang_cl_include_directories], file_suffix = "_clangcl")
     clang_cl_vars = {
-        "%{clang_cl_env_tmp}": msvc_vars["%{msvc_env_tmp_x64}"],
-        "%{clang_cl_env_path}": msvc_vars["%{msvc_env_path_x64}"],
-        "%{clang_cl_env_include}": msvc_vars["%{msvc_env_include_x64}"] + ";" + clang_include_path,
-        "%{clang_cl_env_lib}": msvc_vars["%{msvc_env_lib_x64}"] + ";" + clang_lib_path,
-        "%{clang_cl_cxx_builtin_include_directories}": clang_cl_include_directories,
-        "%{clang_cl_cl_path}": clang_cl_path,
-        "%{clang_cl_link_path}": lld_link_path,
-        "%{clang_cl_lib_path}": llvm_lib_path,
-        "%{clang_cl_ml_path}": msvc_vars["%{msvc_ml_path_x64}"],
+        "%{clang_cl_env_tmp_" + target_arch + "}": msvc_vars["%{msvc_env_tmp_" + target_arch + "}"],
+        "%{clang_cl_env_path_" + target_arch + "}": msvc_vars["%{msvc_env_path_" + target_arch + "}"],
+        "%{clang_cl_env_include_" + target_arch + "}": msvc_vars["%{msvc_env_include_" + target_arch + "}"] + ";" + clang_include_path,
+        "%{clang_cl_env_lib_" + target_arch + "}": msvc_vars["%{msvc_env_lib_" + target_arch + "}"] + ";" + clang_lib_path,
+        "%{clang_cl_cxx_builtin_include_directories_" + target_arch + "}": clang_cl_include_directories,
+        "%{clang_cl_cl_path_" + target_arch + "}": clang_cl_path,
+        "%{clang_cl_link_path_" + target_arch + "}": lld_link_path,
+        "%{clang_cl_lib_path_" + target_arch + "}": llvm_lib_path,
+        "%{clang_cl_ml_path_" + target_arch + "}": clang_cl_path,
         # LLVM's lld-link.exe doesn't support /DEBUG:FASTLINK.
-        "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
-        "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
+        "%{clang_cl_dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG",
+        "%{clang_cl_fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG",
     }
     return clang_cl_vars
 
@@ -783,11 +794,13 @@ def configure_windows_toolchain(repository_ctx):
     template_vars = dict()
     msvc_vars_x64 = _get_msvc_vars(repository_ctx, paths, "x64")
     template_vars.update(msvc_vars_x64)
-    template_vars.update(_get_clang_cl_vars(repository_ctx, paths, msvc_vars_x64))
+    template_vars.update(_get_clang_cl_vars(repository_ctx, paths, msvc_vars_x64, "x64"))
     template_vars.update(_get_msys_mingw_vars(repository_ctx))
     template_vars.update(_get_msvc_vars(repository_ctx, paths, "x86", msvc_vars_x64))
     template_vars.update(_get_msvc_vars(repository_ctx, paths, "arm", msvc_vars_x64))
-    template_vars.update(_get_msvc_vars(repository_ctx, paths, "arm64", msvc_vars_x64))
+    msvc_vars_arm64 = _get_msvc_vars(repository_ctx, paths, "arm64", msvc_vars_x64)
+    template_vars.update(msvc_vars_arm64)
+    template_vars.update(_get_clang_cl_vars(repository_ctx, paths, msvc_vars_arm64, "arm64"))
 
     repository_ctx.template(
         "BUILD",

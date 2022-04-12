@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -57,7 +58,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
       return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
           .putAll(super.getSkyFunctions(directories))
           .put(GET_PLATFORM_INFO_FUNCTION, new GetPlatformInfoFunction())
-          .build();
+          .buildOrThrow();
     }
   }
 
@@ -70,12 +71,12 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
   public void testPlatformLookup() throws Exception {
     ConfiguredTargetKey linuxKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//platforms:linux"))
+            .setLabel(Label.parseAbsoluteUnchecked("//platforms:linux"))
             .setConfigurationKey(targetConfigKey)
             .build();
     ConfiguredTargetKey macKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//platforms:mac"))
+            .setLabel(Label.parseAbsoluteUnchecked("//platforms:mac"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(linuxKey, macKey));
@@ -97,7 +98,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
 
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//invalid:not_a_platform"))
+            .setLabel(Label.parseAbsoluteUnchecked("//invalid:not_a_platform"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(targetKey));
@@ -120,7 +121,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
   public void testPlatformLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//fake:missing"))
+            .setLabel(Label.parseAbsoluteUnchecked("//fake:missing"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(targetKey));
@@ -157,7 +158,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
     }
   }
 
-  EvaluationResult<GetPlatformInfoValue> getPlatformInfo(GetPlatformInfoKey key)
+  private EvaluationResult<GetPlatformInfoValue> getPlatformInfo(GetPlatformInfoKey key)
       throws InterruptedException {
     try {
       // Must re-enable analysis for Skyframe functions that create configured targets.
@@ -187,7 +188,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
       GetPlatformInfoKey key = (GetPlatformInfoKey) skyKey;
       try {
         Map<ConfiguredTargetKey, PlatformInfo> platforms =
-            PlatformLookupUtil.getPlatformInfo(key.platformKeys(), env, false);
+            PlatformLookupUtil.getPlatformInfo(key.platformKeys(), env);
         if (env.valuesMissing()) {
           return null;
         }
@@ -196,16 +197,10 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
         throw new GetPlatformInfoFunctionException(e);
       }
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
-  private static class GetPlatformInfoFunctionException extends SkyFunctionException {
-    public GetPlatformInfoFunctionException(InvalidPlatformException e) {
+  private static final class GetPlatformInfoFunctionException extends SkyFunctionException {
+    GetPlatformInfoFunctionException(InvalidPlatformException e) {
       super(e, Transience.PERSISTENT);
     }
   }

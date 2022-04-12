@@ -18,12 +18,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 
 /** A target that provides C++ libraries to be linked into Python targets. */
 @Immutable
-@AutoCodec
 public final class PyCcLinkParamsProvider extends NativeInfo
     implements PyCcLinkParamsProviderApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
@@ -31,8 +29,12 @@ public final class PyCcLinkParamsProvider extends NativeInfo
   private final CcInfo ccInfo;
 
   public PyCcLinkParamsProvider(CcInfo ccInfo) {
-    super(PROVIDER);
     this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

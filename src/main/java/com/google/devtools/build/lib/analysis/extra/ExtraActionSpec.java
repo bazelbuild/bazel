@@ -82,13 +82,13 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
   /** Adds an extra_action to the action graph based on the action to shadow. */
   public Collection<Artifact.DerivedArtifact> addExtraAction(
-      RuleContext owningRule, Action actionToShadow) {
+      RuleContext owningRule, Action actionToShadow) throws InterruptedException {
     Collection<Artifact.DerivedArtifact> extraActionOutputs = new LinkedHashSet<>();
     Collection<Artifact.DerivedArtifact> protoOutputs = new ArrayList<>();
     NestedSetBuilder<Artifact> extraActionInputs = NestedSetBuilder.stableOrder();
 
     Label ownerLabel = owningRule.getLabel();
-    if (requiresActionOutput || actionToShadow.discoversInputs()) {
+    if (requiresActionOutput) {
       extraActionInputs.addAll(actionToShadow.getOutputs());
     }
 
@@ -157,15 +157,14 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   }
 
   /**
-   * Expand extra_action specific variables:
-   * $(EXTRA_ACTION_FILE): expands to a path of the file containing a protocol buffer
-   * describing the action being shadowed.
-   * $(output <out_template>): expands the output template to the execPath of the file.
-   * e.g. $(output $(ACTION_ID).out) ->
+   * Expand extra_action specific variables: $(EXTRA_ACTION_FILE): expands to a path of the file
+   * containing a protocol buffer describing the action being shadowed. $(output <out_template>):
+   * expands the output template to the execPath of the file. e.g. $(output $(ACTION_ID).out) ->
    * <build_path>/extra_actions/bar/baz/devtools/build/test_A41234.out
    */
-  private String createExpandedCommand(RuleContext owningRule,
-      Action action, Artifact extraActionInfoFile) {
+  private String createExpandedCommand(
+      RuleContext owningRule, Action action, Artifact extraActionInfoFile)
+      throws InterruptedException {
     String realCommand = command.replace(
         "$(EXTRA_ACTION_FILE)", extraActionInfoFile.getExecPathString());
 
@@ -191,7 +190,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    * foo/bar/extra/foo/bar/4683026f7ac1dd1a873ccc8c3d764132.analysis
    */
   private Artifact.DerivedArtifact getExtraActionOutputArtifact(
-      RuleContext ruleContext, Action action, String template) {
+      RuleContext ruleContext, Action action, String template) throws InterruptedException {
     String actionId =
         getActionId(ruleContext.getActionKeyContext(), ruleContext.getActionOwner(), action);
 
@@ -236,7 +235,8 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    */
   @VisibleForTesting
   public static String getActionId(
-      ActionKeyContext actionKeyContext, ActionOwner owner, Action action) {
+      ActionKeyContext actionKeyContext, ActionOwner owner, Action action)
+      throws InterruptedException {
     Fingerprint f = new Fingerprint();
     f.addString(owner.getLabel().toString());
     ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();

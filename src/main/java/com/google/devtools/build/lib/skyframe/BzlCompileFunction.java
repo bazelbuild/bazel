@@ -18,8 +18,8 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -30,13 +30,13 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
-import net.starlark.java.syntax.Resolver;
+import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A Skyframe function that compiles the .bzl file denoted by a Label.
@@ -141,8 +141,9 @@ public class BzlCompileFunction implements SkyFunction {
     }
 
     Map<String, Object> predeclared;
+    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
     if (key.kind == BzlCompileValue.Kind.BUILTINS) {
-      predeclared = packageFactory.getBuiltinsBzlEnv();
+      predeclared = starlarkEnv.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
       // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
@@ -152,29 +153,33 @@ public class BzlCompileFunction implements SkyFunction {
       // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
-      predeclared = packageFactory.getUninjectedBuildBzlEnv();
+      predeclared = starlarkEnv.getUninjectedBuildBzlEnv();
     }
 
     // We have all deps. Parse, resolve, and return.
     ParserInput input = ParserInput.fromLatin1(bytes, inputName);
     FileOptions options =
         FileOptions.builder()
-            // TODO(adonovan): add this, so that loads can normally be truly local.
-            // .loadBindsGlobally(key.isPrelude())
-            .restrictStringEscapes(
-                semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
+            // By default, Starlark load statements create file-local bindings.
+            // However, the BUILD prelude typically contains nothing but load
+            // statements whose bindings are intended to be visible in all BUILD
+            // files. The loadBindsGlobally flag allows us to retrieve them.
+            .loadBindsGlobally(key.isBuildPrelude())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
-    Module module = Module.withPredeclared(semantics, predeclared);
-    Resolver.resolveFile(file, module);
-    Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
-    return BzlCompileValue.withFile(file, digest);
-  }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+    // compile
+    Module module = Module.withPredeclared(semantics, predeclared);
+    try {
+      Program prog = Program.compileFile(file, module);
+      return BzlCompileValue.withProgram(prog, digest);
+    } catch (SyntaxError.Exception ex) {
+      Event.replayEventsOn(env.getListener(), ex.errors());
+      return BzlCompileValue.noFile(
+          "compilation of module '%s'%s failed",
+          key.label.toPathFragment(),
+          StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
+    }
   }
 
   static final class FailedIOException extends Exception {

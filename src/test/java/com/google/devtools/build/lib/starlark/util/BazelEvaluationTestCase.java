@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -28,11 +29,13 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -126,19 +129,22 @@ public final class BazelEvaluationTestCase {
             BazelStarlarkContext.Phase.LOADING,
             TestConstants.TOOLS_REPOSITORY,
             /*fragmentNameToClass=*/ null,
-            /*repoMapping=*/ ImmutableMap.of(),
+            /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(new Object()),
-            /*analysisRuleLabel=*/ null) // dummy value for tests
+            /*analysisRuleLabel=*/ null,
+            /*networkAllowlistForTests=*/ null) // dummy value for tests
         .storeInThread(thread);
   }
 
   private static Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
     StarlarkModules.addPredeclared(predeclared);
-    Starlark.addModule(predeclared, new PlatformCommon());
+    predeclared.put("platform_common", new PlatformCommon());
+    predeclared.put("config_common", new ConfigStarlarkCommon());
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
-        Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false),
+        Label.parseAbsoluteUnchecked("//test:label"),
+        RepositoryMapping.ALWAYS_FALLBACK,
         "test/label.bzl",
         /*loads=*/ ImmutableMap.of(),
         /*bzlTransitiveDigest=*/ new byte[0]);
@@ -159,7 +165,7 @@ public final class BazelEvaluationTestCase {
     if (this.module == null) {
       ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
       Object clientData = newModule(predeclared);
-      Module module = Module.withPredeclared(semantics, predeclared.build());
+      Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
       module.setClientData(clientData);
       this.module = module;
     }

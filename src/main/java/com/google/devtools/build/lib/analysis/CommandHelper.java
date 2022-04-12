@@ -112,7 +112,7 @@ public final class CommandHelper {
 
     /** Returns the built {@link CommandHelper}. */
     public CommandHelper build() {
-      return new CommandHelper(ruleContext, toolDependencies.build(), labelMap.build());
+      return new CommandHelper(ruleContext, toolDependencies.build(), labelMap.buildOrThrow());
     }
   }
 
@@ -174,18 +174,6 @@ public final class CommandHelper {
 
     for (Iterable<? extends TransitiveInfoCollection> tools : toolsList) {
       for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
-        Label label = AliasProvider.getDependencyLabel(dep);
-        MiddlemanProvider toolMiddleman = dep.getProvider(MiddlemanProvider.class);
-        if (toolMiddleman != null) {
-          resolvedToolsBuilder.addTransitive(toolMiddleman.getMiddlemanArtifact());
-          // It is not obviously correct to skip potentially adding getFilesToRun of the
-          // FilesToRunProvider. However, for all tools that we know of that provide a middleman,
-          // the middleman is equivalent to the list of files coming out of getFilesToRun().
-          // Just adding all the files creates a substantial performance bottleneck. E.g. a C++
-          // toolchain might consist of thousands of files and tracking them one by one for each
-          // action that uses them is inefficient.
-          continue;
-        }
 
         FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
         if (tool == null) {
@@ -194,6 +182,8 @@ public final class CommandHelper {
 
         NestedSet<Artifact> files = tool.getFilesToRun();
         resolvedToolsBuilder.addTransitive(files);
+
+        Label label = AliasProvider.getDependencyLabel(dep);
         Artifact executableArtifact = tool.getExecutable();
         // If the label has an executable artifact add that to the multimaps.
         if (executableArtifact != null) {
@@ -214,7 +204,7 @@ public final class CommandHelper {
     for (Map.Entry<Label, Collection<Artifact>> entry : tempLabelMap.entrySet()) {
       labelMapBuilder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
     }
-    this.labelMap = labelMapBuilder.build();
+    this.labelMap = labelMapBuilder.buildOrThrow();
   }
 
   public NestedSet<Artifact> getResolvedTools() {

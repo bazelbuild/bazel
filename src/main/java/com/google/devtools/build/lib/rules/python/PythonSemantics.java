@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import java.util.Collection;
@@ -43,6 +42,12 @@ public interface PythonSemantics {
   void validate(RuleContext ruleContext, PyCommon common);
 
   /**
+   * Returns whether we are prohibiting hyphen ('-') characters in the package paths of Python
+   * targets and source files.
+   */
+  boolean prohibitHyphensInPackagePaths();
+
+  /**
    * Extends for the default and data runfiles of {@code py_binary} and {@code py_test} rules with
    * custom elements.
    */
@@ -56,19 +61,12 @@ public interface PythonSemantics {
    */
   void collectDefaultRunfilesForBinary(
       RuleContext ruleContext, PyCommon common, Runfiles.Builder builder)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /** Collects a rule's default runfiles. */
   void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder);
 
-  /**
-   * Returns the coverage instrumentation specification to be used in Python rules.
-   */
-  InstrumentationSpec getCoverageInstrumentationSpec();
-
-  /**
-   * Utility function to compile multiple .py files to .pyc files, if required.
-   */
+  /** Utility function to compile multiple .py files to .pyc files, if required. */
   Collection<Artifact> precompiledPythonFiles(
       RuleContext ruleContext, Collection<Artifact> sources, PyCommon common);
 

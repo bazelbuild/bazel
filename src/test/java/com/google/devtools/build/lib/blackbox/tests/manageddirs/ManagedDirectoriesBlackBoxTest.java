@@ -21,37 +21,39 @@ import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import org.junit.Before;
+import org.junit.Assume;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /** Tests for managed directories. */
-public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
-  private Random random;
+@RunWith(TestParameterInjector.class)
+public final class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
+
+  // Flip to true to use --host_jvm_debug for all bazel commands.
+  private static final boolean DEBUG = false;
+
+  private final Random random = new Random(17);
   private Integer currentDebugId;
 
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    random = new Random(17);
-    super.setUp();
-  }
-
   @Test
-  public void testBuildProject() throws Exception {
+  public void testBuildProject(@TestParameter boolean trackIncrementalState) throws Exception {
     generateProject();
-    buildExpectRepositoryRuleCalled();
+    buildExpectRepositoryRuleCalled(/*watchFs=*/ false, trackIncrementalState);
     checkProjectFiles();
   }
 
   @Test
-  public void testNodeModulesDeleted() throws Exception {
+  public void testNodeModulesDeleted(@TestParameter boolean watchFs) throws Exception {
     generateProject();
     buildExpectRepositoryRuleCalled();
     checkProjectFiles();
@@ -60,7 +62,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(nodeModules.toFile().isDirectory()).isTrue();
     PathUtils.deleteTree(nodeModules);
 
-    buildExpectRepositoryRuleCalled();
+    buildExpectRepositoryRuleCalled(watchFs);
     checkProjectFiles();
   }
 
@@ -93,14 +95,23 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private BuilderRunner bazel() {
-    return bazel(false);
+    return bazel(/*watchFs=*/ false);
   }
 
   private BuilderRunner bazel(boolean watchFs) {
+    return bazel(watchFs, /*trackIncrementalState=*/ true);
+  }
+
+  private BuilderRunner bazel(boolean watchFs, boolean trackIncrementalState) {
     currentDebugId = random.nextInt();
-    BuilderRunner bazel = context().bazel().withEnv("DEBUG_ID", String.valueOf(currentDebugId));
-    if (watchFs) {
-      bazel.withFlags("--watchfs=true");
+    BuilderRunner bazel =
+        context()
+            .bazel()
+            .withEnv("DEBUG_ID", String.valueOf(currentDebugId))
+            .withFlags(
+                "--watchfs=" + watchFs, "--track_incremental_state=" + trackIncrementalState);
+    if (DEBUG) {
+      bazel.enableDebug();
     }
     return bazel;
   }
@@ -162,18 +173,10 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   @Test
-  public void testFilesUnderChangedManagedDirectoriesRefreshed() throws Exception {
-    doTestFilesUnderManagedDirectoriesRefreshed(false);
-  }
-
-  @Test
-  public void testFilesUnderChangedManagedDirectoriesRefreshedWatchFs() throws Exception {
-    doTestFilesUnderManagedDirectoriesRefreshed(true);
-  }
-
-  private void doTestFilesUnderManagedDirectoriesRefreshed(boolean watchFs) throws Exception {
+  public void testFilesUnderManagedDirectoriesRefreshed(@TestParameter boolean watchFs)
+      throws Exception {
     generateProject();
-    buildExpectRepositoryRuleCalled(false, watchFs);
+    buildExpectRepositoryRuleCalled(watchFs);
     checkProjectFiles();
 
     // Now remove the ManagedDirectories, and change the package version - it should still work.
@@ -192,11 +195,10 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
 
     // Now we are building it without managed directories, both managed directories and
     // RepositoryDirectoryValue will be dirty - we expect repository rule to be called again.
-    buildExpectRepositoryRuleCalled(false, watchFs);
+    buildExpectRepositoryRuleCalled(watchFs);
     checkProjectFiles();
 
     // Now change files directly in generated area, and build.
-    List<String> oldPackageJson = PathUtils.readFile(packageJson);
     PathUtils.writeFile(
         packageJson,
         "{",
@@ -233,26 +235,15 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     PathUtils.writeFile(
         context().getWorkDir().resolve(WORKSPACE), properWorkspaceText.toArray(new String[0]));
     PathUtils.writeFile(build, oldBuild.toArray(new String[0]));
-    buildExpectRepositoryRuleCalled(false, watchFs);
+    buildExpectRepositoryRuleCalled(watchFs);
     checkProjectFiles("0.2.0");
   }
 
   @Test
-  public void testManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously()
-      throws Exception {
-    doTestManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(false);
-  }
-
-  @Test
-  public void testManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneouslyWatchFs()
-      throws Exception {
-    doTestManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(true);
-  }
-
-  private void doTestManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(
-      boolean watchFs) throws Exception {
+  public void testManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(
+      @TestParameter boolean watchFs) throws Exception {
     generateProject();
-    buildExpectRepositoryRuleCalled(false, watchFs);
+    buildExpectRepositoryRuleCalled(watchFs);
     checkProjectFiles();
 
     // Modify managed directories somehow.
@@ -269,7 +260,6 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(packageJson.toFile().exists()).isTrue();
 
     // Modify generated package.json under the managed directory.
-    List<String> oldPackageJson = PathUtils.readFile(packageJson);
     PathUtils.writeFile(
         packageJson,
         "{",
@@ -284,7 +274,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
         "}");
     // Expect files under managed directories be regenerated
     // and changes under managed directories be lost.
-    buildExpectRepositoryRuleCalled(false, watchFs);
+    buildExpectRepositoryRuleCalled(watchFs);
     checkProjectFiles();
   }
 
@@ -306,7 +296,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
         ")");
 
     BuilderRunner bazel =
-        bazel().withFlags("--override_repository=generated_node_modules=" + override.toString());
+        bazel().withFlags("--override_repository=generated_node_modules=" + override);
     ProcessResult result = bazel.shouldFail().build("@generated_node_modules//:example-module");
     assertThat(result.errString())
         .contains(
@@ -346,7 +336,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
 
     // Now the overrides change.
     BuilderRunner bazel =
-        bazel().withFlags("--override_repository=generated_node_modules=" + override.toString());
+        bazel().withFlags("--override_repository=generated_node_modules=" + override);
     ProcessResult result = bazel.shouldFail().build("@generated_node_modules//:example-module");
     assertThat(result.errString())
         .contains(
@@ -390,6 +380,40 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
                 "WORKSPACE file can not be a symlink if incrementally updated directories are"
                     + " used."))
         .isTrue();
+  }
+
+  @Test
+  public void testNoCheckFiles(@TestParameter boolean allSkips, @TestParameter boolean watchFs)
+      throws Exception {
+    // On Darwin CI, --watchfs is nondeterministic if this passes or fails
+    Assume.assumeFalse(OS.DARWIN.equals(OS.getCurrent()));
+
+    generateProject();
+    buildExpectRepositoryRuleCalled(watchFs);
+    checkProjectFiles();
+
+    Path nodeModules = context().getWorkDir().resolve("node_modules");
+    assertThat(nodeModules.toFile().isDirectory()).isTrue();
+    PathUtils.deleteTree(nodeModules);
+    assertThat(nodeModules.toFile().isDirectory()).isFalse();
+
+    // As compared to testNodeModulesDeleted, we don't check that the external file disappeared with
+    // this flag so the build is broken
+    BuilderRunner bazel =
+        bazel(watchFs).withFlags("--noexperimental_check_external_repository_files");
+    if (allSkips) {
+      bazel = bazel.withFlags("--noexperimental_check_output_files");
+    }
+
+    ProcessResult result = bazel.shouldFail().build("//...");
+    assertThat(findPattern(result, "Not found package.json")).isTrue();
+
+    // it doesn't make the file on disk
+    assertThat(nodeModules.toFile().isDirectory()).isFalse();
+
+    // In a perfect world we would be able to fix the build by rebuilding here without the flags,
+    // but we don't
+    // invalidate the cache correctly so the server would have to shut down
   }
 
   private void generateProject() throws IOException {
@@ -439,35 +463,27 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     return lines.get(0);
   }
 
-  private ProcessResult buildExpectRepositoryRuleCalled() throws Exception {
-    return buildExpectRepositoryRuleCalled(false, false);
+  private void buildExpectRepositoryRuleCalled() throws Exception {
+    buildExpectRepositoryRuleCalled(/*watchFs=*/ false);
   }
 
-  private ProcessResult buildExpectRepositoryRuleCalled(boolean debug, boolean watchFs)
+  private void buildExpectRepositoryRuleCalled(boolean watchFs) throws Exception {
+    buildExpectRepositoryRuleCalled(watchFs, /*trackIncrementalState=*/ true);
+  }
+
+  private void buildExpectRepositoryRuleCalled(boolean watchFs, boolean trackIncrementalState)
       throws Exception {
-    BuilderRunner bazel = bazel(watchFs);
-    if (debug) {
-      bazel.enableDebug();
-    }
+    BuilderRunner bazel = bazel(watchFs, trackIncrementalState);
     ProcessResult result = bazel.build("//...");
     buildSucceeded(result);
     debugIdShouldBeUpdated(bazel);
-    return result;
   }
 
-  private ProcessResult buildExpectRepositoryRuleNotCalled() throws Exception {
-    return buildExpectRepositoryRuleNotCalled(false);
-  }
-
-  private ProcessResult buildExpectRepositoryRuleNotCalled(boolean debug) throws Exception {
+  private void buildExpectRepositoryRuleNotCalled() throws Exception {
     BuilderRunner bazel = bazel();
-    if (debug) {
-      bazel.enableDebug();
-    }
     ProcessResult result = bazel.build("//...");
     buildSucceeded(result);
     debugIdShouldNotBeUpdated(bazel);
-    return result;
   }
 
   private void debugIdShouldBeUpdated(BuilderRunner bazel) throws Exception {
@@ -478,15 +494,11 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(getDebugId(bazel)).isNotEqualTo(String.valueOf(currentDebugId));
   }
 
-  private void buildSucceeded(ProcessResult result) {
+  private static void buildSucceeded(ProcessResult result) {
     assertThat(findPattern(result, "INFO: Build completed successfully")).isTrue();
   }
 
-  private void buildFailed(ProcessResult result) {
-    assertThat(findPattern(result, "FAILED: Build did NOT complete successfully")).isTrue();
-  }
-
-  private boolean findPattern(ProcessResult result, String pattern) {
+  private static boolean findPattern(ProcessResult result, String pattern) {
     String[] lines = result.errString().split("\n");
     return Arrays.stream(lines).anyMatch(s -> s.contains(pattern));
   }

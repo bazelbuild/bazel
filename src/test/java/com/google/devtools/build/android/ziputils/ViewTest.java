@@ -143,22 +143,22 @@ public class ViewTest {
       super(buffer);
     }
 
-    // Will advance buffer position
+    // Will advance buffer position.
     public void putInt(int value) {
       buffer.putInt(value);
     }
 
-    // Will advance buffer position
-    public int getInt() {
-      return buffer.getInt();
-    }
-
-    // will not advance buffer position
+    // Will not advance buffer position.
     public void putInt(int index, int value) {
       buffer.putInt(index, value);
     }
 
-    // will not advance buffer position
+    // Will advance buffer position.
+    public int getInt() {
+      return buffer.getInt();
+    }
+
+    // Will not advance buffer position.
     public int getInt(int index) {
       return buffer.getInt(index);
     }

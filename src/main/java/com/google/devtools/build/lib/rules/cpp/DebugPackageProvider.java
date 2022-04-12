@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.DebugPackageInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -31,7 +30,6 @@ import net.starlark.java.eval.Starlark;
  * ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the dwp file will be null.
  */
 @Immutable
-@AutoCodec
 public final class DebugPackageProvider extends NativeInfo
     implements DebugPackageInfoApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
@@ -41,18 +39,21 @@ public final class DebugPackageProvider extends NativeInfo
   private final Artifact unstrippedArtifact;
   @Nullable private final Artifact dwpArtifact;
 
-  @AutoCodec.Instantiator
   public DebugPackageProvider(
       Label targetLabel,
       @Nullable Artifact strippedArtifact,
       Artifact unstrippedArtifact,
       @Nullable Artifact dwpArtifact) {
-    super(PROVIDER);
     Preconditions.checkNotNull(unstrippedArtifact);
     this.targetLabel = targetLabel;
     this.strippedArtifact = strippedArtifact;
     this.unstrippedArtifact = unstrippedArtifact;
     this.dwpArtifact = dwpArtifact;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /** Returns the label for the *_binary target. */
@@ -90,13 +91,13 @@ public final class DebugPackageProvider extends NativeInfo
     @Override
     public DebugPackageProvider createDebugPackageInfo(
         Label starlarkTargetLabel,
-        Artifact starlarkStrippedArtifact,
+        Object starlarkStrippedArtifact,
         Artifact starlarkUnstrippedArtifact,
         Object starlarkDwpArtifact)
         throws EvalException {
       return new DebugPackageProvider(
           starlarkTargetLabel,
-          starlarkStrippedArtifact,
+          nullIfNone(starlarkStrippedArtifact, Artifact.class),
           starlarkUnstrippedArtifact,
           nullIfNone(starlarkDwpArtifact, Artifact.class));
     }

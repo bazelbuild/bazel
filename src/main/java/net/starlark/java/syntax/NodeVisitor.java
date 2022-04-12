@@ -23,25 +23,6 @@ public class NodeVisitor {
     node.accept(this);
   }
 
-  // methods dealing with sequences of nodes
-  public void visitAll(List<? extends Node> nodes) {
-    for (Node node : nodes) {
-      visit(node);
-    }
-  }
-
-  /**
-   * Visit a sequence ("block") of statements (e.g. an if branch, for block, function block etc.)
-   *
-   * This method allows subclasses to handle statement blocks more easily, like doing an action
-   * after every statement in a block without having to override visit(...) for all statements.
-   *
-   * @param statements list of statements in the block
-   */
-  public void visitBlock(List<Statement> statements) {
-    visitAll(statements);
-  }
-
   // node-specific visit methods
 
   // All four subclasses of Argument are handled together.
@@ -112,6 +93,8 @@ public class NodeVisitor {
 
   public void visit(@SuppressWarnings("unused") IntLiteral node) {}
 
+  public void visit(@SuppressWarnings("unused") FloatLiteral node) {}
+
   public void visit(@SuppressWarnings("unused") StringLiteral node) {}
 
   public void visit(AssignmentStatement node) {
@@ -168,6 +151,11 @@ public class NodeVisitor {
     visit(node.getKey());
   }
 
+  public void visit(LambdaExpression node) {
+    visitAll(node.getParameters());
+    visit(node.getBody());
+  }
+
   public void visit(SliceExpression node) {
     visit(node.getObject());
     if (node.getStart() != null) {
@@ -189,5 +177,24 @@ public class NodeVisitor {
     if (node.getElseCase() != null) {
       visit(node.getElseCase());
     }
+  }
+
+  // methods dealing with sequences of nodes
+  public void visitAll(List<? extends Node> nodes) {
+    for (Node node : nodes) {
+      visit(node);
+    }
+  }
+
+  /**
+   * Visit a sequence ("block") of statements (e.g. an if branch, for block, function block etc.)
+   *
+   * This method allows subclasses to handle statement blocks more easily, like doing an action
+   * after every statement in a block without having to override visit(...) for all statements.
+   *
+   * @param statements list of statements in the block
+   */
+  public void visitBlock(List<Statement> statements) {
+    visitAll(statements);
   }
 }

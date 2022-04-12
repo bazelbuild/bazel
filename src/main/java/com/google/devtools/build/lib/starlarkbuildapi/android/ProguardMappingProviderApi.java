@@ -58,8 +58,7 @@ public interface ProguardMappingProviderApi<FileT extends FileApi> extends Struc
               name = "proguard_mapping",
               doc = "An artifact of the proguard mapping.",
               positional = true,
-              named = false,
-              type = FileApi.class),
+              named = false),
         },
         selfCall = true)
     @StarlarkConstructor

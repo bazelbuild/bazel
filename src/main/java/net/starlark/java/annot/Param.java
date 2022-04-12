@@ -32,6 +32,15 @@ public @interface Param {
   String doc() default "";
 
   /**
+   * Determines whether the parameter appears in generated documentation. Set this to false to
+   * suppress parameters whose use is intentionally restricted.
+   *
+   * <p>An undocumented parameter must be {@link #named} and may not be followed by positional
+   * parameters or {@code **kwargs}.
+   */
+  boolean documented() default true;
+
+  /**
    * Default value for the parameter, written as a Starlark expression (e.g. "False", "True", "[]",
    * "None").
    *
@@ -46,50 +55,14 @@ public @interface Param {
   String defaultValue() default "";
 
   /**
-   * Type of the parameter, e.g. {@link String}.class or {@link
-   * net.starlark.java.eval.Sequence}.class. May not be used in conjunction with {@link
-   * #allowedTypes}. Specifying neither {@code type} nor {@code allowedTypes} is equivalent to
-   * specifying the class of the parameter variable.
-   */
-  // TODO(adonovan): abolish this (and noneable). It creates ambiguity, complexity,and bugs.
-  // Just specify allowedTypes, with empty array meaning "use the class of the parameter itself".
-  Class<?> type() default Void.class;
-
-  /**
-   * List of allowed types for the parameter if multiple types are allowed.
+   * List of allowed types for the parameter.
    *
-   * <p>May not be used in conjunction with {@link #type}.
+   * <p>The array may be omitted, in which case the parameter accepts any value whose class is
+   * assignable to the class of the parameter variable.
+   *
+   * <p>If a function should accept None, NoneType should be in this list.
    */
   ParamType[] allowedTypes() default {};
-
-  /**
-   * When {@link #type()} is a generic type (e.g., {@link net.starlark.java.eval.Sequence}), specify
-   * the type parameter (e.g. {@link String}.class} along with {@link
-   * net.starlark.java.eval.Sequence} for {@link #type()} to specify a list of strings).
-   *
-   * <p>This is only used for documentation generation. The actual generic type is not checked at
-   * runtime, so the Java method signature should use a generic type of Object and cast
-   * appropriately.
-   */
-  Class<?> generic1() default Object.class;
-
-  /**
-   * Indicates whether this parameter accepts {@code None} as a value, its allowed types
-   * notwithstanding.
-   *
-   * <p>If true, {@code None} is accepted as a valid input in addition to the types mentioned by
-   * {@link #type} or {@link #allowedTypes}. In this case, the Java type of the corresponding method
-   * parameter must be {@code Object}.
-   *
-   * <p>If false, this parameter cannot be passed {@code None}, even if it would otherwise be
-   * allowed by {@code type} or {@code allowedTypes}.
-   */
-  // TODO(starlark-team): Allow None as a value when noneable is false and the type is Object. But
-  // look out for unwanted user-visible changes in the signatures of builtins.
-  // TODO(140932420): Consider simplifying noneable by converting None to null, so that the Java
-  // type need not be Object. But note that we still have the same problem for params whose default
-  // value is the special "unbound" sentinel.
-  boolean noneable() default false;
 
   /**
    * If true, the parameter may be specified as a named parameter. For example for an integer named
@@ -160,8 +133,4 @@ public @interface Param {
    * {@link #defaultValue}.)
    */
   String valueWhenDisabled() default "";
-
-  // TODO(bazel-team): parse the type from a single field in Starlark syntax,
-  // and allow a Union as "ThisType or ThatType or NoneType":
-  // String type() default "Object";
 }

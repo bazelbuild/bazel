@@ -13,23 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.base.Suppliers;
 import com.google.common.collect.MapMaker;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException3;
-import java.io.IOException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 /**
  * A builder of values for {@link ArtifactNestedSetKey}.
@@ -75,51 +79,32 @@ final class ArtifactNestedSetFunction implements SkyFunction {
    * artifactSkyKeyToSkyValue between build 0 and 1, X2's member artifacts' SkyValues would not be
    * available in the map. TODO(leba): Make this weak-keyed.
    */
-  private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue;
+  private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue = new ConcurrentHashMap<>();
 
   /**
    * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
    * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
    *
    * <p>The map weakly references its values: when the ArtifactNestedSetKey becomes otherwise
-   * unreachable, the map entry is collected.
+   * unreachable, the entry is collected.
    */
-  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey>
-      nestedSetToSkyKey; // note: weak values!
+  // Note: Not using a caffeine cache here because it used more memory (b/193294367).
+  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey> nestedSetToSkyKey =
+      new MapMaker().concurrencyLevel(BlazeInterners.concurrencyLevel()).weakValues().makeMap();
+
+  private final Supplier<ArtifactNestedSetValue> valueSupplier;
 
   private static ArtifactNestedSetFunction singleton = null;
 
-  private static Integer sizeThreshold = null;
-
-  private ArtifactNestedSetFunction() {
-    artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
-    nestedSetToSkyKey = new MapMaker().weakValues().makeMap();
+  private ArtifactNestedSetFunction(Supplier<ArtifactNestedSetValue> valueSupplier) {
+    this.valueSupplier = valueSupplier;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
-
-    NestedSet<Artifact> set = ((ArtifactNestedSetKey) skyKey).getSet();
-    List<SkyKey> keys = new ArrayList<>();
-    for (Artifact file : set.getLeaves()) {
-      keys.add(Artifact.key(file));
-    }
-    for (NestedSet<Artifact> nonLeaf : set.getNonLeaves()) {
-      keys.add(
-          nestedSetToSkyKey.computeIfAbsent(
-              nonLeaf.toNode(), (node) -> new ArtifactNestedSetKey(nonLeaf, node)));
-    }
-    Map<
-            SkyKey,
-            ValueOrException3<
-                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
-        depsEvalResult =
-            env.getValuesOrThrow(
-                keys,
-                IOException.class,
-                ActionExecutionException.class,
-                ArtifactNestedSetEvalException.class);
+    List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);
+    SkyframeIterableResult depsEvalResult = env.getOrderedValuesAndExceptions(depKeys);
 
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
         NestedSetBuilder.stableOrder();
@@ -128,23 +113,25 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     // Throw a SkyFunctionException when a dep evaluation results in an exception.
     // Only non-null values should be committed to
     // ArtifactNestedSetFunction#artifacSkyKeyToSkyValue.
-    for (Map.Entry<
-            SkyKey,
-            ValueOrException3<
-                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
-        entry : depsEvalResult.entrySet()) {
+    int i = 0;
+    while (depsEvalResult.hasNext()) {
+      SkyKey key = depKeys.get(i++);
       try {
         // Trigger the exception, if any.
-        SkyValue value = entry.getValue().get();
-        if (entry.getKey() instanceof ArtifactNestedSetKey || value == null) {
+        SkyValue value =
+            depsEvalResult.nextOrThrow(
+                SourceArtifactException.class,
+                ActionExecutionException.class,
+                ArtifactNestedSetEvalException.class);
+        if (key instanceof ArtifactNestedSetKey || value == null) {
           continue;
         }
-        artifactSkyKeyToSkyValue.put(entry.getKey(), value);
-      } catch (IOException e) {
-        // IOException is never catastrophic.
-        transitiveExceptionsBuilder.add(Pair.of(entry.getKey(), e));
+        artifactSkyKeyToSkyValue.put(key, value);
+      } catch (SourceArtifactException e) {
+        // SourceArtifactException is never catastrophic.
+        transitiveExceptionsBuilder.add(Pair.of(key, e));
       } catch (ActionExecutionException e) {
-        transitiveExceptionsBuilder.add(Pair.of(entry.getKey(), e));
+        transitiveExceptionsBuilder.add(Pair.of(key, e));
         catastrophic |= e.isCatastrophe();
       } catch (ArtifactNestedSetEvalException e) {
         catastrophic |= e.isCatastrophic();
@@ -163,37 +150,56 @@ final class ArtifactNestedSetFunction implements SkyFunction {
                   + ", SkyKey: "
                   + firstSkyKeyAndException.getFirst(),
               transitiveExceptions,
-              catastrophic),
-          skyKey);
+              catastrophic));
     }
 
     // This should only happen when all error handling is done.
     if (env.valuesMissing()) {
       return null;
     }
-    return new ArtifactNestedSetValue();
+    return valueSupplier.get();
+  }
+
+  private List<SkyKey> getDepSkyKeys(ArtifactNestedSetKey skyKey) {
+    List<Artifact> leaves = skyKey.getSet().getLeaves();
+    List<NestedSet<Artifact>> nonLeaves = skyKey.getSet().getNonLeaves();
+
+    List<SkyKey> keys = new ArrayList<>(leaves.size() + nonLeaves.size());
+    for (Artifact file : leaves) {
+      keys.add(Artifact.key(file));
+    }
+    for (NestedSet<Artifact> nonLeaf : nonLeaves) {
+      keys.add(
+          nestedSetToSkyKey.computeIfAbsent(
+              nonLeaf.toNode(), node -> new ArtifactNestedSetKey(nonLeaf, node)));
+    }
+    return keys;
   }
 
   static ArtifactNestedSetFunction getInstance() {
-    if (singleton == null) {
-      return createInstance();
-    }
-    return singleton;
+    return checkNotNull(singleton);
   }
 
   /**
    * Creates a new instance. Should only be used in {@code SkyframeExecutor#skyFunctions}. Keeping
    * this method separated from {@code #getInstance} since sometimes we need to overwrite the
    * existing instance.
+   *
+   * <p>If value-based change pruning is disabled, the function makes an optimization of using a
+   * singleton {@link ArtifactNestedSetValue}, since (in)equality of the value doesn't matter.
    */
-  static ArtifactNestedSetFunction createInstance() {
-    singleton = new ArtifactNestedSetFunction();
+  static ArtifactNestedSetFunction createInstance(boolean valueBasedChangePruningEnabled) {
+    singleton =
+        new ArtifactNestedSetFunction(
+            valueBasedChangePruningEnabled
+                ? ArtifactNestedSetValue::new
+                : Suppliers.ofInstance(new ArtifactNestedSetValue()));
     return singleton;
   }
 
   /** Reset the various state-keeping maps of ArtifactNestedSetFunction. */
   void resetArtifactNestedSetFunctionMaps() {
-    artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
+    artifactSkyKeyToSkyValue = new ConcurrentHashMap<>();
   }
 
   SkyValue getValueForKey(SkyKey skyKey) {
@@ -204,46 +210,13 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     artifactSkyKeyToSkyValue.put(skyKey, skyValue);
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  /**
-   * Get the threshold to which we evaluate a NestedSet as a Skykey. If sizeThreshold is unset,
-   * return the default value of 0.
-   */
-  static int getSizeThreshold() {
-    return sizeThreshold == null ? 0 : sizeThreshold;
-  }
-
-  /**
-   * Updates the sizeThreshold value if the existing value differs from newValue.
-   *
-   * @param newValue The new value from --experimental_nested_set_as_skykey_threshold.
-   * @return whether an update was made.
-   */
-  static boolean sizeThresholdUpdated(int newValue) {
-    // If this is the first time the value is set, it's not considered "updated".
-    if (sizeThreshold == null) {
-      sizeThreshold = newValue;
-      return false;
-    }
-
-    if (sizeThreshold == newValue || (sizeThreshold <= 0 && newValue <= 0)) {
-      return false;
-    }
-    sizeThreshold = newValue;
-    return true;
-  }
-
   /** Mainly used for error bubbling when evaluating direct/transitive children. */
   private static final class ArtifactNestedSetFunctionException extends SkyFunctionException {
 
     private final boolean catastrophic;
 
-    ArtifactNestedSetFunctionException(ArtifactNestedSetEvalException e, SkyKey child) {
-      super(e, child);
+    ArtifactNestedSetFunctionException(ArtifactNestedSetEvalException e) {
+      super(e, Transience.PERSISTENT);
       this.catastrophic = e.isCatastrophic();
     }
 

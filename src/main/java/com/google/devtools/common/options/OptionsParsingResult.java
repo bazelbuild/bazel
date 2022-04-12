@@ -15,6 +15,7 @@
 package com.google.devtools.common.options;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * A read-only interface for options parser results, which does not allow any
@@ -100,7 +101,11 @@ public interface OptionsParsingResult extends OptionsProvider {
    * is unique, since some flags may have effects unknown to the parser (--config, for Bazel), so we
    * do not reorder flags to further simplify the list.
    */
-  // TODO(b/150222792): make this aware of Starlark options. Note - `blaze canonicalize-flags`
-  // already emits Starlark options by doing some extra work on top of calling this method.
   List<String> canonicalize();
+
+  /**
+   * Returns a map of all the flag aliases that have been registered using --flag_alias. The keys
+   * are the aliases and the values are the actual flag names.
+   */
+  Map<String, String> getAliases();
 }

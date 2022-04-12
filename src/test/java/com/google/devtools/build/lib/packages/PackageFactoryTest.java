@@ -24,18 +24,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -45,6 +47,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
@@ -67,8 +71,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
-      public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
-        if (path.equals(throwOnReaddir)) {
+      public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+          throws IOException {
+        if (throwOnReaddir != null && throwOnReaddir.asFragment().equals(path)) {
           throw new FileNotFoundException(path.getPathString());
         }
         return super.readdir(path, followSymlinks);
@@ -472,7 +477,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     // Install a validator.
     this.validator =
-        (pkg2, eventHandler) -> {
+        (pkg2, packageOverhead, eventHandler) -> {
           if (pkg2.getName().equals("x")) {
             eventHandler.handle(Event.warn("warning event"));
             throw new InvalidPackageException(pkg2.getPackageIdentifier(), "nope");
@@ -741,13 +746,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testGlobWithIOErrors() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("pkg/BUILD", "glob(['globs/**'])");
-    scratch.dir("pkg/globs/unreadable").setReadable(false);
+    Path dir = scratch.dir("pkg/globs/unreadable");
+    dir.setReadable(false);
 
     NoSuchPackageException ex =
         assertThrows(NoSuchPackageException.class, () -> loadPackage("pkg"));
     assertThat(ex)
         .hasMessageThat()
-        .contains("error globbing [globs/**]: Directory is not readable");
+        .contains("error globbing [globs/**] op=FILES: " + dir + " (Permission denied)");
   }
 
   @Test
@@ -1142,10 +1148,12 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                 "third_variable = glob(['c'], exclude_directories = 0)"));
     List<String> globs = new ArrayList<>();
     List<String> globsWithDirs = new ArrayList<>();
+    List<String> subpackages = new ArrayList<>();
     PackageFactory.checkBuildSyntax(
-        file, globs, globsWithDirs, new HashMap<>(), /*eventHandler=*/ null);
+        file, globs, globsWithDirs, subpackages, new HashMap<>(), /*eventHandler=*/ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
+    assertThat(subpackages).isEmpty();
   }
 
   // Tests of BUILD file dialect checks:
@@ -1154,21 +1162,28 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testDefInBuild() throws Exception {
     checkBuildDialectError(
         "def func(): pass", //
-        "function definitions are not allowed in BUILD files");
+        "functions may not be defined in BUILD files");
+  }
+
+  @Test
+  public void testLambdaInBuild() throws Exception {
+    checkBuildDialectError(
+        "lambda: None", //
+        "functions may not be defined in BUILD files");
   }
 
   @Test
   public void testForStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "for _ in []: pass", //
-        "for loops are not allowed");
+        "for statements are not allowed in BUILD files");
   }
 
   @Test
   public void testIfStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "if False: pass", //
-        "if statements are not allowed");
+        "if statements are not allowed in BUILD files");
   }
 
   @Test
@@ -1229,23 +1244,34 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   private static void assertGlob(
       Package pkg, List<String> expected, List<String> include, List<String> exclude)
       throws Exception {
-    GlobCache globCache =
-        new GlobCache(
-            pkg.getFilename().asPath().getParentDirectory(),
-            pkg.getPackageIdentifier(),
-            ImmutableSet.of(),
-            // a package locator that finds no packages
-            new CachingPackageLocator() {
-              @Override
-              public Path getBuildFileForPackage(PackageIdentifier packageName) {
-                return null;
-              }
-            },
-            null,
-            TestUtils.getPool(),
-            -1);
-    assertThat(globCache.globUnsorted(include, exclude, false, true))
-        .containsExactlyElementsIn(expected);
+    ExecutorService executorService = Executors.newFixedThreadPool(10);
+    try {
+      GlobCache globCache =
+          new GlobCache(
+              pkg.getFilename().asPath().getParentDirectory(),
+              pkg.getPackageIdentifier(),
+              ImmutableSet.of(),
+              // a package locator that finds no packages
+              new CachingPackageLocator() {
+                @Override
+                public Path getBuildFileForPackage(PackageIdentifier packageName) {
+                  return null;
+                }
+
+                @Override
+                public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+                  return null;
+                }
+              },
+              SyscallCache.NO_CACHE,
+              executorService,
+              -1,
+              ThreadStateReceiver.NULL_INSTANCE);
+      assertThat(globCache.globUnsorted(include, exclude, Globber.Operation.FILES_AND_DIRS, true))
+          .containsExactlyElementsIn(expected);
+    } finally {
+      executorService.shutdownNow();
+    }
   }
 
   private Path emptyFile(String path) {

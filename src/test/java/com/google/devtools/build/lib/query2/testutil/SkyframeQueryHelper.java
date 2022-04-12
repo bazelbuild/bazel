@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
@@ -55,20 +56,24 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DelegatingSyscallCache;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.AbstractSet;
 import java.util.ArrayList;
@@ -86,18 +91,18 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   protected Path rootDirectory;
   protected BlazeDirectories directories;
-  private String toolsRepository;
+  private RepositoryName toolsRepository;
 
   protected AnalysisMock analysisMock;
   private QueryEnvironmentFactory queryEnvironmentFactory;
 
   private PackageManager pkgManager;
   private TargetPatternPreloader targetParser;
-  private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private boolean blockUniverseEvaluationErrors;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
+  private final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
   @Override
   public void setUp() throws Exception {
@@ -113,6 +118,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
+    delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
 
     initTargetPatternEvaluator(analysisMock.createRuleClassProvider());
 
@@ -151,6 +157,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
   }
 
+  @ForOverride
   protected QueryEnvironmentFactory makeQueryEnvironmentFactory() {
     return new QueryEnvironmentFactory();
   }
@@ -193,12 +200,12 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   @Override
   public AbstractBlazeQueryEnvironment<Target> getQueryEnvironment() {
     return queryEnvironmentFactory.create(
-        pkgManager.newTransitiveLoader(),
+        skyframeExecutor.getQueryTransitivePackagePreloader(),
         skyframeExecutor,
         pkgManager,
         pkgManager,
         targetParser,
-        relativeWorkingDirectory,
+        /*relativeWorkingDirectory=*/ PathFragment.EMPTY_FRAGMENT,
         keepGoing,
         /*strictScope=*/ true,
         orderedResults,
@@ -223,7 +230,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     }
   }
 
-  public ResultAndTargets<Target> evaluateQuery(
+  public static ResultAndTargets<Target> evaluateQuery(
       String query, AbstractBlazeQueryEnvironment<Target> env)
       throws QueryException, InterruptedException {
     AggregateAllOutputFormatterCallback<Target, ?> callback =
@@ -268,7 +275,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   @Override
-  public String getToolsRepository() {
+  public RepositoryName getToolsRepository() {
     return toolsRepository;
   }
 
@@ -281,6 +288,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     this.toolsRepository = ruleClassProvider.getToolsRepository();
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+
     packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
@@ -295,19 +303,24 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           packageLocator,
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
-          ImmutableMap.<String, String>of(),
+          ImmutableMap.of(),
+          ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           OptionsProvider.EMPTY);
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }
     pkgManager = skyframeExecutor.getPackageManager();
-    targetParser = pkgManager.newTargetPatternPreloader();
+    targetParser = new SkyframeTargetPatternEvaluator(skyframeExecutor);
   }
 
   @Override
   public void useRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
     initTargetPatternEvaluator(ruleClassProvider);
+  }
+
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.delegatingSyscallCache.setDelegate(syscallCache);
   }
 
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {
@@ -322,10 +335,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setDefaultBuildOptions(getDefaultBuildOptions(ruleClassProvider))
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -335,7 +348,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
@@ -347,7 +361,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   @Override
   public void assertPackageNotLoaded(String packageName) throws Exception {
-    MemoizingEvaluator evaluator = skyframeExecutor.getEvaluatorForTesting();
+    MemoizingEvaluator evaluator = skyframeExecutor.getEvaluator();
     SkyKey key = PackageValue.key(PackageIdentifier.parse(packageName));
     if (evaluator.getExistingValue(key) != null
         || evaluator.getExistingErrorForTesting(key) != null) {

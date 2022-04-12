@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -54,8 +56,13 @@ public interface Executor extends ActionContext.ActionContextRegistry {
   Clock getClock();
 
   /**
-   * Returns the command line options of the Blaze command being executed.
+   * Returns {@link BugReporter} instance to use to report bugs.
+   *
+   * <p>To facilitate testing, prefer using this instead of calling {@link BugReport#sendBugReport}.
    */
+  BugReporter getBugReporter();
+
+  /** Returns the command line options of the Blaze command being executed. */
   OptionsProvider getOptions();
 
   /**

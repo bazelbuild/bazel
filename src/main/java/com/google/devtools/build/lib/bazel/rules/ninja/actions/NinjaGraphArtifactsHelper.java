@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -75,8 +76,7 @@ class NinjaGraphArtifactsHelper {
         Preconditions.checkNotNull(ruleContext.getConfiguration())
             .getDirectories()
             .getExecRoot(ruleContext.getWorkspaceName());
-    this.derivedOutputRoot =
-        ArtifactRoot.asDerivedRoot(execRoot, outputRootPath.getSegments().toArray(new String[0]));
+    this.derivedOutputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outputRootPath);
     this.sourceRoot = ruleContext.getRule().getPackage().getSourceRoot().get();
   }
 
@@ -92,7 +92,8 @@ class NinjaGraphArtifactsHelper {
               pathRelativeToWorkingDirectory));
     }
     // If the path was declared as output symlink, create a symlink artifact.
-    if (symlinkOutputs.contains(execPath.relativeTo(outputRootPath))) {
+    // symlink_outputs are always declared as relative to working directory.
+    if (symlinkOutputs.contains(pathRelativeToWorkingDirectory)) {
       return ruleContext
           .getAnalysisEnvironment()
           .getSymlinkArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);
@@ -104,21 +105,18 @@ class NinjaGraphArtifactsHelper {
     return derivedOutputRoot;
   }
 
-  Artifact getInputArtifact(PathFragment workingDirectoryPath) throws GenericParsingException {
-    if (symlinkPathToArtifact.containsKey(workingDirectoryPath)) {
-      return symlinkPathToArtifact.get(workingDirectoryPath);
+  Artifact getInputArtifact(PathFragment pathRelativeToWorkingDirectory)
+      throws GenericParsingException {
+    if (symlinkPathToArtifact.containsKey(pathRelativeToWorkingDirectory)) {
+      return symlinkPathToArtifact.get(pathRelativeToWorkingDirectory);
     }
 
-    PathFragment execPath = workingDirectory.getRelative(workingDirectoryPath);
+    PathFragment execPath = workingDirectory.getRelative(pathRelativeToWorkingDirectory);
     if (execPath.startsWith(outputRootPath)) {
-      // In the output directory, so it is either marked as a symlink_output from Ninja, or
-      // it is a derived artifact.
-      if (symlinkOutputs.contains(execPath.relativeTo(outputRootPath))) {
-        return ruleContext
-            .getAnalysisEnvironment()
-            .getSymlinkArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);
-      }
-      return ruleContext.getDerivedArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);
+      // This is in the output root, so it's an output artifact created from another Ninja action,
+      // not a source artifact. This can be a regular DerivedArtifact or symlink SpecialArtifact,
+      // depending on the set of symlinkOutputs threaded from Ninja.
+      return createOutputArtifact(pathRelativeToWorkingDirectory);
     }
 
     if (!execPath.startsWith(ruleContext.getPackageDirectory())) {

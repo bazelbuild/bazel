@@ -18,8 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
-import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -39,7 +39,7 @@ import net.starlark.java.syntax.Location;
  * <p>Thread-safe: calls to {@code #report} may be made on any thread. Handlers may be run in an
  * arbitrary thread (but right now, they will not be run concurrently).
  */
-public final class Reporter implements ExtendedEventHandler, ExceptionListener {
+public final class Reporter implements ExtendedEventHandler {
 
   /** Set of {@link EventHandler} registered in this reporter. */
   private final ConcurrentLinkedQueue<EventHandler> eventHandlers = new ConcurrentLinkedQueue<>();
@@ -58,13 +58,6 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
   private EventHandler ansiAllowingHandler;
   private EventHandler ansiStrippingHandler;
   private boolean ansiAllowingHandlerRegistered;
-  private final HashSet<String> eventsShown = new HashSet<>();
-
-  /**
-   * The tag that indicates to the reporter to show this event exactly once, regardless of the
-   * output filter, and to suppress this event if it's a duplicate of another event with this tag.
-   */
-  public static final String SHOW_ONCE_TAG = "showOnce";
 
   public Reporter(EventBus eventBus) {
     this.eventBus = eventBus;
@@ -126,16 +119,8 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     if (e.getKind() != EventKind.ERROR
         && e.getKind() != EventKind.DEBUG
         && e.getTag() != null
-        && !e.getTag().equals(SHOW_ONCE_TAG)
         && !showOutput(e.getTag())) {
       return;
-    }
-
-    if (SHOW_ONCE_TAG.equals(e.getTag())) {
-      if (eventsShown.contains(e.toString())) {
-        return;
-      }
-      eventsShown.add(e.toString());
     }
 
     for (EventHandler handler : eventHandlers) {
@@ -186,10 +171,15 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     handle(Event.of(EventKind.FINISH, location, message));
   }
 
-  @Override
-  public void error(Location location, String message, Throwable error) {
+  public void error(Location location, String message) {
+    error(location, message, /*error=*/ null);
+  }
+
+  public void error(Location location, String message, @Nullable Throwable error) {
     handle(Event.error(location, message));
-    error.printStackTrace(new PrintStream(getOutErr().getErrorStream()));
+    if (error != null) {
+      error.printStackTrace(new PrintStream(getOutErr().getErrorStream()));
+    }
   }
 
   /**

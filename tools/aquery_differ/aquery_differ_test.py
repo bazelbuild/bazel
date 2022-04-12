@@ -14,47 +14,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
-
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from third_party.py import mock
 import six
+from src.main.protobuf import analysis_v2_pb2
+from tools.aquery_differ import aquery_differ
+
+# pylint: disable=g-import-not-at-top
 if six.PY2:
   from cStringIO import StringIO
 else:
   from io import StringIO
-
-from src.main.protobuf import analysis_pb2
-from tools.aquery_differ import aquery_differ
+# pylint: enable=g-import-not-at-top
 
 
-def make_aquery_output(actions, artifact_paths):
-  action_graph = analysis_pb2.ActionGraphContainer()
+def make_aquery_output(action_objs, artifact_objs, path_fragment_objs):
+  action_graph = analysis_v2_pb2.ActionGraphContainer()
 
-  for artifact_path in artifact_paths:
-    next_id = len(action_graph.artifacts)
+  for path_fragment_obj in path_fragment_objs:
+    path_fragment = action_graph.path_fragments.add()
+    path_fragment.id = path_fragment_obj["id"]
+    path_fragment.label = path_fragment_obj["label"]
+    if "parent_id" in path_fragment_obj:
+      path_fragment.parent_id = path_fragment_obj["parent_id"]
+
+  for artifact_obj in artifact_objs:
     artifact = action_graph.artifacts.add()
-    artifact.id = str(next_id)
-    artifact.exec_path = artifact_path
+    artifact.id = artifact_obj["id"]
+    artifact.path_fragment_id = artifact_obj["path_fragment_id"]
 
-  for next_action in actions:
+  for action_obj in action_objs:
     action = action_graph.actions.add()
-    action.output_ids.extend(next_action["output_ids"])
-    action.arguments.extend(next_action["arguments"])
+    action.output_ids.extend(action_obj["output_ids"])
+    action.arguments.extend(action_obj["arguments"])
 
-    if "input_dep_set_ids" in next_action:
-      action.input_dep_set_ids.extend(next_action["input_dep_set_ids"])
+    if "input_dep_set_ids" in action_obj:
+      action.input_dep_set_ids.extend(action_obj["input_dep_set_ids"])
 
   return action_graph
 
 
-def make_aquery_output_with_dep_set(actions, artifact_paths, dep_sets):
-  action_graph = make_aquery_output(actions, artifact_paths)
+def make_aquery_output_with_dep_set(action_objs, artifact_objs,
+                                    path_fragment_objs, dep_set_objs):
+  action_graph = make_aquery_output(action_objs, artifact_objs,
+                                    path_fragment_objs)
 
-  for ds in dep_sets:
-    next_id = len(action_graph.dep_set_of_files)
+  for ds in dep_set_objs:
     dep_set = action_graph.dep_set_of_files.add()
-    dep_set.id = str(next_id)
+    dep_set.id = ds["id"]
     dep_set.direct_artifact_ids.extend(ds["direct_artifact_ids"])
     dep_set.transitive_dep_set_ids.extend(ds["transitive_dep_set_ids"])
 
@@ -65,14 +74,47 @@ class CmdLineDifferTest(unittest.TestCase):
 
   def test_no_difference(self):
     action_graph = make_aquery_output(
-        actions=[{
-            "arguments": ["-a", "-b"],
-            "output_ids": ["0", "1"]
+        action_objs=[
+            {
+                "arguments": ["-a", "-b"],
+                "output_ids": [1, 2]
+            },
+            {
+                "arguments": ["-c"],
+                "output_ids": [3]
+            },
+        ],
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
         }, {
-            "arguments": ["-c"],
-            "output_ids": ["2"]
+            "id": 2,
+            "path_fragment_id": 3
+        }, {
+            "id": 3,
+            "path_fragment_id": 4
         }],
-        artifact_paths=["exec/path/zero", "exec/path/one", "exec/path/two"])
+        path_fragment_objs=[
+            {
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
+            },
+            {
+                "id": 4,
+                "label": "baz",
+                "parent_id": 1
+            },
+        ])
     mock_stdout = StringIO()
     attrs = ["cmdline"]
     with mock.patch("sys.stdout", mock_stdout):
@@ -82,21 +124,66 @@ class CmdLineDifferTest(unittest.TestCase):
 
   def test_no_difference_different_output_files_order(self):
     first = make_aquery_output(
-        actions=[
+        action_objs=[
             {
                 "arguments": ["-a", "-b"],
-                "output_ids": ["0", "1"]
+                "output_ids": [1, 2]
             },
         ],
-        artifact_paths=["exec/path/zero", "exec/path/one"])
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
+        }, {
+            "id": 2,
+            "path_fragment_id": 3
+        }],
+        path_fragment_objs=[
+            {
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
+            },
+        ])
+
     second = make_aquery_output(
-        actions=[
+        action_objs=[
             {
                 "arguments": ["-a", "-b"],
-                "output_ids": ["1", "0"]
+                "output_ids": [2, 1]
             },
         ],
-        artifact_paths=["exec/path/zero", "exec/path/one"])
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
+        }, {
+            "id": 2,
+            "path_fragment_id": 3
+        }],
+        path_fragment_objs=[
+            {
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
+            },
+        ])
 
     mock_stdout = StringIO()
     attrs = ["cmdline"]
@@ -106,64 +193,78 @@ class CmdLineDifferTest(unittest.TestCase):
 
   def test_first_has_extra_output_files(self):
     first = make_aquery_output(
-        actions=[
+        action_objs=[
             {
                 "arguments": ["-a", "-b"],
-                "output_ids": ["0", "1"]
+                "output_ids": [1, 2]
             },
             {
                 "arguments": ["-c"],
-                "output_ids": ["2"]
+                "output_ids": [3]
             },
         ],
-        artifact_paths=["exec/path/zero", "exec/path/one", "exec/path/two"],
-    )
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
+        }, {
+            "id": 2,
+            "path_fragment_id": 3
+        }, {
+            "id": 3,
+            "path_fragment_id": 4
+        }],
+        path_fragment_objs=[
+            {
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
+            },
+            {
+                "id": 4,
+                "label": "baz",
+                "parent_id": 1
+            },
+        ])
     second = make_aquery_output(
-        actions=[
+        action_objs=[
             {
                 "arguments": ["-a", "-b"],
-                "output_ids": ["1", "0"]
+                "output_ids": [1, 2]
             },
         ],
-        artifact_paths=["exec/path/zero", "exec/path/one", "exec/path/two"],
-    )
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
+        }, {
+            "id": 2,
+            "path_fragment_id": 3
+        }],
+        path_fragment_objs=[{
+            "id": 1,
+            "label": "root"
+        }, {
+            "id": 2,
+            "label": "foo",
+            "parent_id": 1
+        }, {
+            "id": 3,
+            "label": "bar",
+            "parent_id": 1
+        }])
 
+    baz_path = os.path.join("root", "baz")
     expected_error = ("Aquery output 'before' change contains an action "
                       "that generates the following outputs that aquery "
-                      "output 'after' change doesn't:\nexec/path/two\n\n")
-    mock_stdout = StringIO()
-    attrs = ["cmdline"]
-    with mock.patch("sys.stdout", mock_stdout):
-      aquery_differ._aquery_diff(first, second, attrs, "before", "after")
-      self.assertEqual(mock_stdout.getvalue(), expected_error)
-
-  def test_second_has_extra_output_files(self):
-    first = make_aquery_output(
-        actions=[
-            {
-                "arguments": ["-a", "-b"],
-                "output_ids": ["0", "1"]
-            },
-        ],
-        artifact_paths=["exec/path/zero", "exec/path/one", "exec/path/two"],
-    )
-    second = make_aquery_output(
-        actions=[
-            {
-                "arguments": ["-a", "-b"],
-                "output_ids": ["0", "1"]
-            },
-            {
-                "arguments": ["-c"],
-                "output_ids": ["2"]
-            },
-        ],
-        artifact_paths=["exec/path/zero", "exec/path/one", "exec/path/two"],
-    )
-
-    expected_error = ("Aquery output 'after' change contains an action that"
-                      " generates the following outputs that aquery"
-                      " output 'before' change doesn't:\nexec/path/two\n\n")
+                      "output 'after' change doesn't:\n{}\n\n".format(baz_path))
     mock_stdout = StringIO()
     attrs = ["cmdline"]
     with mock.patch("sys.stdout", mock_stdout):
@@ -172,41 +273,103 @@ class CmdLineDifferTest(unittest.TestCase):
 
   def test_different_command_lines(self):
     first = make_aquery_output(
-        actions=[
+        action_objs=[
             {
                 "arguments": ["-a", "-d"],
-                "output_ids": ["0", "1"]
+                "output_ids": [1, 2]
             },
             {
                 "arguments": ["-c"],
-                "output_ids": ["2"]
+                "output_ids": [3]
             },
         ],
-        artifact_paths=["exec/path/zero", "exec/path/one", "exec/path/two"],
-    )
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
+        }, {
+            "id": 2,
+            "path_fragment_id": 3
+        }, {
+            "id": 3,
+            "path_fragment_id": 4
+        }],
+        path_fragment_objs=[
+            {
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
+            },
+            {
+                "id": 4,
+                "label": "baz",
+                "parent_id": 1
+            },
+        ])
     second = make_aquery_output(
-        actions=[
+        action_objs=[
             {
                 "arguments": ["-a", "-b"],
-                "output_ids": ["0", "1"]
+                "output_ids": [1, 2]
             },
             {
                 "arguments": ["-c", "-d"],
-                "output_ids": ["2"]
+                "output_ids": [3]
             },
         ],
-        artifact_paths=["exec/path/zero", "exec/path/one", "exec/path/two"],
-    )
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
+        }, {
+            "id": 2,
+            "path_fragment_id": 3
+        }, {
+            "id": 3,
+            "path_fragment_id": 4
+        }],
+        path_fragment_objs=[
+            {
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
+            },
+            {
+                "id": 4,
+                "label": "baz",
+                "parent_id": 1
+            },
+        ])
+
+    foo_path = os.path.join("root", "foo")
+    bar_path = os.path.join("root", "bar")
+    baz_path = os.path.join("root", "baz")
 
     expected_error_one = "\n".join([
         "Difference in the action that generates the following output(s):",
-        "\texec/path/two", "--- before", "+++ after", "@@ -1 +1,2 @@", " -c",
-        "+-d", "\n"
+        "\t{}".format(baz_path), "--- before", "+++ after", "@@ -1 +1,2 @@",
+        " -c", "+-d", "\n"
     ])
     expected_error_two = "\n".join([
         "Difference in the action that generates the following output(s):",
-        "\texec/path/one", "\texec/path/zero", "--- before", "+++ after",
-        "@@ -1,2 +1,2 @@", " -a", "--d", "+-b", "\n"
+        "\t{}".format(bar_path), "\t{}".format(foo_path), "--- before",
+        "+++ after", "@@ -1,2 +1,2 @@", " -a", "--d", "+-b", "\n"
     ])
     attrs = ["cmdline"]
 
@@ -218,37 +381,87 @@ class CmdLineDifferTest(unittest.TestCase):
 
   def test_different_inputs(self):
     first = make_aquery_output_with_dep_set(
-        actions=[{
+        action_objs=[{
             "arguments": [],
-            "output_ids": ["0", "1"],
-            "input_dep_set_ids": ["1"]
+            "output_ids": [1, 2],
+            "input_dep_set_ids": [2]
         }],
-        artifact_paths=["exec/path/zero", "exec/path/one"],
-        dep_sets=[{
-            "transitive_dep_set_ids": [],
-            "direct_artifact_ids": ["0"]
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
         }, {
-            "transitive_dep_set_ids": ["0"],
-            "direct_artifact_ids": ["1"]
-        }])
-    second = make_aquery_output_with_dep_set(
-        actions=[
+            "id": 2,
+            "path_fragment_id": 3
+        }],
+        path_fragment_objs=[
             {
-                "arguments": [],
-                "output_ids": ["0", "1"],
-                "input_dep_set_ids": ["0"]
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
             },
         ],
-        artifact_paths=["exec/path/zero", "exec/path/one"],
-        dep_sets=[{
+        dep_set_objs=[{
+            "id": 1,
             "transitive_dep_set_ids": [],
-            "direct_artifact_ids": ["0"]
+            "direct_artifact_ids": [1]
+        }, {
+            "id": 2,
+            "transitive_dep_set_ids": [1],
+            "direct_artifact_ids": [2]
+        }])
+    second = make_aquery_output_with_dep_set(
+        action_objs=[
+            {
+                "arguments": [],
+                "output_ids": [1, 2],
+                "input_dep_set_ids": [1]
+            },
+        ],
+        artifact_objs=[{
+            "id": 1,
+            "path_fragment_id": 2
+        }, {
+            "id": 2,
+            "path_fragment_id": 3
+        }],
+        path_fragment_objs=[
+            {
+                "id": 1,
+                "label": "root"
+            },
+            {
+                "id": 2,
+                "label": "foo",
+                "parent_id": 1
+            },
+            {
+                "id": 3,
+                "label": "bar",
+                "parent_id": 1
+            },
+        ],
+        dep_set_objs=[{
+            "id": 1,
+            "transitive_dep_set_ids": [],
+            "direct_artifact_ids": [1]
         }])
 
+    foo_path = os.path.join("root", "foo")
+    bar_path = os.path.join("root", "bar")
     expected_error_one = "\n".join([
         "Difference in the action that generates the following output(s):",
-        "\texec/path/one", "\texec/path/zero", "--- before", "+++ after",
-        "@@ -1,2 +1 @@", "-exec/path/one", " exec/path/zero", "\n"
+        "\t{}".format(bar_path), "\t{}".format(foo_path), "--- before",
+        "+++ after", "@@ -1,2 +1 @@", "-{}".format(bar_path),
+        " {}".format(foo_path), "\n"
     ])
     attrs = ["inputs"]
 

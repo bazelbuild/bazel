@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
-/**
- * Creates mock BUILD files required for the objc rules.
- */
+/** Creates mock BUILD files required for the objc rules. */
 public final class MockObjcSupport {
 
   private static final ImmutableList<String> OSX_ARCHS =
@@ -56,6 +54,14 @@ public final class MockObjcSupport {
   public static final String DEFAULT_XCODE_VERSION = "7.3.1";
   public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
 
+  public static ImmutableList<String> requiredObjcPlatformFlags() {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    return builder
+        .addAll(requiredObjcPlatformFlagsNoXcodeConfig())
+        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
+        .build();
+  }
+
   /** Returns the set of flags required to build objc libraries using the mock OSX crosstool. */
   public static ImmutableList<String> requiredObjcCrosstoolFlags() {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
@@ -63,6 +69,20 @@ public final class MockObjcSupport {
         .addAll(requiredObjcCrosstoolFlagsNoXcodeConfig())
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .build();
+  }
+
+  public static ImmutableList<String> requiredObjcPlatformFlagsNoXcodeConfig() {
+    ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+
+    // Set a crosstool_top that is compatible with Apple transitions. Currently, even though this
+    // references the old cc_toolchain_suite, it's still required of cc builds even when the
+    // incompatible_enable_cc_toolchain_resolution flag is active.
+    argsBuilder.add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+
+    argsBuilder.add("--incompatible_enable_cc_toolchain_resolution");
+    argsBuilder.add("--incompatible_enable_apple_toolchain_resolution");
+
+    return argsBuilder.build();
   }
 
   /**
@@ -79,9 +99,6 @@ public final class MockObjcSupport {
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
-    // TODO(b/32411441): This flag will be flipped off by default imminently, at which point
-    // this can be removed. The flag itself is for safe rollout of a backwards incompatible change.
-    argsBuilder.add("--noexperimental_objc_provider_from_linked");
     return argsBuilder.build();
   }
 
@@ -90,15 +107,58 @@ public final class MockObjcSupport {
    * toolchain stanza in the crosstool loaded from file.
    */
   public static void setup(MockToolsConfig config) throws IOException {
+
+    // Create default, simple Apple toolchains based on the default Apple Crosstool.
+    config.create(
+        "tools/build_defs/apple/toolchains/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "toolchain(",
+        "  name = 'darwin_x86_64_any',",
+        "  toolchain = '//"
+            + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR
+            + ":cc-compiler-darwin_x86_64',",
+        "  toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "  target_compatible_with = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")",
+        "toolchain(",
+        "  name = 'ios_arm64_any',",
+        "  toolchain = '//"
+            + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR
+            + ":cc-compiler-ios_arm64',",
+        "  toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "  target_compatible_with = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
+        "  ],",
+        ")");
+
+    // Create default Apple target platforms.
+    // Any device, simulator or maccatalyst platforms created by Apple tests should consider
+    // building on one of these targets as parents, to ensure that the proper constraints are set.
+    config.create(
+        TestConstants.PLATFORMS_PATH + "/apple/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "platform(",
+        "  name = 'darwin_x86_64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")",
+        "platform(",
+        "  name = 'ios_arm64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
+        "  ],",
+        ")");
+
     for (String tool :
         ImmutableSet.of(
-            "objc_dummy.mm",
-            "gcov",
-            "realpath",
-            "testrunner",
-            "xcrunwrapper.sh",
-            "mcov",
-            "libtool")) {
+            "objc_dummy.mm", "gcov", "testrunner", "xcrunwrapper.sh", "mcov", "libtool")) {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
     config.create(
@@ -106,21 +166,11 @@ public final class MockObjcSupport {
         "package(default_visibility=['//visibility:public'])",
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
-        "filegroup(name = 'compile_protos', srcs = ['compile_protos.py'])",
-        "filegroup(name = 'protobuf_compiler_wrapper', srcs = ['protobuf_compiler_wrapper.sh'])",
-        "filegroup(name = 'protobuf_compiler', srcs = ['protobuf_compiler_helper.py'])",
-        "filegroup(",
-        "  name = 'protobuf_compiler_support',",
-        "  srcs = ['proto_support', 'protobuf_compiler_helper.py'],",
-        ")",
         "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
-        "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
-        "filegroup(name = 'j2objc_dead_code_pruner', srcs = ['j2objc_dead_code_pruner.py'])",
-        "filegroup(",
-        "  name = 'protobuf_well_known_types',",
-        String.format(
-            "  srcs = ['%s//objcproto:well_known_type.proto'],", TestConstants.TOOLS_REPOSITORY),
+        "py_binary(",
+        "  name = 'j2objc_dead_code_pruner_binary',",
+        "  srcs = ['j2objc_dead_code_pruner_binary.py']",
         ")",
         "xcode_config(name = 'host_xcodes',",
         "  default = ':version7_3_1',",
@@ -146,8 +196,7 @@ public final class MockObjcSupport {
         "  name = 'version5',",
         "  version = '5',",
         ")",
-        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])",
-        "alias(name = 'protobuf_lib', actual = '//objcproto:protobuf_lib')");
+        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
     // If the bazel tools repository is not in the workspace, also create a workspace tools/objc
     // package with a few lingering dependencies.
     // TODO(b/64537078): Move these dependencies underneath the tools workspace.
@@ -156,39 +205,13 @@ public final class MockObjcSupport {
           "tools/objc/BUILD",
           "package(default_visibility=['//visibility:public'])",
           "exports_files(glob(['**']))",
-          "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
           "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
           "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])");
     }
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/foo.mobileprovision", "No such luck");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/compile_protos.py");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest.plist");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/proto_support");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
     setupCcToolchainConfig(config);
-    setupObjcProto(config);
-  }
-
-  /** Sets up the support for building protocol buffers for ObjC. */
-  private static void setupObjcProto(MockToolsConfig config) throws IOException {
-    config.create(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "  name = 'protobuf_lib',",
-        "  srcs = ['empty.m'],",
-        "  hdrs = ['include/header.h'],",
-        "  includes = ['include'],",
-        ")",
-        "exports_files(['well_known_type.proto'])",
-        "proto_library(",
-        "  name = 'well_known_type_proto',",
-        "  srcs = ['well_known_type.proto'],",
-        ")");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/empty.m");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/empty.cc");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/well_known_type.proto");
   }
 
   public static void setupCcToolchainConfig(
@@ -206,7 +229,10 @@ public final class MockObjcSupport {
         toolchainConfigBuilder.add(darwinX86_64().build());
       }
 
-      new Crosstool(config, DEFAULT_OSX_CROSSTOOL_DIR)
+      new Crosstool(
+              config,
+              DEFAULT_OSX_CROSSTOOL_DIR,
+              Label.parseAbsoluteUnchecked("@bazel_tools//tools/osx"))
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(toolchainConfigBuilder.build())
@@ -222,7 +248,10 @@ public final class MockObjcSupport {
       }
       config.linkTools(DEFAULT_OSX_CROSSTOOL_DIR);
     } else {
-      new Crosstool(config, DEFAULT_OSX_CROSSTOOL_DIR)
+      new Crosstool(
+              config,
+              DEFAULT_OSX_CROSSTOOL_DIR,
+              Label.parseAbsoluteUnchecked("@bazel_tools//tools/osx"))
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(getDefaultCcToolchainConfigs())
@@ -274,7 +303,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx");
   }
 
   public static CcToolchainConfig.Builder x64_windows() {
@@ -324,7 +356,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder ios_armv7() {
@@ -356,7 +391,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder ios_i386() {
@@ -388,7 +426,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder iosX86_64() {
@@ -420,7 +461,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder tvos_arm64() {
@@ -452,7 +496,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:tvos");
   }
 
   public static CcToolchainConfig.Builder tvosX86_64() {
@@ -484,7 +531,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:tvos");
   }
 
   public static CcToolchainConfig.Builder watchos_armv7k() {
@@ -493,7 +543,7 @@ public final class MockObjcSupport {
         .withCompiler("compiler")
         .withToolchainIdentifier("watchos_armv7k")
         .withHostSystemName("x86_64-apple-ios")
-        .withTargetSystemName("armv7-apple-watchos")
+        .withTargetSystemName("armv7k-apple-watchos")
         .withTargetLibc("watchos")
         .withAbiVersion("local")
         .withAbiLibcVersion("local")
@@ -516,7 +566,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7k",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
   }
 
   public static CcToolchainConfig.Builder watchos_i386() {
@@ -548,7 +601,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
   }
 
   /** Test setup for the Apple SDK targets that are used in tests. */
@@ -562,25 +618,5 @@ public final class MockObjcSupport {
 
   public static String readCcToolchainConfigFile() throws IOException {
     return ResourceLoader.readFromResources(MOCK_OSX_TOOLCHAIN_CONFIG_PATH);
-  }
-
-  /** Creates a mock objc_proto_library rule in the current main workspace. */
-  public static void setupObjcProtoLibrary(Scratch scratch) throws Exception {
-    // Append file instead of creating one in case it already exists.
-    String toolsRepo = TestConstants.TOOLS_REPOSITORY;
-    scratch.file("objc_proto_library/BUILD", "");
-    scratch.file(
-        "objc_proto_library/objc_proto_library.bzl",
-        "def _impl(ctx):",
-        "  return [apple_common.new_objc_provider()]",
-        "",
-        "objc_proto_library = rule(",
-        "  _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'portable_proto_filters': attr.label_list(allow_files=True),",
-        "    '_lib_protobuf': attr.label(default = '" + toolsRepo + "//objcproto:protobuf_lib'),",
-        "  }",
-        ")");
   }
 }

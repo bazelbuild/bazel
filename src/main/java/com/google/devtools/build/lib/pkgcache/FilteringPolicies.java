@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /**
@@ -41,15 +40,15 @@ public final class FilteringPolicies {
     return new AndFilteringPolicy(x, y);
   }
 
-  public static FilteringPolicy ruleType(String ruleName, boolean keepExplicit) {
-    return RuleTypeFilter.create(ruleName, keepExplicit);
+  public static FilteringPolicy ruleTypeExplicit(String ruleName) {
+    return RuleTypeFilter.create(ruleName, /*keepExplicit=*/ true);
   }
 
   private FilteringPolicies() {
   }
 
   /** Base class for singleton filtering policies. */
-  private abstract static class AbstractFilteringPolicy extends FilteringPolicy {
+  private abstract static class AbstractFilteringPolicy implements FilteringPolicy {
     private final int hashCode = getClass().getSimpleName().hashCode();
 
     @Override
@@ -84,7 +83,7 @@ public final class FilteringPolicies {
   private static class FilterManual extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
-      return explicit || !(TargetUtils.hasManualTag(target));
+      return explicit || !TargetUtils.hasManualTag(target);
     }
   }
 
@@ -99,14 +98,16 @@ public final class FilteringPolicies {
   private static class RulesOnly extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
-      return target instanceof Rule;
+      // With the sibling repository layout in effect, TargetPatternFunction tries to recurse into
+      // the special //external package even when there are no build rules. Prevent it by excluding
+      // WORKSPACE-only rules in addition to checking if target is a Rule object.
+      return target instanceof Rule && !((Rule) target).getRuleClassObject().getWorkspaceOnly();
     }
   }
 
   /** FilteringPolicy that only matches a specific rule name. */
   @AutoValue
-  @AutoCodec
-  abstract static class RuleTypeFilter extends FilteringPolicy {
+  abstract static class RuleTypeFilter implements FilteringPolicy {
     abstract String ruleName();
 
     abstract boolean keepExplicit();
@@ -124,14 +125,13 @@ public final class FilteringPolicies {
       return false;
     }
 
-    @AutoCodec.Instantiator
-    static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
+    private static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
       return new AutoValue_FilteringPolicies_RuleTypeFilter(ruleName, keepExplicit);
     }
   }
 
   /** FilteringPolicy for combining FilteringPolicies. */
-  public static class AndFilteringPolicy extends FilteringPolicy {
+  public static class AndFilteringPolicy implements FilteringPolicy {
     private final FilteringPolicy firstPolicy;
     private final FilteringPolicy secondPolicy;
 

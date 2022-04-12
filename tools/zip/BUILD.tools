@@ -5,5 +5,5 @@ filegroup(
     srcs = select({
         "//src/conditions:remote": ["//third_party/ijar:zipper"],
         "//conditions:default": glob(["zipper/*"]),
-   }),
+    }),
 )

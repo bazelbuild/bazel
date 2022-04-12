@@ -15,9 +15,15 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,8 +42,10 @@ import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -56,6 +64,7 @@ import net.starlark.java.eval.Sequence;
 @Immutable
 @ThreadSafe
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Override
   public boolean isImmutable() {
@@ -114,7 +123,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
     this(
         owner,
-        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -159,7 +168,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public final synchronized boolean inputsDiscovered() {
-    return discoversInputs() ? inputsDiscovered : true;
+    return !discoversInputs() || inputsDiscovered;
   }
 
   /**
@@ -176,23 +185,55 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   /**
-   * Run input discovery on the action.
+   * Runs input discovery on the action.
    *
    * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of input
-   * artifacts that were not known at analysis time. May also call {@link
-   * #updateInputs(NestedSet<Artifact>)}; if it doesn't, the action itself must arrange for the
-   * newly discovered artifacts to be available during action execution, probably by keeping state
-   * in the action instance and using a custom action execution context and for {@code
-   * #updateInputs()} to be called during the execution of the action.
+   * artifacts that were not known at analysis time. May also call {@link #updateInputs}; if it
+   * doesn't, the action itself must arrange for the newly discovered artifacts to be available
+   * during action execution, probably by keeping state in the action instance and using a custom
+   * action execution context and for {@link #updateInputs} to be called during the execution of the
+   * action.
    *
-   * <p>Since keeping state within an action bad, don't do that unless there is a very good reason
-   * to do so.
+   * <p>Since keeping state within an action is bad, don't do that unless there is a very good
+   * reason to do so.
+   *
+   * <p>May return {@code null} if more dependencies were requested from skyframe but were
+   * unavailable, meaning a restart is necessary.
    */
   @Override
+  @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");
+  }
+
+  @Override
+  public final void resetDiscoveredInputs() {
+    Preconditions.checkState(discoversInputs(), "Not an input-discovering action: %s", this);
+    if (!inputsDiscovered()) {
+      return;
+    }
+    NestedSet<Artifact> originalInputs = getOriginalInputs();
+    if (originalInputs != null) {
+      synchronized (this) {
+        inputs = originalInputs;
+        inputsDiscovered = false;
+      }
+    }
+  }
+
+  /**
+   * Returns this action's <em>original</em> inputs, prior to {@linkplain #discoverInputs input
+   * discovery}.
+   *
+   * <p>Input-discovering actions which are able to reconstitute their original inputs may override
+   * this, allowing for memory savings.
+   */
+  @Nullable
+  @ForOverride
+  protected NestedSet<Artifact> getOriginalInputs() {
+    return null;
   }
 
   @Override
@@ -235,7 +276,15 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException {
+    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    env.resolve(effectiveEnvironment, clientEnv);
+    return ImmutableMap.copyOf(effectiveEnvironment);
+  }
+
+  @Override
+  public Collection<String> getClientEnvironmentVariables() {
     return env.getInheritedEnv();
   }
 
@@ -320,9 +369,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   /**
-   * Returns a progress message string that is specific for this action. This is
-   * then annotated with additional information, currently the string '[for host]'
-   * for actions in the host configurations.
+   * Returns a progress message string that is specific for this action. This is then annotated with
+   * additional information, currently the string '[for tool]' for actions in the tool
+   * configurations.
    *
    * <p>A return value of null indicates no message should be reported.
    */
@@ -352,17 +401,72 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    *
    * @param execRoot the exec root in which this action is executed
    * @param bulkDeleter a helper to bulk delete outputs to avoid delegating to the filesystem
+   * @param cleanupArchivedArtifacts whether to clean up archived tree artifacts
    */
-  protected void deleteOutputs(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+  protected final void deleteOutputs(
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException {
+    Iterable<Artifact> artifactsToDelete =
+        cleanupArchivedArtifacts
+            ? Iterables.concat(outputs, archivedTreeArtifactOutputs())
+            : outputs;
+    Iterable<PathFragment> additionalPathOutputsToDelete = getAdditionalPathOutputsToDelete();
+    Iterable<PathFragment> directoryOutputsToDelete = getDirectoryOutputsToDelete();
     if (bulkDeleter != null) {
-      bulkDeleter.bulkDelete(Artifact.asPathFragments(getOutputs()));
+      bulkDeleter.bulkDelete(
+          Iterables.concat(
+              Artifact.asPathFragments(artifactsToDelete),
+              additionalPathOutputsToDelete,
+              directoryOutputsToDelete));
       return;
     }
 
-    for (Artifact output : getOutputs()) {
-      deleteOutput(output.getPath(), output.getRoot());
+    // TODO(b/185277726): Either we don't need a path resolver for actual deletion of output
+    //  artifacts (likely) or we need to transform the fragments below (and then the resolver should
+    //  be augmented to deal with exec-path PathFragments).
+    for (Artifact output : artifactsToDelete) {
+      deleteOutput(output, pathResolver);
     }
+
+    for (PathFragment path : additionalPathOutputsToDelete) {
+      deleteOutput(execRoot.getRelative(path), /*root=*/ null);
+    }
+
+    for (PathFragment path : directoryOutputsToDelete) {
+      execRoot.getRelative(path).deleteTree();
+    }
+  }
+
+  @ForOverride
+  protected Iterable<PathFragment> getAdditionalPathOutputsToDelete() {
+    return ImmutableList.of();
+  }
+
+  @ForOverride
+  protected Iterable<PathFragment> getDirectoryOutputsToDelete() {
+    return ImmutableList.of();
+  }
+
+  private Iterable<Artifact> archivedTreeArtifactOutputs() {
+    return Iterables.transform(
+        Iterables.filter(outputs, Artifact::isTreeArtifact),
+        tree -> ArchivedTreeArtifact.createForTree((SpecialArtifact) tree));
+  }
+
+  /**
+   * Remove an output artifact.
+   *
+   * <p>If the path refers to a directory, recursively removes the contents of the directory.
+   *
+   * @param output artifact to remove
+   */
+  protected static void deleteOutput(Artifact output, ArtifactPathResolver pathResolver)
+      throws IOException {
+    deleteOutput(
+        pathResolver.toPath(output), pathResolver.transformRoot(output.getRoot().getRoot()));
   }
 
   /**
@@ -374,7 +478,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * @param root the root containing the output. This is used to check that we don't delete
    *     arbitrary files in the file system.
    */
-  public static void deleteOutput(Path path, @Nullable ArtifactRoot root) throws IOException {
+  public static void deleteOutput(Path path, @Nullable Root root) throws IOException {
     try {
       // Optimize for the common case: output artifacts are files.
       path.delete();
@@ -382,22 +486,22 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       // Handle a couple of scenarios where the output can still be deleted, but make sure we're not
       // deleting random files on the filesystem.
       if (root == null) {
-        throw new IOException(e);
+        throw new IOException("null root", e);
       }
-      Root outputRoot = root.getRoot();
-      if (!outputRoot.contains(path)) {
-        throw new IOException(e);
+      if (!root.contains(path)) {
+        throw new IOException(String.format("%s not under %s", path, root), e);
       }
 
       Path parentDir = path.getParentDirectory();
-      if (!parentDir.isWritable() && outputRoot.contains(parentDir)) {
-        // Retry deleting after making the parent writable.
+      if (!parentDir.isWritable() && root.contains(parentDir)) {
         parentDir.setWritable(true);
-        deleteOutput(path, root);
-      } else if (path.isDirectory(Symlinks.NOFOLLOW)) {
+      }
+
+      // Retry deleting after making the parent writable.
+      if (path.isDirectory(Symlinks.NOFOLLOW)) {
         path.deleteTree();
       } else {
-        throw new IOException(e);
+        path.delete();
       }
     }
   }
@@ -437,33 +541,52 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   /** If the action might create directories as outputs this method must be called. */
   protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
+    FileArtifactValue metadata;
     for (Artifact output : getOutputs()) {
-      Path path = actionExecutionContext.getInputPath(output);
-      String ownerString = Label.print(getOwner().getLabel());
-      if (path.isDirectory()) {
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.warn(
-                        getOwner().getLocation(),
-                        "output '"
-                            + output.prettyPrint()
-                            + "' of "
-                            + ownerString
-                            + " is a directory; dependency checking of directories is unsound")
-                    .withTag(ownerString));
+      MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
+      if (metadataHandler.artifactOmitted(output)) {
+        continue;
       }
+      try {
+        metadata = metadataHandler.getMetadata(output);
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
+        metadata = null;
+      }
+      if (metadata != null) {
+        if (!metadata.getType().isDirectory()) {
+          continue;
+        }
+      } else if (!actionExecutionContext.getInputPath(output).isDirectory()) {
+        continue;
+      }
+      String ownerString = Label.print(getOwner().getLabel());
+      actionExecutionContext
+          .getEventHandler()
+          .handle(
+              Event.warn(
+                      getOwner().getLocation(),
+                      "output '"
+                          + output.prettyPrint()
+                          + "' of "
+                          + ownerString
+                          + " is a directory; dependency checking of directories is unsound")
+                  .withTag(ownerString));
     }
   }
 
   @Override
-  public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+  public void prepare(
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException {
-    deleteOutputs(execRoot, bulkDeleter);
+    deleteOutputs(execRoot, pathResolver, bulkDeleter, cleanupArchivedArtifacts);
   }
 
   @Override
-  public String describe() {
+  public final String describe() {
     String progressMessage = getProgressMessage();
     return progressMessage != null ? progressMessage : defaultProgressMessage();
   }
@@ -475,7 +598,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
@@ -548,7 +671,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Sequence<String> getStarlarkArgv() throws EvalException {
+  public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     return null;
   }
 
@@ -559,7 +682,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public String getStarlarkContent() throws IOException, EvalException {
+  public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     return null;
   }
 
@@ -570,16 +693,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Dict<String, String> getExecutionInfoDict() {
-    Map<String, String> executionInfo = getExecutionInfo();
-    if (executionInfo == null) {
-      return null;
-    }
-    return Dict.copyOf(null, executionInfo);
+    ImmutableMap<String, String> executionInfo = getExecutionInfo();
+    return Dict.immutableCopyOf(executionInfo);
   }
 
   @Override
   public Dict<String, String> getEnv() {
-    return Dict.copyOf(null, env.getFixedEnv().toMap());
+    return Dict.immutableCopyOf(env.getFixedEnv());
   }
 
   @Override

@@ -22,6 +22,7 @@ import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -52,18 +53,27 @@ public class StarlarkDocumentationTest {
   private static final ImmutableList<String> DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
       ImmutableList.of("Actions");
 
+  private static final StarlarkDocExpander expander =
+      new StarlarkDocExpander(null) {
+
+        @Override
+        public String expand(String docString) {
+          return docString;
+        }
+      };
+
   @Test
   public void testStarlarkRuleClassBuiltInItemsAreDocumented() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     StarlarkModules.addPredeclared(env);
-    checkStarlarkTopLevelEnvItemsAreDocumented(env.build());
+    checkStarlarkTopLevelEnvItemsAreDocumented(env.buildOrThrow());
   }
 
   private void checkStarlarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, StarlarkBuiltinDoc> modules =
-        new TreeMap<>(StarlarkDocumentationCollector.getAllModules());
+        new TreeMap<>(StarlarkDocumentationCollector.getAllModules(expander));
     StarlarkBuiltinDoc topLevel =
         modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
     for (StarlarkMethodDoc method : topLevel.getMethods()) {
@@ -193,6 +203,30 @@ public class StarlarkDocumentationTest {
     }
   }
 
+  /** MockClassI */
+  @StarlarkBuiltin(name = "MockClassI", doc = "MockClassI")
+  private static class MockClassI implements StarlarkValue {
+    @StarlarkMethod(
+        name = "test",
+        doc = "MockClassI#test",
+        parameters = {
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+          @Param(
+              name = "e",
+              named = true,
+              positional = false,
+              documented = false,
+              defaultValue = "2"),
+        },
+        extraPositionals = @Param(name = "myArgs"))
+    public Integer test(int a, int b, int c, int d, int e, Sequence<?> args) {
+      return 0;
+    }
+  }
+
   /**
    * MockGlobalLibrary. While nothing directly depends on it, a test method in
    * StarlarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
@@ -229,7 +263,7 @@ public class StarlarkDocumentationTest {
     }
 
     @StarlarkMethod(name = "tuple", doc = "tuple")
-    public Tuple<Integer> getTuple() {
+    public Tuple getTuple() {
       return null;
     }
 
@@ -388,9 +422,24 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
+  public void testStarlarkUndocumentedParameters() throws Exception {
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassI.class);
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassI");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassI");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassI#test");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassI.test(a, b, *, c, d=1, *myArgs)");
+    assertThat(methodDoc.getParams()).hasSize(5);
+  }
+
+  @Test
   public void testStarlarkGlobalLibraryCallable() throws Exception {
     StarlarkBuiltinDoc topLevel =
-        StarlarkDocumentationCollector.getAllModules()
+        StarlarkDocumentationCollector.getAllModules(expander)
             .get(StarlarkDocumentationCollector.getTopLevelModule().name());
 
     boolean foundGlobalLibrary = false;
@@ -496,7 +545,7 @@ public class StarlarkDocumentationTest {
   }
 
   private Map<String, StarlarkBuiltinDoc> collect(Iterable<Class<?>> classObjects) {
-    return StarlarkDocumentationCollector.collectModules(classObjects);
+    return StarlarkDocumentationCollector.collectModules(classObjects, expander);
   }
 
   private Map<String, StarlarkBuiltinDoc> collect(Class<?> classObject) {

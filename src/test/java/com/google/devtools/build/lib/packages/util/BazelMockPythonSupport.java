@@ -34,8 +34,6 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
 
   @Override
   public void setup(MockToolsConfig config) throws IOException {
-    writeMacroFile(config);
-
     addTool(config, "tools/python/python_version.bzl");
     addTool(config, "tools/python/srcs_version.bzl");
     addTool(config, "tools/python/toolchain.bzl");
@@ -45,7 +43,6 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        getMacroLoadStatement(),
         "load(':python_version.bzl', 'define_python_version_flag')",
         "load('//tools/python:toolchain.bzl', 'py_runtime_pair')",
         "define_python_version_flag(",
@@ -83,8 +80,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "    toolchain = ':default_py_runtime_pair',",
         "    toolchain_type = ':toolchain_type',",
         ")",
-        "exports_files(['precompile.py'])",
-        "sh_binary(name='2to3', srcs=['2to3.sh'])");
+        "exports_files(['precompile.py'])");
   }
 
   @Override

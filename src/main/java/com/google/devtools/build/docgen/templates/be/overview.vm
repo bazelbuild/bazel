@@ -1,9 +1,11 @@
----
-layout: documentation
-title: Build Encyclopedia
----
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 
-<h1>Bazel BUILD Encyclopedia of Functions</h1>
+<h1 class="page-title">Bazel BUILD Encyclopedia of Functions</h1>
 <h2>Concepts and terminology</h2>
 
 <ul>
@@ -12,7 +14,8 @@ title: Build Encyclopedia
     <ul>
       <li><a href="$expander.expandRef("common-definitions#sh-tokenization")">Bourne shell tokenization</a></li>
       <li><a href="$expander.expandRef("common-definitions#label-expansion")">Label expansion</a></li>
-      <li><a href="$expander.expandRef("common-definitions#common-attributes")">Common attributes</a></li>
+      <li><a href="$expander.expandRef("common-definitions#typical-attributes")">Typical attributes for most rules</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes")">Common attributes for all rules</a></li>
       <li><a href="$expander.expandRef("common-definitions#common-attributes-tests")">Common attributes for tests</a></li>
       <li><a href="$expander.expandRef("common-definitions#common-attributes-binaries")">Common attributes for binaries</a></li>
       <li><a href="$expander.expandRef("common-definitions#configurable-attributes")">Configurable attributes</a></li>
@@ -22,7 +25,7 @@ title: Build Encyclopedia
   <li>
     <a href="$expander.expandRef("make-variables")">"Make" variables</a>
     <ul class="be-toc">
-      <li><a href="$expander.expandRef("make-variables#make-var-substitution")">"Make" variable substitution</a></li>
+      <li><a href="$expander.expandRef("make-variables#use")">Use</a></li>
 
     </ul>
   </li>
@@ -34,11 +37,10 @@ title: Build Encyclopedia
   <li><a href="$expander.expandRef("package")">package</a></li>
   <li><a href="$expander.expandRef("package_group")">package_group</a></li>
 
-  <li><a href="$expander.expandRef("licenses")">licenses</a></li>
   <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
   <li><a href="$expander.expandRef("glob")">glob</a></li>
   <li><a href="$expander.expandRef("select")">select</a></li>
-  <li><a href="../skylark/lib/globals.html#workspace">workspace</a></li>
+  <li><a href="/rules/lib/globals#workspace">workspace</a></li>
 </ul>
 
 <h2>Rules</h2>
@@ -48,7 +50,7 @@ Native rules are available globally in BUILD files. In .bzl files, you can find 
 the <code>native</code> module.
 
 For non-native Starlark rules that ship separately from Bazel, see the list of
-<a href="../rules.html#recommended-rules">Recommended Rules</a>.
+<a href="/rules/rules#recommended-rules">recommended rules</a>.
 
 <h3>Language-specific native rules</h3>
 
@@ -113,3 +115,7 @@ For non-native Starlark rules that ship separately from Bazel, see the list of
   </tbody>
 
 </table>
+#if (!$singlePage)
+</body>
+</html>
+#end

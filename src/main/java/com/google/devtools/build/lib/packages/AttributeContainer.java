@@ -15,9 +15,10 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.CheckReturnValue;
-import java.util.Arrays;
 import java.util.BitSet;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -43,6 +44,13 @@ abstract class AttributeContainer {
    */
   @Nullable
   abstract Object getAttributeValue(int attrIndex);
+
+  /**
+   * Returns attribute values as tracked by this instance. The indices of attribute values in the
+   * returned list are not guaranteed to be consistent with the other methods of this class. If this
+   * is important, which is generally the case, avoid this method.
+   */
+  abstract List<Object> getRawAttributeValues();
 
   /**
    * Updates the value of the attribute.
@@ -122,6 +130,12 @@ abstract class AttributeContainer {
         return new Large(values, explicitAttrs);
       }
     }
+
+    @Override
+    List<Object> getRawAttributeValues() {
+      // Mutable copy since ImmutableList doesn't support null.
+      return Lists.newArrayList(values);
+    }
   }
 
   /** Frozen AttributeContainer based on compact array with indirect indexing. */
@@ -154,6 +168,25 @@ abstract class AttributeContainer {
     return numSet;
   }
 
+  /** Returns index into state array for attrIndex, or -1 if not found */
+  private static int getStateIndex(byte[] state, int start, int attrIndex, int mask) {
+    // Binary search, treating values as unsigned bytes.
+    int lo = start;
+    int hi = state.length - 1;
+    while (hi >= lo) {
+      int mid = (lo + hi) / 2;
+      int midAttrIndex = state[mid] & mask;
+      if (midAttrIndex == attrIndex) {
+        return mid;
+      } else if (midAttrIndex < attrIndex) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return -1;
+  }
+
   /**
    * A frozen implementation of AttributeContainer which supports RuleClasses with up to 126
    * attributes.
@@ -161,7 +194,7 @@ abstract class AttributeContainer {
   @VisibleForTesting
   static final class Small extends Frozen {
 
-    private int maxAttrCount;
+    private final int maxAttrCount;
 
     // Conceptually an AttributeContainer is an unordered set of triples
     // (attribute, value, explicit).
@@ -219,25 +252,6 @@ abstract class AttributeContainer {
       }
     }
 
-    /** Returns index into state array for attrIndex, or -1 if not found */
-    private int getStateIndex(int attrIndex) {
-      // Binary search on the bottom 7 bits.
-      int lo = 0;
-      int hi = state.length - 1;
-      while (hi >= lo) {
-        int mid = (lo + hi) / 2;
-        int midAttrIndex = state[mid] & 0x7f;
-        if (midAttrIndex == attrIndex) {
-          return mid;
-        } else if (midAttrIndex < attrIndex) {
-          lo = mid + 1;
-        } else {
-          hi = mid - 1;
-        }
-      }
-      return -1;
-    }
-
     /**
      * Returns true iff the value of the specified attribute is explicitly set in the BUILD file. In
      * addition, this method return false if the rule has no attribute with the given name.
@@ -247,7 +261,7 @@ abstract class AttributeContainer {
       if (attrIndex < 0) {
         return false;
       }
-      int stateIndex = getStateIndex(attrIndex);
+      int stateIndex = getStateIndex(state, 0, attrIndex, 0x7f);
       return stateIndex >= 0 && (state[stateIndex] & 0x80) != 0;
     }
 
@@ -258,8 +272,14 @@ abstract class AttributeContainer {
         throw new IndexOutOfBoundsException(
             "Maximum valid attrIndex is " + (maxAttrCount - 1) + ". Given " + attrIndex);
       }
-      int stateIndex = getStateIndex(attrIndex);
+      int stateIndex = getStateIndex(state, 0, attrIndex, 0x7f);
       return stateIndex < 0 ? null : values[stateIndex];
+    }
+
+    @Override
+    List<Object> getRawAttributeValues() {
+      // Mutable copy since ImmutableList doesn't support null.
+      return Lists.newArrayList(values);
     }
   }
 
@@ -308,7 +328,7 @@ abstract class AttributeContainer {
     /** Set the specified bit in the byte array. Assumes bitIndex is a valid index. */
     private static void setBit(byte[] bits, int bitIndex) {
       int idx = (bitIndex + 1);
-      byte explicitByte = bits[idx >> 3];
+      int explicitByte = bits[idx >> 3];
       byte mask = (byte) (1 << (idx & 0x07));
       bits[idx >> 3] = (byte) (explicitByte | mask);
     }
@@ -316,8 +336,8 @@ abstract class AttributeContainer {
     /** Get the specified bit in the byte array. Assumes bitIndex is a valid index. */
     private static boolean getBit(byte[] bits, int bitIndex) {
       int idx = (bitIndex + 1);
-      byte explicitByte = bits[idx >> 3];
-      byte mask = (byte) (1 << (idx & 0x07));
+      int explicitByte = bits[idx >> 3];
+      int mask = (byte) (1 << (idx & 0x07));
       return (explicitByte & mask) != 0;
     }
 
@@ -374,8 +394,14 @@ abstract class AttributeContainer {
             "Maximum valid attrIndex is " + (maxAttrCount - 1) + ". Given " + attrIndex);
       }
       int p = prefixSize(maxAttrCount);
-      int stateIndex = Arrays.binarySearch(state, p, state.length, (byte) attrIndex);
+      int stateIndex = getStateIndex(state, p, attrIndex, 0xff);
       return stateIndex < 0 ? null : values[stateIndex - p];
+    }
+
+    @Override
+    List<Object> getRawAttributeValues() {
+      // Mutable copy since ImmutableList doesn't support null.
+      return Lists.newArrayList(values);
     }
   }
 }

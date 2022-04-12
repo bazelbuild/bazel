@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,22 +53,6 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
         new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
-  }
-
-  @Test
-  public void testProtoCommon() throws Exception {
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(proto_common=proto_common)",
-        "test = rule(implementation = _impl, attrs = {})");
-
-    scratch.file("foo/BUILD", "load(':test.bzl', 'test')", "test(name='test')");
-
-    ConfiguredTarget test = getConfiguredTarget("//foo:test");
-    Object protoCommon = getMyInfoFromTarget(test).getValue("proto_common");
-    assertThat(protoCommon).isInstanceOf(ProtoCommonApi.class);
   }
 
   @Test
@@ -128,7 +112,7 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget ct = getConfiguredTarget("//third_party/foo:myRule");
     String protoSourceRoot = (String) getMyInfoFromTarget(ct).getValue("fetched_proto_source_root");
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
 
     assertThat(protoSourceRoot).isEqualTo(genfiles + "/third_party/foo/_virtual_imports/myProto");
   }

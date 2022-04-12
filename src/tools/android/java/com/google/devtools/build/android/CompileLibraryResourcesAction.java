@@ -97,7 +97,6 @@ public class CompileLibraryResourcesAction {
               + " This value is required for processing data binding."
     )
     public Path dataBindingInfoOut;
-
   }
 
   static final Logger logger = Logger.getLogger(CompileLibraryResourcesAction.class.getName());
@@ -137,7 +136,10 @@ public class CompileLibraryResourcesAction {
           .resources
           .toData(options.manifest)
           .processDataBindings(
-              options.dataBindingInfoOut, options.packagePath, databindingResourcesRoot)
+              options.dataBindingInfoOut,
+              options.packagePath,
+              databindingResourcesRoot,
+              aapt2Options.useDataBindingAndroidX)
           .compile(compiler, compiledResources)
           .copyResourcesZipTo(options.output);
     } catch (IOException | ExecutionException | InterruptedException e) {

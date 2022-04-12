@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,14 +48,15 @@ public abstract class Template {
    */
   protected abstract String getKey();
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class ErrorTemplate extends Template {
+  @Override
+  public String toString() {
+    return getKey();
+  }
+
+  private static final class ErrorTemplate extends Template {
     private final IOException e;
     private final String templateName;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
     ErrorTemplate(IOException e, String templateName) {
       this.e = e;
       this.templateName = templateName;
@@ -75,13 +75,9 @@ public abstract class Template {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class StringTemplate extends Template {
+  private static final class StringTemplate extends Template {
     private final String templateText;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
     StringTemplate(String templateText) {
       this.templateText = templateText;
     }
@@ -97,13 +93,9 @@ public abstract class Template {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class ArtifactTemplate extends Template {
+  private static final class ArtifactTemplate extends Template {
     private final Artifact templateArtifact;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
     ArtifactTemplate(Artifact templateArtifact) {
       this.templateArtifact = templateArtifact;
     }

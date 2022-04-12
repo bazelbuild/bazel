@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import java.util.Objects;
 
 /**
  * A filtering policy that excludes multiple single targets. These are not expected to be a part of
  * any SkyKey and it's expected that the number of targets is not too large.
  */
-class TargetExcludingFilteringPolicy extends FilteringPolicy {
+class TargetExcludingFilteringPolicy implements FilteringPolicy {
   private final ImmutableSet<Label> excludedSingleTargets;
 
   TargetExcludingFilteringPolicy(ImmutableSet<Label> excludedSingleTargets) {
@@ -37,5 +38,22 @@ class TargetExcludingFilteringPolicy extends FilteringPolicy {
   @Override
   public String toString() {
     return String.format("excludedTargets%s", excludedSingleTargets);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof TargetExcludingFilteringPolicy)) {
+      return false;
+    }
+    TargetExcludingFilteringPolicy that = (TargetExcludingFilteringPolicy) o;
+    return Objects.equals(excludedSingleTargets, that.excludedSingleTargets);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(excludedSingleTargets);
   }
 }

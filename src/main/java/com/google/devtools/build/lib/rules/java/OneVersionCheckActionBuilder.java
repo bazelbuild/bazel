@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** Utility for generating a call to the one-version binary. */
 public final class OneVersionCheckActionBuilder {
@@ -121,15 +122,14 @@ public final class OneVersionCheckActionBuilder {
     return VectorArg.of(jarsToCheck).mapped(EXPAND_TO_JAR_AND_TARGET);
   }
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final CommandLineItem.MapFn<Artifact> EXPAND_TO_JAR_AND_TARGET =
       (jar, args) ->
           args.accept(jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar));
 
   private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
     Label label = checkNotNull(artifact.getOwnerLabel(), artifact);
-    return label.getPackageIdentifier().getRepository().isDefault()
-            || label.getPackageIdentifier().getRepository().isMain()
+    return label.getRepository().isMain()
         ? label.toString()
         // Escape '@' prefix for .params file.
         : "@" + label;

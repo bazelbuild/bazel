@@ -189,10 +189,13 @@ struct Duration {
   bool FromString(const wchar_t* str);
 };
 
+enum class MainType { kTestWrapperMain, kXmlWriterMain };
+enum class DeleteAfterwards { kEnabled, kDisabled };
+
 void WriteStdout(const std::string& s) {
   DWORD written;
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), s.c_str(), s.size(), &written,
-            NULL);
+            nullptr);
 }
 
 void LogError(const int line) {
@@ -319,9 +322,10 @@ std::wstring AsMixedPath(const std::wstring& path) {
 }
 
 bool IsReadableFile(const Path& p) {
-  HANDLE h = CreateFileW(AddUncPrefixMaybe(p).c_str(), GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  HANDLE h =
+      CreateFileW(AddUncPrefixMaybe(p).c_str(), GENERIC_READ,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -400,7 +404,7 @@ bool SetPathEnv(const wchar_t* name, const Path& path) {
 }
 
 bool UnsetEnv(const wchar_t* name) {
-  if (SetEnvironmentVariableW(name, NULL) != 0) {
+  if (SetEnvironmentVariableW(name, nullptr) != 0) {
     return true;
   } else {
     DWORD err = GetLastError();
@@ -781,8 +785,8 @@ bool CreateZipBuilder(const Path& zip, const ZipEntryPaths& entry_paths,
 
 bool OpenFileForWriting(const Path& path, bazel::windows::AutoHandle* result) {
   HANDLE h = CreateFileW(AddUncPrefixMaybe(path).c_str(), GENERIC_WRITE,
-                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
-                         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.Get(), err);
@@ -794,9 +798,10 @@ bool OpenFileForWriting(const Path& path, bazel::windows::AutoHandle* result) {
 
 bool OpenExistingFileForRead(const Path& abs_path,
                              bazel::windows::AutoHandle* result) {
-  HANDLE h = CreateFileW(AddUncPrefixMaybe(abs_path).c_str(), GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  HANDLE h =
+      CreateFileW(AddUncPrefixMaybe(abs_path).c_str(), GENERIC_READ,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithArgAndValue(__LINE__, "Failed to open file", abs_path.Get(),
@@ -821,7 +826,7 @@ bool ReadFromFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
   DWORD read = 0;
   do {
     if (!ReadFile(handle, dest + total_read, max_read - total_read, &read,
-                  NULL)) {
+                  nullptr)) {
       DWORD err = GetLastError();
       LogErrorWithValue(__LINE__, "Failed to read file", err);
       return false;
@@ -837,7 +842,7 @@ bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
   while (total_written < size) {
     DWORD written;
     if (!WriteFile(output, static_cast<const uint8_t*>(buffer) + total_written,
-                   size - total_written, &written, NULL)) {
+                   size - total_written, &written, nullptr)) {
       DWORD err = GetLastError();
       LogErrorWithValue(__LINE__, "Failed to write file", err);
       return false;
@@ -860,7 +865,7 @@ bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
   while (true) {
     // Read at most `buf_size` many bytes from the input file.
     DWORD read = 0;
-    if (!ReadFile(input, buffer.get(), buf_size, &read, NULL)) {
+    if (!ReadFile(input, buffer.get(), buf_size, &read, nullptr)) {
       DWORD err = GetLastError();
       LogErrorWithArgAndValue(__LINE__, "Failed to read file", file.Get(), err);
       return false;
@@ -890,7 +895,7 @@ std::string GetMimeType(const std::string& filename) {
   char data[1000];
   DWORD data_size = 1000 * sizeof(char);
   if (RegGetValueA(HKEY_CLASSES_ROOT, filename.c_str() + pos, "Content Type",
-                   RRF_RT_REG_SZ, NULL, data, &data_size) == ERROR_SUCCESS) {
+                   RRF_RT_REG_SZ, nullptr, data, &data_size) == ERROR_SUCCESS) {
     return data;
   }
   // The file extension is unknown, or it does not have a "Content Type" value,
@@ -1115,8 +1120,9 @@ inline void ComputeRunfilePath(const std::wstring& test_workspace,
   if (s->size() >= 2 && (*s)[0] == L'.' && (*s)[1] == L'/') {
     s->erase(0, 2);
   }
-  if (s->find(L"external/") == 0) {
-    s->erase(0, 9);
+  // Runfiles paths of external tests start with "../".
+  if (s->find(L"../") == 0) {
+    s->erase(0, 3);
   } else {
     *s = test_workspace + L"/" + *s;
   }
@@ -1216,7 +1222,7 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
                      LARGE_INTEGER* start_time,
                      bazel::windows::WaitableProcess* process) {
   SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
-                                               NULL, TRUE};
+                                               nullptr, TRUE};
 
   // Create a pipe to stream the output of the subprocess to this process.
   // The subprocess inherits two copies of the writing end (one for stdout, one
@@ -1248,7 +1254,7 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
   bazel::windows::AutoHandle devnull_read(CreateFileW(
       L"NUL", GENERIC_READ,
       FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE,
-      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
   if (devnull_read == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithValue(__LINE__, "CreateFileW", err);
@@ -1410,7 +1416,7 @@ bool TeeImpl::Create(bazel::windows::AutoHandle* input,
                      std::unique_ptr<Tee>* result) {
   std::unique_ptr<TeeImpl> tee(new TeeImpl(input, output1, output2));
   bazel::windows::AutoHandle thread(
-      CreateThread(NULL, 0, ThreadFunc, tee.get(), 0, NULL));
+      CreateThread(nullptr, 0, ThreadFunc, tee.get(), 0, nullptr));
   if (!thread.IsValid()) {
     return false;
   }
@@ -1426,10 +1432,10 @@ bool TeeImpl::MainFunc() const {
   static constexpr size_t kBufferSize = 0x10000;
   DWORD read;
   uint8_t content[kBufferSize];
-  while (ReadFile(input_, content, kBufferSize, &read, NULL)) {
+  while (ReadFile(input_, content, kBufferSize, &read, nullptr)) {
     DWORD written;
-    if (read > 0 && (!WriteFile(output1_, content, read, &written, NULL) ||
-                     !WriteFile(output2_, content, read, &written, NULL))) {
+    if (read > 0 && (!WriteFile(output1_, content, read, &written, nullptr) ||
+                     !WriteFile(output2_, content, read, &written, nullptr))) {
       return false;
     }
   }
@@ -1566,6 +1572,9 @@ bool GetTestName(std::wstring* result) {
   }
   if (result->size() >= 2 && (*result)[0] == '.' && (*result)[1] == '/') {
     result->erase(0, 2);
+  } else if (result->size() >= 3 && (*result)[0] == '.' &&
+             (*result)[1] == '.' && (*result)[2] == '/') {
+    result->erase(0, 3);
   }
 
   // Ensure that test shards have unique names in the xml output, by including
@@ -1603,8 +1612,15 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool ShouldCreateXml(const Path& xml_log, bool* result) {
+bool ShouldCreateXml(const Path& xml_log, const MainType main_type,
+                     bool* result) {
   *result = true;
+
+  // If running from the xml generator binary, we should always create the xml
+  // file.
+  if (main_type == MainType::kXmlWriterMain) {
+    return true;
+  }
 
   DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(xml_log).c_str());
   if (attr != INVALID_FILE_ATTRIBUTES) {
@@ -1630,9 +1646,10 @@ bool ShouldCreateXml(const Path& xml_log, bool* result) {
 
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
                   const Duration duration, const int exit_code,
-                  const bool delete_afterwards) {
+                  const DeleteAfterwards delete_afterwards,
+                  const MainType main_type) {
   bool should_create_xml;
-  if (!ShouldCreateXml(output, &should_create_xml)) {
+  if (!ShouldCreateXml(output, main_type, &should_create_xml)) {
     LogErrorWithArg(__LINE__, "Failed to decide if XML log is needed",
                     output.Get());
     return false;
@@ -1645,7 +1662,7 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     // Delete the test's outerr file after we have the XML file.
     // We don't care if this succeeds or not, because the outerr file is not a
     // declared output.
-    if (delete_afterwards) {
+    if (delete_afterwards == DeleteAfterwards::kEnabled) {
       DeleteFileW(test_outerr.Get().c_str());
     }
   });
@@ -1758,7 +1775,7 @@ Path Path::Dirname() const {
 IFStream* IFStreamImpl::Create(HANDLE handle, DWORD page_size) {
   std::unique_ptr<uint8_t[]> data(new uint8_t[page_size * 2]);
   DWORD read;
-  if (!ReadFile(handle, data.get(), page_size * 2, &read, NULL)) {
+  if (!ReadFile(handle, data.get(), page_size * 2, &read, nullptr)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       read = 0;
@@ -1784,7 +1801,7 @@ int IFStreamImpl::Get() {
   // Overwrite the *active* page: we are about to move off of it.
   DWORD offs = (pos_ < page_size_) ? 0 : page_size_;
   DWORD read;
-  if (!ReadFile(handle_, pages_.get() + offs, page_size_, &read, NULL)) {
+  if (!ReadFile(handle_, pages_.get() + offs, page_size_, &read, nullptr)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       // The stream is reading from a pipe, and there's no more data.
@@ -1904,7 +1921,8 @@ int TestWrapperMain(int argc, wchar_t** argv) {
 
   Duration test_duration;
   int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result, true) ||
+  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
+                    DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
                                           undecl.annotations)) {
@@ -1921,7 +1939,8 @@ int XmlWriterMain(int argc, wchar_t** argv) {
   if (!GetCwd(&cwd) ||
       !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
                           &duration, &exit_code) ||
-      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code, false)) {
+      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code,
+                    DeleteAfterwards::kDisabled, MainType::kXmlWriterMain)) {
     return 1;
   }
 

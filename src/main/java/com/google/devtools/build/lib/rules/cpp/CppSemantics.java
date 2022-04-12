@@ -18,14 +18,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
-public interface CppSemantics {
+public interface CppSemantics extends StarlarkValue {
   /**
    * Called before a C++ compile action is built.
    *
@@ -33,7 +34,7 @@ public interface CppSemantics {
    * minute.
    */
   void finalizeCompileActionBuilder(
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer);
@@ -43,13 +44,17 @@ public interface CppSemantics {
 
   /** Determines the applicable mode of headers checking in Starlark. */
   HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContex, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
+      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
 
-  /** Returns the include processing closure, which handles include processing for this build */
-  IncludeProcessing getIncludeProcessing();
+  /**
+   * Returns if include scanning is allowed.
+   *
+   * <p>If false, {@link CppCompileActionBuilder#setShouldScanIncludes(boolean)} has no effect.
+   */
+  boolean allowIncludeScanning();
 
   /** Returns true iff this build should perform .d input pruning. */
-  boolean needsDotdInputPruning(BuildConfiguration configuration);
+  boolean needsDotdInputPruning(BuildConfigurationValue configuration);
 
   void validateAttributes(RuleContext ruleContext);
 
@@ -67,4 +72,8 @@ public interface CppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures);
+
+  boolean createEmptyArchive();
+
+  boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext);
 }

@@ -100,8 +100,8 @@ function test_query_buildfiles_with_load() {
 
     # null terminated:
     bazel query --noshow_progress --null "buildfiles(//$pkg/x)" >$pkg/null.log ||
-        fail "Expected null success"
-    printf "//$pkg/y:rules.bzl\0//$pkg/y:BUILD\0//$pkg/x:BUILD\0" >$pkg/null.ref.log
+        fail "Expected null success"§
+    printf "//$pkg/x:BUILD\0//$pkg/y:BUILD\0//$pkg/y:rules.bzl\0" >$pkg/null.ref.log
     cmp $pkg/null.ref.log $pkg/null.log || fail "Expected match"
 
     # Missing Starlark file:
@@ -286,8 +286,8 @@ function test_glob_with_subpackage2() {
     assert_equals "3" $(wc -l "$TEST_log")
 }
 
-# Regression test for bug "ASTFileLookupFunction has an unnoted
-# dependency on the PathPackageLocator".
+# Regression test for b/19767102 ("BzlCompileFunction has an unnoted dependency
+# on the PathPackageLocator").
 function test_incremental_deleting_package_roots() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
@@ -316,6 +316,10 @@ function test_incremental_deleting_package_roots() {
 }
 
 function test_no_package_loading_on_benign_workspace_file_changes() {
+  if [ -f WORKSPACE ]; then
+    cp WORKSPACE "${TEST_TMPDIR}/OLD_WORKSPACE"
+  fi
+
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -346,6 +350,12 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
+
+  if [ -f "${TEST_TMPDIR}/OLD_WORKSPACE" ]; then
+    # Restore the old WORKSPACE file we don't pollute the behavior of other test
+    # cases.
+    mv "${TEST_TMPDIR}/OLD_WORKSPACE" WORKSPACE
+  fi
 }
 
 function test_disallow_load_labels_to_cross_package_boundaries() {
@@ -598,8 +608,8 @@ function test_path_from_subdir() {
   cd "$pkg/subdir"
   bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
       || fail "Expected success"
-  assert_contains "^//$pkg:BUILD\$" output
-  assert_contains "^//$pkg:foo\$" output
+  assert_contains "^//$pkg:BUILD" output
+  assert_contains "^//$pkg:foo" output
 }
 
 function test_target_with_BUILD() {
@@ -607,7 +617,7 @@ function test_target_with_BUILD() {
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
   echo 'filegroup(name = "foo/BUILD", srcs = [])' > "$pkg/BUILD" || fail "echo"
   bazel query "$pkg/foo/BUILD" >output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "^//$pkg:foo/BUILD\$" output
+  assert_contains "^//$pkg:foo/BUILD" output
 }
 
 function test_directory_with_BUILD() {
@@ -615,7 +625,7 @@ function test_directory_with_BUILD() {
   mkdir -p "$pkg/BUILD" || fail "could not create \"$pkg/BUILD\""
   touch "$pkg/BUILD/BUILD" || fail "Couldn't touch"
   bazel query "$pkg/BUILD" >output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "^//$pkg/BUILD:BUILD\$" output
+  assert_contains "^//$pkg/BUILD:BUILD" output
 }
 
 function test_missing_BUILD() {

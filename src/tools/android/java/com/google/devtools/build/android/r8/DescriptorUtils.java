@@ -41,13 +41,10 @@ public class DescriptorUtils {
    * Basic check of if a string is a binary name.
    *
    * @param name a possible class binary name i.e. "java/lang/Object"
-   * @return if name is a binary name.
+   * @return if name could be a binary name.
    */
   public static boolean isBinaryName(String name) {
-    return name.length() > 0
-        && name.charAt(0) != 'L'
-        && name.charAt(name.length() - 1) != ';'
-        && !name.contains(JAVA_PACKAGE_SEPARATOR);
+    return name.length() > 0 && !name.contains(JAVA_PACKAGE_SEPARATOR) && !isClassDescriptor(name);
   }
 
   /**

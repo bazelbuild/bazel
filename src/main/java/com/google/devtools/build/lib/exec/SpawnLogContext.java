@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.protobuf.util.Durations;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -56,17 +58,22 @@ import javax.annotation.Nullable;
  * A logging utility for spawns.
  */
 public class SpawnLogContext implements ActionContext {
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final Path execRoot;
   private final MessageOutputStream executionLog;
   @Nullable private final RemoteOptions remoteOptions;
+  private final XattrProvider xattrProvider;
 
   public SpawnLogContext(
-      Path execRoot, MessageOutputStream executionLog, @Nullable RemoteOptions remoteOptions) {
+      Path execRoot,
+      MessageOutputStream executionLog,
+      @Nullable RemoteOptions remoteOptions,
+      XattrProvider xattrProvider) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
     this.remoteOptions = remoteOptions;
+    this.xattrProvider = xattrProvider;
   }
 
   /** Log the executed spawn to the output stream. */
@@ -91,11 +98,14 @@ public class SpawnLogContext implements ActionContext {
     try {
       for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
         ActionInput input = e.getValue();
+        if (input instanceof VirtualActionInput.EmptyActionInput) {
+          continue;
+        }
         Path inputPath = execRoot.getRelative(input.getExecPathString());
         if (inputPath.isDirectory()) {
           listDirectoryContents(inputPath, builder::addInputs, metadataProvider);
         } else {
-          Digest digest = computeDigest(input, null, metadataProvider);
+          Digest digest = computeDigest(input, null, metadataProvider, xattrProvider);
           builder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
         }
       }
@@ -116,7 +126,8 @@ public class SpawnLogContext implements ActionContext {
         File.Builder outputBuilder = builder.addActualOutputsBuilder();
         outputBuilder.setPath(path.relativeTo(execRoot).toString());
         try {
-          outputBuilder.setDigest(computeDigest(e.getValue(), path, metadataProvider));
+          outputBuilder.setDigest(
+              computeDigest(e.getValue(), path, metadataProvider, xattrProvider));
         } catch (IOException ex) {
           logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
         }
@@ -135,6 +146,7 @@ public class SpawnLogContext implements ActionContext {
       builder.setTimeoutMillis(timeout.toMillis());
     }
     builder.setCacheable(Spawns.mayBeCached(spawn));
+    builder.setRemoteCacheable(Spawns.mayBeCachedRemotely(spawn));
     builder.setExitCode(result.exitCode());
     builder.setRemoteCacheHit(result.isCacheHit());
     builder.setRunner(result.getRunnerName());
@@ -143,6 +155,12 @@ public class SpawnLogContext implements ActionContext {
       builder.setProgressMessage(progressMessage);
     }
     builder.setMnemonic(spawn.getMnemonic());
+    builder.setWalltime(Durations.fromNanos(result.getMetrics().executionWallTime().toNanos()));
+
+    if (spawn.getTargetLabel() != null) {
+      builder.setTargetLabel(spawn.getTargetLabel());
+    }
+
     executionLog.write(builder.build());
   }
 
@@ -185,7 +203,7 @@ public class SpawnLogContext implements ActionContext {
           addFile.accept(
               File.newBuilder()
                   .setPath(child.relativeTo(execRoot).toString())
-                  .setDigest(computeDigest(null, child, metadataProvider))
+                  .setDigest(computeDigest(null, child, metadataProvider, xattrProvider))
                   .build());
         }
       }
@@ -199,7 +217,10 @@ public class SpawnLogContext implements ActionContext {
    * Metadata cache first, if it is available, and fall back to digesting the contents manually.
    */
   private Digest computeDigest(
-      @Nullable ActionInput input, @Nullable Path path, MetadataProvider metadataProvider)
+      @Nullable ActionInput input,
+      @Nullable Path path,
+      MetadataProvider metadataProvider,
+      XattrProvider xattrProvider)
       throws IOException {
     Preconditions.checkArgument(input != null || path != null);
     DigestHashFunction hashFunction = execRoot.getFileSystem().getDigestFunction();
@@ -237,7 +258,9 @@ public class SpawnLogContext implements ActionContext {
     long fileSize = path.getFileSize();
     return digest
         .setHash(
-            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, fileSize)).toString())
+            HashCode.fromBytes(
+                    DigestUtils.getDigestWithManualFallback(path, fileSize, xattrProvider))
+                .toString())
         .setSizeBytes(fileSize)
         .build();
   }

@@ -21,8 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /** Factory for creating new {@link LinkerInput} objects. */
 public abstract class LinkerInputs {
@@ -31,15 +29,13 @@ public abstract class LinkerInputs {
    * object file.
    */
   @ThreadSafety.Immutable
-  @AutoCodec
-  public static class SimpleLinkerInput implements LinkerInput {
+  private static class SimpleLinkerInput implements LinkerInput {
     private final Artifact artifact;
     private final ArtifactCategory category;
     private final boolean disableWholeArchive;
     private final String libraryIdentifier;
 
-    @AutoCodec.Instantiator
-    public SimpleLinkerInput(
+    SimpleLinkerInput(
         Artifact artifact,
         ArtifactCategory category,
         boolean disableWholeArchive,
@@ -175,14 +171,11 @@ public abstract class LinkerInputs {
    * library that it links to.
    */
   @ThreadSafety.Immutable
-  @AutoCodec
-  public static class SolibLibraryToLink implements LibraryToLink {
+  private static class SolibLibraryToLink implements LibraryToLink {
     private final Artifact solibSymlinkArtifact;
     private final Artifact libraryArtifact;
     private final String libraryIdentifier;
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
     SolibLibraryToLink(
         Artifact solibSymlinkArtifact, Artifact libraryArtifact, String libraryIdentifier) {
       Preconditions.checkArgument(
@@ -272,9 +265,7 @@ public abstract class LinkerInputs {
 
   /** This class represents a library that may contain object files. */
   @ThreadSafety.Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static class CompoundLibraryToLink implements LibraryToLink {
+  private static class CompoundLibraryToLink implements LibraryToLink {
     private final Artifact libraryArtifact;
     private final ArtifactCategory category;
     private final String libraryIdentifier;
@@ -284,28 +275,7 @@ public abstract class LinkerInputs {
     private final boolean mustKeepDebug;
     private final boolean disableWholeArchive;
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
     CompoundLibraryToLink(
-        Artifact libraryArtifact,
-        ArtifactCategory category,
-        String libraryIdentifier,
-        Iterable<Artifact> objectFiles,
-        LtoCompilationContext ltoCompilationContext,
-        ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
-        boolean mustKeepDebug,
-        boolean disableWholeArchive) {
-      this.libraryArtifact = libraryArtifact;
-      this.category = category;
-      this.libraryIdentifier = libraryIdentifier;
-      this.objectFiles = objectFiles;
-      this.ltoCompilationContext = ltoCompilationContext;
-      this.sharedNonLtoBackends = sharedNonLtoBackends;
-      this.mustKeepDebug = mustKeepDebug;
-      this.disableWholeArchive = disableWholeArchive;
-    }
-
-    private CompoundLibraryToLink(
         Artifact libraryArtifact,
         ArtifactCategory category,
         String libraryIdentifier,

@@ -162,27 +162,6 @@ public final class StarlarkMethodProcessorTest {
   }
 
   @Test
-  public void testInvalidParamNoneDefault() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("InvalidParamNoneDefault.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Parameter 'a_parameter' has 'None' default value but is not noneable.");
-  }
-
-  @Test
-  public void testParamTypeConflict() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("ParamTypeConflict.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Parameter 'a_parameter' has both 'type' and 'allowedTypes' specified."
-                + " Only one may be specified.");
-  }
-
-  @Test
   public void testParamNeitherNamedNorPositional() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ParamNeitherNamedNorPositional.java"))
@@ -219,7 +198,8 @@ public final class StarlarkMethodProcessorTest {
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Positional-only parameter 'two' is specified after one or more named parameters");
+            "Positional-only parameter 'two' is specified after one or more named or undocumented"
+                + " parameters");
   }
 
   @Test
@@ -346,13 +326,22 @@ public final class StarlarkMethodProcessorTest {
   }
 
   @Test
-  public void testInvalidNoneableParameter() throws Exception {
+  public void testKwargsWithUndocumentedParam() throws Exception {
     assertAbout(javaSource())
-        .that(getFile("InvalidNoneableParameter.java"))
+        .that(getFile("KwargsWithUndocumentedParams.java"))
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Expected type 'Object' but got type 'java.lang.String' "
-                + "for noneable parameter 'aParameter'.");
+            "Method 'undocumented_with_kwargs' has undocumented parameters but also allows extra"
+                + " keyword parameters");
+  }
+
+  @Test
+  public void testUndocumentedPositionalParam() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("UndocumentedPositionalParam.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining("Parameter 'one' must be documented because it is positional");
   }
 }

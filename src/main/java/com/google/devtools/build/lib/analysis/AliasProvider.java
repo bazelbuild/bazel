@@ -13,35 +13,48 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A provider that gives information about the aliases a rule was resolved through. */
-@AutoCodec
 @Immutable
 public final class AliasProvider implements TransitiveInfoProvider {
   // We don't expect long alias chains, so it's better to have a list instead of a nested set
   private final ImmutableList<Label> aliasChain;
 
-  public AliasProvider(ImmutableList<Label> aliasChain) {
-    Preconditions.checkState(!aliasChain.isEmpty());
+  private AliasProvider(ImmutableList<Label> aliasChain) {
     this.aliasChain = aliasChain;
   }
 
-  public static AliasProvider fromAliasRule(Label label, ConfiguredTarget actual) {
-    ImmutableList.Builder<Label> chain = ImmutableList.builder();
-    chain.add(label);
-    AliasProvider dep = actual.getProvider(AliasProvider.class);
-    if (dep != null) {
-      chain.addAll(dep.getAliasChain());
-    }
+  /**
+   * Creates an alias provider indicating that the given rule is an alias to {@code actual}.
+   *
+   * <p>The given rule must either explicitly advertise {@link AliasProvider} or advertise that it
+   * {@linkplain AdvertisedProviderSet#canHaveAnyProvider() can have any provider}.
+   */
+  public static AliasProvider fromAliasRule(Rule rule, ConfiguredTarget actual) {
+    checkArgument(mayBeAlias(rule), "%s does not advertise AliasProvider", rule);
 
-    return new AliasProvider(chain.build());
+    ImmutableList<Label> chain;
+    AliasProvider dep = actual.getProvider(AliasProvider.class);
+    if (dep == null) {
+      chain = ImmutableList.of(rule.getLabel());
+    } else {
+      chain =
+          ImmutableList.<Label>builderWithExpectedSize(dep.aliasChain.size() + 1)
+              .add(rule.getLabel())
+              .addAll(dep.aliasChain)
+              .build();
+    }
+    return new AliasProvider(chain);
   }
 
   /**
@@ -52,9 +65,7 @@ public final class AliasProvider implements TransitiveInfoProvider {
    */
   public static Label getDependencyLabel(TransitiveInfoCollection dep) {
     AliasProvider aliasProvider = dep.getProvider(AliasProvider.class);
-    return aliasProvider != null
-        ? aliasProvider.getAliasChain().get(0)
-        : dep.getLabel();
+    return aliasProvider != null ? aliasProvider.aliasChain.get(0) : dep.getLabel();
   }
 
   /**
@@ -66,7 +77,7 @@ public final class AliasProvider implements TransitiveInfoProvider {
   public static ImmutableList<Label> getDependencyLabels(TransitiveInfoCollection dep) {
     AliasProvider aliasProvider = dep.getProvider(AliasProvider.class);
     return aliasProvider != null
-        ? ImmutableList.of(aliasProvider.getAliasChain().get(0), dep.getLabel())
+        ? ImmutableList.of(aliasProvider.aliasChain.get(0), dep.getLabel())
         : ImmutableList.of(dep.getLabel());
   }
 
@@ -93,7 +104,6 @@ public final class AliasProvider implements TransitiveInfoProvider {
    *
    * @param target the target to describe
    * @param targetMode how to express the kind of the target
-   * @return
    */
   public static String describeTargetWithAliases(
       ConfiguredTargetAndData target, TargetMode targetMode) {
@@ -104,16 +114,50 @@ public final class AliasProvider implements TransitiveInfoProvider {
       return kind + " '" + target.getTarget().getLabel() + "'";
     }
 
-    ImmutableList<Label> aliasChain = aliasProvider.getAliasChain();
+    ImmutableList<Label> aliasChain = aliasProvider.aliasChain;
     StringBuilder result = new StringBuilder();
-    result.append("alias '" + aliasChain.get(0) + "'");
-    result.append(" referring to " + kind  + " '" + target.getTarget().getLabel() + "'");
+    result.append("alias '").append(aliasChain.get(0)).append("'");
+    result
+        .append(" referring to ")
+        .append(kind)
+        .append(" '")
+        .append(target.getTarget().getLabel())
+        .append("'");
     if (aliasChain.size() > 1) {
-      result.append(" through '"
-          + Joiner.on("' -> '").join(aliasChain.subList(1, aliasChain.size()))
-          + "'");
+      result
+          .append(" through '")
+          .append(Joiner.on("' -> '").join(aliasChain.subList(1, aliasChain.size())))
+          .append("'");
     }
 
     return result.toString();
+  }
+
+  /**
+   * Returns {@code true} iff the given {@link TransitiveInfoCollection} has an {@link
+   * AliasProvider}.
+   */
+  public static boolean isAlias(TransitiveInfoCollection dep) {
+    return dep.getProvider(AliasProvider.class) != null;
+  }
+
+  /**
+   * Returns {@code true} if the given target <em>may</em> contain an {@link AliasProvider} when
+   * analyzed.
+   *
+   * <p>This method returns {@code true} for the {@code alias} rule as well as some other alias-like
+   * rules such as {@code bind}.
+   *
+   * <p>Note that due to the presence of late-bound aliases, this may return {@code true} even if
+   * {@link #isAlias} on the configured target returns {@code false}.
+   */
+  public static boolean mayBeAlias(Target target) {
+    if (!(target instanceof Rule)) {
+      return false;
+    }
+    Rule rule = (Rule) target;
+    AdvertisedProviderSet providerSet = rule.getRuleClassObject().getAdvertisedProviders();
+    return providerSet.canHaveAnyProvider()
+        || providerSet.getBuiltinProviders().contains(AliasProvider.class);
   }
 }

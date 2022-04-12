@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
-import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -159,7 +158,7 @@ public final class OptionProcessor extends AbstractProcessor {
    *
    * <p>Static or final fields would cause issue with correct value assigning at the end of parsing.
    */
-  private void checkModifiers(VariableElement optionField) throws OptionProcessorException {
+  private static void checkModifiers(VariableElement optionField) throws OptionProcessorException {
     if (!optionField.getModifiers().contains(Modifier.PUBLIC)) {
       throw new OptionProcessorException(optionField, "@Option annotated fields should be public.");
     }
@@ -191,12 +190,11 @@ public final class OptionProcessor extends AbstractProcessor {
             optionType);
       }
       DeclaredType optionDeclaredType = (DeclaredType) optionType;
-      // optionDeclaredType.asElement().asType() gets us from List<actualType> to List<E>, so this
-      // is unfortunately necessary.
-      if (!typeUtils.isAssignable(optionDeclaredType.asElement().asType(), listType)) {
+      if (!typeUtils.isAssignable(typeUtils.erasure(optionDeclaredType), listType)) {
         throw new OptionProcessorException(
             optionField,
-            "Option that allows multiple occurrences must be of type %s, but is of type %s",
+            "Option that allows multiple occurrences must be assignable to type %s, but is of type"
+                + " %s",
             listType,
             optionType);
       }
@@ -359,7 +357,7 @@ public final class OptionProcessor extends AbstractProcessor {
    * Check that the option lists at least one effect, and that no nonsensical combinations are
    * listed, such as having a known effect listed with UNKNOWN.
    */
-  private void checkEffectTagRationality(VariableElement optionField)
+  private static void checkEffectTagRationality(VariableElement optionField)
       throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     OptionEffectTag[] effectTags = annotation.effectTags();
@@ -392,7 +390,7 @@ public final class OptionProcessor extends AbstractProcessor {
    * Check that if the metadata tags listed by an option require the option to be unknown by the
    * average user, the same option will be omitted from documentation.
    */
-  private void checkMetadataTagAndCategoryRationality(VariableElement optionField)
+  private static void checkMetadataTagAndCategoryRationality(VariableElement optionField)
       throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     OptionMetadataTag[] metadataTags = annotation.metadataTags();
@@ -414,7 +412,7 @@ public final class OptionProcessor extends AbstractProcessor {
   private static final ImmutableList<String> DEPRECATED_CATEGORIES =
       ImmutableList.of("undocumented", "hidden", "internal");
 
-  private void checkOldCategoriesAreNotUsed(VariableElement optionField)
+  private static void checkOldCategoriesAreNotUsed(VariableElement optionField)
       throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     if (DEPRECATED_CATEGORIES.contains(annotation.category())) {
@@ -426,7 +424,7 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
-  private void checkOptionName(VariableElement optionField) throws OptionProcessorException {
+  private static void checkOptionName(VariableElement optionField) throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     String optionName = annotation.name();
     if (optionName.isEmpty()) {
@@ -454,25 +452,8 @@ public final class OptionProcessor extends AbstractProcessor {
    */
   private void checkExpansionOptions(VariableElement optionField) throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
-    boolean isStaticExpansion = annotation.expansion().length > 0;
+    boolean isExpansion = annotation.expansion().length > 0;
     boolean hasImplicitRequirements = annotation.implicitRequirements().length > 0;
-
-    AnnotationMirror annotationMirror =
-        ProcessorUtils.getAnnotation(elementUtils, typeUtils, optionField, Option.class);
-    TypeElement expansionFunction =
-        ProcessorUtils.getClassTypeFromAnnotationField(
-            elementUtils, annotationMirror, "expansionFunction");
-    TypeElement defaultExpansionFunction =
-        elementUtils.getTypeElement(ExpansionFunction.class.getCanonicalName());
-    boolean isFunctionalExpansion =
-        !typeUtils.isSameType(expansionFunction.asType(), defaultExpansionFunction.asType());
-
-    if (isStaticExpansion && isFunctionalExpansion) {
-      throw new OptionProcessorException(
-          optionField,
-          "Options cannot expand using both a static expansion list and an expansion function.");
-    }
-    boolean isExpansion = isStaticExpansion || isFunctionalExpansion;
 
     if (isExpansion && hasImplicitRequirements) {
       throw new OptionProcessorException(
@@ -550,8 +531,7 @@ public final class OptionProcessor extends AbstractProcessor {
         error(e.getElementInError(), e.getMessage());
       }
     }
-    // Claim all Option annotated fields.
-    return true;
+    return false;
   }
 
   /**

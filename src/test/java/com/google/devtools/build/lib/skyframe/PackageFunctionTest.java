@@ -19,7 +19,10 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -65,8 +69,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -80,6 +84,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -104,6 +109,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   @Mock private PackageValidator mockPackageValidator;
+
+  @Mock private PackageOverheadEstimator mockPackageOverheadEstimator;
 
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
@@ -142,6 +149,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     return mockPackageValidator;
   }
 
+  @Override
+  protected PackageOverheadEstimator getPackageOverheadEstimator() {
+    return mockPackageOverheadEstimator;
+  }
+
   private Package validPackageWithoutErrors(SkyKey skyKey) throws InterruptedException {
     return validPackageInternal(skyKey, /*checkPackageError=*/ true);
   }
@@ -156,7 +168,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, skyKey, /*keepGoing=*/ false, reporter);
@@ -168,6 +181,25 @@ public class PackageFunctionTest extends BuildViewTestCase {
       assertThat(value.getPackage().containsErrors()).isFalse();
     }
     return value.getPackage();
+  }
+
+  private Exception evaluatePackageToException(String pkg) throws Exception {
+    return evaluatePackageToException(pkg, /*keepGoing=*/ false);
+  }
+
+  /**
+   * Helper that evaluates the given package and returns the expected exception.
+   *
+   * <p>Disables the failFastHandler as a side-effect.
+   */
+  private Exception evaluatePackageToException(String pkg, boolean keepGoing) throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse(pkg));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(), skyKey, keepGoing, reporter);
+    assertThat(result.hasError()).isTrue();
+    return result.getError(skyKey).getException();
   }
 
   @Test
@@ -185,31 +217,39 @@ public class PackageFunctionTest extends BuildViewTestCase {
             inv -> {
               Package pkg = inv.getArgument(0, Package.class);
               if (pkg.getName().equals("pkg")) {
-                inv.getArgument(1, ExtendedEventHandler.class).handle(Event.warn("warning event"));
+                inv.getArgument(2, ExtendedEventHandler.class).handle(Event.warn("warning event"));
                 throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
               }
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(OptionalLong.class), any(ExtendedEventHandler.class));
 
     invalidatePackages();
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThatEvaluationResult(result).hasError();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skyKey)
-        .hasExceptionThat()
-        .isInstanceOf(InvalidPackageException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skyKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains("no such package 'pkg': no good");
+    Exception ex = evaluatePackageToException("@//pkg");
+    assertThat(ex).isInstanceOf(InvalidPackageException.class);
+    assertThat(ex).hasMessageThat().contains("no such package 'pkg': no good");
     assertContainsEvent("warning event");
+  }
+
+  @Test
+  public void testPackageOverheadPassedToValidationLogic() throws Exception {
+    scratch.file("pkg/BUILD", "# Contents doesn't matter, it's all fake");
+
+    when(mockPackageOverheadEstimator.estimatePackageOverhead(any(Package.class)))
+        .thenReturn(OptionalLong.of(42));
+
+    invalidatePackages();
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(),
+        PackageValue.key(PackageIdentifier.parse("@//pkg")),
+        /*keepGoing=*/ false,
+        reporter);
+
+    verify(mockPackageValidator)
+        .validate(any(Package.class), eq(OptionalLong.of(42)), any(ExtendedEventHandler.class));
   }
 
   @Test
@@ -229,7 +269,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(OptionalLong.class), any(ExtendedEventHandler.class));
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
     EvaluationResult<PackageValue> result1 =
@@ -249,7 +289,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testPropagatesFilesystemInconsistencies() throws Exception {
-    reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
     Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
     Path fooBuildFile = scratch.file("foo/BUILD");
@@ -301,28 +340,24 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     fs.stubStat(fooBuildFile, inconsistentFileStatus);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(pkgRoot, fooDir);
-    SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, tsgm);
+    SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, SyscallCache.NO_CACHE, tsgm);
     differencer.inject(ImmutableMap.of(FileStateValue.key(pkgRootedPath), fooDirValue));
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage =
-        "according to stat, existing path /workspace/foo/BUILD is neither"
-            + " a file nor directory nor symlink.";
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage).contains("Inconsistent filesystem operations");
-    assertThat(errorMessage).contains(expectedMessage);
+
+    Exception ex = evaluatePackageToException("@//foo");
+    String msg = ex.getMessage();
+    assertThat(msg).contains("Inconsistent filesystem operations");
+    assertThat(msg)
+        .contains(
+            "according to stat, existing path /workspace/foo/BUILD is neither"
+                + " a file nor directory nor symlink.");
     assertDetailedExitCode(
-        errorInfo.getException(), PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
+        ex,
+        PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   @Test
   public void testPropagatesFilesystemInconsistencies_globbing() throws Exception {
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
-    reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
     Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
     scratch.file(
@@ -343,29 +378,20 @@ public class PackageFunctionTest extends BuildViewTestCase {
             DirectoryListingStateValue.key(barDirRootedPath),
             DirectoryListingStateValue.create(
                 ImmutableList.of(new Dirent("baz", Dirent.Type.DIRECTORY)))));
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage = "/workspace/foo/bar/baz is no longer an existing directory";
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage).contains("Inconsistent filesystem operations");
-    assertThat(errorMessage).contains(expectedMessage);
+
+    Exception ex = evaluatePackageToException("@//foo");
+    String msg = ex.getMessage();
+    assertThat(msg).contains("Inconsistent filesystem operations");
+    assertThat(msg).contains("/workspace/foo/bar/baz is no longer an existing directory");
     assertDetailedExitCode(
-        errorInfo.getException(), PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
+        ex,
+        PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   /** Regression test for unexpected exception type from PackageValue. */
   @Test
-  public void testDiscrepancyBetweenLegacyAndSkyframePackageLoadingErrors() throws Exception {
-    // Normally, legacy globbing and skyframe globbing share a cache for `readdir` filesystem calls.
-    // In order to exercise a situation where they observe different results for filesystem calls,
-    // we disable the cache. This might happen in a real scenario, e.g. if the cache hits a limit
-    // and evicts entries.
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
-    reporter.removeHandler(failFastHandler);
+  public void testDiscrepancyBetweenGlobbingErrors() throws Exception {
     Path fooBuildFile =
         scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['bar/*.sh']))");
     Path fooDir = fooBuildFile.getParentDirectory();
@@ -373,18 +399,25 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("foo/bar/baz.sh");
     fs.scheduleMakeUnreadableAfterReaddir(barDir);
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage = "Encountered error 'Directory is not readable'";
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage).contains("Inconsistent filesystem operations");
-    assertThat(errorMessage).contains(expectedMessage);
+    Exception ex =
+        evaluatePackageToException(
+            "@//foo",
+            // Use --keep_going, not --nokeep_going, semantics so as to exercise the situation we
+            // want to exercise.
+            //
+            // In --nokeep_going semantics, the GlobValue node's error would halt normal evaluation
+            // and trigger error bubbling. Then, during error bubbling we would freshly compute the
+            // PackageValue node again, meaning we would do non-Skyframe globbing except this time
+            // non-Skyframe globbing would encounter the io error, meaning there actually wouldn't
+            // be a discrepancy.
+            /*keepGoing=*/ true);
+    String msg = ex.getMessage();
+    assertThat(msg).contains("Inconsistent filesystem operations");
+    assertThat(msg).contains("Encountered error '/workspace/foo/bar (Permission denied)'");
     assertDetailedExitCode(
-        errorInfo.getException(), PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
+        ex,
+        PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
@@ -417,7 +450,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobOrderStableWithLegacyAndSkyframeComponents() throws Exception {
+  public void testGlobOrderStableWithNonSkyframeAndSkyframeComponents() throws Exception {
     scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.txt']))");
     scratch.file("foo/b.txt");
     scratch.file("foo/a.config");
@@ -606,100 +639,87 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testNonExistingStarlarkExtension() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:bad_extension.bzl', 'some_symbol')",
-        "genrule(name = gr,",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@')");
+    scratch.file("test/starlark/BUILD", "load('//test/starlark:bad_extension.bzl', 'some_symbol')");
     invalidatePackages();
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/starlark"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String expectedMsg =
-        "error loading package 'test/starlark': "
-            + "cannot load '//test/starlark:bad_extension.bzl': no such file";
-    assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(expectedMsg);
+    Exception ex = evaluatePackageToException("@//test/starlark");
+    assertThat(ex)
+        .hasMessageThat()
+        .isEqualTo(
+            "error loading package 'test/starlark': "
+                + "cannot load '//test/starlark:bad_extension.bzl': no such file");
     assertDetailedExitCode(
-        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
   public void testNonExistingStarlarkExtensionFromExtension() throws Exception {
-    reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/starlark/extension.bzl",
         "load('//test/starlark:bad_extension.bzl', 'some_symbol')",
         "a = 'a'");
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'a')",
-        "genrule(name = gr,",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@')");
+    scratch.file("test/starlark/BUILD", "load('//test/starlark:extension.bzl', 'a')");
     invalidatePackages();
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/starlark"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    assertThat(errorInfo.getException())
+    Exception ex = evaluatePackageToException("@//test/starlark");
+    assertThat(ex)
         .hasMessageThat()
         .isEqualTo(
             "error loading package 'test/starlark': "
-                + "in /workspace/test/starlark/extension.bzl: "
+                + "at /workspace/test/starlark/extension.bzl:1:6: "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
     assertDetailedExitCode(
-        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testBuiltinsInjectionFailure() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
+    scratch.file(
+        "tools/builtins_staging/exports.bzl",
+        "1 // 0  # <-- dynamic error",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    scratch.file("pkg/BUILD");
+
+    Exception ex = evaluatePackageToException("@//pkg");
+    assertThat(ex)
+        .hasMessageThat()
+        .isEqualTo(
+            "error loading package 'pkg': Internal error while loading Starlark builtins: Failed"
+                + " to load builtins sources: initialization of module 'exports.bzl' (internal)"
+                + " failed");
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.BUILTINS_INJECTION_FAILURE, ExitCode.BUILD_FAILURE);
   }
 
   @Test
   public void testSymlinkCycleWithStarlarkExtension() throws Exception {
-    reporter.removeHandler(failFastHandler);
     Path extensionFilePath = scratch.resolve("/workspace/test/starlark/extension.bzl");
     FileSystemUtils.ensureSymbolicLink(extensionFilePath, PathFragment.create("extension.bzl"));
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'a')",
-        "genrule(name = gr,",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@')");
+    scratch.file("test/starlark/BUILD", "load('//test/starlark:extension.bzl', 'a')");
     invalidatePackages();
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/starlark"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(skyKey);
-    assertThat(errorInfo.getException())
+    Exception ex = evaluatePackageToException("@//test/starlark");
+    assertThat(ex)
         .hasMessageThat()
         .isEqualTo(
             "error loading package 'test/starlark': Encountered error while reading extension "
                 + "file 'test/starlark/extension.bzl': Symlink cycle");
     assertDetailedExitCode(
-        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
   public void testIOErrorLookingForSubpackageForLabelIsHandled() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['bar/baz.sh'])");
+    scratch.file(
+        "foo/BUILD", //
+        "sh_library(name = 'foo', srcs = ['bar/baz.sh'])");
     Path barBuildFile = scratch.file("foo/bar/BUILD");
     fs.stubStatError(barBuildFile, new IOException("nope"));
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
+
+    evaluatePackageToException("@//foo");
     assertContainsEvent("nope");
   }
 
@@ -821,7 +841,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   // Regression test for Skyframe globbing incorrectly matching the package's directory path on
   // 'glob(['**'], exclude_directories = 0)'. We test for this directly by triggering
-  // hybrid globbing (gives coverage for both legacy globbing and skyframe globbing).
+  // hybrid globbing (gives coverage for both non-skyframe globbing and skyframe globbing).
   @Test
   public void testRecursiveGlobNeverMatchesPackageDirectory() throws Exception {
     scratch.file(
@@ -859,17 +879,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     IOException exn = new IOException("nope");
     fs.throwExceptionOnGetInputStream(fooBuildFilePath, exn);
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage).contains("nope");
-    assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
-    assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
-    assertDetailedExitCode(errorInfo.getException(), PackageLoading.Code.BUILD_FILE_MISSING);
+    Exception ex = evaluatePackageToException("@//foo");
+    assertThat(ex).hasMessageThat().contains("nope");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -879,18 +893,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
     IOException exn = new IOException("nope");
     fs.throwExceptionOnGetInputStream(fooBzlFilePath, exn);
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage).contains("nope");
-    assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
-    assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
+    Exception ex = evaluatePackageToException("@//foo");
+    assertThat(ex).hasMessageThat().contains("nope");
+    assertThat(ex).isInstanceOf(NoSuchPackageException.class);
+    assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
     assertDetailedExitCode(
-        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -913,29 +921,60 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testSymlinkCycleEncounteredWhileHandlingLabelCrossingSubpackageBoundaries()
       throws Exception {
-    reporter.removeHandler(failFastHandler);
-
     scratch.file("pkg/BUILD", "exports_files(['sub/blah'])");
     Path subBuildFilePath = scratch.dir("pkg/sub").getChild("BUILD");
     FileSystemUtils.ensureSymbolicLink(subBuildFilePath, subBuildFilePath);
     invalidatePackages();
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThatEvaluationResult(result).hasError();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skyKey)
-        .hasExceptionThat()
-        .isInstanceOf(BuildFileNotFoundException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skyKey)
-        .hasExceptionThat()
+    Exception ex = evaluatePackageToException("@//pkg");
+    assertThat(ex).isInstanceOf(BuildFileNotFoundException.class);
+    assertThat(ex)
         .hasMessageThat()
         .contains(
             "no such package 'pkg/sub': Symlink cycle detected while trying to find BUILD file");
     assertContainsEvent("circular symlinks detected");
+  }
+
+  // Regression test for b/206459361.
+  @Test
+  public void nonSkyframeGlobbingIOException_andLabelCrossingSubpackageBoundaries_withKeepGoing()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    // When a package's BUILD file and the relevant filesystem state is such that non-Skyframe
+    // globbing will encounter an IOException due to a directory symlink cycle *and* the BUILD file
+    // defines a target with a label that crosses subpackage boundaries,
+    Path pkgBUILDPath =
+        scratch.file(
+            "pkg/BUILD",
+            "exports_files(['sub/blah'])  # label crossing subpackage boundaries", //
+            "glob(['globcycle/**/foo.txt'])  # triggers non-Skyframe globbing error");
+    scratch.file("pkg/sub/BUILD");
+    Path pkgGlobcyclePath = pkgBUILDPath.getParentDirectory().getChild("globcycle");
+    FileSystemUtils.ensureSymbolicLink(pkgGlobcyclePath, pkgGlobcyclePath);
+    assertThrows(IOException.class, () -> pkgGlobcyclePath.statIfFound(Symlinks.FOLLOW));
+
+    invalidatePackages();
+
+    // ... and we evaluate the package with keepGoing == true, we expect the evaluation to fail with
+    // the non-Skyframe globbing error, but for the label crossing event to *not* get added (because
+    // the globbing IOException would put Package.Builder in a state on which we cannot run
+    // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions).
+    SkyKey pkgKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /*keepGoing=*/ true, reporter);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .isInstanceOf(NoSuchPackageException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Symlink cycle: /workspace/pkg/globcycle");
+    assertDoesNotContainEvent(
+        "Label '//pkg:sub/blah' is invalid because 'pkg/sub' is a subpackage");
   }
 
   @Test
@@ -1262,29 +1301,30 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void veryBrokenPackagePostsDoneToProgressReceiver() throws Exception {
     reporter.removeHandler(failFastHandler);
 
+    // Note: syntax error (recovered), non-existent .bzl file.
     scratch.file("pkg/BUILD", "load('//does_not:exist.bzl', 'broken'");
     SkyKey key = PackageValue.key(PackageIdentifier.parse("@//pkg"));
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(), key, false, reporter);
-    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key);
+    assertContainsEvent("syntax error at 'newline': expected ,");
     assertThat(getSkyframeExecutor().getPackageProgressReceiver().progressState())
         .isEqualTo(new Pair<String, String>("1 packages loaded", ""));
   }
 
   @Test
-  public void testLegacyGlobbingEncountersSymlinkCycleAndThrowsIOException() throws Exception {
+  public void testNonSkyframeGlobbingEncountersSymlinkCycleAndThrowsIOException() throws Exception {
     reporter.removeHandler(failFastHandler);
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
 
-    // When a package's BUILD file and the relevant filesystem state is such that legacy globbing
-    // will encounter an IOException due to a directory symlink cycle,
+    // When a package's BUILD file and the relevant filesystem state is such that non-Skyframe
+    // globbing will encounter an IOException due to a directory symlink cycle,
     Path fooBUILDPath = scratch.file("foo/BUILD", "glob(['cycle/**/foo.txt'])");
     Path fooCyclePath = fooBUILDPath.getParentDirectory().getChild("cycle");
     FileSystemUtils.ensureSymbolicLink(fooCyclePath, fooCyclePath);
     IOException ioExnFromFS =
         assertThrows(IOException.class, () -> fooCyclePath.statIfFound(Symlinks.FOLLOW));
     // And it is indeed the case that the FileSystem throws an IOException when the cycle's Path is
-    // stat'd (following symlinks, as legacy globbing does).
+    // stat'd (following symlinks, as non-Skyframe globbing does).
     assertThat(ioExnFromFS).hasMessageThat().contains("Too many levels of symbolic links");
 
     // Then, when we evaluate the PackageValue node for the Package in keepGoing mode,
@@ -1307,9 +1347,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .contains("Symlink cycle: /workspace/foo/cycle");
     // And appropriate Skyframe root cause (N.B. since we want PackageFunction to rethrow in
     // situations like this, we want the PackageValue node to be its own root cause).
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(pkgKey)
-        .rootCauseOfExceptionIs(pkgKey);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(pkgKey);
 
     // Then, when we modify the BUILD file so as to force package loading,
     scratch.overwriteFile(
@@ -1318,7 +1356,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // PackageFunction will observe cache hits from Skyframe globbing,
     //
     // And we also have our filesystem blow up if the directory symlink cycle is encountered (thus,
-    // the absence of a crash indicates the lack of legacy globbing),
+    // the absence of a crash indicates the lack of non-Skyframe globbing),
     fs.stubStatError(
         fooCyclePath,
         new IOException() {
@@ -1347,20 +1385,19 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains("Symlink cycle: /workspace/foo/cycle");
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(pkgKey)
-        .rootCauseOfExceptionIs(pkgKey);
     // Thus showing that clean and incremental package loading have the same semantics in the
     // presence of a symlink cycle encountered during glob evaluation.
   }
 
   private static void assertDetailedExitCode(
-      Exception exception, PackageLoading.Code expectedPackageLoadingCode) {
+      Exception exception, PackageLoading.Code expectedPackageLoadingCode, ExitCode exitCode) {
     assertThat(exception).isInstanceOf(DetailedException.class);
     DetailedExitCode detailedExitCode = ((DetailedException) exception).getDetailedExitCode();
-    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(exitCode);
     assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
         .isEqualTo(expectedPackageLoadingCode);
+    assertThat(DetailedExitCode.getExitCode(detailedExitCode.getFailureDetail()))
+        .isEqualTo(exitCode);
   }
 
   /**
@@ -1437,7 +1474,41 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     @Test
+    public void testPreludeCanShadowUniversal() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "len = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(len)");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
     public void testPreludeCanShadowPredeclareds() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "cc_library = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(cc_library)");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
+    public void testPreludeCanShadowInjectedPredeclareds() throws Exception {
+      setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
+      scratch.file(
+          "tools/builtins_staging/exports.bzl",
+          "exported_toplevels = {}",
+          "exported_rules = {'cc_library': 'BAR'}",
+          "exported_to_java = {}");
       scratch.file("tools/build_rules/BUILD");
       scratch.file(
           "tools/build_rules/test_prelude", //
@@ -1597,24 +1668,24 @@ public class PackageFunctionTest extends BuildViewTestCase {
       }
     }
 
-    private final Map<Path, FileStatusOrException> stubbedStats = Maps.newHashMap();
-    private final Set<Path> makeUnreadableAfterReaddir = Sets.newHashSet();
-    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, FileStatusOrException> stubbedStats = Maps.newHashMap();
+    private final Set<PathFragment> makeUnreadableAfterReaddir = Sets.newHashSet();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path, new FileStatusOrException.FileStatusImpl(stubbedResult));
+      stubbedStats.put(path.asFragment(), new FileStatusOrException.FileStatusImpl(stubbedResult));
     }
 
     public void stubStatError(Path path, IOException stubbedResult) {
-      stubbedStats.put(path, new FileStatusOrException.ExceptionImpl(stubbedResult));
+      stubbedStats.put(path.asFragment(), new FileStatusOrException.ExceptionImpl(stubbedResult));
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path).get();
       }
@@ -1622,24 +1693,25 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     public void scheduleMakeUnreadableAfterReaddir(Path path) {
-      makeUnreadableAfterReaddir.add(path);
+      makeUnreadableAfterReaddir.add(path.asFragment());
     }
 
     @Override
-    public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+    public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+        throws IOException {
       Collection<Dirent> result = super.readdir(path, followSymlinks);
       if (makeUnreadableAfterReaddir.contains(path)) {
-        path.setReadable(false);
+        setReadable(path, false);
       }
       return result;
     }
 
     public void throwExceptionOnGetInputStream(Path path, IOException exn) {
-      pathsToErrorOnGetInputStream.put(path, exn);
+      pathsToErrorOnGetInputStream.put(path.asFragment(), exn);
     }
 
     @Override
-    protected InputStream getInputStream(Path path) throws IOException {
+    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

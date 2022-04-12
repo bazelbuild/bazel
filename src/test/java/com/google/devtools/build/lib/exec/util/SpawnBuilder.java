@@ -35,15 +35,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Builder class to create {@link Spawn} instances for testing.
- */
+/** Builder class to create {@link Spawn} instances for testing. */
 public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
   private String ownerLabel = "//dummy:label";
+  @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
   private final List<String> args;
   private final Map<String, String> environment = new HashMap<>();
@@ -51,6 +51,7 @@ public final class SpawnBuilder {
   private ImmutableMap<String, String> execProperties = ImmutableMap.of();
   private final NestedSetBuilder<ActionInput> inputs = NestedSetBuilder.stableOrder();
   private final List<ActionInput> outputs = new ArrayList<>();
+  @Nullable private Set<? extends ActionInput> mandatoryOutputs;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings =
       new HashMap<>();
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
@@ -64,7 +65,8 @@ public final class SpawnBuilder {
 
   public Spawn build() {
     ActionExecutionMetadata owner =
-        new FakeOwner(mnemonic, progressMessage, ownerLabel, platform, execProperties);
+        new FakeOwner(
+            mnemonic, progressMessage, ownerLabel, ownerPrimaryOutput, platform, execProperties);
     return new SimpleSpawn(
         owner,
         ImmutableList.copyOf(args),
@@ -75,6 +77,7 @@ public final class SpawnBuilder {
         inputs.build(),
         tools.build(),
         ImmutableSet.copyOf(outputs),
+        mandatoryOutputs,
         resourceSet);
   }
 
@@ -95,6 +98,11 @@ public final class SpawnBuilder {
 
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
     this.ownerLabel = checkNotNull(ownerLabel);
+    return this;
+  }
+
+  public SpawnBuilder withOwnerPrimaryOutput(Artifact output) {
+    ownerPrimaryOutput = checkNotNull(output);
     return this;
   }
 
@@ -139,10 +147,22 @@ public final class SpawnBuilder {
     return withOutput(ActionInputHelper.fromPath(name));
   }
 
+  public SpawnBuilder withOutputs(ActionInput... outputs) {
+    for (ActionInput output : outputs) {
+      withOutput(output);
+    }
+    return this;
+  }
+
   public SpawnBuilder withOutputs(String... names) {
     for (String name : names) {
       this.outputs.add(ActionInputHelper.fromPath(name));
     }
+    return this;
+  }
+
+  public SpawnBuilder withMandatoryOutputs(@Nullable Set<? extends ActionInput> mandatoryOutputs) {
+    this.mandatoryOutputs = mandatoryOutputs;
     return this;
   }
 

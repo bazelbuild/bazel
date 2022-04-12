@@ -315,16 +315,20 @@ public class RClassGeneratorTest {
             "int attr another_attr 0x7f010005",
             "int attr zoo 0x7f010006",
             // Test several > 5 elements, clinit must use bytecodes other than iconst_0 to 5.
-            "int[] styleable ActionButton { 0x010100f2, 0x7f010001, 0x7f010002, 0x7f010003, "
-                + "0x7f010004, 0x7f010005, 0x7f010006 }",
+            "int[] styleable ActionButton { 0x010100f2, "
+                + "com.google.devtools.build.android.resources.android.R.Attr.staged, "
+                + "com.google.devtools.build.android.resources.android.R$Attr.stagedOther, "
+                + "0x7f010001, 0x7f010002, 0x7f010003, 0x7f010004, 0x7f010005, 0x7f010006 }",
             // The array indices of each attribute.
             "int styleable ActionButton_android_layout 0",
-            "int styleable ActionButton_another_attr 5",
-            "int styleable ActionButton_attr 4",
-            "int styleable ActionButton_bar 1",
-            "int styleable ActionButton_baz 2",
-            "int styleable ActionButton_fox 3",
-            "int styleable ActionButton_zoo 6");
+            "int styleable ActionButton_android_staged 1",
+            "int styleable ActionButton_android_stagedOther 2",
+            "int styleable ActionButton_another_attr 7",
+            "int styleable ActionButton_attr 6",
+            "int styleable ActionButton_bar 3",
+            "int styleable ActionButton_baz 4",
+            "int styleable ActionButton_fox 5",
+            "int styleable ActionButton_zoo 8");
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
@@ -357,17 +361,21 @@ public class RClassGeneratorTest {
         outerClass,
         ImmutableMap.<String, Integer>builder()
             .put("ActionButton_android_layout", 0)
-            .put("ActionButton_bar", 1)
-            .put("ActionButton_baz", 2)
-            .put("ActionButton_fox", 3)
-            .put("ActionButton_attr", 4)
-            .put("ActionButton_another_attr", 5)
-            .put("ActionButton_zoo", 6)
+            .put("ActionButton_android_staged", 1)
+            .put("ActionButton_android_stagedOther", 2)
+            .put("ActionButton_bar", 3)
+            .put("ActionButton_baz", 4)
+            .put("ActionButton_fox", 5)
+            .put("ActionButton_attr", 6)
+            .put("ActionButton_another_attr", 7)
+            .put("ActionButton_zoo", 8)
             .build(),
         ImmutableMap.<String, List<Integer>>of(
             "ActionButton",
             ImmutableList.of(
                 0x010100f2,
+                0x0101ff00,
+                0x0101ff01,
                 0x7f010001,
                 0x7f010002,
                 0x7f010003,
@@ -465,7 +473,8 @@ public class RClassGeneratorTest {
       ImmutableMap<String, List<Integer>> intArrayFields,
       boolean areFieldsFinal)
       throws Exception {
-    try (URLClassLoader urlClassLoader = new URLClassLoader(new URL[] {baseDir.toUri().toURL()})) {
+    try (URLClassLoader urlClassLoader =
+        new URLClassLoader(new URL[] {baseDir.toUri().toURL()}, getClass().getClassLoader())) {
       Class<?> innerClass = urlClassLoader.loadClass(expectedClassName);
       assertThat(innerClass.getSuperclass()).isEqualTo(Object.class);
       assertThat(innerClass.getEnclosingClass().toString()).isEqualTo(outerClass.toString());

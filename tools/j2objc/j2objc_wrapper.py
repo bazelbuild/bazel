@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http:#www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,6 +35,13 @@ import zipfile
 
 _INCLUDE_RE = re.compile('#(include|import) "([^"]+)"')
 _CONST_DATE_TIME = [1980, 1, 1, 0, 0, 0]
+_ADD_EXPORTS = [
+    '--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED',
+    '--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED',
+    '--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED',
+    '--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED',
+    '--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED',
+]
 
 
 def RunJ2ObjC(java, jvm_flags, j2objc, main_class, output_file_path,
@@ -69,8 +76,9 @@ def RunJ2ObjC(java, jvm_flags, j2objc, main_class, output_file_path,
   try:
     j2objc_cmd = [java]
     j2objc_cmd.extend(filter(None, jvm_flags.split(',')))
+    j2objc_cmd.extend(_ADD_EXPORTS)
     j2objc_cmd.extend(['-cp', j2objc, main_class])
-    j2objc_cmd.extend(['@%s' % param_filename])
+    j2objc_cmd.append('@%s' % param_filename)
     subprocess.check_call(j2objc_cmd, stderr=subprocess.STDOUT)
   finally:
     if param_filename:

@@ -19,27 +19,37 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
-/** A {@link RemoteCache} that stores its contents in memory. */
-public class InMemoryCacheClient implements RemoteCacheClient {
+/** A {@link RemoteCacheClient} that stores its contents in memory. */
+public final class InMemoryCacheClient implements RemoteCacheClient {
 
+  private final ListeningExecutorService executorService =
+      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(100));
   private final ConcurrentMap<Digest, Exception> downloadFailures = new ConcurrentHashMap<>();
   private final ConcurrentMap<ActionKey, ActionResult> ac = new ConcurrentHashMap<>();
   private final ConcurrentMap<Digest, byte[]> cas;
 
   private AtomicInteger numSuccess = new AtomicInteger();
   private AtomicInteger numFailures = new AtomicInteger();
+  private final ConcurrentMap<Digest, AtomicInteger> numFindMissingDigests =
+      new ConcurrentHashMap<>();
 
   public InMemoryCacheClient(Map<Digest, byte[]> casEntries) {
     this.cas = new ConcurrentHashMap<>();
@@ -64,8 +74,15 @@ public class InMemoryCacheClient implements RemoteCacheClient {
     return numFailures.get();
   }
 
+  public Map<Digest, Integer> getNumFindMissingDigests() {
+    return numFindMissingDigests.entrySet().stream()
+        .map(entry -> new SimpleEntry<>(entry.getKey(), entry.getValue().get()))
+        .collect(Collectors.toMap(SimpleEntry::getKey, SimpleEntry::getValue));
+  }
+
   @Override
-  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+  public ListenableFuture<Void> downloadBlob(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     Exception failure = downloadFailures.get(digest);
     if (failure != null) {
       numFailures.incrementAndGet();
@@ -89,22 +106,25 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
-      ActionKey actionKey, boolean inlineOutErr) {
+  public ListenableFuture<CachedActionResult> downloadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     ActionResult actionResult = ac.get(actionKey);
     if (actionResult == null) {
       return Futures.immediateFailedFuture(new CacheNotFoundException(actionKey.getDigest()));
     }
-    return Futures.immediateFuture(actionResult);
+    return Futures.immediateFuture(CachedActionResult.remote(actionResult));
   }
 
   @Override
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult) {
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ac.put(actionKey, actionResult);
+    return Futures.immediateFuture(null);
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
     try (InputStream in = file.getInputStream()) {
       cas.put(digest, ByteStreams.toByteArray(in));
     } catch (IOException e) {
@@ -114,7 +134,8 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try (InputStream in = data.newInput()) {
       cas.put(digest, data.toByteArray());
     } catch (IOException e) {
@@ -124,14 +145,21 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
-    ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
-    for (Digest digest : digests) {
-      if (!cas.containsKey(digest)) {
-        missingBuilder.add(digest);
-      }
-    }
-    return Futures.immediateFuture(missingBuilder.build());
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+    return executorService.submit(
+        () -> {
+          ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
+          for (Digest digest : digests) {
+            numFindMissingDigests
+                .computeIfAbsent(digest, (key) -> new AtomicInteger(0))
+                .incrementAndGet();
+            if (!cas.containsKey(digest)) {
+              missingBuilder.add(digest);
+            }
+          }
+          return missingBuilder.build();
+        });
   }
 
   @Override

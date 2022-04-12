@@ -120,7 +120,7 @@ EOF
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
   expect_log "bleh"
   expect_log "Tra-la!"  # Invalidation
-  cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
+  cat bazel-bin/zoo/ball-pit1.txt >$TEST_log
   expect_log "Tra-la!"
 
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
@@ -128,7 +128,7 @@ EOF
 
   bazel build //zoo:ball-pit2 >& $TEST_log || fail "Failed to build"
   expect_not_log "Tra-la!"  # No invalidation
-  cat bazel-genfiles/zoo/ball-pit2.txt >$TEST_log
+  cat bazel-bin/zoo/ball-pit2.txt >$TEST_log
   expect_log "Tra-la!"
 
   # Test invalidation of the WORKSPACE file
@@ -154,7 +154,7 @@ EOF
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
   expect_log "blah"
   expect_log "Tra-la-la!"  # Invalidation
-  cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
+  cat bazel-bin/zoo/ball-pit1.txt >$TEST_log
   expect_log "Tra-la-la!"
 
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
@@ -162,7 +162,7 @@ EOF
 
   bazel build //zoo:ball-pit2 >& $TEST_log || fail "Failed to build"
   expect_not_log "Tra-la-la!"  # No invalidation
-  cat bazel-genfiles/zoo/ball-pit2.txt >$TEST_log
+  cat bazel-bin/zoo/ball-pit2.txt >$TEST_log
   expect_log "Tra-la-la!"
 }
 
@@ -355,7 +355,7 @@ EOF
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "foo"
   expect_not_log "Workspace name in .*/WORKSPACE (.*) does not match the name given in the repository's definition (@foo)"
-  cat bazel-genfiles/external/foo/bar.txt >$TEST_log
+  cat bazel-bin/external/foo/bar.txt >$TEST_log
   expect_log "foo"
 }
 
@@ -887,13 +887,14 @@ genrule(
 )
 EOF
   cat > .bazelrc <<EOF
-build:foo --repo_env=FOO=foo
+common:foo --repo_env=FOO=foo
 build:bar --repo_env=FOO=bar
+common:qux --repo_env=FOO
 EOF
 
   bazel build --config=foo //:repoenv //:unrelated
-  cp `bazel info bazel-genfiles 2>/dev/null`/repoenv.txt repoenv1.txt
-  cp `bazel info bazel-genfiles 2> /dev/null`/unrelated.txt unrelated1.txt
+  cp `bazel info bazel-bin 2>/dev/null`/repoenv.txt repoenv1.txt
+  cp `bazel info bazel-bin 2> /dev/null`/unrelated.txt unrelated1.txt
   echo; cat repoenv1.txt; echo; cat unrelated1.txt; echo
 
   grep -q 'FOO=foo' repoenv1.txt \
@@ -904,8 +905,8 @@ EOF
   FOO=CHANGED bazel build --config=foo //:repoenv //:unrelated
   # nothing should change, as actions don't see FOO and for repositories
   # the value is fixed by --repo_env
-  cp `bazel info bazel-genfiles 2>/dev/null`/repoenv.txt repoenv2.txt
-  cp `bazel info bazel-genfiles 2> /dev/null`/unrelated.txt unrelated2.txt
+  cp `bazel info bazel-bin 2>/dev/null`/repoenv.txt repoenv2.txt
+  cp `bazel info bazel-bin 2> /dev/null`/unrelated.txt unrelated2.txt
   echo; cat repoenv2.txt; echo; cat unrelated2.txt; echo
 
   diff repoenv1.txt repoenv2.txt \
@@ -916,14 +917,69 @@ EOF
   bazel build --config=bar //:repoenv //:unrelated
   # The new config should be picked up, but the unrelated target should
   # not be rerun
-  cp `bazel info bazel-genfiles 3>/dev/null`/repoenv.txt repoenv3.txt
-  cp `bazel info bazel-genfiles 3> /dev/null`/unrelated.txt unrelated3.txt
+  cp `bazel info bazel-bin 3>/dev/null`/repoenv.txt repoenv3.txt
+  cp `bazel info bazel-bin 3> /dev/null`/unrelated.txt unrelated3.txt
   echo; cat repoenv3.txt; echo; cat unrelated3.txt; echo
 
   grep -q 'FOO=bar' repoenv3.txt \
       || fail "Expected FOO to be visible to repo rules"
   diff unrelated1.txt unrelated3.txt \
       || fail "Expected unrelated action to not be rerun"
+
+  FOO=qux bazel build --config=qux //:repoenv //:unrelated
+  # The new config should be picked up, but the unrelated target should
+  # not be rerun
+  cp `bazel info bazel-genfiles 3>/dev/null`/repoenv.txt repoenv4.txt
+  cp `bazel info bazel-genfiles 3> /dev/null`/unrelated.txt unrelated4.txt
+  echo; cat repoenv4.txt; echo; cat unrelated4.txt; echo
+
+  grep -q 'FOO=qux' repoenv4.txt \
+      || fail "Expected FOO to be visible to repo rules"
+  diff unrelated1.txt unrelated4.txt \
+      || fail "Expected unrelated action to not be rerun"
+}
+
+function test_repo_env_inverse() {
+  # This test makes sure that a repository rule that has no dependencies on
+  # environment variables does _not_ get refetched when --repo_env changes.
+  setup_starlark_repository
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  # Record a time stamp to verify that the rule is not rerun.
+  ctx.execute(["bash", "-c", "date +%s >> env.txt"])
+  ctx.file("BUILD", 'exports_files(["env.txt"])')
+
+repo = repository_rule(
+  implementation = _impl,
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "repoenv",
+  outs = ["repoenv.txt"],
+  srcs = ["@foo//:env.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > .bazelrc <<EOF
+build:foo --repo_env=FOO=foo
+build:bar --repo_env=FOO=bar
+EOF
+
+  bazel build --config=foo //:repoenv
+  cp `bazel info bazel-bin 2>/dev/null`/repoenv.txt repoenv1.txt
+  echo; cat repoenv1.txt; echo;
+
+  sleep 2 # ensure any rerun will have a different time stamp
+
+  bazel build --config=bar //:repoenv
+  # The new config should not trigger a rerun of repoenv.
+  cp `bazel info bazel-bin 2>/dev/null`/repoenv.txt repoenv2.txt
+  echo; cat repoenv2.txt; echo;
+
+  diff repoenv1.txt repoenv2.txt \
+      || fail "Expected repository to not change"
 }
 
 function test_repo_env_invalidation() {
@@ -962,18 +1018,18 @@ genrule(
 EOF
 
     bazel build //:repotime
-    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time1.txt
+    cp `bazel info bazel-bin 2>/dev/null`/repotime.txt time1.txt
 
     sleep 2;
     bazel build --repo_env=foo=bar //:repotime
-    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time2.txt
+    cp `bazel info bazel-bin 2>/dev/null`/repotime.txt time2.txt
     diff time1.txt time2.txt && fail "Expected repo to be refetched" || :
 
     bazel shutdown
     sleep 2;
 
     bazel build --repo_env=foo=bar //:repotime
-    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time3.txt
+    cp `bazel info bazel-bin 2>/dev/null`/repotime.txt time3.txt
     diff time2.txt time3.txt || fail "Expected repo to not be refetched"
 }
 
@@ -1387,9 +1443,9 @@ EOF
   echo "initial" > reference.txt.shadow
 
   bazel build //:source //:configure
-  grep 'initial' `bazel info bazel-genfiles`/source.txt \
+  grep 'initial' `bazel info bazel-bin`/source.txt \
        || fail '//:source not generated properly'
-  grep 'initial' `bazel info bazel-genfiles`/configure.txt \
+  grep 'initial' `bazel info bazel-bin`/configure.txt \
        || fail '//:configure not generated properly'
 
   echo "new value" > reference.txt.shadow
@@ -1401,9 +1457,9 @@ EOF
       && fail "Expected 'source' not to be synced" || :
 
   bazel build //:source //:configure
-  grep -q 'initial' `bazel info bazel-genfiles`/source.txt \
+  grep -q 'initial' `bazel info bazel-bin`/source.txt \
        || fail '//:source did not keep its old value'
-  grep -q 'new value' `bazel info bazel-genfiles`/configure.txt \
+  grep -q 'new value' `bazel info bazel-bin`/configure.txt \
        || fail '//:configure not synced properly'
 }
 
@@ -1752,9 +1808,9 @@ load("@netrc//:data.bzl", "netrc")
 ) for name in ["login", "password"]]
 EOF
   bazel build //:login //:password
-  grep 'myusername' `bazel info bazel-genfiles`/login.txt \
+  grep 'myusername' `bazel info bazel-bin`/login.txt \
        || fail "Username not parsed correctly"
-  grep 'mysecret' `bazel info bazel-genfiles`/password.txt \
+  grep 'mysecret' `bazel info bazel-bin`/password.txt \
        || fail "Password not parsed correctly"
 
   # Also check the precise value of parsed file
@@ -1789,7 +1845,7 @@ genrule(
 )
 EOF
   bazel build //:check_expected
-  grep 'OK' `bazel info bazel-genfiles`/check_expected.txt \
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Parsed dict not equal to expected value"
 }
 
@@ -1895,7 +1951,7 @@ genrule(
 )
 EOF
   bazel build //:check_expected
-  grep 'OK' `bazel info bazel-genfiles`/check_expected.txt \
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Authentication merged incorrectly"
 }
 
@@ -2059,6 +2115,94 @@ genrule(
 EOF
   bazel build //:it \
       || fail "Expected success despite needing a file behind basic auth"
+}
+
+function test_disable_download_should_prevent_downloading() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+  serve_file x.tar
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256="$sha256",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build --experimental_repository_disable_download //:it > "${TEST_log}" 2>&1 \
+      && fail "Expected failure" || :
+  expect_log "Failed to download repo ext: download is disabled"
+}
+
+function test_disable_download_should_allow_distdir() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+
+  mkdir main
+  cp x.tar main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1/x.tar",
+  sha256="$sha256",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build --distdir="." --experimental_repository_disable_download //:it || fail "Failed to build"
+}
+
+function test_disable_download_should_allow_local_repository() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  touch x/WORKSPACE
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+local_repository(
+  name="ext",
+  path="../x",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build --experimental_repository_disable_download //:it || fail "Failed to build"
 }
 
 run_suite "local repository tests"

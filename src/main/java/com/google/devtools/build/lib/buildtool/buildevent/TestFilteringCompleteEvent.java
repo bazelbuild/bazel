@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.concurrent.Immutable;
@@ -27,28 +27,32 @@ import javax.annotation.concurrent.Immutable;
 /**
  * This event is fired after test filtering.
  *
- * The test filtering phase always expands test_suite rules, so
- * the set of active targets should never contain test_suites.
+ * <p>The test filtering phase always expands test_suite rules, so the set of active targets should
+ * never contain test_suites.
  */
 @Immutable
 public class TestFilteringCompleteEvent {
   private final Collection<ConfiguredTarget> targets;
   private final Collection<ConfiguredTarget> testTargets;
-  private final Map<BuildConfigurationValue.Key, BuildConfiguration> configurationMap;
+  private final Collection<ConfiguredTarget> skippedTests;
+  private final Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap;
 
   /**
    * Construct the event.
    *
    * @param targets The set of active targets that remain.
    * @param testTargets The collection of tests to be run. May be null.
+   * @param targetsToSkip The collection of tests that are to be skipped.
    * @param configurationMap A map from configuration keys of all targets to the configurations.
    */
   public TestFilteringCompleteEvent(
       Collection<? extends ConfiguredTarget> targets,
       Collection<? extends ConfiguredTarget> testTargets,
-      Map<BuildConfigurationValue.Key, BuildConfiguration> configurationMap) {
+      Collection<? extends ConfiguredTarget> targetsToSkip,
+      Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
     this.targets = ImmutableList.copyOf(targets);
     this.testTargets = testTargets == null ? null : ImmutableList.copyOf(testTargets);
+    this.skippedTests = ImmutableList.copyOf(targetsToSkip);
     this.configurationMap = configurationMap;
     if (testTargets == null) {
       return;
@@ -74,7 +78,12 @@ public class TestFilteringCompleteEvent {
     return testTargets;
   }
 
-  public BuildConfiguration getConfigurationForTarget(ConfiguredTarget target) {
+  /** Returns the set of tests that should be skipped. */
+  public Collection<ConfiguredTarget> getSkippedTests() {
+    return skippedTests;
+  }
+
+  public BuildConfigurationValue getConfigurationForTarget(ConfiguredTarget target) {
     return Preconditions.checkNotNull(configurationMap.get(target.getConfigurationKey()));
   }
 }

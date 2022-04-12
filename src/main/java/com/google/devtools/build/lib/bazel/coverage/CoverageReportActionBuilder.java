@@ -64,29 +64,29 @@ import javax.annotation.Nullable;
 
 /**
  * A class to create the coverage report generator action.
- * 
- * <p>The coverage report action is created after every test shard action is created, at the
- * very end of the analysis phase. There is only one coverage report action per coverage
- * command invocation. It can also be viewed as a single sink node of the action graph.
- * 
+ *
+ * <p>The coverage report action is created after every test shard action is created, at the very
+ * end of the analysis phase. There is only one coverage report action per coverage command
+ * invocation. It can also be viewed as a single sink node of the action graph.
+ *
  * <p>Its inputs are the individual coverage.dat files from the test outputs (each shard produces
- * one) and the baseline coverage artifacts. Note that each ConfiguredTarget among the
- * transitive dependencies of the top level test targets may provide baseline coverage artifacts.
- * 
+ * one) and the baseline coverage artifacts. Note that each ConfiguredTarget among the transitive
+ * dependencies of the top level test targets may provide baseline coverage artifacts.
+ *
  * <p>The coverage report generation can have two phases, though they both run in the same action.
  * The source code of the coverage report tool {@code lcov_merger} is in the {@code
- * testing/coverage/lcov_merger} directory. The deployed binaries used by Blaze are under
- * {@code tools/coverage}.
- * 
+ * testing/coverage/lcov_merger} directory. The deployed binaries used by Blaze are under {@code
+ * tools/coverage}.
+ *
  * <p>The first phase is merging the individual coverage files into a single report file. The
  * location of this file is reported by Blaze. This phase always happens if the {@code
  * --combined_report=lcov} or {@code --combined_report=html}.
- * 
+ *
  * <p>The second phase is generating an html report. It only happens if {@code
- * --combined_report=html}. The action generates an html output file potentially for every
- * tested source file into the report. Since this set of files is unknown in the analysis
- * phase (the tool figures it out from the contents of the merged coverage report file)
- * the action always runs locally when {@code --combined_report=html}.
+ * --combined_report=html}. The action generates an html output file potentially for every tested
+ * source file into the report. Since this set of files is unknown in the analysis phase (the tool
+ * figures it out from the contents of the merged coverage report file) the action always runs
+ * locally when {@code --combined_report=html}.
  */
 public final class CoverageReportActionBuilder {
 
@@ -147,15 +147,18 @@ public final class CoverageReportActionBuilder {
         actionExecutionContext.getEventHandler().handle(Event.info(locationMessage));
         return ActionResult.create(spawnResults);
       } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            "Coverage report generation failed: ",
-            this);
+        throw ActionExecutionException.fromExecException(e, this);
       }
     }
 
     @Override
     public String getMnemonic() {
       return "CoverageReport";
+    }
+
+    @Override
+    protected String getRawProgressMessage() {
+      return "Coverage report generation";
     }
 
     @Override
@@ -167,8 +170,9 @@ public final class CoverageReportActionBuilder {
     }
 
     @Override
-    public void actionCacheHit(ActionCachedContext context) {
+    public boolean actionCacheHit(ActionCachedContext context) {
       context.getEventHandler().handle(Event.info(locationMessage));
+      return true;
     }
   }
 
@@ -188,7 +192,8 @@ public final class CoverageReportActionBuilder {
       String workspaceName,
       ArgsFunc argsFunction,
       LocationFunc locationFunc,
-      boolean htmlReport) {
+      boolean htmlReport)
+      throws InterruptedException {
 
     if (targetsToTest == null || targetsToTest.isEmpty()) {
       return null;

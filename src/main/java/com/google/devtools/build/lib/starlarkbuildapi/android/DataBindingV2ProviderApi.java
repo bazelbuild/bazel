@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -77,20 +79,20 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   String NAME = "DataBindingV2Info";
 
   /**
-   * Returns the setter store files from this rule. This is a list to support multiple
+   * Returns the setter store files from this rule. This is a Depset to support multiple
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
   @StarlarkMethod(name = "setter_stores", structField = true, doc = "", documented = false)
-  ImmutableList<T> getSetterStores();
+  Depset /*<T>*/ getSetterStoresForStarlark();
 
   /**
-   * Returns the class info files from this rule. This is a list to support multiple
+   * Returns the class info files from this rule. This is a Depset to support multiple
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
   @StarlarkMethod(name = "class_infos", structField = true, doc = "", documented = false)
-  ImmutableList<T> getClassInfos();
+  Depset /*<T>*/ getClassInfosForStarlark();
 
   /** Returns the BR files from this rule and its dependencies. */
   @StarlarkMethod(name = "transitive_br_files", structField = true, doc = "", documented = false)
@@ -111,6 +113,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   @StarlarkMethod(
       name = "label_and_java_packages",
       structField = true,
+      allowReturnNones = true,
       doc = "",
       documented = false)
   @Nullable
@@ -135,57 +138,69 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
               doc = "The setter_stores.bin files .",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "class_info_file",
               doc = "The class_info files for this rule.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "br_file",
               doc = "The br file for this rule.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "label",
               doc = "The label of the current rule.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
-              type = String.class),
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "java_package",
               doc = "The java package of the current rule.",
               positional = false,
               named = true,
-              noneable = true,
               defaultValue = "None",
-              type = String.class),
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "databinding_v2_providers_in_deps",
               doc = "The DatabindingV2Provider instances from dependencies.",
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = Sequence.class,
-              generic1 = DataBindingV2ProviderApi.class),
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = DataBindingV2ProviderApi.class)
+              }),
           @Param(
               name = "databinding_v2_providers_in_exports",
               doc = "The DatabindingV2Provider instances from exports.",
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = Sequence.class,
-              generic1 = DataBindingV2ProviderApi.class),
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = DataBindingV2ProviderApi.class)
+              }),
         },
         selfCall = true)
     @StarlarkConstructor

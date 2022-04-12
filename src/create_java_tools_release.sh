@@ -22,8 +22,6 @@
 # The script is using gsutil to copy artifacts.
 #
 # Mandatory flags:
-# --java_version        The JDK version included in the java_tools to be
-#                       released.
 # --java_tools_version  The version number of the java_tools to be released.
 # --rc                  The release candidate number of current release.
 #                       If --release true then --rc is the number of the rc to
@@ -42,12 +40,12 @@
 # JDK11, that was built at commit_hash 123456:
 #
 # src/create_java_tools_release.sh --commit_hash 123456 \
-#     --java_tools_version 2.1 --java_version 11 --rc 1 --release false
+#     --java_tools_version 2.1 --rc 1 --release false
 #
 # To release the release candidate created above:
 #
 # src/create_java_tools_release.sh \
-#     --java_tools_version 2.1 --java_version 11 --rc 1 --release true
+#     --java_tools_version 2.1 --rc 1 --release true
 
 set -euo pipefail
 
@@ -56,7 +54,6 @@ while [[ -n "$@" ]]; do
   arg="$1"; shift
   val="$1"; shift
   case "$arg" in
-    "--java_version") java_version="$val" ;;
     "--java_tools_version") java_tools_version="$val" ;;
     "--commit_hash") commit_hash="$val" ;;
     "--rc") rc="$val" ;;
@@ -72,40 +69,62 @@ trap "rm -fr $tmp_dir" EXIT
 
 gcs_bucket="gs://bazel-mirror/bazel_java_tools"
 
-for platform in linux windows darwin; do
-  rc_url="release_candidates/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
-  rc_sources_url="release_candidates/javac${java_version}/v${java_tools_version}/sources/java_tools_javac${java_version}_${platform}-v${java_tools_version}-rc${rc}.zip"
+for platform in "linux" "windows" "darwin"; do
+  rc_url="release_candidates/java/v${java_tools_version}/java_tools_${platform}-v${java_tools_version}-rc${rc}.zip"
 
   if [[ $release == "true" ]]; then
-    release_artifact="releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
-    release_sources_artifact="releases/javac${java_version}/v${java_tools_version}/sources/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
+    release_artifact="releases/java/v${java_tools_version}/java_tools_${platform}-v${java_tools_version}.zip"
     # Make release candidate the release artifact for the current platform.
     # Don't overwrite existing file.
     gsutil -q cp -n "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
-
-    # Copy the associated zip file that contains the sources of the release zip.
-    # Don't overwrite existing file.
-    gsutil -q cp -n "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
   else
-    tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
-
+    tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
 
     # Make the generated artifact a release candidate for the current platform.
     # Don't overwrite existing file.
     gsutil -q cp -n ${tmp_url} "${gcs_bucket}/${rc_url}"
     release_artifact="${rc_url}"
-
-    # Copy the associated zip file that contains the sources of the release zip.
-    # Don't overwrite existing file.
-    tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
-    gsutil -q cp -n ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
   fi
 
   # Download the file locally to compute its sha256sum (needed to update the
   # java_tools in Bazel).
   # Don't overwrite existing file.
-  local_zip="$tmp_dir/java_tools_$platform.zip"
+  local_zip="$tmp_dir/java_tools$platform.zip"
   gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
   file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
   echo "${release_artifact} ${file_hash}"
 done
+
+rc_url="release_candidates/java/v${java_tools_version}/java_tools-v${java_tools_version}-rc${rc}.zip"
+rc_sources_url="release_candidates/java/v${java_tools_version}/sources/java_tools-v${java_tools_version}-rc${rc}.zip"
+
+if [[ $release == "true" ]]; then
+  release_artifact="releases/java/v${java_tools_version}/java_tools-v${java_tools_version}.zip"
+  release_sources_artifact="releases/java/v${java_tools_version}/sources/java_tools-v${java_tools_version}.zip"
+  # Make release candidate the release artifact for the current platform.
+  # Don't overwrite existing file.
+  gsutil -q cp -n "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
+
+  # Copy the associated zip file that contains the sources of the release zip.
+  # Don't overwrite existing file.
+  gsutil -q cp -n "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
+else
+  tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+
+  gsutil -q cp -n ${tmp_url} "${gcs_bucket}/${rc_url}"
+  release_artifact="${rc_url}"
+
+  # Copy the associated zip file that contains the sources of the release zip.
+  # Don't overwrite existing file.
+  tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+  gsutil -q cp -n ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
+fi
+
+# Download the file locally to compute its sha256sum (needed to update the
+# java_tools in Bazel).
+# Don't overwrite existing file.
+local_zip="$tmp_dir/java_tools.zip"
+gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
+file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
+echo "${release_artifact} ${file_hash}"
+

@@ -17,13 +17,19 @@ import com.android.tools.r8.ByteDataView;
 import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.Enumeration;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 /** Utilities for working with zip files. */
 public class ZipUtils {
-  static void addEntry(String name, InputStream stream, ZipOutputStream zip) throws IOException {
+  public static void addEntry(String name, InputStream stream, ZipOutputStream zip)
+      throws IOException {
     ZipUtils.addEntry(name, ByteStreams.toByteArray(stream), ZipEntry.STORED, zip);
   }
 
@@ -35,6 +41,56 @@ public class ZipUtils {
     zip.putNextEntry(entry);
     zip.write(bytes);
     zip.closeEntry();
+  }
+
+  public static int getNumberOfEntries(Path path) throws IOException {
+    ZipFile zipFile = new ZipFile(path.toFile());
+    return zipFile.size();
+  }
+
+  private static ZipEntry copyEntryMetadata(ZipEntry entry, String name) {
+    ZipEntry copy = new ZipEntry(name);
+    copy.setMethod(entry.getMethod());
+    if (entry.getSize() != -1) {
+      copy.setSize(entry.getSize());
+      if (entry.getMethod() == ZipEntry.STORED) {
+        copy.setCompressedSize(entry.getSize());
+      }
+    }
+    if (entry.getCrc() != -1) {
+      copy.setCrc(entry.getCrc());
+    }
+    if (entry.getCreationTime() != null) {
+      copy.setCreationTime(entry.getCreationTime());
+    }
+    if (entry.getLastModifiedTime() != null) {
+      copy.setLastModifiedTime(entry.getLastModifiedTime());
+    }
+    if (entry.getLastAccessTime() != null) {
+      copy.setLastAccessTime(entry.getLastAccessTime());
+    }
+    return copy;
+  }
+
+  public static void copyEntries(
+      Path input,
+      ZipOutputStream zipOutputStream,
+      Predicate<String> exclude,
+      Function<String, String> nameMapping)
+      throws IOException {
+    try (ZipFile zipFile = new ZipFile(input.toFile())) {
+      Enumeration<? extends ZipEntry> entries = zipFile.entries();
+      while (entries.hasMoreElements()) {
+        ZipEntry entry = entries.nextElement();
+        String name = entry.getName();
+        if (!exclude.test(name)) {
+          zipOutputStream.putNextEntry(copyEntryMetadata(entry, nameMapping.apply(name)));
+          try (InputStream stream = zipFile.getInputStream(entry)) {
+            ByteStreams.copy(stream, zipOutputStream);
+          }
+        }
+      }
+    }
   }
 
   public static void writeToZipStream(

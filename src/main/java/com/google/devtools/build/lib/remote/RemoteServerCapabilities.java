@@ -17,18 +17,21 @@ package com.google.devtools.build.lib.remote;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesBlockingStub;
+import build.bazel.remote.execution.v2.Compressor;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.PriorityCapabilities;
 import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
-import io.grpc.Context;
+import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.List;
@@ -57,31 +60,34 @@ class RemoteServerCapabilities {
     this.retrier = retrier;
   }
 
-  private CapabilitiesBlockingStub capabilitiesBlockingStub() {
+  private CapabilitiesBlockingStub capabilitiesBlockingStub(
+      RemoteActionExecutionContext context, Channel channel) {
     return CapabilitiesGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(
+            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withCallCredentials(callCredentials)
         .withDeadlineAfter(callTimeoutSecs, TimeUnit.SECONDS);
   }
 
   public ServerCapabilities get(String buildRequestId, String commandId)
       throws IOException, InterruptedException {
-    Context withMetadata =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, "capabilities");
-    Context previous = withMetadata.attach();
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities", null);
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
     try {
       GetCapabilitiesRequest request =
           instanceName == null
               ? GetCapabilitiesRequest.getDefaultInstance()
               : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
-      return retrier.execute(() -> capabilitiesBlockingStub().getCapabilities(request));
+      return retrier.execute(
+          () ->
+              channel.withChannelBlocking(
+                  channel -> capabilitiesBlockingStub(context, channel).getCapabilities(request)));
     } catch (StatusRuntimeException e) {
       if (e.getCause() instanceof IOException) {
         throw (IOException) e.getCause();
       }
       throw new IOException(e);
-    } finally {
-      withMetadata.detach(previous);
     }
   }
 
@@ -220,12 +226,12 @@ class RemoteServerCapabilities {
     if (shouldCheckCacheCapabilities) {
       // Check cache digest function.
       CacheCapabilities cacheCap = capabilities.getCacheCapabilities();
-      if (!cacheCap.getDigestFunctionList().contains(digestFunction)) {
+      if (!cacheCap.getDigestFunctionsList().contains(digestFunction)) {
         result.addError(
             String.format(
                 "Cannot use hash function %s with remote cache. "
                     + "Server supported functions are: %s",
-                digestFunction, cacheCap.getDigestFunctionList()));
+                digestFunction, cacheCap.getDigestFunctionsList()));
       }
 
       // Check updating remote cache is allowed, if we ever need to do that.
@@ -247,6 +253,13 @@ class RemoteServerCapabilities {
               "--remote_upload_local_results is set, but the current account is not authorized "
                   + "to write local results to the remote cache.");
         }
+      }
+
+      if (remoteOptions.cacheCompression
+          && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
+        result.addError(
+            "--experimental_remote_cache_compression requested but remote does not support"
+                + " compression");
       }
 
       // Check result cache priority is in the supported range.

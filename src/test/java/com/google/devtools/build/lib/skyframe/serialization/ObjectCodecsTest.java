@@ -23,35 +23,31 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link ObjectCodecs}. */
 @RunWith(JUnit4.class)
-public class ObjectCodecsTest {
+public final class ObjectCodecsTest {
 
   /** Dummy ObjectCodec implementation so we can verify nice type system interaction. */
   private static class IntegerCodec implements ObjectCodec<Integer> {
+
     @Override
     public Class<Integer> getEncodedClass() {
       return Integer.class;
     }
 
-    // We have to override the default explicitly here because Mockito can't delegate to default
-    // methods on interfaces.
     @Override
-    public List<Class<? extends Integer>> additionalEncodedClasses() {
-      return ImmutableList.of();
+    public boolean autoRegister() {
+      return false;
     }
 
     @Override
@@ -65,22 +61,14 @@ public class ObjectCodecsTest {
         throws SerializationException, IOException {
       return codedIn.readInt32();
     }
-
-    /** Disables auto-registration. */
-    private static class IntegerCodecRegisterer implements CodecRegisterer<IntegerCodec> {}
   }
 
-  private ObjectCodec<Integer> spyObjectCodec;
+  private final ObjectCodec<Integer> spyObjectCodec = spy(new IntegerCodec());
 
-  private ObjectCodecs underTest;
-
-  @Before
-  public final void setup() {
-    spyObjectCodec = spy(new IntegerCodec());
-    this.underTest =
-        new ObjectCodecs(
-            ObjectCodecRegistry.newBuilder().add(spyObjectCodec).build(), ImmutableMap.of());
-  }
+  private final ObjectCodecs underTest =
+      new ObjectCodecs(
+          ObjectCodecRegistry.newBuilder().add(spyObjectCodec).build(),
+          ImmutableClassToInstanceMap.of());
 
   @Test
   public void testSerializeDeserializeUsesCustomLogicWhenAvailable() throws Exception {
@@ -192,7 +180,7 @@ public class ObjectCodecsTest {
     ObjectCodecs underTest =
         new ObjectCodecs(
             ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build(),
-            ImmutableMap.of());
+            ImmutableClassToInstanceMap.of());
     SerializationException.NoCodecException expected =
         assertThrows(SerializationException.NoCodecException.class, () -> underTest.serialize("Y"));
     assertThat(expected)
@@ -206,14 +194,14 @@ public class ObjectCodecsTest {
     ObjectCodecs underTest =
         new ObjectCodecs(
             ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build(),
-            ImmutableMap.of());
+            ImmutableClassToInstanceMap.of());
     assertThrows(
         SerializationException.NoCodecException.class, () -> underTest.deserialize(serialized));
   }
 
   @Test
   public void testSerializeDeserialize() throws Exception {
-    ObjectCodecs underTest = new ObjectCodecs(AutoRegistry.get(), ImmutableMap.of());
+    ObjectCodecs underTest = new ObjectCodecs(AutoRegistry.get(), ImmutableClassToInstanceMap.of());
     assertThat((String) underTest.deserialize(underTest.serialize("hello"))).isEqualTo("hello");
     assertThat(underTest.deserialize(underTest.serialize(null))).isNull();
   }
@@ -225,7 +213,7 @@ public class ObjectCodecsTest {
     MyException exception = new MyException();
     // Force initialization of stack trace.
     StackTraceElement[] stackTrace = exception.getStackTrace();
-    ObjectCodecs underTest = new ObjectCodecs(AutoRegistry.get(), ImmutableMap.of());
+    ObjectCodecs underTest = new ObjectCodecs(AutoRegistry.get(), ImmutableClassToInstanceMap.of());
     assertThat(
             ((MyException) underTest.deserializeMemoized(underTest.serializeMemoized(exception)))
                 .getStackTrace())

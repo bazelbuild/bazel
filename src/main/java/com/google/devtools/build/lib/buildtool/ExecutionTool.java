@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -23,9 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
+import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -44,7 +47,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -53,6 +56,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSy
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -83,13 +87,13 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -100,14 +104,15 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -192,24 +197,8 @@ public class ExecutionTool {
     actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
     actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
 
-    ModuleActionContextRegistry moduleActionContextRegistry = actionContextRegistryBuilder.build();
-
-    this.actionContextRegistry = moduleActionContextRegistry;
+    this.actionContextRegistry = actionContextRegistryBuilder.build();
     this.spawnStrategyRegistry = spawnStrategyRegistry;
-
-    if (options.availableResources != null && options.removeLocalResources) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      "--local_resources is deprecated. Please use --local_ram_resources and/or"
-                          + " --local_cpu_resources")
-                  .setExecutionOptions(
-                      FailureDetails.ExecutionOptions.newBuilder()
-                          .setCode(
-                              FailureDetails.ExecutionOptions.Code.DEPRECATED_LOCAL_RESOURCES_USED))
-                  .build()));
-    }
   }
 
   Executor getExecutor() throws AbruptExitException {
@@ -229,6 +218,7 @@ public class ExecutionTool {
         env.getExecRoot(),
         getReporter(),
         runtime.getClock(),
+        runtime.getBugReporter(),
         request,
         actionContextRegistry,
         spawnStrategyRegistry);
@@ -246,6 +236,129 @@ public class ExecutionTool {
 
   TestActionContext getTestActionContext() {
     return actionContextRegistry.getContext(TestActionContext.class);
+  }
+
+  /**
+   * Sets up for execution.
+   *
+   * <p>b/199053098: This method concentrates the setup steps for execution, which were previously
+   * scattered over several classes. We need this in order to merge analysis & execution phases.
+   * TODO(b/199053098): Minimize code duplication with the main code path. TODO(b/213040766): Write
+   * tests for these setup steps.
+   */
+  public void prepareForExecution(
+      UUID buildId,
+      Set<ConfiguredTargetKey> builtTargets,
+      Set<AspectKey> builtAspects,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories)
+      throws AbruptExitException, BuildFailedException, InterruptedException {
+    init();
+    BuildRequestOptions options = request.getBuildOptions();
+
+    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+    // TODO(b/199053098): Support symlink forest.
+    List<Root> pkgPathEntries = env.getPackageLocator().getPathEntries();
+    Preconditions.checkState(
+        pkgPathEntries.size() == 1,
+        "--experimental_merged_skyframe_analysis_execution requires a single package path entry."
+            + " Found a list of size: %s",
+        pkgPathEntries.size());
+
+    try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
+      Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
+      PackageRoots noSymlinkPackageRoots = new PackageRootsNoSymlinkCreation(singleSourceRoot);
+      try {
+        SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
+            getExecRoot(),
+            singleSourceRoot.asPath(),
+            /*prefix=*/ env.getDirectories().getProductName() + "-",
+            notSymlinkedInExecrootDirectories,
+            request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("Failed to prepare the symlink forest")
+                    .setSymlinkForest(
+                        FailureDetails.SymlinkForest.newBuilder()
+                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
+                    .build()),
+            e);
+      }
+      env.getEventBus().post(new ExecRootPreparedEvent(noSymlinkPackageRoots.getPackageRootsMap()));
+      env.getSkyframeBuildView()
+          .getArtifactFactory()
+          .setPackageRoots(noSymlinkPackageRoots.getPackageRootLookup());
+    }
+
+    OutputService outputService = env.getOutputService();
+    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
+    if (outputService != null) {
+      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
+        modifiedOutputFiles =
+            outputService.startBuild(
+                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+      }
+    } else {
+      // TODO(bazel-team): this could be just another OutputService
+      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
+        startLocalOutputBuild();
+      }
+    }
+    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+      // Must be created after the output path is created above.
+      createActionLogDirectory();
+    }
+
+    ActionCache actionCache = null;
+    if (options.useActionCache) {
+      actionCache = getActionCache();
+      actionCache.resetStatistics();
+    }
+    SkyframeBuilder skyframeBuilder;
+    try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+      skyframeBuilder =
+          (SkyframeBuilder)
+              createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
+      skyframeExecutor.configureActionExecutor(
+          skyframeBuilder.getFileCache(), skyframeBuilder.getActionInputPrefetcher());
+    }
+    // TODO(b/199053098): Setup progress reporting objects in SkyframeActionExecutor.
+    try (SilentCloseable c =
+        Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
+      skyframeExecutor.prepareSkyframeActionExecutorForExecution(
+          env.getReporter(), executor, request, skyframeBuilder.getActionCacheChecker());
+    }
+
+    // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
+    // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
+    // TODO(leba): count test actions
+    ExecutionProgressReceiver executionProgressReceiver =
+        new ExecutionProgressReceiver(
+            Preconditions.checkNotNull(builtTargets), Preconditions.checkNotNull(builtAspects), 0);
+    skyframeExecutor
+        .getEventBus()
+        .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
+
+    ActionExecutionStatusReporter statusReporter =
+        ActionExecutionStatusReporter.create(env.getReporter(), skyframeExecutor.getEventBus());
+    // TODO(leba): Add watchdog support.
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        executionProgressReceiver, executionProgressReceiver, statusReporter);
+    skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
+
+    for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+      try (SilentCloseable c =
+          Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
+        executorLifecycleListener.executionPhaseStarting(null, () -> null);
+      }
+    }
+
+    try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
+      configureResourceManager(env.getLocalResourceManager(), request);
+    }
   }
 
   /**
@@ -294,8 +407,12 @@ public class ExecutionTool {
 
     handleConvenienceSymlinks(analysisResult);
 
-    ActionCache actionCache = getActionCache();
-    actionCache.resetStatistics();
+    BuildRequestOptions options = request.getBuildOptions();
+    ActionCache actionCache = null;
+    if (options.useActionCache) {
+      actionCache = getActionCache();
+      actionCache.resetStatistics();
+    }
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
@@ -349,7 +466,7 @@ public class ExecutionTool {
               actionGraph,
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
-              () -> TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult));
+              () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult));
         }
       }
       skyframeExecutor.drainChangedFiles();
@@ -360,12 +477,10 @@ public class ExecutionTool {
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
       boolean shouldTrustRemoteArtifacts =
-          env.getOutputService() == null
-              ? false
-              : env.getOutputService().shouldTrustRemoteArtifacts();
+          env.getOutputService() != null && env.getOutputService().shouldTrustRemoteArtifacts();
       builder.buildArtifacts(
           env.getReporter(),
-          analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
+          analysisResult.getArtifactsToBuild(),
           analysisResult.getParallelTests(),
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
@@ -508,7 +623,7 @@ public class ExecutionTool {
         for (Path entry : entries) {
           directoryDetails.append(" '").append(entry.getBaseName()).append("'");
         }
-        logger.atWarning().log(directoryDetails.toString());
+        logger.atWarning().log("%s", directoryDetails);
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
       }
@@ -552,14 +667,14 @@ public class ExecutionTool {
   }
 
   /**
-   * Obtains the {@link BuildConfiguration} for a given {@link BuildOptions} for the purpose of
+   * Obtains the {@link BuildConfigurationValue} for a given {@link BuildOptions} for the purpose of
    * symlink creation.
    *
    * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
    * returned.
    */
   @Nullable
-  private static BuildConfiguration getConfiguration(
+  private static BuildConfigurationValue getConfiguration(
       SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
     try {
       return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
@@ -607,11 +722,11 @@ public class ExecutionTool {
     Reporter reporter = env.getReporter();
 
     // Gather configurations to consider.
-    Set<BuildConfiguration> targetConfigurations =
+    Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
             ? analysisResult.getTargetsToBuild().stream()
                 .map(ConfiguredTarget::getConfigurationKey)
-                .filter(configuration -> configuration != null)
+                .filter(Objects::nonNull)
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
@@ -726,11 +841,11 @@ public class ExecutionTool {
    *
    * @param configuredTargets The configured targets whose artifacts are to be built.
    */
-  private Collection<ConfiguredTarget> determineSuccessfulTargets(
+  static ImmutableSet<ConfiguredTarget> determineSuccessfulTargets(
       Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTargetKey> builtTargets) {
-    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
-    // order as configuredTargets.
-    Collection<ConfiguredTarget> successfulTargets = new LinkedHashSet<>();
+    // Maintain the ordering by copying builtTargets into an ImmutableSet.Builder in the same
+    // iteration order as configuredTargets.
+    ImmutableSet.Builder<ConfiguredTarget> successfulTargets = ImmutableSet.builder();
     for (ConfiguredTarget target : configuredTargets) {
       if (builtTargets.contains(
           ConfiguredTargetKey.builder()
@@ -740,10 +855,10 @@ public class ExecutionTool {
         successfulTargets.add(target);
       }
     }
-    return successfulTargets;
+    return successfulTargets.build();
   }
 
-  private static ImmutableSet<AspectKey> determineSuccessfulAspects(
+  static ImmutableSet<AspectKey> determineSuccessfulAspects(
       ImmutableSet<AspectKey> aspects, Set<AspectKey> builtAspects) {
     // Maintain the ordering.
     return aspects.stream().filter(builtAspects::contains).collect(ImmutableSet.toImmutableSet());
@@ -752,12 +867,8 @@ public class ExecutionTool {
   /** Get action cache if present or reload it from the on-disk cache. */
   private ActionCache getActionCache() throws AbruptExitException {
     try {
-      return env.getPersistentActionCache();
+      return env.getBlazeWorkspace().getOrLoadPersistentActionCache(getReporter());
     } catch (IOException e) {
-      // TODO(bazel-team): (2010) Ideally we should just remove all cache data and reinitialize
-      // caches.
-      LoggingUtil.logToRemote(
-          Level.WARNING, "Failed to initialize action cache: " + e.getMessage(), e);
       String message =
           String.format(
               "Couldn't create action cache: %s. If error persists, use 'bazel clean'.",
@@ -776,7 +887,7 @@ public class ExecutionTool {
 
   private Builder createBuilder(
       BuildRequest request,
-      ActionCache actionCache,
+      @Nullable ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
@@ -798,57 +909,51 @@ public class ExecutionTool {
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
+                .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
                 .build()),
-        env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
+                // Do not skip invalidation in case the output tree is empty -- this can happen
+                // after it's cleaned or corrupted.
+                || modifiedOutputFiles.treatEverythingAsDeleted()
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),
-        prefetcher);
+        prefetcher,
+        env.getRuntime().getBugReporter());
   }
 
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    ResourceSet resources;
-    if (options.availableResources != null && !options.removeLocalResources) {
-      logger.atWarning().log(
-          "--local_resources will be deprecated. Please use --local_ram_resources "
-              + "and/or --local_cpu_resources.");
-      resources = options.availableResources;
-    } else {
-      resources =
-          ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
-    }
+    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
-
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            resources.getMemoryMb(),
-            resources.getCpuUsage(),
-            request.getExecutionOptions().usingLocalTestJobs()
-                ? request.getExecutionOptions().localTestJobs
-                : Integer.MAX_VALUE));
+            options.localRamResources,
+            options.localCpuResources,
+            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 
   /**
    * Writes the action cache files to disk, reporting any errors that occurred during writing and
    * capturing statistics.
    */
-  private void saveActionCache(ActionCache actionCache) {
+  private void saveActionCache(@Nullable ActionCache actionCache) {
     ActionCacheStatistics.Builder builder = ActionCacheStatistics.newBuilder();
-    actionCache.mergeIntoActionCacheStatistics(builder);
 
-    AutoProfiler p =
-        GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);
-    try {
-      builder.setSizeInBytes(actionCache.save());
-    } catch (IOException e) {
-      builder.setSizeInBytes(0);
-      getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
-    } finally {
-      builder.setSaveTimeInMs(
-          TimeUnit.MILLISECONDS.convert(p.completeAndGetElapsedTimeNanos(), TimeUnit.NANOSECONDS));
+    if (actionCache != null) {
+      actionCache.mergeIntoActionCacheStatistics(builder);
+
+      AutoProfiler p =
+          GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);
+      try {
+        builder.setSizeInBytes(actionCache.save());
+      } catch (IOException e) {
+        builder.setSizeInBytes(0);
+        getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
+      } finally {
+        builder.setSaveTimeInMs(Duration.ofNanos(p.completeAndGetElapsedTimeNanos()).toMillis());
+      }
     }
 
     env.getEventBus().post(builder.build());

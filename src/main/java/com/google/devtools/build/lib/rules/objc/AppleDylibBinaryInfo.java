@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDylibBinaryApi;
 
 /**
@@ -38,17 +38,21 @@ public final class AppleDylibBinaryInfo extends NativeInfo implements AppleDylib
   public static final String STARLARK_NAME = "AppleDylibBinary";
 
   /** Starlark constructor and identifier for AppleDylibBinaryInfo. */
-  public static final NativeProvider<AppleDylibBinaryInfo> STARLARK_CONSTRUCTOR =
-      new NativeProvider<AppleDylibBinaryInfo>(AppleDylibBinaryInfo.class, STARLARK_NAME) {};
+  public static final BuiltinProvider<AppleDylibBinaryInfo> STARLARK_CONSTRUCTOR =
+      new BuiltinProvider<AppleDylibBinaryInfo>(STARLARK_NAME, AppleDylibBinaryInfo.class) {};
 
   private final Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;
 
   public AppleDylibBinaryInfo(Artifact dylibBinary,
       ObjcProvider depsObjcProvider) {
-    super(STARLARK_CONSTRUCTOR);
     this.dylibBinary = dylibBinary;
     this.depsObjcProvider = depsObjcProvider;
+  }
+
+  @Override
+  public BuiltinProvider<AppleDylibBinaryInfo> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   /**

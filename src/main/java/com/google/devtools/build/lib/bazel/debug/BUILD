@@ -1,7 +1,6 @@
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 load("@rules_java//java:defs.bzl", "java_library")
 load("@rules_java//java:defs.bzl", "java_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 # Description:
 #   Debugging helpers and modules
@@ -19,7 +18,6 @@ filegroup(
 proto_library(
     name = "workspace_log_proto",
     srcs = ["workspace_log.proto"],
-    deps = [],
 )
 
 java_proto_library(
@@ -57,7 +55,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",

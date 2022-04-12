@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     return 1;
   }
   FILE* f = fopen(argv[1], "rt");
-  if (f == NULL) {
+  if (f == nullptr) {
     fprintf(stderr, "ERROR(%s:%d): cannot open \"%s\"\n", __FILE__, __LINE__,
             argv[1]);
     return 1;

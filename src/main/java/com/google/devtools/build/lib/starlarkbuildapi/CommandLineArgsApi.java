@@ -21,6 +21,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
@@ -48,8 +49,8 @@ import net.starlark.java.eval.StarlarkValue;
             + "manipulating the data. <code>Args</code> objects do not process the depsets they "
             + "encapsulate until the execution phase, when it comes time to calculate the command "
             + "line. This helps defer any expensive copying until after the analysis phase is "
-            + "complete. See the <a href='../performance.$DOC_EXT'>Optimizing Performance</a> page "
-            + "for more information."
+            + "complete. See the <a href='$STARLARK_DOCS_ROOT/performance.html'>Optimizing "
+            + "Performance</a> page for more information."
             + ""
             + "<p><code>Args</code> are constructed by calling <a href='actions.html#args'><code>"
             + "ctx.actions.args()</code></a>. They can be passed as the <code>arguments</code> "
@@ -135,11 +136,13 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "this method."),
         @Param(
             name = "format",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "A format string pattern, to be applied to the stringified version of <code>value"
                     + "</code>.")
@@ -152,8 +155,8 @@ public interface CommandLineArgsApi extends StarlarkValue {
   @StarlarkMethod(
       name = "add_all",
       doc =
-          "Appends multiple arguments to this command line. For depsets, the items are "
-              + "evaluated lazily during the execution phase."
+          "Appends multiple arguments to this command line. The items are processed lazily during "
+              + "the execution phase."
               + ""
               + "<p>Most of the processing occurs over a list of arguments to be appended, as per "
               + "the following steps:"
@@ -199,11 +202,13 @@ public interface CommandLineArgsApi extends StarlarkValue {
             doc = "The list, tuple, or depset whose items will be appended."),
         @Param(
             name = "map_each",
-            type = StarlarkCallable.class,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "A function that converts each item to zero or more strings, which may be further "
                     + "processed before appending. If this param is not provided, the standard "
@@ -236,33 +241,41 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "this situation, the <code>DirectoryExpander</code> argument can be applied "
                     + "to manually obtain the files of a given directory."
                     + ""
+                    + "<p>To avoid unintended retention of large analysis-phase data structures "
+                    + "into the execution phase, the <code>map_each</code> function must be "
+                    + "declared by a top-level <code>def</code> statement; it may not be a "
+                    + "nested function closure by default."
+                    + ""
                     + "<p><i>Warning:</i> <a href='globals.html#print'><code>print()</code></a> "
                     + "statements that are executed during the call to <code>map_each</code> will "
                     + "not produce any visible output."),
         @Param(
             name = "format_each",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional format string pattern, applied to each string returned by the "
                     + "<code>map_each</code> function. "
                     + "The format string must have exactly one '%s' placeholder."),
         @Param(
             name = "before_each",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional string to append before each argument derived from "
                     + "<code>values</code> is appended."),
         @Param(
             name = "omit_if_empty",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
@@ -274,7 +287,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "other arguments."),
         @Param(
             name = "uniquify",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "False",
@@ -286,7 +298,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "multiple items."),
         @Param(
             name = "expand_directories",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
@@ -295,16 +306,27 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "of files. This happens before <code>map_each</code> is applied."),
         @Param(
             name = "terminate_with",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional string to append after all other arguments. This string will not be "
                     + "added if <code>omit_if_empty</code> is true (the default) and no other "
                     + "items are appended (as happens if <code>values</code> is empty or all of "
                     + "its items are filtered)."),
+        @Param(
+            name = "allow_closure",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "If true, allows the use of closures in function parameters like "
+                    + "<code>map_each</code>. Usually this isn't necessary and it risks retaining "
+                    + "large analysis-phase data structures into the execution phase."),
       },
       useStarlarkThread = true)
   CommandLineArgsApi addAll(
@@ -317,6 +339,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Boolean uniquify,
       Boolean expandDirectories,
       Object terminateWith,
+      Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException;
 
@@ -324,8 +347,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       name = "add_joined",
       doc =
           "Appends an argument to this command line by concatenating together multiple values "
-              + "using a separator. For depsets, the items are evaluated lazily during the "
-              + "execution phase."
+              + "using a separator. The items are processed lazily during the execution phase."
               + ""
               + "<p>Processing is similar to <a href='#add_all'><code>add_all()</code></a>, but "
               + "the list of arguments derived from <code>values</code> is combined into a single "
@@ -361,7 +383,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
             doc = "The list, tuple, or depset whose items will be joined."),
         @Param(
             name = "join_with",
-            type = String.class,
             named = true,
             positional = false,
             doc =
@@ -370,33 +391,38 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "<a href='string.html#join'><code>string.join()</code></a>."),
         @Param(
             name = "map_each",
-            type = StarlarkCallable.class,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc = "Same as for <a href='#add_all.map_each'><code>add_all</code></a>."),
         @Param(
             name = "format_each",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc = "Same as for <a href='#add_all.format_each'><code>add_all</code></a>."),
         @Param(
             name = "format_joined",
-            type = String.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
             positional = false,
             defaultValue = "None",
-            noneable = true,
             doc =
                 "An optional format string pattern applied to the joined string. "
                     + "The format string must have exactly one '%s' placeholder."),
         @Param(
             name = "omit_if_empty",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
@@ -409,18 +435,22 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "string (which is the logical join of zero strings)."),
         @Param(
             name = "uniquify",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "False",
             doc = "Same as for <a href='#add_all.uniquify'><code>add_all</code></a>."),
         @Param(
             name = "expand_directories",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "True",
-            doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
+            doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>."),
+        @Param(
+            name = "allow_closure",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc = "Same as for <a href='#add_all.allow_closure'><code>add_all</code></a>."),
       },
       useStarlarkThread = true)
   CommandLineArgsApi addJoined(
@@ -433,6 +463,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Boolean omitIfEmpty,
       Boolean uniquify,
       Boolean expandDirectories,
+      Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException;
 
@@ -448,7 +479,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "param_file_arg",
-            type = String.class,
             named = true,
             doc =
                 "A format string with a single \"%s\". "
@@ -460,7 +490,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "contain \"--file=params.txt\"."),
         @Param(
             name = "use_always",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "False",
@@ -477,7 +506,6 @@ public interface CommandLineArgsApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "format",
-            type = String.class,
             named = true,
             doc =
                 "Must be one of:<ul>"

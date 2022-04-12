@@ -18,17 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -39,10 +37,11 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ConfiguredTargetQueryEnvironment}. */
 @RunWith(JUnit4.class)
-public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredTarget> {
+public abstract class ConfiguredTargetQueryTest
+    extends PostAnalysisQueryTest<KeyedConfiguredTarget> {
 
   @Override
-  protected QueryHelper<ConfiguredTarget> createQueryHelper() {
+  protected QueryHelper<KeyedConfiguredTarget> createQueryHelper() {
     if (helper != null) {
       getHelper().cleanUp();
     }
@@ -62,33 +61,33 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Co
   }
 
   @Override
-  protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
+  protected final BuildConfigurationValue getConfiguration(KeyedConfiguredTarget kct) {
     return getHelper()
         .getSkyframeExecutor()
-        .getConfiguration(getHelper().getReporter(), ct.getConfigurationKey());
+        .getConfiguration(getHelper().getReporter(), kct.getConfigurationKey());
   }
 
-  /** SplitTransition on --test_arg */
-  protected static class TestArgSplitTransition implements SplitTransition {
+  /** SplitTransition on --foo */
+  protected static class FooSplitTransition implements SplitTransition {
     String toOption1;
     String toOption2;
 
-    public TestArgSplitTransition(String toOption1, String toOptions2) {
+    public FooSplitTransition(String toOption1, String toOptions2) {
       this.toOption1 = toOption1;
       this.toOption2 = toOptions2;
     }
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(TestOptions.class);
+      return ImmutableSet.of(DummyTestOptions.class);
     }
 
     @Override
     public Map<String, BuildOptions> split(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptionsView result1 = options.clone();
       BuildOptionsView result2 = options.clone();
-      result1.get(TestOptions.class).testArguments = Collections.singletonList(toOption1);
-      result2.get(TestOptions.class).testArguments = Collections.singletonList(toOption2);
+      result1.get(DummyTestOptions.class).foo = toOption1;
+      result2.get(DummyTestOptions.class).foo = toOption2;
       return ImmutableMap.of("result1", result1.underlying(), "result2", result2.underlying());
     }
   }
@@ -98,12 +97,12 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Co
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
     writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
 
-    Set<ConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
+    Set<KeyedConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
 
     assertThat(result).hasSize(2);
 
-    Iterator<ConfiguredTarget> resultIterator = result.iterator();
-    ConfiguredTarget first = resultIterator.next();
+    Iterator<KeyedConfiguredTarget> resultIterator = result.iterator();
+    KeyedConfiguredTarget first = resultIterator.next();
     if (first.getLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();

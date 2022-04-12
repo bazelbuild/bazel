@@ -7,8 +7,6 @@ package_group(
     ],
 )
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
-
 cc_library(
     name = "util",
     hdrs = [
@@ -98,6 +96,9 @@ cc_library(
     name = "port",
     srcs = ["port.cc"],
     hdrs = ["port.h"],
+    visibility = [
+        "//src/main/native:__pkg__",
+    ],
 )
 
 cc_library(

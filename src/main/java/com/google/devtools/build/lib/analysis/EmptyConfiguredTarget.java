@@ -21,13 +21,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import javax.annotation.Nullable;
 
 /** A configured target that is empty. */
 @Immutable
 public class EmptyConfiguredTarget extends AbstractConfiguredTarget {
-  public EmptyConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
+  public EmptyConfiguredTarget(Label label, BuildConfigurationKey configurationKey) {
     super(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

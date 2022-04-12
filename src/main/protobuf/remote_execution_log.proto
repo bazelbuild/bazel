@@ -16,11 +16,11 @@ syntax = "proto3";
 
 package remote_logging;
 
-import "build/bazel/remote/execution/v2/remote_execution.proto";
-import "google/protobuf/timestamp.proto";
 import "google/bytestream/bytestream.proto";
 import "google/longrunning/operations.proto";
+import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
+import "build/bazel/remote/execution/v2/remote_execution.proto";
 
 option java_package = "com.google.devtools.build.lib.remote.logging";
 
@@ -83,7 +83,7 @@ message GetActionResultDetails {
 // Details for a call to
 // build.bazel.remote.execution.v2.ActionCache.UpdateActionResult.
 message UpdateActionResultDetails {
-  // The build.bazel.remote.execution.v2.GetActionResultRequest sent by
+  // The build.bazel.remote.execution.v2.UpdateActionResultRequest sent by
   // the call.
   build.bazel.remote.execution.v2.UpdateActionResultRequest request = 1;
 
@@ -128,9 +128,23 @@ message ReadDetails {
 message WriteDetails {
   // The names of resources requested to be written to in this call in the order
   // they were first requested in. If the ByteStream protocol is followed
-  // according to specification, this should only contain have a single element,
-  // which is the resource name specified in the first message of the stream.
+  // according to specification, this should contain at most two elements:
+  // The resource name specified in the first message of the stream, and an
+  // empty string specified in each successive request if num_writes > 1.
   repeated string resource_names = 1;
+
+  // The offsets sent for the initial request and any non-sequential offsets
+  // specified over the course of the call. If the ByteStream protocol is
+  // followed according to specification, this should contain a single element
+  // which is the starting point for the write call.
+  repeated int64 offsets = 5;
+
+  // The effective final size for each request sent with finish_write true
+  // specified over the course of the call. If the ByteStream protocol is
+  // followed according to specification, this should contain a single element
+  // which is the total size of the written resource, including the initial
+  // offset.
+  repeated int64 finish_writes = 6;
 
   // The number of writes performed in this call.
   int64 num_writes = 2;
@@ -140,6 +154,15 @@ message WriteDetails {
 
   // The received google.bytestream.WriteResponse.
   google.bytestream.WriteResponse response = 4;
+}
+
+// Details for a call to google.bytestream.QueryWriteStatus.
+message QueryWriteStatusDetails {
+  // The google.bytestream.QueryWriteStatusRequest sent by the call.
+  google.bytestream.QueryWriteStatusRequest request = 1;
+
+  // The received google.bytestream.QueryWriteStatusResponse.
+  google.bytestream.QueryWriteStatusResponse response = 2;
 }
 
 // Contains details for specific types of calls.
@@ -152,6 +175,7 @@ message RpcCallDetails {
     FindMissingBlobsDetails find_missing_blobs = 10;
     ReadDetails read = 5;
     WriteDetails write = 6;
+    QueryWriteStatusDetails query_write_status = 14;
     GetCapabilitiesDetails get_capabilities = 12;
     UpdateActionResultDetails update_action_result = 13;
   }

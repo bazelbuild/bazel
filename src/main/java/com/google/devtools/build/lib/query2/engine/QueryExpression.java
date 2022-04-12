@@ -106,4 +106,10 @@ public abstract class QueryExpression {
   public static String truncate(String expr) {
     return Ascii.truncate(expr, MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]");
   }
+
+  /** Checks if this QueryExpression has a SomePathFunction at its top level. */
+  public boolean isTopLevelSomePathFunction() {
+    return this instanceof FunctionExpression
+        && "somepath".equals(((FunctionExpression) this).getFunction().getName());
+  }
 }

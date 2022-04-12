@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a configuration object which holds information about the build environment. */
@@ -25,9 +27,9 @@ import net.starlark.java.eval.StarlarkValue;
     name = "configuration",
     category = DocCategory.BUILTIN,
     doc =
-        "This object holds information about the environment in which the build is running. See"
-            + " the <a href='../rules.$DOC_EXT#configurations'>Rules page</a> for more on the"
-            + " general concept of configurations.")
+        "This object holds information about the environment in which the build is running. See the"
+            + " <a href='$STARLARK_DOCS_ROOT/rules.html#configurations'>Rules page</a> for more on"
+            + " the general concept of configurations.")
 public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "bin_dir", structField = true, documented = false)
@@ -67,9 +69,15 @@ public interface BuildConfigurationApi extends StarlarkValue {
       structField = true,
       doc =
           "A boolean that tells whether code coverage is enabled for this run. Note that this does"
-              + " not compute whether a specific rule should be instrumented for code coverage"
-              + " data collection. For that, see the <a"
+              + " not compute whether a specific rule should be instrumented for code coverage data"
+              + " collection. For that, see the <a"
               + " href=\"ctx.html#coverage_instrumented\"><code>ctx.coverage_instrumented</code></a>"
               + " function.")
   boolean isCodeCoverageEnabled();
+
+  @StarlarkMethod(name = "stamp_binaries", documented = false, useStarlarkThread = true)
+  boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "is_tool_configuration", documented = false, useStarlarkThread = true)
+  boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException;
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -42,6 +44,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   private final String mnemonic;
   private final String progressMessage;
   @Nullable private final String ownerLabel;
+  @Nullable private final Artifact primaryOutput;
   @Nullable private final PlatformInfo platform;
   private final ImmutableMap<String, String> execProperties;
 
@@ -49,18 +52,26 @@ public class FakeOwner implements ActionExecutionMetadata {
       String mnemonic,
       String progressMessage,
       String ownerLabel,
+      @Nullable Artifact primaryOutput,
       @Nullable PlatformInfo platform,
       ImmutableMap<String, String> execProperties) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
     this.ownerLabel = checkNotNull(ownerLabel);
+    this.primaryOutput = primaryOutput;
     this.platform = platform;
     this.execProperties = execProperties;
   }
 
   private FakeOwner(
       String mnemonic, String progressMessage, String ownerLabel, @Nullable PlatformInfo platform) {
-    this(mnemonic, progressMessage, ownerLabel, platform, ImmutableMap.of());
+    this(
+        mnemonic,
+        progressMessage,
+        ownerLabel,
+        /*primaryOutput=*/ null,
+        platform,
+        ImmutableMap.of());
   }
 
   public FakeOwner(String mnemonic, String progressMessage, String ownerLabel) {
@@ -130,7 +141,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public Collection<String> getClientEnvironmentVariables() {
     throw new UnsupportedOperationException();
   }
 
@@ -141,7 +152,8 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public Artifact getPrimaryOutput() {
-    throw new UnsupportedOperationException();
+    checkState(primaryOutput != null, "primaryOutput not set");
+    return primaryOutput;
   }
 
   @Override
@@ -162,7 +174,7 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public String prettyPrint() {
-    throw new UnsupportedOperationException();
+    return "action '" + describe() + "'";
   }
 
   @Override

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -51,7 +51,6 @@ import net.starlark.java.syntax.TokenKind;
     name = "select",
     doc = "A selector between configuration-dependent entities.",
     documented = false)
-@AutoCodec
 public final class SelectorList implements StarlarkValue, HasBinary {
 
   // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
@@ -60,8 +59,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   private final Class<?> type;
   private final List<Object> elements;
 
-  @AutoCodec.VisibleForSerialization
-  SelectorList(Class<?> type, List<Object> elements) {
+  private SelectorList(Class<?> type, List<Object> elements) {
     this.type = type;
     this.elements = elements;
   }
@@ -87,9 +85,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
               + " to match");
     }
     for (Object key : dict.keySet()) {
-      if (!(key instanceof String)) {
+      if (!(key instanceof String || key instanceof Label)) {
         throw Starlark.errorf(
-            "select: got %s for dict key, want a label string", Starlark.type(key));
+            "select: got %s for dict key, want a Label or label string", Starlark.type(key));
       }
     }
     return SelectorList.of(new SelectorValue(dict, noMatchError));
@@ -131,7 +129,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
     for (Object value : values) {
       if (value instanceof SelectorList) {
-        elements.addAll(((SelectorList) value).getElements());
+        elements.addAll(((SelectorList) value).elements);
       } else {
         elements.add(value);
       }
@@ -152,7 +150,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   private static String getTypeName(Object x) {
     if (x instanceof SelectorList) {
-      return "select of " + Depset.ElementType.of(((SelectorList) x).getType());
+      return "select of " + Depset.ElementType.of(((SelectorList) x).type);
     } else if (x instanceof SelectorValue) {
       return "select of " + Depset.ElementType.of(((SelectorValue) x).getType());
     } else {
@@ -162,7 +160,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   private static Class<?> getNativeType(Object value) {
     if (value instanceof SelectorList) {
-      return ((SelectorList) value).getType();
+      return ((SelectorList) value).type;
     } else if (value instanceof SelectorValue) {
       return ((SelectorValue) value).getType();
     } else {
@@ -177,11 +175,8 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   private static boolean canConcatenate(Class<?> type1, Class<?> type2) {
     if (type1 == type2) {
       return true;
-    } else if (isListType(type1) && isListType(type2)) {
-      return true;
-    } else {
-      return false;
     }
+    return isListType(type1) && isListType(type2);
   }
 
   @Override

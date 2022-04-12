@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -21,35 +22,49 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectApplyingToFiles;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
+import com.google.devtools.build.lib.analysis.util.TestAspects.ExtraAttributeAspect;
 import com.google.devtools.build.lib.analysis.util.TestAspects.RuleInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -64,7 +79,7 @@ import org.junit.runners.JUnit4;
 public class AspectTest extends AnalysisTestCase {
 
   private void pkg(String name, String... contents) throws Exception {
-    scratch.file("" + name + "/BUILD", contents);
+    scratch.file(name + "/BUILD", contents);
   }
 
   @Test
@@ -448,7 +463,7 @@ public class AspectTest extends AnalysisTestCase {
           ConfiguredTargetAndData ctadBase,
           RuleContext ruleContext,
           AspectParameters parameters,
-          String toolsRepository)
+          RepositoryName toolsRepository)
           throws InterruptedException, ActionConflictException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late");
         return new ConfiguredAspect.Builder(ruleContext)
@@ -501,7 +516,7 @@ public class AspectTest extends AnalysisTestCase {
                                     .aspect(AspectThatRegistersAction.INSTANCE))
                             .add(
                                 attr(":action_listener", LABEL_LIST)
-                                    .cfg(HostTransition.createFactory())
+                                    .cfg(ExecutionTransitionFactory.create())
                                     .value(ACTION_LISTENER)));
 
     public static class AspectThatRegistersAction extends NativeAspectClass
@@ -521,7 +536,7 @@ public class AspectTest extends AnalysisTestCase {
           ConfiguredTargetAndData ctadBase,
           RuleContext ruleContext,
           AspectParameters parameters,
-          String toolsRepository)
+          RepositoryName toolsRepository)
           throws InterruptedException, ActionConflictException {
         ruleContext.registerAction(new NullAction(ruleContext.createOutputArtifact()));
         return new ConfiguredAspect.Builder(ruleContext).build();
@@ -628,7 +643,7 @@ public class AspectTest extends AnalysisTestCase {
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
+      for (Artifact artifact : analysisResult.getArtifactsToBuild()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }
@@ -642,7 +657,7 @@ public class AspectTest extends AnalysisTestCase {
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
+      for (Artifact artifact : analysisResult.getArtifactsToBuild()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }
@@ -841,9 +856,7 @@ public class AspectTest extends AnalysisTestCase {
   @Test
   public void aspectApplyingToFiles() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
-    setRulesAndAspectsAvailableInTests(
-        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
-        ImmutableList.<RuleDefinition>of());
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
@@ -861,9 +874,7 @@ public class AspectTest extends AnalysisTestCase {
   @Test
   public void aspectApplyingToSourceFilesIgnored() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
-    setRulesAndAspectsAvailableInTests(
-        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
-        ImmutableList.<RuleDefinition>of());
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
@@ -877,22 +888,135 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void duplicateAspectsDeduped() throws Exception {
+  public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
-    setRulesAndAspectsAvailableInTests(
-        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
-        ImmutableList.<RuleDefinition>of());
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(
+        ViewCreationFailedException.class,
+        () ->
+            update(
+                new EventBus(),
+                defaultFlags(),
+                ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
+                "//a:x_deploy.jar"));
+    assertContainsEvent("Aspect AspectApplyingToFiles has already been added");
+  }
+
+  @Test
+  public void aspectWithExtraAttribute_ignoredForOutputFile() throws Exception {
+    ExtraAttributeAspect aspect =
+        new ExtraAttributeAspect("//nonexistent", /*applyToFiles=*/ false);
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspect), ImmutableList.of());
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
+    AnalysisResult analysisResult =
+        update(new EventBus(), defaultFlags(), ImmutableList.of(aspect.getName()), "//a");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(configuredAspect.getProvider(ExtraAttributeAspect.Provider.class)).isNull();
+  }
+
+  @Test
+  public void aspectWithExtraAttributeApplyToFiles_outputFile_hasResolvedAttribute()
+      throws Exception {
+    ExtraAttributeAspect aspect = new ExtraAttributeAspect("//extra", /*applyToFiles=*/ true);
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(aspect), ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
+    scratch.file("extra/BUILD", "simple(name='extra')");
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
+    AnalysisResult analysisResult =
+        update(new EventBus(), defaultFlags(), ImmutableList.of(aspect.getName()), "//a");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    ExtraAttributeAspect.Provider provider =
+        configuredAspect.getProvider(ExtraAttributeAspect.Provider.class);
+    assertThat(provider.label()).isEqualTo("//extra:extra");
+  }
+
+  @Test
+  public void aspectWithExtraAttributeApplyToFiles_ignoredForSourceFile() throws Exception {
+    ExtraAttributeAspect aspect = new ExtraAttributeAspect("//nonexistent", /*applyToFiles=*/ true);
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspect), ImmutableList.of());
+    scratch.file("a/BUILD", "exports_files(['a.txt'])");
+    scratch.file("a/a.txt", "hello");
+
+    AnalysisResult analysisResult =
+        update(new EventBus(), defaultFlags(), ImmutableList.of(aspect.getName()), "//a:a.txt");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(configuredAspect.getProvider(ExtraAttributeAspect.Provider.class)).isNull();
+  }
+
+  @Test
+  public void aspectWithExtraAttributeApplyToFilesAndNot_outputFile_onlyApplyToFilesIsResolved()
+      throws Exception {
+    ExtraAttributeAspect aspectApplies =
+        new ExtraAttributeAspect("//extra", /*applyToFiles=*/ true);
+    ExtraAttributeAspect aspectDoesNotApply =
+        new ExtraAttributeAspect("//nonexistent", /*applyToFiles=*/ false);
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(aspectApplies, aspectDoesNotApply),
+        ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
+    scratch.file("extra/BUILD", "simple(name='extra')");
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
     AnalysisResult analysisResult =
         update(
             new EventBus(),
             defaultFlags(),
-            ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
-            "//a:x_deploy.jar");
-    ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
-    AspectApplyingToFiles.Provider provider =
-        aspect.getProvider(AspectApplyingToFiles.Provider.class);
-    assertThat(provider.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
+            ImmutableList.of(aspectApplies.getName(), aspectDoesNotApply.getName()),
+            "//a");
+
+    assertThat(analysisResult.getAspectsMap()).hasSize(2);
+    ExtraAttributeAspect.Provider provider =
+        getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
+            .getProvider(ExtraAttributeAspect.Provider.class);
+    assertThat(provider.label()).isEqualTo("//extra:extra");
+    assertThat(
+            getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
+                .getProviders()
+                .getProviderCount())
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void aspectWithExtraAttributeDependsOnNotApplicable_usesAttributeFromDependentAspect()
+      throws Exception {
+    ExtraAttributeAspect aspectApplies =
+        new ExtraAttributeAspect(
+            "//extra", /*applyToFiles=*/ true, ExtraAttributeAspect.Provider.class);
+    ExtraAttributeAspect aspectDoesNotApply =
+        new ExtraAttributeAspect("//extra:extra2", /*applyToFiles=*/ false);
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(aspectApplies, aspectDoesNotApply),
+        ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
+    scratch.file("extra/BUILD", "simple(name='extra')", "simple(name='extra2')");
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectDoesNotApply.getName(), aspectApplies.getName()),
+            "//a");
+
+    assertThat(analysisResult.getAspectsMap()).hasSize(2);
+    ExtraAttributeAspect.Provider provider =
+        getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
+            .getProvider(ExtraAttributeAspect.Provider.class);
+    assertThat(provider.label()).isEqualTo("//extra:extra2");
+    assertThat(
+            getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
+                .getProviders()
+                .getProviderCount())
+        .isEqualTo(0);
   }
 
   @Test
@@ -919,5 +1043,385 @@ public class AspectTest extends AnalysisTestCase {
 
     setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
     getConfiguredTarget("//a:r");
+  }
+
+  @Test
+  public void topLevelConflictDetected() throws Exception {
+    String bzlFileTemplate =
+        String.join(
+            "\n",
+            "def _aspect1_impl(target, ctx):",
+            "  outfile = ctx.actions.declare_file('aspect.out')",
+            "  ctx.actions.run_shell(",
+            "    outputs = [outfile],",
+            "    progress_message = 'Action for aspect 1',",
+            "    command = 'echo \"1\" > ' + outfile.path,",
+            "  )",
+            "  return [OutputGroupInfo(files = [outfile])]",
+            "def _aspect2_impl(target, ctx):",
+            "  outfile = ctx.actions.declare_file('aspect.out')",
+            "  ctx.actions.run_shell(",
+            "    outputs = [outfile],",
+            "    progress_message = 'Action for aspect 2',",
+            "    command = 'echo \"%s\" > ' + outfile.path,",
+            "  )",
+            "  return [OutputGroupInfo(files = [outfile])]",
+            "aspect1 = aspect(implementation = _aspect1_impl)",
+            "aspect2 = aspect(implementation = _aspect2_impl)");
+    scratch.file("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
+    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['foo.sh'])");
+    // Expect errors.
+    reporter.removeHandler(failFastHandler);
+    ViewCreationFailedException exception =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                update(
+                    new EventBus(),
+                    defaultFlags(),
+                    ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+                    "//foo:foo"));
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch(
+            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
+                + " attempted action: action 'Action for aspect .'");
+    MoreAsserts.assertContainsEvent(
+        eventCollector,
+        Pattern.compile(
+            "Aspects: \\[//foo:aspect.bzl%aspect[12]], \\[//foo:aspect.bzl%aspect[12]]"),
+        EventKind.ERROR);
+
+    // Fix bzl file so actions are shared: analysis should succeed now.
+    scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "1"));
+    reporter.addHandler(failFastHandler);
+    AnalysisResult result =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+            "//foo:foo");
+    assertThat(result.getAspectsMap()).hasSize(2);
+
+    // Break bzl file again: we should notice.
+    scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
+    // Expect errors.
+    reporter.removeHandler(failFastHandler);
+    exception =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                update(
+                    new EventBus(),
+                    defaultFlags(),
+                    ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+                    "//foo:foo"));
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch(
+            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
+                + " attempted action: action 'Action for aspect .'");
+  }
+
+  @Test
+  public void conflictBetweenTargetAndAspect() throws Exception {
+    scratch.file(
+        "foo/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  outfile = ctx.actions.declare_file('conflict.out')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [outfile],",
+        "    progress_message = 'Action for aspect',",
+        "    command = 'echo \"aspect\" > ' + outfile.path,",
+        "  )",
+        "  return [OutputGroupInfo(files = [outfile])]",
+        "",
+        "def _rule_impl(ctx):",
+        "  outfile = ctx.actions.declare_file('conflict.out')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [outfile],",
+        "    progress_message = 'Action for target',",
+        "    command = 'echo \"target\" > ' + outfile.path,",
+        "  )",
+        "  return [DefaultInfo(files = depset([outfile]))]",
+        "my_aspect = aspect(implementation = _aspect_impl)",
+        "my_rule = rule(implementation = _rule_impl, attrs = {'deps' : attr.label_list(aspects ="
+            + " [my_aspect])})");
+    scratch.file(
+        "foo/BUILD",
+        "load('//foo:aspect.bzl', 'my_aspect', 'my_rule')",
+        "my_rule(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', srcs = ['dep.sh'])");
+    // Expect errors.
+    reporter.removeHandler(failFastHandler);
+    ViewCreationFailedException exception =
+        assertThrows(ViewCreationFailedException.class, () -> update("//foo:foo"));
+    assertThat(exception).hasMessageThat().containsMatch("ConflictException: for foo/conflict.out");
+    MoreAsserts.assertContainsEvent(
+        eventCollector,
+        Pattern.compile(
+            "Aspects: (\\[], \\[//foo:aspect.bzl%my_aspect]|\\[//foo:aspect.bzl%my_aspect], \\[])"),
+        EventKind.ERROR);
+  }
+
+  @Test
+  public void aspectDuplicatesRuleProviderError() throws Exception {
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
+    scratch.file(
+        "aspect/build_defs.bzl",
+        "def _aspect_impl(target, ctx):",
+        "    return [DefaultInfo()]",
+        "",
+        "returns_default_info_aspect = aspect(implementation = _aspect_impl)",
+        "",
+        "def _rule_impl(ctx):",
+        "    pass",
+        "",
+        "duplicate_provider_aspect_applying_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {'to': attr.label(aspects = [returns_default_info_aspect])},",
+        ")");
+    scratch.file(
+        "aspect/BUILD",
+        "load('build_defs.bzl', 'duplicate_provider_aspect_applying_rule')",
+        "cc_library(name = 'rule_target')",
+        "duplicate_provider_aspect_applying_rule(name='applies_aspect', to=':rule_target')");
+    assertThat(
+            assertThrows(
+                AssertionError.class, () -> getConfiguredTarget("//aspect:applies_aspect")))
+        .hasMessageThat()
+        .contains("Provider DefaultInfo provided twice");
+  }
+
+  @Test
+  public void instrumentedFilesInfoFromBaseRuleAndAspectUsesAspect() throws Exception {
+    scratch.file(
+        "aspect/build_defs.bzl",
+        "def _instrumented_files_info_aspect_impl(target, ctx):",
+        "    return [coverage_common.instrumented_files_info(ctx, source_attributes=['a'])]",
+        "",
+        "instrumented_files_info_aspect = aspect(",
+        "    implementation = _instrumented_files_info_aspect_impl,",
+        ")",
+        "",
+        "def _no_instrumented_files_info_aspect_impl(target, ctx):",
+        "    return []",
+        "",
+        "no_instrumented_files_info_aspect = aspect(",
+        "    implementation = _no_instrumented_files_info_aspect_impl,",
+        ")",
+        "",
+        "def _applies_aspect_impl(ctx):",
+        "    return coverage_common.instrumented_files_info(ctx, dependency_attributes=['to'])",
+        "",
+        "instrumented_files_info_aspect_rule = rule(",
+        "    implementation = _applies_aspect_impl,",
+        "    attrs = {'to': attr.label(aspects = [instrumented_files_info_aspect])},",
+        ")",
+        "",
+        "no_instrumented_files_info_aspect_rule = rule(",
+        "    implementation = _applies_aspect_impl,",
+        "    attrs = {'to': attr.label(aspects = [no_instrumented_files_info_aspect])},",
+        ")",
+        "",
+        "def _base_rule_impl(ctx):",
+        "    return [coverage_common.instrumented_files_info(ctx, source_attributes=['b'])]",
+        "",
+        "base_rule = rule(",
+        "    implementation = _base_rule_impl,",
+        "    attrs = {'a': attr.label(allow_files=True), 'b': attr.label(allow_files=True)},",
+        ")",
+        "",
+        "def _base_rule_no_coverage_impl(ctx):",
+        "    return []",
+        "",
+        "base_rule_no_coverage = rule(",
+        "    implementation = _base_rule_no_coverage_impl,",
+        "    attrs = {'a': attr.label(allow_files=True), 'b': attr.label(allow_files=True)},",
+        ")");
+    scratch.file(
+        "aspect/BUILD",
+        "load(",
+        "    'build_defs.bzl',",
+        "    'base_rule',",
+        "    'base_rule_no_coverage',",
+        "    'instrumented_files_info_aspect_rule',",
+        "    'no_instrumented_files_info_aspect_rule',",
+        ")",
+        "",
+        "base_rule(",
+        "    name = 'rule_target',",
+        // Ends up in coverage sources when instrumented_files_info_aspect is applied
+        "    a = 'a',",
+        // Ends up in coverage sources for the base rule's InstrumentedFilesInfo is used
+        "    b = 'b',",
+        ")",
+        "",
+        "instrumented_files_info_aspect_rule(",
+        "    name='duplicate_instrumented_file_info',",
+        "    to=':rule_target',",
+        ")",
+        "",
+        "no_instrumented_files_info_aspect_rule(",
+        "    name='instrumented_file_info_from_base_target',",
+        "    to=':rule_target',",
+        ")",
+        "",
+        "base_rule_no_coverage(",
+        "    name = 'rule_target_no_coverage',",
+        // Ends up in coverage sources when instrumented_files_info_aspect is applied
+        "    a = 'a',",
+        // Ends up in coverage sources never
+        "    b = 'b',",
+        ")",
+        "",
+        "instrumented_files_info_aspect_rule(",
+        "    name='instrumented_files_info_only_from_aspect',",
+        "    to=':rule_target_no_coverage',",
+        ")",
+        "",
+        "no_instrumented_files_info_aspect_rule(",
+        "    name='no_instrumented_files_info',",
+        "    to=':rule_target_no_coverage',",
+        ")");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=.*");
+    update();
+    assertThat(getInstrumentedFiles("//aspect:rule_target")).containsExactly("b");
+    assertThat(getInstrumentedFiles("//aspect:duplicate_instrumented_file_info"))
+        .containsExactly("a");
+    assertThat(getInstrumentedFiles("//aspect:instrumented_file_info_from_base_target"))
+        .containsExactly("b");
+    assertThat(getInstrumentedFiles("//aspect:rule_target_no_coverage")).isEmpty();
+    assertThat(getInstrumentedFiles("//aspect:instrumented_files_info_only_from_aspect"))
+        .containsExactly("a");
+    assertThat(getInstrumentedFiles("//aspect:no_instrumented_files_info")).isEmpty();
+  }
+
+  private List<String> getInstrumentedFiles(String label) throws InterruptedException {
+    return ActionsTestUtil.baseArtifactNames(
+        getConfiguredTarget(label)
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getInstrumentedFiles());
+  }
+
+  @Test
+  public void aspectSeesAspectHintsAttributeOnNativeRule() throws Exception {
+    useConfiguration("--experimental_enable_aspect_hints");
+    setupAspectHints();
+    scratch.file(
+        "aspect_hints/BUILD",
+        "load('//aspect_hints:hints_counter.bzl', 'count_hints')",
+        "load('//aspect_hints:hints.bzl', 'hint')",
+        "",
+        "hint(name = 'my_hint', hints_cnt = 3)",
+        "cc_library(name = 'lib1', deps = [':lib2'])",
+        "cc_library(name = 'lib2', aspect_hints = [':my_hint'])",
+        "count_hints(name = 'cnt', deps = [':lib1'])");
+    update();
+
+    ConfiguredTarget a = getConfiguredTarget("//aspect_hints:cnt");
+    StarlarkInt info = (StarlarkInt) getHintsCntInfo(a).getValue("cnt");
+
+    assertThat(info.truncateToInt()).isEqualTo(3);
+  }
+
+  @Test
+  public void aspectSeesAspectHintsAttributeOnStarlarkRule() throws Exception {
+    useConfiguration("--experimental_enable_aspect_hints");
+    setupAspectHints();
+    setupStarlarkRule();
+    scratch.file(
+        "aspect_hints/BUILD",
+        "load('//aspect_hints:hints_counter.bzl', 'count_hints')",
+        "load('//aspect_hints:custom_rule.bzl', 'custom_rule')",
+        "load('//aspect_hints:hints.bzl', 'hint')",
+        "",
+        "hint(name = 'my_hint', hints_cnt = 2)",
+        "custom_rule(name = 'lib1', deps = [':lib2'])",
+        "custom_rule(name = 'lib2', aspect_hints = [':my_hint'])",
+        "count_hints(name = 'cnt', deps = [':lib1'])");
+    update();
+
+    ConfiguredTarget a = getConfiguredTarget("//aspect_hints:cnt");
+    StarlarkInt info = (StarlarkInt) getHintsCntInfo(a).getValue("cnt");
+
+    assertThat(info.truncateToInt()).isEqualTo(2);
+  }
+
+  private void setupAspectHints() throws Exception {
+    scratch.file(
+        "aspect_hints/hints.bzl",
+        "HintInfo = provider(fields = ['hints_cnt'])",
+        "def _hint_impl(ctx):",
+        "    return [HintInfo(hints_cnt = ctx.attr.hints_cnt)]",
+        "",
+        "hint = rule(",
+        "    implementation = _hint_impl,",
+        "    attrs = {'hints_cnt': attr.int(default=0)},",
+        ")");
+    scratch.file(
+        "aspect_hints/hints_counter.bzl",
+        "load('//aspect_hints:hints.bzl', 'HintInfo')",
+        "HintsCntInfo = provider(fields = ['cnt'])",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "    transitive_hints = 0",
+        "    for dep in ctx.rule.attr.deps:",
+        "        transitive_hints = transitive_hints + dep[HintsCntInfo].cnt",
+        "",
+        "    hints = 0",
+        "    for hint in ctx.rule.attr.aspect_hints:",
+        "        hints = hints + hint[HintInfo].hints_cnt",
+        "",
+        "    return [HintsCntInfo(cnt = hints + transitive_hints)]",
+        "",
+        "my_aspect = aspect(",
+        "    implementation = _my_aspect_impl,",
+        "    attr_aspects = ['deps'],",
+        ")",
+        "",
+        "def _count_hints_impl(ctx):",
+        "    hints = 0",
+        "    for dep in ctx.attr.deps:",
+        "        hints = hints + dep[HintsCntInfo].cnt",
+        "    return [HintsCntInfo(cnt = hints)]",
+        "",
+        "count_hints = rule(",
+        "    implementation = _count_hints_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(aspects = [my_aspect])",
+        "    }",
+        ")");
+  }
+
+  private void setupStarlarkRule() throws Exception {
+    scratch.file(
+        "aspect_hints/custom_rule.bzl",
+        "def _custom_rule_impl(ctx):",
+        "    return []",
+        "",
+        "custom_rule = rule(",
+        "    implementation = _custom_rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(),",
+        "    },",
+        ")");
+  }
+
+  private static StructImpl getHintsCntInfo(ConfiguredTarget configuredTarget)
+      throws LabelSyntaxException {
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//aspect_hints:hints_counter.bzl", ImmutableMap.of()),
+            "HintsCntInfo");
+    return (StructImpl) configuredTarget.get(key);
+  }
+
+  private static ConfiguredAspect getAspectByName(
+      ImmutableMap<AspectKey, ConfiguredAspect> aspectMap, String name) {
+    return aspectMap.entrySet().stream()
+        .filter(e -> e.getKey().getAspectName().equals(name))
+        .map(Map.Entry::getValue)
+        .collect(onlyElement());
   }
 }

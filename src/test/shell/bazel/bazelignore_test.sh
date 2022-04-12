@@ -63,11 +63,11 @@ test_does_not_glob_into_ignored_directory() {
 
     # This weird line tests whether .bazelignore also stops the Skyframe-based
     # glob. Globbing (as of 2019 Oct) is done in a hybrid fashion: we do the
-    # legacy globbing because it's faster and Skyframe globbing because it's
-    # more incremental. In the first run, we get the results of the legacy
-    # globbing, but if we invalidate the BUILD file, the result of the legacy
-    # glob is invalidated and but the better incrementality allows the result of
-    # the Skyframe glob to be cached.
+    # non-Skyframe globbing because it's faster and Skyframe globbing because
+    # it's more incremental. In the first run, we get the results of the
+    # non-Skyframe globbing, but if we invalidate the BUILD file, the result of
+    # the non-Skyframe glob is invalidated and but the better incrementality
+    # allows the result of the Skyframe glob to be cached.
     echo "# change" >> BUILD
     bazel query //:all-targets > "$TEST_TMPDIR/targets"
     assert_not_contains "//:ignored/file" "$TEST_TMPDIR/targets"
@@ -90,12 +90,55 @@ test_broken_BUILD_files_ignored() {
     echo This is a broken BUILD file > ignoreme/deep/reallydep/BUILD
     echo This is a broken BUILD file > ignoreme/deep/reallydep/stillignoreme/BUILD
     touch BUILD
-    bazel build ... && fail "Expected failure" || :
+    bazel build ... >& "$TEST_log" && fail "Expected failure" || :
 
-    echo; echo
     echo ignoreme > .bazelignore
-    bazel build ... \
+    bazel build ... >& "$TEST_log" \
         || fail "directory mentioned in .bazelignore not ignored as it should"
+}
+
+test_broken_BUILD_files_ignored_subdir() {
+    rm -rf work && mkdir work && cd work
+    create_workspace_with_default_repos WORKSPACE
+    mkdir -p ignoreme/deep || fail "Couldn't mkdir"
+    ln -s deeper ignoreme/deep/deeper || fail "Couldn't create cycle"
+    touch BUILD
+    bazel build //ignoreme/deep/... >& "$TEST_log" && fail "Expected failure" \
+        || :
+    expect_log "circular symlinks detected"
+    expect_log "ignoreme/deep/deeper"
+
+    echo ignoreme > .bazelignore
+    bazel build //ignoreme/deep/... >& "$TEST_log" || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+
+    bazel query //ignoreme/deep/... >& "$TEST_log" || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+    expect_log "Empty results"
+
+    bazel query //ignoreme/deep/... --universe_scope=//ignoreme/deep/... \
+        --order_output=no >& "$TEST_log" || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+    expect_log "Empty results"
+
+    # Test patterns with exclude.
+    bazel build -- //ignoreme/deep/... -//ignoreme/... >& "$TEST_log" \
+        || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
+
+    bazel build -- //ignoreme/... -//ignoreme/deep/... >& "$TEST_log" \
+        || fail "Expected success"
+    expect_log "WARNING: Pattern '//ignoreme/...' was filtered out by ignored directory 'ignoreme'"
+    expect_not_log "circular symlinks detected"
+    expect_not_log "ignoreme/deep/deeper"
 }
 
 test_symlink_cycle_ignored() {

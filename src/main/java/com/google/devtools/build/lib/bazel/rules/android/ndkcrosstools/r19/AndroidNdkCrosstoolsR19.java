@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Generates a CrosstoolRelease proto for the Android NDK. */
-final class AndroidNdkCrosstoolsR19 {
+public final class AndroidNdkCrosstoolsR19 {
 
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the
@@ -35,7 +35,7 @@ final class AndroidNdkCrosstoolsR19 {
    *
    * @return A CrosstoolRelease for the Android NDK.
    */
-  static CrosstoolRelease create(
+  public static CrosstoolRelease create(
       NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform, String clangVersion) {
     return CrosstoolRelease.newBuilder()
         .setMajorVersion("android")

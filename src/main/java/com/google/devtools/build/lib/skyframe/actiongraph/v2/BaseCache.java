@@ -45,7 +45,7 @@ abstract class BaseCache<K, P> {
    *
    * <p>Stream the proto to output, the first time it's generated.
    */
-  int dataToIdAndStreamOutputProto(K data) throws IOException {
+  int dataToIdAndStreamOutputProto(K data) throws IOException, InterruptedException {
     K key = transformToKey(data);
     Integer id = cache.get(key);
     if (id == null) {
@@ -60,7 +60,7 @@ abstract class BaseCache<K, P> {
     return id;
   }
 
-  abstract P createProto(K key, int id) throws IOException;
+  abstract P createProto(K key, int id) throws IOException, InterruptedException;
 
   abstract void toOutput(P proto) throws IOException;
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.auto.value.AutoValue;
+import java.util.Optional;
 import org.objectweb.asm.Handle;
 
 @AutoValue
@@ -25,14 +26,22 @@ abstract class LambdaInfo {
       String factoryMethodDesc,
       boolean needFactory,
       Handle methodReference,
-      Handle bridgeMethod) {
+      Handle bridgeMethod,
+      Optional<String> sourceFileName,
+      int lineNumber) {
     checkArgument(
         !needFactory || !factoryMethodDesc.startsWith("()"),
         "Shouldn't need a factory method for %s : %s",
         desiredInternalName,
         factoryMethodDesc);
     return new AutoValue_LambdaInfo(
-        desiredInternalName, factoryMethodDesc, needFactory, methodReference, bridgeMethod);
+        desiredInternalName,
+        factoryMethodDesc,
+        needFactory,
+        methodReference,
+        bridgeMethod,
+        sourceFileName,
+        lineNumber);
   }
 
   public abstract String desiredInternalName();
@@ -44,4 +53,8 @@ abstract class LambdaInfo {
   public abstract Handle methodReference();
 
   public abstract Handle bridgeMethod();
+
+  public abstract Optional<String> sourceFilename();
+
+  public abstract int lineNumber();
 }

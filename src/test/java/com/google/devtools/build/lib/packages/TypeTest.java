@@ -107,7 +107,8 @@ public class TypeTest {
   @Test
   public void testNonString() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> Type.STRING.convert(3, null));
+        assertThrows(
+            Type.ConversionException.class, () -> Type.STRING.convert(StarlarkInt.of(3), null));
     assertThat(e).hasMessageThat().isEqualTo("expected value of type 'string', but got 3 (int)");
   }
 
@@ -203,7 +204,7 @@ public class TypeTest {
   }
 
   @Test
-  public void testIllegalTagConversIonFromNullOnSupportedType() throws Exception {
+  public void testIllegalTagConversIonFromNullOnSupportedType() {
     assertThrows(IllegalStateException.class, () -> Type.BOOLEAN.toTagSet(null, "a_boolean"));
   }
 
@@ -242,7 +243,8 @@ public class TypeTest {
   @Test
   public void testNonLabel() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> BuildType.LABEL.convert(3, null));
+        assertThrows(
+            Type.ConversionException.class, () -> BuildType.LABEL.convert(StarlarkInt.of(3), null));
     assertThat(e).hasMessageThat().isEqualTo("expected value of type 'string', but got 3 (int)");
   }
 
@@ -258,8 +260,7 @@ public class TypeTest {
 
   @Test
   public void testStringDict() throws Exception {
-    Object input = ImmutableMap.of("foo", "bar",
-                                   "wiz", "bang");
+    Object input = ImmutableMap.of("foo", "bar", "wiz", "bang");
     Map<String, String> converted = Type.STRING_DICT.convert(input, null);
     assertThat(converted).isEqualTo(input);
     assertThat(converted).isNotSameInstanceAs(input);
@@ -281,7 +282,9 @@ public class TypeTest {
   @Test
   public void testNonStringList() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> Type.STRING_LIST.convert(3, "blah"));
+        assertThrows(
+            Type.ConversionException.class,
+            () -> Type.STRING_LIST.convert(StarlarkInt.of(3), "blah"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(string)' for blah, but got 3 (int)");
@@ -289,7 +292,7 @@ public class TypeTest {
 
   @Test
   public void testStringListBadElements() throws Exception {
-    Object input = Arrays.<Object>asList("foo", "bar", 1);
+    Object input = Arrays.<Object>asList("foo", "bar", StarlarkInt.of(1));
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class, () -> Type.STRING_LIST.convert(input, "argument quux"));
@@ -310,8 +313,7 @@ public class TypeTest {
   @Test
   public void testLabelList() throws Exception {
     Object input = Arrays.asList("//foo:bar", ":wiz");
-    List<Label> converted =
-      BuildType.LABEL_LIST.convert(input , null, currentRule);
+    List<Label> converted = BuildType.LABEL_LIST.convert(input, null, currentRule);
     List<Label> expected =
         Arrays.asList(
             Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
@@ -326,7 +328,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> BuildType.LABEL_LIST.convert(3, "foo", currentRule));
+            () -> BuildType.LABEL_LIST.convert(StarlarkInt.of(3), "foo", currentRule));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(label)' for foo, but got 3 (int)");
@@ -334,7 +336,7 @@ public class TypeTest {
 
   @Test
   public void testLabelListBadElements() throws Exception {
-    Object list = Arrays.<Object>asList("//foo:bar", 2, "foo");
+    Object list = Arrays.<Object>asList("//foo:bar", StarlarkInt.of(2), "foo");
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
@@ -361,11 +363,12 @@ public class TypeTest {
 
   @Test
   public void testStringListDict() throws Exception {
-    Object input = ImmutableMap.of("foo", Arrays.asList("foo", "bar"),
-                                   "wiz", Arrays.asList("bang"));
+    Object input =
+        ImmutableMap.of("foo", Arrays.asList("foo", "bar"), "wiz", Arrays.asList("bang"));
     Map<String, List<String>> converted =
         Type.STRING_LIST_DICT.convert(input, null, currentRule);
-    Map<?, ?> expected = ImmutableMap.<String, List<String>>of(
+    Map<?, ?> expected =
+        ImmutableMap.of(
             "foo", Arrays.asList("foo", "bar"),
             "wiz", Arrays.asList("bang"));
     assertThat(converted).isEqualTo(expected);
@@ -375,8 +378,9 @@ public class TypeTest {
 
   @Test
   public void testStringListDictBadFirstElement() throws Exception {
-    Object input = ImmutableMap.of(2, Arrays.asList("foo", "bar"),
-                                   "wiz", Arrays.asList("bang"));
+    Object input =
+        ImmutableMap.of(
+            StarlarkInt.of(2), Arrays.asList("foo", "bar"), "wiz", Arrays.asList("bang"));
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
@@ -388,8 +392,7 @@ public class TypeTest {
 
   @Test
   public void testStringListDictBadSecondElement() throws Exception {
-    Object input = ImmutableMap.of("foo", "bar",
-                                   "wiz", Arrays.asList("bang"));
+    Object input = ImmutableMap.of("foo", "bar", "wiz", Arrays.asList("bang"));
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
@@ -415,7 +418,7 @@ public class TypeTest {
   }
 
   @Test
-  public void testStringDictThrowsConversionException() throws Exception {
+  public void testStringDictThrowsConversionException() {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class, () -> Type.STRING_DICT.convert("some string", null));
@@ -425,9 +428,9 @@ public class TypeTest {
             "expected value of type 'dict(string, string)', but got \"some string\" (string)");
   }
 
-  private static ImmutableList<Label> collectLabels(Type<?> type, Object value) {
-    final ImmutableList.Builder<Label> result = ImmutableList.builder();
-    type.visitLabels((label, dummy) -> result.add(label), value, /*context=*/ null);
+  private static <T> ImmutableList<Label> collectLabels(Type<T> type, Object value) {
+    ImmutableList.Builder<Label> result = ImmutableList.builder();
+    type.visitLabels((label, dummy) -> result.add(label), type.cast(value), /*context=*/ null);
     return result.build();
   }
 }

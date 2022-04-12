@@ -19,14 +19,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -38,15 +35,10 @@ import net.starlark.java.syntax.SyntaxError;
  * A situation encountered by the build system that's worth reporting.
  *
  * <p>An event specifies an {@link EventKind}, a message, and (optionally) additional properties.
- *
- * <p>Although this is serializable, use caution if {@link Class}es with the same name and different
- * classloaders are expected to be found in the same event's properties. Common class object
- * serialization techniques ignore classloaders, so duplicate entry keys may be deserialized,
- * violating assumptions.
  */
 @Immutable
-public final class Event implements Serializable {
-  private int hashCode;
+@CheckReturnValue
+public final class Event {
 
   private final EventKind kind;
 
@@ -65,6 +57,8 @@ public final class Event implements Serializable {
    * are equal is not deterministic.
    */
   private final ImmutableClassToInstanceMap<Object> properties;
+
+  private int hashCode;
 
   private Event(EventKind kind, Object message, ImmutableClassToInstanceMap<Object> properties) {
     this.kind = checkNotNull(kind);
@@ -170,9 +164,12 @@ public final class Event implements Serializable {
     return withProperty(String.class, tag);
   }
 
-  /** Like {@link #withProperty(Class, Object)}, with {@code type.equals(FileOutErr.class)}. */
-  public Event withStdoutStderr(FileOutErr outErr) {
-    return withProperty(FileOutErr.class, outErr);
+  /**
+   * Returns a new event with the provided {@link ProcessOutput} property. See {@link #withProperty}
+   * for more specifics.
+   */
+  public Event withProcessOutput(ProcessOutput processOutput) {
+    return withProperty(ProcessOutput.class, processOutput);
   }
 
   /**
@@ -186,61 +183,29 @@ public final class Event implements Serializable {
     return getProperty(String.class);
   }
 
-  /** Indicates if a {@link FileOutErr} property is associated with this event. */
-  public boolean hasStdoutStderr() {
-    return getProperty(FileOutErr.class) != null;
-  }
-
-  /**
-   * Gets the path to the stdout associated with this event (which the caller must not access), or
-   * null if there is no such path.
-   */
   @Nullable
-  public PathFragment getStdOutPathFragment() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? null : outErr.getOutputPathFragment();
-  }
-
-  /** Gets the size of the stdout associated with this event without reading it. */
-  public long getStdOutSize() throws IOException {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? 0 : outErr.outSize();
+  public ProcessOutput getProcessOutput() {
+    return getProperty(ProcessOutput.class);
   }
 
   /** Returns the stdout bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
   public byte[] getStdOut() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    if (outErr == null) {
+    ProcessOutput processOutput = getProperty(ProcessOutput.class);
+    if (processOutput == null) {
       return null;
     }
-    return outErr.outAsBytes();
-  }
-
-  /**
-   * Gets the path to the stderr associated with this event (which the caller must not access), or
-   * null if there is no such path.
-   */
-  @Nullable
-  public PathFragment getStdErrPathFragment() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? null : outErr.getErrorPathFragment();
-  }
-
-  /** Gets the size of the stderr associated with this event without reading it. */
-  public long getStdErrSize() throws IOException {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? 0 : outErr.errSize();
+    return processOutput.getStdOut();
   }
 
   /** Returns the stderr bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
   public byte[] getStdErr() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    if (outErr == null) {
+    ProcessOutput processOutput = getProperty(ProcessOutput.class);
+    if (processOutput == null) {
       return null;
     }
-    return outErr.errAsBytes();
+    return processOutput.getStdErr();
   }
 
   /**
@@ -356,6 +321,11 @@ public final class Event implements Serializable {
         : of(kind, messageBytes, Location.class, location);
   }
 
+  /** Constructs an event with kind {@link EventKind#FATAL}. */
+  public static Event fatal(String message) {
+    return of(EventKind.FATAL, message);
+  }
+
   /** Constructs an event with kind {@link EventKind#ERROR}, with an optional {@link Location}. */
   public static Event error(@Nullable Location location, String message) {
     return location == null
@@ -433,26 +403,40 @@ public final class Event implements Serializable {
   }
 
   /**
-   * Converts a list of {@link SyntaxError}s to events, each with a specified property, and replays
-   * them on {@code handler}.
-   */
-  public static <T> void replayEventsOn(
-      EventHandler handler,
-      List<SyntaxError> errors,
-      Class<T> propertyType,
-      Function<SyntaxError, T> toProperty) {
-    for (SyntaxError error : errors) {
-      handler.handle(
-          Event.error(error.location(), error.message())
-              .withProperty(propertyType, toProperty.apply(error)));
-    }
-  }
-
-  /**
    * Returns a {@link StarlarkThread.PrintHandler} that sends {@link EventKind#DEBUG} events to the
    * provided {@link EventHandler}.
    */
   public static StarlarkThread.PrintHandler makeDebugPrintHandler(EventHandler h) {
     return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
+  }
+
+  /**
+   * Process output associated with an event. The contents is just-about-certainly on disk, so
+   * special care should be taken when accessing it.
+   *
+   * <p>Note that this indirection exists partially for documentation sake, but also to keep the
+   * event library lightweight and broadly usable by avoiding bringing in all of the dependencies
+   * that come with dealing with process output (specifically the filesystem library).
+   */
+  public interface ProcessOutput {
+    /**
+     * Returns the string representation of the path containing the process's stdout for
+     * logging/debugging purposes.
+     */
+    String getStdOutPath();
+
+    long getStdOutSize() throws IOException;
+
+    byte[] getStdOut();
+
+    /**
+     * Returns the string representation of the path containing the process's stderr for
+     * logging/debugging purposes.
+     */
+    String getStdErrPath();
+
+    long getStdErrSize() throws IOException;
+
+    byte[] getStdErr();
   }
 }

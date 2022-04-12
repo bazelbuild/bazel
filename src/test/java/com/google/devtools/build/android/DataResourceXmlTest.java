@@ -15,6 +15,7 @@ package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.resources.ResourceType;
 import com.google.common.base.Function;
@@ -1030,6 +1031,37 @@ public class DataResourceXmlTest {
                 ImmutableMap.of("tools", "http://schemas.android.com/tools"),
                 ImmutableMap.of("tools:foo", "fooVal"),
                 null));
+  }
+
+  @Test
+  public void writeMacroXmlResource() throws Exception {
+    // TODO(b/193025750): The current version of the layoutlib prebuilt used by Bazel does not
+    // contain the macro type.
+    assumeTrue(ResourceType.getEnum("macro") != null);
+
+    String xml = "<macro name='foo'>@string/bar</macro>";
+    Path source = writeResourceXml(xml);
+    assertAbout(resourcePaths)
+        .that(parsedAndWritten(source, fqn("macro/foo")))
+        .xmlContentsIsEqualTo(resourcesXmlFrom(source, xml));
+  }
+
+  @Test
+  public void writeOverlayableXmlResource() throws Exception {
+    // TODO(b/193025750): The current version of the layoutlib prebuilt used by Bazel does not
+    // contain the overlayable type.
+    assumeTrue(ResourceType.getEnum("overlayable") != null);
+
+    String xml =
+        "<overlayable name='foo'>"
+            + "  <policy type='public'>"
+            + "    <item name='my_color' type='color'/>"
+            + "  </policy>"
+            + "</overlayable>";
+    Path source = writeResourceXml(xml);
+    assertAbout(resourcePaths)
+        .that(parsedAndWritten(source, fqn("overlayable/foo")))
+        .xmlContentsIsEqualTo(resourcesXmlFrom(source, xml));
   }
 
   @Test

@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Objects;
 
@@ -35,33 +35,30 @@ import java.util.Objects;
  *   ComposingTransition(transition1, transition2): { someSetting = $oldVal + " foo bar" }
  * </pre>
  */
-@AutoCodec
-public class ComposingTransition implements ConfigurationTransition {
-  private ConfigurationTransition transition1;
-  private ConfigurationTransition transition2;
+public final class ComposingTransition implements ConfigurationTransition {
+  private final ConfigurationTransition transition1;
+  private final ConfigurationTransition transition2;
 
   /**
    * Creates a {@link ComposingTransition} that applies the sequence: {@code fromOptions ->
    * transition1 -> transition2 -> toOptions }.
    */
-  @AutoCodec.Instantiator
   ComposingTransition(ConfigurationTransition transition1, ConfigurationTransition transition2) {
     this.transition1 = transition1;
     this.transition2 = transition2;
   }
 
   @Override
-  public ImmutableSet<String> requiresOptionFragments(BuildOptions options) {
+  public void addRequiredFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptionDetails optionDetails) {
     // At first glance this code looks wrong. A composing transition applies transition2 over
     // transition1's outputs, not the original options. We don't have to worry about that here
     // because the reason we pass the options is so Starlark transitions can map individual flags
     // like "//command_line_option:copts" to the fragments that own them. This doesn't depend on the
     // flags' values. This is fortunate, because it producers simpler, faster code and cleaner
     // interfaces.
-    return ImmutableSet.<String>builder()
-        .addAll(transition1.requiresOptionFragments(options))
-        .addAll(transition2.requiresOptionFragments(options))
-        .build();
+    transition1.addRequiredFragments(requiredFragments, optionDetails);
+    transition2.addRequiredFragments(requiredFragments, optionDetails);
   }
 
   @Override
@@ -78,7 +75,7 @@ public class ComposingTransition implements ConfigurationTransition {
         toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
       }
     }
-    return toOptions.build();
+    return toOptions.buildOrThrow();
   }
 
   @Override

@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -41,10 +44,12 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -63,6 +68,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
+  @Nullable private SyscallCache syscallCache;
 
   public StarlarkRepositoryFunction(DownloadManager downloadManager) {
     this.downloadManager = downloadManager;
@@ -74,6 +80,10 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
 
   public void setProcessWrapper(@Nullable ProcessWrapper processWrapper) {
     this.processWrapper = processWrapper;
+  }
+
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.syscallCache = checkNotNull(syscallCache);
   }
 
   static String describeSemantics(StarlarkSemantics semantics) {
@@ -129,8 +139,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    Map<String, String> resolvedHashes =
-        Preconditions.checkNotNull(resolvedHashesValue).getHashes();
+    Map<String, String> resolvedHashes = checkNotNull(resolvedHashesValue).getHashes();
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
@@ -142,8 +151,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> ignoredPatterns =
-        Preconditions.checkNotNull(ignoredPackagesValue).getPatterns();
+    ImmutableSet<PathFragment> ignoredPatterns = checkNotNull(ignoredPackagesValue).getPatterns();
 
     try (Mutability mu = Mutability.create("Starlark repository")) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
@@ -155,9 +163,10 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              rule.getPackage().getRepositoryMapping(),
+              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =
@@ -167,13 +176,13 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               outputDirectory,
               ignoredPatterns,
               env,
-              clientEnvironment,
+              ImmutableMap.copyOf(clientEnvironment),
               downloadManager,
               timeoutScaling,
               processWrapper,
-              markerData,
               starlarkSemantics,
-              repositoryRemoteExecutor);
+              repositoryRemoteExecutor,
+              syscallCache);
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
@@ -185,7 +194,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       // all label-arguments can be resolved to paths.
       try {
         starlarkRepositoryContext.enforceLabelAttributes();
-      } catch (RepositoryMissingDependencyException e) {
+      } catch (NeedsSkyframeRestartException e) {
         // Missing values are expected; just restart before we actually start the rule
         return null;
       } catch (EvalException e) {
@@ -205,7 +214,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       Object result;
       try (SilentCloseable c =
           Profiler.instance()
-              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, rule.getLabel().toString())) {
+              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> rule.getLabel().toString())) {
         result =
             Starlark.call(
                 thread,
@@ -221,12 +230,19 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
+      // Modify marker data to include the files used by the rule's implementation function.
+      for (Map.Entry<Label, String> entry :
+          starlarkRepositoryContext.getAccumulatedFileDigests().entrySet()) {
+        // A label does not contain spaces so it's safe to use as a key.
+        markerData.put("FILE:" + entry.getKey(), entry.getValue());
+      }
+
       String ruleClass =
           rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
       if (verificationRules.contains(ruleClass)) {
         String expectedHash = resolvedHashes.get(rule.getName());
         if (expectedHash != null) {
-          String actualHash = resolved.getDirectoryDigest();
+          String actualHash = resolved.getDirectoryDigest(syscallCache);
           if (!expectedHash.equals(actualHash)) {
             throw new RepositoryFunctionException(
                 new IOException(
@@ -236,7 +252,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
         }
       }
       env.getListener().post(resolved);
-    } catch (RepositoryMissingDependencyException e) {
+    } catch (NeedsSkyframeRestartException e) {
       // A dependency is missing, cleanup and returns null
       try {
         if (outputDirectory.exists()) {

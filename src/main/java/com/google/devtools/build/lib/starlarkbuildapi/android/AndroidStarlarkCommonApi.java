@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -29,13 +31,14 @@ import net.starlark.java.eval.StarlarkValue;
             + "you will be broken when it is removed."
             + "Common utilities and functionality related to Android rules.",
     documented = false)
-public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi<?>>
+public interface AndroidStarlarkCommonApi<
+        FileT extends FileApi, JavaInfoT extends JavaInfoApi<?, ?, ?>>
     extends StarlarkValue {
 
   @StarlarkMethod(
       name = "create_device_broker_info",
       documented = false,
-      parameters = {@Param(name = "type", type = String.class)})
+      parameters = {@Param(name = "type")})
   AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType);
 
   @StarlarkMethod(
@@ -52,9 +55,9 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
             name = "resource",
             doc = "The android resource file.",
             positional = true,
-            named = false,
-            type = FileApi.class)
+            named = false)
       })
+  @Nullable
   String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @StarlarkMethod(
@@ -64,7 +67,17 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
               + "the --fat_apk_cpu and --android_crosstool_top flags.",
       documented = false,
       structField = true)
-  AndroidSplitTransititionApi getAndroidSplitTransition();
+  AndroidSplitTransitionApi getAndroidSplitTransition();
+
+  @StarlarkMethod(
+      name = "android_platforms_transition",
+      doc =
+          "A configuration for rules that uses the --android_platforms flag instead of --platforms."
+              + " This should only be used by Android rules during migration and is not for"
+              + " general use.",
+      documented = false,
+      structField = true)
+  StarlarkExposedRuleTransitionFactory getAndroidPlatformsTransition();
 
   @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",
@@ -78,8 +91,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
                 "A JavaInfo that will be used as an implicit export for sourceless deps exports"
                     + " compatibility.",
             positional = true,
-            named = false,
-            type = JavaInfoApi.class)
+            named = false)
       })
   JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo);
 }

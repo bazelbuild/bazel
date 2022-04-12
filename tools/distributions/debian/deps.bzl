@@ -24,9 +24,11 @@ def debian_deps():
 
 def debian_java_deps():
     # An external repository for providing Debian system installed java libraries.
-    native.new_local_repository(
+    system_repo(
         name = "debian_java_deps",
-        path = "/usr/share/java",
+        symlinks = {
+            "java": "/usr/share/java",
+        },
         build_file = "//tools/distributions/debian:debian_java.BUILD",
     )
 

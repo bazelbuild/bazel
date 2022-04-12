@@ -14,21 +14,25 @@
 
 package com.google.devtools.build.lib.repository;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Rule;
@@ -53,10 +57,11 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -64,7 +69,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -75,6 +79,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -101,7 +106,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
           .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
 
   @Before
   public void createEnvironment() {
@@ -113,7 +118,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+        new AtomicReference<>(ImmutableSet.of());
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
@@ -135,10 +140,10 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        FileStateValue.FILE_STATE,
+        FileStateKey.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
+            SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
@@ -157,11 +162,12 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             null,
             null,
             null,
+            /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(),
             null,
-            null,
-            null,
-            null,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+            /*packageProgress=*/ null,
+            PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
+            PackageFunction.IncrementalityIntent.INCREMENTAL,
+            k -> ThreadStateReceiver.NULL_INSTANCE));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -176,12 +182,12 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     skyFunctions.put(GET_REGISTERED_TOOLCHAINS_FUNCTION, new GetRegisteredToolchainsFunction());
 
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
-    MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
-    driver = new SequentialBuildDriver(evaluator);
+    evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
+    RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, false);
   }
 
   @Test
@@ -201,8 +207,9 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     assertThat(rule.getName()).isEqualTo("foo");
   }
 
-  EvaluationResult<GetRuleByNameValue> getRuleByName(SkyKey key) throws InterruptedException {
-    return driver.<GetRuleByNameValue>evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
+  private EvaluationResult<GetRuleByNameValue> getRuleByName(SkyKey key)
+      throws InterruptedException {
+    return evaluator.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
   }
 
   @Test
@@ -307,10 +314,9 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
         .inOrder();
   }
 
-  EvaluationResult<GetRegisteredExecutionPlatformsValue> getRegisteredExecutionPlatforms(SkyKey key)
-      throws InterruptedException {
-    return driver.<GetRegisteredExecutionPlatformsValue>evaluate(
-        ImmutableList.of(key), EVALUATION_OPTIONS);
+  private EvaluationResult<GetRegisteredExecutionPlatformsValue> getRegisteredExecutionPlatforms(
+      SkyKey key) throws InterruptedException {
+    return evaluator.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
   }
 
   // HELPER SKYFUNCTIONS
@@ -339,7 +345,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   private ImmutableList<String> getRegisteredToolchains() throws InterruptedException {
     SkyKey key = getRegisteredToolchainsKey();
     EvaluationResult<GetRegisteredToolchainsValue> result =
-        driver.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
+        evaluator.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
 
     assertThatEvaluationResult(result).hasNoError();
     return result.get(key).registeredToolchains();
@@ -377,12 +383,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
       }
       return GetRuleByNameValue.create(rule);
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   // GetRegisteredToolchains.
@@ -409,17 +409,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredToolchains = RegisteredToolchainsFunction.getRegisteredToolchains(env);
+      List<TargetPattern> registeredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(env);
       if (registeredToolchains == null) {
         return null;
       }
-      return GetRegisteredToolchainsValue.create(registeredToolchains);
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
+      return GetRegisteredToolchainsValue.create(
+          registeredToolchains.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
   }
 
@@ -443,18 +441,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredExecutionPlatforms =
+      List<TargetPattern> registeredExecutionPlatforms =
           RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
       if (registeredExecutionPlatforms == null) {
         return null;
       }
-      return GetRegisteredExecutionPlatformsValue.create(registeredExecutionPlatforms);
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
+      return GetRegisteredExecutionPlatformsValue.create(
+          registeredExecutionPlatforms.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
   }
 

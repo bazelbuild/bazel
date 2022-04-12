@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -39,7 +38,7 @@ import net.starlark.java.syntax.Location;
  * additional fields to Starlark code. Also, these are not disjoint.
  */
 @Immutable
-public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
+public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ToolchainInfo";
@@ -65,13 +64,17 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
   protected ToolchainInfo(Map<String, Object> values, Location location) {
-    super(PROVIDER, location);
+    super(location);
     this.values = copyValues(values);
   }
 
   public ToolchainInfo(Map<String, Object> values) {
-    super(PROVIDER, Location.BUILTIN);
     this.values = copyValues(values);
+  }
+
+  @Override
+  public BuiltinProvider<ToolchainInfo> getProvider() {
+    return PROVIDER;
   }
 
   /**
@@ -85,7 +88,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   @Override
@@ -105,7 +108,4 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     }
     return fieldNames;
   }
-
-  /** Add make variables to be exported to dependers. */
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {}
 }

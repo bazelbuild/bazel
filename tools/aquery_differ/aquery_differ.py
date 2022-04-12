@@ -1,5 +1,5 @@
 # Lint as: python2, python3
-# Copyright 2018 The Bazel Authors. All rights reserved.
+# Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,19 @@
 # limitations under the License.
 r"""Command line diffing tool that compares two bazel aquery invocations.
 
-This script compares the proto output of two bazel aquery invocations. For
-each set of output files of an action, it compares the command lines that
-generated the files.
+This script compares the proto or textproto output of two bazel aquery
+invocations. For each set of output files of an action, it compares the command
+lines that generated the files.
 
 Example usage:
+
+1. Prepare 2 aquery output files:
 bazel aquery //path/to:target_one --output=textproto > \
     /path/to/output_one.textproto
 bazel aquery //path/to:target_two --output=textproto > \
     /path/to/output_two.textproto
 
-From a bazel repo:
+2. Run the differ from a bazel repo:
 bazel run //tools/aquery_differ:aquery_differ -- \
 --before=/path/to/output_one.textproto \
 --after=/path/to/output_two.textproto \
@@ -45,8 +47,14 @@ from absl import app
 from absl import flags
 from six.moves import map
 from google.protobuf import text_format
-from src.main.protobuf import analysis_pb2
+from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
+from tools.aquery_differ.resolvers.path_fragment_resolver import PathFragmentResolver
+# pylint: disable=g-import-not-at-top
+# resource lib isn't available on Windows.
+if os.name != "nt":
+  import resource
+# pylint: enable=g-import-not-at-top
 
 flags.DEFINE_string("before", None, "Aquery output before the change")
 flags.DEFINE_string("after", None, "Aquery output after the change")
@@ -55,6 +63,9 @@ flags.DEFINE_enum(
     "The format of the aquery proto input. One of 'proto' and 'textproto.")
 flags.DEFINE_multi_enum("attrs", ["cmdline"], ["inputs", "cmdline"],
                         "Attributes of the actions to be compared.")
+flags.DEFINE_integer(
+    "max_mem_alloc_mb", 3072,
+    "Amount of max memory available for aquery_differ, in MB.")
 flags.mark_flag_as_required("before")
 flags.mark_flag_as_required("after")
 
@@ -96,8 +107,12 @@ def _print_diff(output_files, before_val, after_val, attr, before_file,
          "\n\t%s\n%s\n") % (attr, "\n\t".join(output_files.split()), diff))
 
 
-def _map_artifact_id_to_path(artifacts):
-  return {artifact.id: artifact.exec_path for artifact in artifacts}
+def _map_artifact_id_to_path(artifacts, path_fragments):
+  path_fragment_resolver = PathFragmentResolver(path_fragments)
+  return {
+      artifact.id: path_fragment_resolver.resolve(artifact.path_fragment_id)
+      for artifact in artifacts
+  }
 
 
 def _map_action_index_to_output_files(actions, artifacts):
@@ -120,8 +135,9 @@ def _map_action_index_to_output_files(actions, artifacts):
 
 
 # output files -> input artifacts
-def _map_output_files_to_input_artifacts(
-    action_graph_container, artifact_id_to_path, action_index_to_output_files):
+def _map_output_files_to_input_artifacts(action_graph_container,
+                                         artifact_id_to_path,
+                                         action_index_to_output_files):
   """Constructs a map from output files to input artifacts.
 
   Args:
@@ -176,8 +192,10 @@ def _map_output_files_to_command_line(actions, action_index_to_output_files):
 def _aquery_diff(before_proto, after_proto, attrs, before_file, after_file):
   """Returns differences between command lines that generate same outputs."""
   found_difference = False
-  artifacts_before = _map_artifact_id_to_path(before_proto.artifacts)
-  artifacts_after = _map_artifact_id_to_path(after_proto.artifacts)
+  artifacts_before = _map_artifact_id_to_path(before_proto.artifacts,
+                                              before_proto.path_fragments)
+  artifacts_after = _map_artifact_id_to_path(after_proto.artifacts,
+                                             after_proto.path_fragments)
 
   action_to_output_files_before = _map_action_index_to_output_files(
       before_proto.actions, artifacts_before)
@@ -248,23 +266,38 @@ def main(unused_argv):
   after_file = to_absolute_path(flags.FLAGS.after)
   input_type = flags.FLAGS.input_type
   attrs = flags.FLAGS.attrs
+  max_mem_alloc_mb = flags.FLAGS.max_mem_alloc_mb
 
-  before_proto = analysis_pb2.ActionGraphContainer()
-  after_proto = analysis_pb2.ActionGraphContainer()
-  if input_type == "proto":
-    with open(before_file, "rb") as f:
-      before_proto.ParseFromString(f.read())
-    with open(after_file, "rb") as f:
-      after_proto.ParseFromString(f.read())
-  else:
-    with open(before_file, "r") as f:
-      before_text = f.read()
-      text_format.Merge(before_text, before_proto)
-    with open(after_file, "r") as f:
-      after_text = f.read()
-      text_format.Merge(after_text, after_proto)
+  # resource lib isn't available on Windows.
+  if os.name != "nt":
+    max_heap_bytes = max_mem_alloc_mb * 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_AS, (max_heap_bytes, max_heap_bytes))
 
-  _aquery_diff(before_proto, after_proto, attrs, before_file, after_file)
+  before_proto = analysis_v2_pb2.ActionGraphContainer()
+  after_proto = analysis_v2_pb2.ActionGraphContainer()
+  try:
+    if input_type == "proto":
+      with open(before_file, "rb") as f:
+        before_proto.ParseFromString(f.read())
+      with open(after_file, "rb") as f:
+        after_proto.ParseFromString(f.read())
+    else:
+      with open(before_file, "r") as f:
+        before_text = f.read()
+        text_format.Merge(before_text, before_proto)
+      with open(after_file, "r") as f:
+        after_text = f.read()
+        text_format.Merge(after_text, after_proto)
+
+    _aquery_diff(before_proto, after_proto, attrs, before_file, after_file)
+  except MemoryError:
+    print(
+        "aquery_differ is known to cause OOM issue with large inputs. More details: b/154620006.",
+        file=sys.stderr)
+    print(
+        "Max mem space of {}MB exceeded".format(max_mem_alloc_mb),
+        file=sys.stderr)
+    sys.exit(1)
 
 
 if __name__ == "__main__":

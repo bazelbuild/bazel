@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.vfs;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -254,11 +256,7 @@ public class FileSystemUtils {
   @ThreadSafe
   public static void touchFile(Path path) throws IOException {
     if (path.exists()) {
-      // -1L means "use the current time", and is ultimately implemented by
-      // utime(path, null), thereby using the kernel's clock, not the JVM's.
-      // (A previous implementation based on the JVM clock was found to be
-      // skewy.)
-      path.setLastModifiedTime(-1L);
+      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     } else {
       createEmptyFile(path);
     }
@@ -335,7 +333,7 @@ public class FileSystemUtils {
     if (link.isSymbolicLink()) {
       link.delete(); // Remove the symlink since it is pointing somewhere else.
     } else {
-      createDirectoryAndParents(link.getParentDirectory());
+      link.getParentDirectory().createDirectoryAndParents();
     }
     try {
       link.createSymbolicLink(target);
@@ -411,7 +409,7 @@ public class FileSystemUtils {
    * individual requests are more costly, but can also be larger.
    */
   private static long copyLargeBuffer(InputStream from, OutputStream to) throws IOException {
-    byte[] buf = new byte[131072];
+    byte[] buf = new byte[1 * 1024 * 1024]; // Match libfuse3 maximum FUSE request size of 1 MB.
     long total = 0;
     while (true) {
       int r = from.read(buf);
@@ -449,13 +447,24 @@ public class FileSystemUtils {
     try {
       from.renameTo(to);
       return MoveResult.FILE_MOVED;
-    } catch (IOException e) {
+    } catch (IOException unused) {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
           copyLargeBuffer(in, out);
+        } catch (FileAccessException e) {
+          // Rules can accidentally make output non-readable, let's fix that (b/150963503)
+          if (!from.isReadable()) {
+            from.setReadable(true);
+            try (InputStream in = from.getInputStream();
+                OutputStream out = to.getOutputStream()) {
+              copyLargeBuffer(in, out);
+            }
+          } else {
+            throw e;
+          }
         }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
         if (!from.isWritable()) {
@@ -610,6 +619,7 @@ public class FileSystemUtils {
    */
   @Deprecated
   @ThreadSafe
+  @InlineMe(replacement = "dir.createDirectoryAndParents()")
   public static void createDirectoryAndParents(Path dir) throws IOException {
     dir.createDirectoryAndParents();
   }
@@ -626,11 +636,12 @@ public class FileSystemUtils {
       return false;
     }
     try {
-      for (; toRemove.segmentCount() > 0; toRemove = toRemove.getParentDirectory()) {
+      while (!toRemove.isEmpty()) {
         Path p = base.getRelative(toRemove);
         if (p.exists()) {
           p.delete();
         }
+        toRemove = toRemove.getParentDirectory();
       }
     } catch (IOException e) {
       return false;
@@ -713,7 +724,7 @@ public class FileSystemUtils {
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
-    createDirectoryAndParents(file.getParentDirectory());
+    file.getParentDirectory().createDirectoryAndParents();
     asByteSink(file).asCharSink(charset).writeLines(lines);
   }
 
@@ -724,7 +735,7 @@ public class FileSystemUtils {
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
-    createDirectoryAndParents(file.getParentDirectory());
+    file.getParentDirectory().createDirectoryAndParents();
     asByteSink(file, true).asCharSink(charset).writeLines(lines);
   }
 
@@ -790,24 +801,23 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns an iterable that allows iterating over ISO-8859-1 (Latin1) text
-   * file contents line by line. If the file ends in a line break, the iterator
-   * will return an empty string as the last element.
+   * Returns a list of the lines in an ISO-8859-1 (Latin1) text file. If the file ends in a line
+   * break, the list will contain an empty string as the last element.
    *
    * @throws IOException if there was an error
    */
-  public static Iterable<String> iterateLinesAsLatin1(Path inputFile) throws IOException {
+  public static ImmutableList<String> readLinesAsLatin1(Path inputFile) throws IOException {
     return readLines(inputFile, ISO_8859_1);
   }
 
   /**
-   * Returns an iterable that allows iterating over text file contents line by line in the given
-   * {@link Charset}. If the file ends in a line break, the iterator will return an empty string
-   * as the last element.
+   * Returns a list of the lines in a text file in the given {@link Charset}. If the file ends in a
+   * line break, the list will contain an empty string as the last element.
    *
    * @throws IOException if there was an error
    */
-  public static Iterable<String> readLines(Path inputFile, Charset charset) throws IOException {
+  public static ImmutableList<String> readLines(Path inputFile, Charset charset)
+      throws IOException {
     return asByteSource(inputFile).asCharSource(charset).readLines();
   }
 
@@ -861,11 +871,11 @@ public class FileSystemUtils {
   }
 
   /**
-   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a sanity
-   * check on the number of bytes read.
+   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a check on
+   * the number of bytes read.
    *
-   * <p>Use this method when you already know the size of the file. The sanity check is intended to
-   * catch issues where filesystems incorrectly truncate files.
+   * <p>Use this method when you already know the size of the file. The check is intended to catch
+   * issues where filesystems incorrectly truncate files.
    *
    * @throws IOException if there was an error, or if fewer than {@code fileSize} bytes were read.
    */
@@ -885,7 +895,7 @@ public class FileSystemUtils {
    * Returns the type of the file system path belongs to.
    */
   public static String getFileSystem(Path path) {
-    return path.getFileSystem().getFileSystemType(path);
+    return path.getFileSystem().getFileSystemType(path.asFragment());
   }
 
   /**
@@ -935,7 +945,7 @@ public class FileSystemUtils {
     } else {
       Path parentDir = linkPath.getParentDirectory();
       if (!parentDir.exists()) {
-        FileSystemUtils.createDirectoryAndParents(parentDir);
+        parentDir.createDirectoryAndParents();
       }
       originalPath.createHardLink(linkPath);
     }

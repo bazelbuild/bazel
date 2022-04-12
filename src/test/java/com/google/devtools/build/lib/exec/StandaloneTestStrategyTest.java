@@ -32,11 +32,14 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -52,7 +55,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Tes
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -68,6 +70,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.Options;
@@ -128,27 +131,31 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     public FakeActionExecutionContext(
         FileOutErr fileOutErr, SpawnStrategy spawnStrategy, BinTools binTools) {
-      this(fileOutErr, toContextRegistry(spawnStrategy, binTools, fileSystem, directories));
+      this(fileOutErr, toContextRegistry(spawnStrategy, binTools, fileSystem, directories), null);
     }
 
     public FakeActionExecutionContext(
-        FileOutErr fileOutErr, ActionContext.ActionContextRegistry actionContextRegistry) {
+        FileOutErr fileOutErr,
+        ActionContext.ActionContextRegistry actionContextRegistry,
+        MetadataHandler metadataHandler) {
       super(
           /*executor=*/ null,
           /*actionInputFileCache=*/ null,
           ActionInputPrefetcher.NONE,
           new ActionKeyContext(),
-          /*metadataHandler=*/ null,
+          /*metadataHandler=*/ metadataHandler,
           /*rewindingEnabled=*/ false,
           LostInputsCheck.NONE,
           fileOutErr,
           /*eventHandler=*/ null,
-          /*clientEnv=*/ ImmutableMap.of(),
+          /*clientEnv=*/ ImmutableMap.of("PATH", "/usr/bin:/bin"),
           /*topLevelFilesets=*/ ImmutableMap.of(),
           /*artifactExpander=*/ null,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult=*/ null,
-          NestedSetExpander.DEFAULT);
+          DiscoveredModulesPruner.DEFAULT,
+          SyscallCache.NO_CACHE,
+          ThreadStateReceiver.NULL_INSTANCE);
       this.actionContextRegistry = actionContextRegistry;
     }
 
@@ -175,7 +182,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     @Override
     public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
-      return new FakeActionExecutionContext(fileOutErr, actionContextRegistry);
+      return new FakeActionExecutionContext(
+          fileOutErr, actionContextRegistry, getMetadataHandler());
+    }
+
+    @Override
+    public ActionExecutionContext withMetadataHandler(MetadataHandler metadataHandler) {
+      return new FakeActionExecutionContext(
+          getFileOutErr(), actionContextRegistry, metadataHandler);
     }
   }
 

@@ -24,11 +24,13 @@ filegroup(
 
 exports_files([
     "xcode_locator.m",
+    "xcode_configure.bzl",
 ])
 
 DARWIN_XCODE_LOCATOR_COMPILE_COMMAND = """
   /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.9 -fobjc-arc -framework CoreServices \
-      -framework Foundation -o $@ $<
+      -framework Foundation -arch arm64 -arch x86_64 -Wl,-no_adhoc_codesign -Wl,-no_uuid -o $@ $< && \
+  env -i codesign --identifier $@ --force --sign - $@
 """
 
 genrule(
@@ -80,6 +82,19 @@ config_setting(
 xcode_config_alias(name = "current_xcode_config")
 
 xcode_version_flag(name = "xcode_version_flag")
+
+[
+    xcode_version_flag(
+        name = "xcode_version_flag_{}".format(precision),
+        precision = precision,
+    )
+    for precision in [
+        "major",
+        "minor",
+        "patch",
+        "exact",
+    ]
+]
 
 ios_sdk_version_flag(name = "ios_sdk_version_flag")
 

@@ -19,19 +19,17 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
-
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Handles options that specify list of included/excluded directories.
- * Validates whether path is included in that filter.
+ * Handles options that specify list of included/excluded directories. Validates whether path is
+ * included in that filter.
  *
- * Excluded directories always take precedence over included ones (path depth
- * and order are not important).
+ * <p>Excluded directories always take precedence over included ones (path depth and order are not
+ * important).
  */
-public class PathFragmentFilter implements Serializable {
+public final class PathFragmentFilter {
   private final List<PathFragment> inclusions;
   private final List<PathFragment> exclusions;
 
@@ -52,7 +50,7 @@ public class PathFragmentFilter implements Serializable {
       for (String piece : Splitter.on(',').split(input)) {
         if (piece.length() > 1 && piece.startsWith("-")) {
           exclusionList.add(PathFragment.create(piece.substring(1)));
-        } else if (piece.length() > 0) {
+        } else if (!piece.isEmpty()) {
           inclusionList.add(PathFragment.create(piece));
         }
       }

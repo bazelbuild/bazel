@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
@@ -26,21 +25,22 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.syntax.Location;
 
 /** Fake implementation of {@link StarlarkNativeModuleApi}. */
-public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, ClassObject {
+public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Structure {
 
   @Override
   public Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
-      Integer excludeDirectories,
+      StarlarkInt excludeDirectories,
       Object allowEmpty,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      StarlarkThread thread) {
     return StarlarkList.of(thread.mutability());
   }
 
@@ -50,7 +50,8 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Cla
   }
 
   @Override
-  public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread) {
+  public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
+      throws EvalException {
     return Dict.of(thread.mutability());
   }
 
@@ -74,6 +75,13 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Cla
   @Override
   public String repositoryName(StarlarkThread thread) {
     return "";
+  }
+
+  @Override
+  public Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return StarlarkList.of(thread.mutability());
   }
 
   @Nullable

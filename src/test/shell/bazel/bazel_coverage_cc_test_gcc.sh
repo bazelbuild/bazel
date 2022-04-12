@@ -178,148 +178,130 @@ cc_library(
 )
 
 cc_library(
-    name = "hello-lib",
-    srcs = ["hello-lib.cc"],
-    hdrs = ["hello-lib.h"],
+    name = "num-lib",
+    srcs = ["num-lib.cc"],
+    hdrs = ["num-lib.h"],
     deps = [":a_header"],
 )
 
 cc_test(
-    name = "hello-world_test",
-    srcs = ["hello-world.cc"],
-    deps = [":hello-lib"],
+    name = "num-world_test",
+    srcs = ["num-world.cc"],
+    deps = [":num-lib"],
 )
 EOF
   mkdir -p examples/cpp/foo/bar/baz
   cat << EOF > examples/cpp/foo/bar/baz/a_header.h
-#include<iostream>
-using namespace std;
-
 class A {
 public:
-	void cout_whatever() const {
-		cout << "Whatever";
+	int num_whatever() const {
+		return 42;
 	}
 };
 EOF
 
-  cat << EOF > examples/cpp/hello-lib.h
-#ifndef EXAMPLES_CPP_HELLO_LIB_H_
-#define EXAMPLES_CPP_HELLO_LIB_H_
+  cat << EOF > examples/cpp/num-lib.h
+#ifndef EXAMPLES_CPP_NUM_LIB_H_
+#define EXAMPLES_CPP_NUM_LIB_H_
 
-#include <string>
-#include <memory>
 #include "yin/yang/bar/baz/a_header.h"
 
-namespace hello {
+namespace num {
 
-class HelloLib {
+class NumLib {
  public:
-  explicit HelloLib(const std::string &greeting);
+  explicit NumLib(int n);
 
-  void greet(const std::string &thing);
+  int add_number(int value);
 
+  inline int add_number_inlined(int value) {
+    return number + value;
+  }
  private:
-  std::auto_ptr<const std::string> greeting_;
+  int number;
 };
-}  // namespace hello
-#endif  // EXAMPLES_CPP_HELLO_LIB_H_
+}  // namespace number
+#endif  // EXAMPLES_CPP_NUM_LIB_H_
 EOF
 
-  cat << EOF > examples/cpp/hello-lib.cc
-#include "examples/cpp/hello-lib.h"
+  cat << EOF > examples/cpp/num-lib.cc
+#include "examples/cpp/num-lib.h"
 
-#include <iostream>
+namespace num {
 
-using std::cout;
-using std::endl;
-using std::string;
-
-namespace hello {
-
-HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+NumLib::NumLib(int n) : number(n) {
 }
 
-void HelloLib::greet(const string& thing) {
-  cout << *greeting_ << " " << thing << endl;
+int NumLib::add_number(int value) {
   A* a = new A();
-  a->cout_whatever();
+  return number + value + a->num_whatever();
 }
-}  // namespace hello
+}  // namespace num
 EOF
 
-  cat << EOF > examples/cpp/hello-world.cc
-#include "examples/cpp/hello-lib.h"
+  cat << EOF > examples/cpp/num-world.cc
+#include "examples/cpp/num-lib.h"
 
-#include <string>
-
-using hello::HelloLib;
-using std::string;
+using num::NumLib;
 
 int main(int argc, char** argv) {
-  HelloLib lib("Hello");
-  string thing = "world";
+  NumLib lib(17);
+  int value = 5;
   if (argc > 1) {
-    thing = argv[1];
+    ++value;
   }
-  lib.greet(thing);
+  lib.add_number(value);
+  lib.add_number_inlined(value);
   return 0;
 }
 EOF
 
   ########### Run bazel coverage ###########
-  bazel coverage  --test_output=all //examples/cpp:hello-world_test &>"$TEST_log" \
-     || fail "Coverage for //examples/cpp:hello-world_test failed"
+  bazel coverage  --test_output=all //examples/cpp:num-world_test &>"$TEST_log" \
+     || fail "Coverage for //examples/cpp:num-world_test failed"
 
   ########### Assert coverage results. ###########
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
-FN:19,_GLOBAL__sub_I_hello_lib.cc
-FN:19,_Z41__static_initialization_and_destruction_0ii
-FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FN:11,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNDA:1,_GLOBAL__sub_I_hello_lib.cc
-FNDA:1,_Z41__static_initialization_and_destruction_0ii
-FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNF:4
-FNH:4
-DA:11,1
-DA:12,1
-DA:14,1
-DA:15,1
-DA:16,1
-DA:17,1
-DA:18,1
-DA:19,3
-LH:8
-LF:8
+  local expected_result_num_lib="SF:examples/cpp/num-lib.cc
+FN:8,_ZN3num6NumLib10add_numberEi
+FN:5,_ZN3num6NumLibC2Ei
+FNDA:1,_ZN3num6NumLib10add_numberEi
+FNDA:1,_ZN3num6NumLibC2Ei
+FNF:2
+FNH:2
+DA:5,1
+DA:6,1
+DA:8,1
+DA:9,1
+DA:10,1
+LH:5
+LF:5
 end_of_record"
-  assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
+  assert_coverage_result "$expected_result_num_lib" "$coverage_file_path"
 
   local expected_result_a_header="SF:examples/cpp/foo/bar/baz/a_header.h
-FN:6,_ZNK1A13cout_whateverEv
-FNDA:1,_ZNK1A13cout_whateverEv
+FN:3,_ZNK1A12num_whateverEv
+FNDA:1,_ZNK1A12num_whateverEv
 FNF:1
 FNH:1
-DA:6,1
-DA:7,1
-DA:8,1
-LH:3
-LF:3
+DA:3,1
+DA:4,1
+LH:2
+LF:2
 end_of_record"
   assert_coverage_result "$expected_result_a_header" "$coverage_file_path"
 
-  local coverage_result_hello_lib_header="SF:examples/cpp/hello-lib.h
-FN:10,_ZN5hello8HelloLibD2Ev
-FNDA:1,_ZN5hello8HelloLibD2Ev
+  local coverage_result_num_lib_header="SF:examples/cpp/num-lib.h
+FN:14,_ZN3num6NumLib18add_number_inlinedEi
+FNDA:1,_ZN3num6NumLib18add_number_inlinedEi
 FNF:1
 FNH:1
-DA:10,1
-LH:1
-LF:1
+DA:14,1
+DA:15,1
+LH:2
+LF:2
 end_of_record"
-  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
+  assert_coverage_result "$coverage_result_num_lib_header" "$coverage_file_path"
 }
 
 function test_cc_test_gcov_multiple_headers() {
@@ -349,14 +331,11 @@ EOF
   cat << EOF > "coverage_srcs/a.cc"
 #include "a.h"
 #include "b.h"
-#include <iostream>
 
 int a(bool what) {
   if (what) {
-    std::cout << "Calling b(1)";
     return b(1);
   } else {
-    std::cout << "Calling b(-1)";
     return b(-1);
   }
 }
@@ -373,11 +352,11 @@ int b(int what) {
 EOF
 
   cat << EOF > "coverage_srcs/t.cc"
-#include <stdio.h>
 #include "a.h"
 
 int main(void) {
   a(true);
+  return 0;
 }
 EOF
 
@@ -388,23 +367,16 @@ EOF
   ##### Putting together the expected coverage results #####
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
   local expected_result_a_cc="SF:coverage_srcs/a.cc
-FN:13,_GLOBAL__sub_I_a.cc
-FN:5,_Z1ab
-FN:13,_Z41__static_initialization_and_destruction_0ii
-FNDA:1,_GLOBAL__sub_I_a.cc
+FN:4,_Z1ab
 FNDA:1,_Z1ab
-FNDA:1,_Z41__static_initialization_and_destruction_0ii
-FNF:3
-FNH:3
+FNF:1
+FNH:1
+DA:4,1
 DA:5,1
 DA:6,1
-DA:7,1
-DA:8,1
-DA:10,0
-DA:11,0
-DA:13,3
-LH:5
-LF:7
+DA:8,0
+LH:3
+LF:4
 end_of_record"
   local expected_result_b_h="SF:coverage_srcs/b.h
 FN:1,_Z1bi
@@ -418,17 +390,7 @@ DA:5,0
 LH:3
 LF:4
 end_of_record"
-  local expected_result_t_cc="SF:coverage_srcs/t.cc
-FN:4,main
-FNDA:1,main
-FNF:1
-FNH:1
-DA:4,1
-DA:5,1
-DA:6,1
-LH:3
-LF:3
-end_of_record"
+  local expected_result_t_cc="SF:coverage_srcs/t.cc"
 
   ############## Asserting the coverage results ##############
   assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
@@ -436,8 +398,6 @@ end_of_record"
   # coverage_srcs/t.cc is not included in the coverage report because the test
   # targets are not instrumented by default.
   assert_not_contains "SF:coverage_srcs/t\.cc" "$coverage_file_path"
-  # iostream should not be in the final coverage report because it is a syslib
-  assert_not_contains "iostream" "$coverage_file_path"
 }
 
 function test_cc_test_gcov_multiple_headers_instrument_test_target() {
@@ -467,14 +427,11 @@ EOF
   cat << EOF > "coverage_srcs/a.cc"
 #include "a.h"
 #include "b.h"
-#include <iostream>
 
 int a(bool what) {
   if (what) {
-    std::cout << "Calling b(1)";
     return b(1);
   } else {
-    std::cout << "Calling b(-1)";
     return b(-1);
   }
 }
@@ -491,11 +448,13 @@ int b(int what) {
 EOF
 
   cat << EOF > "coverage_srcs/t.cc"
-#include <stdio.h>
+#include <iostream>
 #include "a.h"
 
 int main(void) {
   a(true);
+  std::cout << "Using system lib";
+  return 0;
 }
 EOF
 
@@ -506,23 +465,16 @@ EOF
   ##### Putting together the expected coverage results #####
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
   local expected_result_a_cc="SF:coverage_srcs/a.cc
-FN:13,_GLOBAL__sub_I_a.cc
-FN:5,_Z1ab
-FN:13,_Z41__static_initialization_and_destruction_0ii
-FNDA:1,_GLOBAL__sub_I_a.cc
+FN:4,_Z1ab
 FNDA:1,_Z1ab
-FNDA:1,_Z41__static_initialization_and_destruction_0ii
-FNF:3
-FNH:3
+FNF:1
+FNH:1
+DA:4,1
 DA:5,1
 DA:6,1
-DA:7,1
-DA:8,1
-DA:10,0
-DA:11,0
-DA:13,3
-LH:5
-LF:7
+DA:8,0
+LH:3
+LF:4
 end_of_record"
   local expected_result_b_h="SF:coverage_srcs/b.h
 FN:1,_Z1bi
@@ -536,25 +488,17 @@ DA:5,0
 LH:3
 LF:4
 end_of_record"
-  local expected_result_t_cc="SF:coverage_srcs/t.cc
-FN:4,main
-FNDA:1,main
-FNF:1
-FNH:1
-DA:4,1
-DA:5,1
-DA:6,1
-LH:3
-LF:3
-end_of_record"
+  local expected_result_t_cc="SF:coverage_srcs/t.cc"
 
   ############## Asserting the coverage results ##############
   assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
   assert_coverage_result "$expected_result_b_h" "$coverage_file_path"
-  # coverage_srcs/t.cc should be included in the coverage report
-  assert_coverage_result "$expected_result_t_cc" "$coverage_file_path"
-  # iostream should not be in the final coverage report because it is a syslib
+  # iostream should not be in the final coverage report because it is a syslib.
   assert_not_contains "iostream" "$coverage_file_path"
+  # coverage_srcs/t.cc should be included in the coverage report. We don't check
+  # for the full contents of the t.cc report because it might vary from system
+  # to system depending on the system headers.
+  assert_coverage_result "$expected_result_t_cc" "$coverage_file_path"
 }
 
 function test_cc_test_gcov_same_header_different_libs() {

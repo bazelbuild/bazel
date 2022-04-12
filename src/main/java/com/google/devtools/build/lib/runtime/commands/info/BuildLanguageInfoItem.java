@@ -21,7 +21,7 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -55,7 +55,8 @@ public final class BuildLanguageInfoItem extends InfoItem {
   }
 
   @Override
-  public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+  public byte[] get(
+      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(env);
     return print(getBuildLanguageDefinition(env.getRuntime().getRuleClassProvider()));
   }
@@ -119,8 +120,7 @@ public final class BuildLanguageInfoItem extends InfoItem {
       for (Map.Entry<?, ?> entry : ((Map<?, ?>) v).entrySet()) {
         b.addDictBuilder()
             .setKey(entry.getKey().toString())
-            .setValue(convertAttrValue(dictType.getValueType(), entry.getValue()))
-            .build();
+            .setValue(convertAttrValue(dictType.getValueType(), entry.getValue()));
       }
     } else if (v instanceof List) {
       for (Object elem : (List<?>) v) {

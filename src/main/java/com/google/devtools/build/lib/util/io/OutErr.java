@@ -31,9 +31,7 @@ public class OutErr implements Closeable {
 
   public static final OutErr SYSTEM_OUT_ERR = create(System.out, System.err);
 
-  /**
-   * Creates a new OutErr instance from the specified output and error streams.
-   */
+  /** Creates a new OutErr instance from the specified output and error streams. */
   public static OutErr create(OutputStream out, OutputStream err) {
     return new OutErr(out, err);
   }
@@ -55,38 +53,43 @@ public class OutErr implements Closeable {
     }
   }
 
+  /** Returns a {@link SystemPatcher} that uses this instance's out and err streams. */
+  public final SystemPatcher getSystemPatcher() {
+    return new SystemPatcher(out, err);
+  }
+
   /**
    * Temporarily patches {@link System#out} and {@link System#err} with custom streams.
    *
    * <p>{@link #start} is called to signal the beginning of the scope of the patch. {@link #close}
    * ends the scope of the patch, returning {@link System#out} and {@link System#err} to what they
-   * were before.
+   * were when this instance was instantiated.
    */
-  public interface SystemPatcher extends AutoCloseable {
-    void start();
-  }
+  public static class SystemPatcher implements AutoCloseable {
+    private final PrintStream savedOut;
+    private final PrintStream savedErr;
+    private final SwitchingPrintStream outPatch;
+    private final SwitchingPrintStream errPatch;
 
-  /** Returns a {@link SystemPatcher} that uses this instance's out and err streams. */
-  public final SystemPatcher getSystemPatcher() {
-    PrintStream savedOut = System.out;
-    PrintStream savedErr = System.err;
-    SwitchingPrintStream outPatch = new SwitchingPrintStream(out);
-    SwitchingPrintStream errPatch = new SwitchingPrintStream(err);
-    return new SystemPatcher() {
-      @Override
-      public void start() {
-        System.setOut(outPatch);
-        System.setErr(errPatch);
-      }
+    private SystemPatcher(OutputStream overrideOut, OutputStream overrideErr) {
+      this.savedOut = System.out;
+      this.savedErr = System.err;
+      this.outPatch = new SwitchingPrintStream(overrideOut);
+      this.errPatch = new SwitchingPrintStream(overrideErr);
+    }
 
-      @Override
-      public void close() {
-        System.setOut(savedOut);
-        System.setErr(savedErr);
-        outPatch.switchBackTo(savedOut);
-        errPatch.switchBackTo(savedErr);
-      }
-    };
+    public void start() {
+      System.setOut(outPatch);
+      System.setErr(errPatch);
+    }
+
+    @Override
+    public void close() {
+      System.setOut(savedOut);
+      System.setErr(savedErr);
+      outPatch.switchBackTo(savedOut);
+      errPatch.switchBackTo(savedErr);
+    }
   }
 
   /**
@@ -109,38 +112,38 @@ public class OutErr implements Closeable {
   }
 
   /**
-   * Creates a new OutErr instance from the specified stream.
-   * Writes to either the output or err of the new OutErr are written
-   * to outputStream, synchronized.
+   * Creates a new OutErr instance from the specified stream. Writes to either the output or err of
+   * the new OutErr are written to outputStream, synchronized.
    */
   public static OutErr createSynchronizedFunnel(final OutputStream outputStream) {
-    OutputStream syncOut = new OutputStream() {
+    OutputStream syncOut =
+        new OutputStream() {
 
-      @Override
-      public synchronized void write(int b) throws IOException {
-        outputStream.write(b);
-      }
+          @Override
+          public synchronized void write(int b) throws IOException {
+            outputStream.write(b);
+          }
 
-      @Override
-      public synchronized void write(byte b[]) throws IOException {
-        outputStream.write(b);
-      }
+          @Override
+          public synchronized void write(byte[] b) throws IOException {
+            outputStream.write(b);
+          }
 
-      @Override
-      public synchronized  void write(byte b[], int off, int len) throws IOException {
-        outputStream.write(b, off, len);
-      }
+          @Override
+          public synchronized void write(byte[] b, int off, int len) throws IOException {
+            outputStream.write(b, off, len);
+          }
 
-      @Override
-      public synchronized void flush() throws IOException {
-        outputStream.flush();
-      }
+          @Override
+          public synchronized void flush() throws IOException {
+            outputStream.flush();
+          }
 
-      @Override
-      public synchronized void close() throws IOException {
-        outputStream.close();
-      }
-    };
+          @Override
+          public synchronized void close() throws IOException {
+            outputStream.close();
+          }
+        };
 
     return create(syncOut, syncOut);
   }
@@ -153,9 +156,7 @@ public class OutErr implements Closeable {
     return err;
   }
 
-  /**
-   * Writes the specified string to the output stream, and flushes.
-   */
+  /** Writes the specified string to the output stream, and flushes. */
   public void printOut(String s) {
     PrintWriter writer = new PrintWriter(out, true);
     writer.print(s);
@@ -166,9 +167,7 @@ public class OutErr implements Closeable {
     printOut(s + "\n");
   }
 
-  /**
-   * Writes the specified string to the error stream, and flushes.
-   */
+  /** Writes the specified string to the error stream, and flushes. */
   public void printErr(String s) {
     PrintWriter writer = new PrintWriter(err, true);
     writer.print(s);
@@ -178,5 +177,4 @@ public class OutErr implements Closeable {
   public void printErrLn(String s) {
     printErr(s + "\n");
   }
-
 }

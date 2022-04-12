@@ -371,7 +371,7 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-lstdc++",
+                                "-lc++",
                                 "-Wl,-z,relro,-z,now",
                                 "-no-canonical-prefixes",
                             ],
@@ -395,7 +395,7 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-lstdc++",
+                                "-lc++",
                                 "-undefined",
                                 "dynamic_lookup",
                                 "-headerpad_max_install_names",
@@ -1159,7 +1159,6 @@ def _impl(ctx):
         features = [
             default_compile_flags_feature,
             default_link_flags_feature,
-            supports_dynamic_linker_feature,
             supports_pic_feature,
             objcopy_embed_flags_feature,
             dbg_feature,

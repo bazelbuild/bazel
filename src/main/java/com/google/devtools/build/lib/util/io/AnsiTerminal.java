@@ -170,8 +170,8 @@ public class AnsiTerminal {
   }
 
   /**
-   * Writes a byte sequence to the terminal using the current font, color and
-   * cursor position settings.
+   * Writes a byte sequence to the terminal using the current font, color and cursor position
+   * settings.
    *
    * @param bytes the bytes to write
    */
@@ -180,23 +180,11 @@ public class AnsiTerminal {
   }
 
   /**
-   * Utility method which makes it easier to generate the control sequences for
-   * the terminal.
+   * Utility method for generating control sequences. Takes a collection of byte arrays, which
+   * contain the components of a control sequence, concatenates them, and prints them to the
+   * terminal.
    *
-   * @param bytes bytes which should be prefixed with the terminal escape
-   *        sequence to produce a valid control sequence
-   */
-  private void writeEscapeSequence(byte... bytes) throws IOException {
-    writeBytes(ESC, bytes);
-  }
-
-  /**
-   * Utility method for generating control sequences. Takes a collection of byte
-   * arrays, which contain the components of a control sequence, concatenates
-   * them, and prints them to the terminal.
-   *
-   * @param stuff the byte arrays that make up the sequence to be sent to the
-   *        terminal
+   * @param stuff the byte arrays that make up the sequence to be sent to the terminal
    */
   private void writeBytes(byte[]... stuff) throws IOException {
     for (byte[] bytes : stuff) {
@@ -205,16 +193,23 @@ public class AnsiTerminal {
   }
 
   /**
-   * Sends a carriage return to the terminal.
+   * Utility method which makes it easier to generate the control sequences for the terminal.
+   *
+   * @param bytes bytes which should be prefixed with the terminal escape sequence to produce a
+   *     valid control sequence
    */
+  private void writeEscapeSequence(byte... bytes) throws IOException {
+    writeBytes(ESC, bytes);
+  }
+
+  /** Sends a carriage return to the terminal. */
   public void cr() throws IOException {
     writeBytes(CR);
   }
 
   /**
-   * Flushes the underlying stream.
-   * This class does not do any buffering of its own, but the underlying
-   * OutputStream may.
+   * Flushes the underlying stream. This class does not do any buffering of its own, but the
+   * underlying OutputStream may.
    */
   public void flush() throws IOException {
     out.flush();

@@ -72,8 +72,31 @@ public interface StarlarkValue {
     return false;
   }
 
-  /** Reports whether the Starlark value is hashable and thus suitable as a dict key. */
-  default boolean isHashable() {
-    return this.isImmutable();
+  /**
+   * Returns normally if the Starlark value is hashable and thus suitable as a dict key.
+   *
+   * <p>(A StarlarkValue implementation may define hashCode and equals and thus be a valid
+   * java.util.Map key without being hashable by Starlark code.)
+   *
+   * @throws EvalException otherwise.
+   */
+  default void checkHashable() throws EvalException {
+    // Bazel makes widespread assumptions that all Starlark values can be hashed
+    // by Java code, so we cannot implement checkHashable by having
+    // StarlarkValue.hashCode throw an unchecked exception, which would be more
+    // efficient. Instead, before inserting a value in a dict, we must first check
+    // whether it is hashable by calling this function, and then call its hashCode
+    // method only if so.
+    // For structs and tuples, this unfortunately visits the object graph twice.
+    //
+    // One subtlety: Bazel's lib.packages.StarlarkInfo.checkHashable, by using this
+    // default implementation of checkHashable, which is based on isImmutable,
+    // recursively asks whether its elements are immutable, not hashable.
+    // Consequently, even though a list may not be used as a dict key (even if frozen),
+    // a struct containing a list is hashable.
+    // TODO(adonovan): fix this inconsistency. Requires a Bazel incompatible change.
+    if (!this.isImmutable()) {
+      throw Starlark.errorf("unhashable type: '%s'", Starlark.type(this));
+    }
   }
 }

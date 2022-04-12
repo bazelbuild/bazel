@@ -1,0 +1,42 @@
+ProGuard, Java class file shrinker, optimizer, obfuscator, and preverifier
+==========================================================================
+
+This distribution contains the following directories:
+
+- bin          : simple wrapper scripts to run ProGuard, its GUI, and ReTrace
+- lib          : the main jars, compiled and ready to use with "java -jar ...."
+- docs         : the complete documentation, licenses, etc. in html format
+- examples     : some example configuration files
+
+It also contains the source code and builds scripts:
+
+- core         : the ProGuard core
+- retrace      : the ReTrace tool
+- gui          : the ProGuard/ReTrace GUI
+- gradle       : the ProGuard Gradle plugin
+- ant          : the ProGuard Ant plugin
+- wtk          : the ProGuard WTK plugin
+- annotations  : the optional annotations to configure ProGuard
+- buildscripts : various alternative build scripts
+
+
+The best place to start is docs/index.html
+
+
+Example
+-------
+
+If you want to give ProGuard a spin right away, try processing the ProGuard
+jar itself:
+
+    cd examples/standalone
+    ../../bin/proguard.sh @ proguard.pro
+
+The resulting proguard_out.jar contains the same application, but it's a lot
+smaller.
+
+Enjoy!
+
+https://www.guardsquare.com/proguard
+
+Copyright (c) 2002-2018 Eric Lafortune @ GuardSquare

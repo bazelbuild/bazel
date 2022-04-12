@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import java.util.OptionalLong;
 
 /** Provides loaded-package validation functionality. */
 public interface PackageValidator {
 
   /** No-op implementation of {@link PackageValidator}. */
-  PackageValidator NOOP_VALIDATOR = (pkg, eventHandler) -> {};
+  PackageValidator NOOP_VALIDATOR = (pkg, overhead, eventHandler) -> {};
 
   /** Thrown when a package is deemed invalid. */
   class InvalidPackageException extends NoSuchPackageException {
@@ -39,5 +40,6 @@ public interface PackageValidator {
    * Validates a loaded package. Throws {@link InvalidPackageException} if the package is deemed
    * invalid.
    */
-  void validate(Package pkg, ExtendedEventHandler eventHandler) throws InvalidPackageException;
+  void validate(Package pkg, OptionalLong packageOverhead, ExtendedEventHandler eventHandler)
+      throws InvalidPackageException;
 }

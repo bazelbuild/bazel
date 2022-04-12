@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.PythonInfo;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PseudoAction;
@@ -36,7 +35,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -51,14 +50,15 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -67,20 +67,13 @@ import net.starlark.java.eval.Starlark;
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
 
+  private static final InstrumentationSpec INSTRUMENTATION_SPEC =
+      new InstrumentationSpec(FileTypeSet.of(PyRuleClasses.PYTHON_SOURCE))
+          .withSourceAttributes("srcs")
+          .withDependencyAttributes("deps", "data");
+
   /** Name of the version attribute. */
   public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
-
-  /**
-   * Name of the tag used by bazelbuild/rules_python to signal that a rule was instantiated through
-   * that repo.
-   */
-  private static final String MAGIC_TAG = "__PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
-  /**
-   * Names of native rules that must be instantiated through bazelbuild/rules_python when {@code
-   * --incompatible_load_python_rules_from_bzl} is enabled.
-   */
-  private static final ImmutableList<String> RULES_REQUIRING_MAGIC_TAG =
-      ImmutableList.of("py_library", "py_binary", "py_test", "py_runtime");
 
   /**
    * Returns the Python version based on the {@code python_version} attribute of the given {@code
@@ -100,14 +93,6 @@ public final class PyCommon {
         PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
     return pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL ? pythonVersionAttr : null;
   }
-
-  private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
-    @Override
-    public void collectMetadataArtifacts(Iterable<Artifact> artifacts,
-        AnalysisEnvironment analysisEnvironment, NestedSetBuilder<Artifact> metadataFilesBuilder) {
-      // Python doesn't do any compilation, so we simply return the empty set.
-    }
-  };
 
   /** The context for the target this {@code PyCommon} is helping to analyze. */
   private final RuleContext ruleContext;
@@ -140,6 +125,17 @@ public final class PyCommon {
    * sources in this target's {@code srcs}.
    */
   private final NestedSet<Artifact> transitivePythonSources;
+
+  /**
+   * The Python sources from this target's {@code srcs}.
+   *
+   * <p>This is computed slightly differently than the difference between {@link
+   * #dependencyTransitivePythonSources} and {@link transitivePythonSources}; it includes the
+   * filesToBuild rather than the prerequisite artifacts.
+   */
+  // TODO(bazel-team): Can this be simplified to instead just be (transitivePythonSources -
+  // dependencyTransitivePythonSources)?
+  private final List<Artifact> directPythonSources;
 
   /** Whether this target or any of its {@code deps} or {@code data} deps has a shared library. */
   private final boolean usesSharedLibraries;
@@ -174,12 +170,8 @@ public final class PyCommon {
    */
   @Nullable private final PyRuntimeInfo runtimeFromToolchain;
 
-  /**
-   * Symlink map from root-relative paths to 2to3 converted source artifacts.
-   *
-   * <p>Null if no 2to3 conversion is required.
-   */
-  @Nullable private final Map<PathFragment, Artifact> convertedFiles;
+  // Null if requiresMainFile is false, or the main artifact couldn't be determined.
+  @Nullable private Artifact mainArtifact = null;
 
   private Artifact executable = null;
 
@@ -191,22 +183,31 @@ public final class PyCommon {
         fieldName, expected.getStarlarkName(), actual.getStarlarkName());
   }
 
-  public PyCommon(RuleContext ruleContext, PythonSemantics semantics) {
+  // TODO(bazel-team): validateSources is the result of refactoring while preserving
+  // legacy behavior across some (but not all) Google-internal uses of PyCommon. Ideally all call
+  // sites should be updated to expect the same validation steps.
+  public PyCommon(
+      RuleContext ruleContext,
+      PythonSemantics semantics,
+      boolean validateSources,
+      boolean requiresMainFile) {
     this.ruleContext = ruleContext;
     this.semantics = semantics;
     this.version = ruleContext.getFragment(PythonConfiguration.class).getPythonVersion();
     this.sourcesVersion = initSrcsVersionAttr(ruleContext);
     this.dependencyTransitivePythonSources = initDependencyTransitivePythonSources(ruleContext);
     this.transitivePythonSources = initTransitivePythonSources(ruleContext);
+    this.mainArtifact = requiresMainFile ? initMainArtifact(ruleContext) : null;
+    this.directPythonSources =
+        initAndMaybeValidateDirectPythonSources(
+            ruleContext, semantics, /*validate=*/ validateSources, this.mainArtifact);
     this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
     this.imports = initImports(ruleContext, semantics);
     this.hasPy2OnlySources = initHasPy2OnlySources(ruleContext, this.sourcesVersion);
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
     this.runtimeFromToolchain = initRuntimeFromToolchain(ruleContext, this.version);
-    this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
     validatePythonVersionAttr();
     validateLegacyProviderNotUsedIfDisabled();
-    maybeValidateLoadedFromBzl();
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -255,6 +256,36 @@ public final class PyCommon {
             "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
+  }
+
+  private static List<Artifact> initAndMaybeValidateDirectPythonSources(
+      RuleContext ruleContext, PythonSemantics semantics, boolean validate, Artifact mainArtifact) {
+    List<Artifact> sourceFiles = new ArrayList<>();
+    // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
+    for (TransitiveInfoCollection src :
+        ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
+      // Make sure that none of the sources contain hyphens.
+      if (validate
+          && semantics.prohibitHyphensInPackagePaths()
+          && Util.containsHyphen(src.getLabel().getPackageFragment())
+          // It's ok to have hyphens in main file - usually no one imports it.
+          && (mainArtifact == null || !src.getLabel().equals(mainArtifact.getOwnerLabel()))) {
+        ruleContext.attributeError(
+            "srcs",
+            src.getLabel()
+                + ": paths to Python sources (besides the main source) may not contain '-'");
+      }
+      Iterable<Artifact> pySrcs =
+          FileType.filter(
+              src.getProvider(FileProvider.class).getFilesToBuild().toList(),
+              PyRuleClasses.PYTHON_SOURCE);
+      Iterables.addAll(sourceFiles, pySrcs);
+      if (validate && Iterables.isEmpty(pySrcs)) {
+        ruleContext.attributeWarning(
+            "srcs", "rule '" + src.getLabel() + "' does not produce any Python source files");
+      }
+    }
+    return sourceFiles;
   }
 
   /**
@@ -312,12 +343,11 @@ public final class PyCommon {
 
   /**
    * Returns true if any of {@code deps} has a py provider with {@code has_py2_only_sources} set, or
-   * this target has a {@code srcs_version} of {@code PY2ONLY}.
+   * this target has a {@code srcs_version} of {@code PY2} or {@code PY2ONLY}.
    */
-  // TODO(#1393): For Bazel, deprecate 2to3 support and treat PY2 the same as PY2ONLY.
   private static boolean initHasPy2OnlySources(
       RuleContext ruleContext, PythonVersion sourcesVersion) {
-    if (sourcesVersion == PythonVersion.PY2ONLY) {
+    if (sourcesVersion == PythonVersion.PY2 || sourcesVersion == PythonVersion.PY2ONLY) {
       return true;
     }
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
@@ -472,27 +502,6 @@ public final class PyCommon {
   }
 
   /**
-   * If 2to3 conversion is to be done, creates the 2to3 actions and returns the map of converted
-   * files; otherwise returns null.
-   *
-   * <p>May also return null and report a rule error if there is a problem creating an output file
-   * for 2to3 conversion.
-   */
-  // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
-  // should be removed / factored away into PythonSemantics.
-  @Nullable
-  private static Map<PathFragment, Artifact> makeAndInitConvertedFiles(
-      RuleContext ruleContext, PythonVersion version, PythonVersion sourcesVersion) {
-    if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
-      Iterable<Artifact> artifacts =
-          ruleContext.getPrerequisiteArtifacts("srcs").filter(PyRuleClasses.PYTHON_SOURCE).list();
-      return PythonUtils.generate2to3Actions(ruleContext, artifacts);
-    } else {
-      return null;
-    }
-  }
-
-  /**
    * Reports an attribute error if {@code python_version} cannot be parsed as {@code PY2}, {@code
    * PY3}, or the sentinel value.
    *
@@ -536,35 +545,6 @@ public final class PyCommon {
   }
 
   /**
-   * If {@code --incompatible_load_python_rules_from_bzl} is enabled, reports a rule error if the
-   * rule is one of the ones that has a redirect in bazelbuild/rules_python, and either 1) the magic
-   * tag {@code __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__} is not present, or 2) the target
-   * was not created in a macro.
-   *
-   * <p>No-op otherwise.
-   */
-  private void maybeValidateLoadedFromBzl() {
-    if (!ruleContext.getFragment(PythonConfiguration.class).loadPythonRulesFromBzl()) {
-      return;
-    }
-    String ruleName = ruleContext.getRule().getRuleClass();
-    if (!RULES_REQUIRING_MAGIC_TAG.contains(ruleName)) {
-      return;
-    }
-
-    boolean hasMagicTag =
-        ruleContext.attributes().get("tags", Type.STRING_LIST).contains(MAGIC_TAG);
-    if (!hasMagicTag || !ruleContext.getRule().wasCreatedByMacro()) {
-      ruleContext.ruleError(
-          "Direct access to the native Python rules is deprecated. Please load "
-              + ruleName
-              + " from the rules_python repository. See http://github.com/bazelbuild/rules_python "
-              + "and https://github.com/bazelbuild/bazel/issues/9006. You can temporarily bypass "
-              + "this error by setting --incompatible_load_python_rules_from_bzl=false.");
-    }
-  }
-
-  /**
    * If the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
    * the executable.
@@ -582,8 +562,7 @@ public final class PyCommon {
             + ": "
             + "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
-            + "version requirement by running the `find_requirements` aspect. If this is used in a "
-            + "genrule, you may need to migrate from tools to exec_tools. For more info see "
+            + "version requirement by running the `find_requirements` aspect. For more info see "
             + "the documentation for the `srcs_version` attribute: "
             + semantics.getSrcsVersionDocURL();
 
@@ -661,7 +640,7 @@ public final class PyCommon {
       return false;
     }
     // Only warn in the host config.
-    if (!ruleContext.getConfiguration().isHostConfiguration()) {
+    if (!ruleContext.getConfiguration().isToolConfiguration()) {
       return false;
     }
 
@@ -743,14 +722,9 @@ public final class PyCommon {
     return runtimeFromToolchain;
   }
 
-  public Map<PathFragment, Artifact> getConvertedFiles() {
-    return convertedFiles;
-  }
-
   public void initBinary(List<Artifact> srcs) {
     Preconditions.checkNotNull(version);
 
-    validatePackageName();
     if (OS.getCurrent() == OS.WINDOWS) {
       executable =
           ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
@@ -784,7 +758,9 @@ public final class PyCommon {
     // On Linux, the Python executable has no extension.
     // We can't use ruleContext#getRelatedArtifact because it would mangle files with dots in the
     // name on non-Windows platforms.
-    PathFragment pathFragment = executable.getRootRelativePath();
+    PathFragment pathFragment =
+        executable.getOutputDirRelativePath(
+            ruleContext.getConfiguration().isSiblingRepositoryLayout());
     String fileName = executable.getFilename();
     if (OS.getCurrent() == OS.WINDOWS) {
       Preconditions.checkArgument(fileName.endsWith(".exe"));
@@ -810,7 +786,10 @@ public final class PyCommon {
 
   /** Returns an artifact next to the executable file with no suffix. Only called for Windows. */
   public Artifact getPythonStubArtifactForWindows(Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), "");
+    return ruleContext.getRelatedArtifact(
+        executable.getOutputDirRelativePath(
+            ruleContext.getConfiguration().isSiblingRepositoryLayout()),
+        "");
   }
 
   /**
@@ -842,54 +821,16 @@ public final class PyCommon {
 
     builder
         .addNativeDeclaredProvider(
-            InstrumentedFilesCollector.collect(
-                ruleContext,
-                semantics.getCoverageInstrumentationSpec(),
-                METADATA_COLLECTOR,
-                filesToBuild.toList(),
-                /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
+            InstrumentedFilesCollector.collect(ruleContext, INSTRUMENTATION_SPEC))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)
         .addOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES, transitivePythonSources);
   }
 
-  /**
-   * Returns a mutable List of the source Artifacts.
-   */
-  public List<Artifact> validateSrcs() {
-    List<Artifact> sourceFiles = new ArrayList<>();
-    // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
-    for (TransitiveInfoCollection src :
-        ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
-      // Make sure that none of the sources contain hyphens.
-      if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
-        ruleContext.attributeError("srcs",
-            src.getLabel() + ": paths to Python packages may not contain '-'");
-      }
-      Iterable<Artifact> pySrcs =
-          FileType.filter(
-              src.getProvider(FileProvider.class).getFilesToBuild().toList(),
-              PyRuleClasses.PYTHON_SOURCE);
-      Iterables.addAll(sourceFiles, pySrcs);
-      if (Iterables.isEmpty(pySrcs)) {
-        ruleContext.attributeWarning("srcs",
-            "rule '" + src.getLabel() + "' does not produce any Python source files");
-      }
-    }
-
-    return convertedFiles != null
-        ? ImmutableList.copyOf(convertedFiles.values())
-        : sourceFiles;
-  }
-
-  /**
-   * Checks that the package name of this Python rule does not contain a '-'.
-   */
-  void validatePackageName() {
-    if (Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
-      ruleContext.ruleError("paths to Python packages may not contain '-'");
-    }
+  /** Returns a list of the source artifacts */
+  public List<Artifact> getPythonSources() {
+    return directPythonSources;
   }
 
   /**
@@ -939,11 +880,11 @@ public final class PyCommon {
         info);
   }
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final GeneratedExtension<ExtraActionInfo, PythonInfo> PYTHON_INFO = PythonInfo.pythonInfo;
 
-  /** @return A String that is the full path to the main python entry point. */
-  public String determineMainExecutableSource(boolean withWorkspaceName) {
+  /** Returns the artifact for the main Python source file. */
+  private static Artifact initMainArtifact(RuleContext ruleContext) {
     String mainSourceName;
     Rule target = ruleContext.getRule();
     boolean explicitMain = target.isAttributeValueExplicitlySpecified("main");
@@ -954,6 +895,7 @@ public final class PyCommon {
       }
     } else {
       String ruleName = target.getName();
+      // TODO(blaze-team) Shouldn't the same check apply for all Python targets?
       if (ruleName.endsWith(".py")) {
         ruleContext.attributeError("name", "name must not end in '.py'");
       }
@@ -967,8 +909,11 @@ public final class PyCommon {
         if (mainArtifact == null) {
           mainArtifact = outItem;
         } else {
-          ruleContext.attributeError("srcs",
-              buildMultipleMainMatchesErrorText(explicitMain, mainSourceName,
+          ruleContext.attributeError(
+              "srcs",
+              buildMultipleMainMatchesErrorText(
+                  explicitMain,
+                  mainSourceName,
                   mainArtifact.getRunfilesPath().toString(),
                   outItem.getRunfilesPath().toString()));
         }
@@ -977,6 +922,18 @@ public final class PyCommon {
 
     if (mainArtifact == null) {
       ruleContext.attributeError("srcs", buildNoMainMatchesErrorText(explicitMain, mainSourceName));
+    }
+
+    return mainArtifact;
+  }
+
+  /**
+   * Returns the path to the main python entry point, or null if this PyCommon was initialized with
+   * {@code requiresMainFile} set to false (or there was an error in determining the main artifact).
+   */
+  @Nullable
+  public String determineMainExecutableSource(boolean withWorkspaceName) {
+    if (mainArtifact == null) {
       return null;
     }
     if (!withWorkspaceName) {
@@ -1015,17 +972,21 @@ public final class PyCommon {
     }
   }
 
-  private static String buildMultipleMainMatchesErrorText(boolean explicit, String proposedMainName,
-      String match1, String match2) {
+  private static String buildMultipleMainMatchesErrorText(
+      boolean explicit, String proposedMainName, String match1, String match2) {
     String errorText;
     if (explicit) {
-      errorText = "file name '" + proposedMainName
-          + "' specified by 'main' attribute matches multiple files: e.g., '" + match1
-          + "' and '" + match2 + "'";
+      errorText =
+          String.format(
+              "file name '%s' specified by 'main' attribute matches multiple files: e.g., '%s' and"
+                  + " '%s'",
+              proposedMainName, match1, match2);
     } else {
-      errorText = "default main file name '" + proposedMainName
-          + "' matches multiple files.  Perhaps specify an explicit file with 'main' attribute?  "
-          + "Matches were: '" + match1 + "' and '" + match2 + "'";
+      errorText =
+          String.format(
+              "default main file name '%s' matches multiple files.  Perhaps specify an explicit"
+                  + " file with 'main' attribute?  Matches were: '%s' and '%s'",
+              proposedMainName, match1, match2);
     }
     return errorText;
   }
@@ -1033,11 +994,13 @@ public final class PyCommon {
   private static String buildNoMainMatchesErrorText(boolean explicit, String proposedMainName) {
     String errorText;
     if (explicit) {
-      errorText = "could not find '" + proposedMainName
-          + "' as specified by 'main' attribute";
+      errorText = "could not find '" + proposedMainName + "' as specified by 'main' attribute";
     } else {
-      errorText = "corresponding default '" + proposedMainName + "' does not appear in srcs. Add it"
-          + " or override default file name with a 'main' attribute";
+      errorText =
+          String.format(
+              "corresponding default '%s' does not appear in srcs. Add it or override default file"
+                  + " name with a 'main' attribute",
+              proposedMainName);
     }
     return errorText;
   }
@@ -1047,9 +1010,12 @@ public final class PyCommon {
   private static final class PyPseudoAction extends PseudoAction<PythonInfo> {
     private static final UUID ACTION_UUID = UUID.fromString("8d720129-bc1a-481f-8c4c-dbe11dcef319");
 
-    public PyPseudoAction(ActionOwner owner,
-        NestedSet<Artifact> inputs, Collection<Artifact> outputs,
-        String mnemonic, GeneratedExtension<ExtraActionInfo, PythonInfo> infoExtension,
+    public PyPseudoAction(
+        ActionOwner owner,
+        NestedSet<Artifact> inputs,
+        Collection<Artifact> outputs,
+        String mnemonic,
+        GeneratedExtension<ExtraActionInfo, PythonInfo> infoExtension,
         PythonInfo info) {
       super(ACTION_UUID, owner, inputs, outputs, mnemonic, infoExtension, info);
     }

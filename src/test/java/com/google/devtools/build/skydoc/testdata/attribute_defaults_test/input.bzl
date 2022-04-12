@@ -52,6 +52,6 @@ my_rule = rule(
         "t": attr.string_list_dict(mandatory = True, doc = "Some string_list_dict"),
         "u": attr.string(),
         "v": attr.label(),
-        "w": attr.int()
+        "w": attr.int(),
     },
 )

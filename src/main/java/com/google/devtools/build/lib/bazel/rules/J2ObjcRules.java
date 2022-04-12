@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
+import com.google.devtools.build.lib.bazel.rules.objc.BazelJ2ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.objc.J2ObjcAspect;
 import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryBaseRule;
-import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryRule;
 
 /**
  * Rules for supporting transpilation from Java to Objective-C in Bazel.
@@ -33,11 +34,11 @@ public class J2ObjcRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(builder);
+    J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(builder, BazelCppSemantics.OBJC);
 
     builder.addNativeAspectClass(j2ObjcAspect);
-    builder.addRuleDefinition(new J2ObjcLibraryBaseRule());
-    builder.addRuleDefinition(new J2ObjcLibraryRule(j2ObjcAspect));
+    builder.addRuleDefinition(new J2ObjcLibraryBaseRule(j2ObjcAspect));
+    builder.addRuleDefinition(new BazelJ2ObjcLibraryRule());
   }
 
   @Override

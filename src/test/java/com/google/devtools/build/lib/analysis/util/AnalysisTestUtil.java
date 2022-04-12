@@ -32,16 +32,19 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -49,6 +52,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.shell.Command;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -59,12 +63,12 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -98,13 +102,13 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... actions) {
-      Collections.addAll(this.actions, actions);
-      original.registerAction(actions);
+    public void registerAction(ActionAnalysisMetadata action) {
+      this.actions.add(action);
+      original.registerAction(action);
     }
 
     /** Calls {@link MutableActionGraph#registerAction} for all collected actions. */
-    public void registerWith(MutableActionGraph actionGraph) {
+    public void registerWith(MutableActionGraph actionGraph) throws InterruptedException {
       for (ActionAnalysisMetadata action : actions) {
         try {
           actionGraph.registerAction(action);
@@ -182,8 +186,13 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() {
       return original.getStarlarkSemantics();
+    }
+
+    @Override
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+      return original.getStarlarkDefinedBuiltins();
     }
 
     @Override
@@ -198,7 +207,8 @@ public final class AnalysisTestUtil {
 
     @Override
     public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfiguration config) throws InterruptedException {
+        boolean stamp, BuildInfoKey key, BuildConfigurationValue config)
+        throws InterruptedException {
       return original.getBuildInfo(stamp, key, config);
     }
 
@@ -335,6 +345,12 @@ public final class AnalysisTestUtil {
             return null;
           }
 
+          @Nullable
+          @Override
+          public BuildConfigurationKey getConfigurationKey() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;
@@ -342,8 +358,7 @@ public final class AnalysisTestUtil {
         };
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... action) {
-    }
+    public void registerAction(ActionAnalysisMetadata action) {}
 
     @Override
     public boolean hasErrors() {
@@ -401,6 +416,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+      return null;
+    }
+
+    @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
@@ -429,7 +449,7 @@ public final class AnalysisTestUtil {
 
     @Override
     public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfiguration config) {
+        boolean stamp, BuildInfoKey key, BuildConfigurationValue config) {
       return ImmutableList.of();
     }
 
@@ -454,11 +474,39 @@ public final class AnalysisTestUtil {
     }
   }
 
-  /**
-   * Matches the output path prefix contributed by a C++ configuration fragment.
-   */
-  public static final Pattern OUTPUT_PATH_CPP_PREFIX_PATTERN =
+  /** Matches the output path prefix contributed by a C++ configuration fragment. */
+  private static final Pattern OUTPUT_PATH_CPP_PREFIX_PATTERN =
       Pattern.compile("(?<=" + TestConstants.PRODUCT_NAME + "-out/)gcc[^/]*-grte-\\w+-");
+
+  /** Matches the output path prefix contributed by an Android configuration fragment. */
+  private static final Pattern OUTPUT_PATH_ANDROID_PREFIX_PATTERN =
+      Pattern.compile("(?<=" + TestConstants.PRODUCT_NAME + "-out/)android-");
+
+  /**
+   * Apply {@code function} to the path string of the given ArtifactRoot. If the root path matches
+   * {@link OUTPUT_PATH_CPP_PREFIX_PATTERN} or {@link OUTPUT_PATH_ANDROID_PREFIX_PATTERN}, also use
+   * those to update the path and invoke {@code function} again.
+   *
+   * @return the result of {@code function} from the most specific root path
+   */
+  private static <U> U computeRootPaths(ArtifactRoot artifactRoot, Function<String, U> function) {
+    String rootPath = artifactRoot.getRoot().toString();
+    U result = function.apply(rootPath);
+    // The output paths that bin, genfiles, etc. refer to may or may not include the C++-contributed
+    // pieces. e.g. they may be bazel-out/gcc-X-glibc-Y-k8-fastbuild/ or they may be
+    // bazel-out/fastbuild/. This code adds support for the non-C++ case, too.
+    String cppReplacedPath = OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(rootPath).replaceFirst("");
+    if (!rootPath.equals(cppReplacedPath)) {
+      result = function.apply(cppReplacedPath);
+    }
+    // Also handle Android output paths in the same way.
+    String androidReplacedPath =
+        OUTPUT_PATH_ANDROID_PREFIX_PATTERN.matcher(rootPath).replaceFirst("");
+    if (!rootPath.equals(androidReplacedPath)) {
+      result = function.apply(androidReplacedPath);
+    }
+    return result;
+  }
 
   /**
    * Given a collection of Artifacts, returns a corresponding set of strings of the form "{root}
@@ -468,56 +516,66 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(
       BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
-    Map<String, String> rootMap = new HashMap<>();
-    BuildConfiguration targetConfiguration =
+    BuildConfigurationValue targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
-    rootMap.put(
-        targetConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin");
-    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
-    rootMap.put(
-        targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getRoot().toString(), "bin");
-    rootMap.put(
-        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getRoot().toString(),
-        "internal");
+    BuildConfigurationValue hostConfiguration = configurations.getHostConfiguration();
+    return artifactsToStrings(targetConfiguration, hostConfiguration, artifacts);
+  }
 
-    BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
-    rootMap.put(
-        hostConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin(host)");
+  /**
+   * Given a collection of Artifacts, returns a corresponding set of strings of the form "{root}
+   * {relpath}", such as "bin x/libx.a". Such strings make assertions easier to write.
+   *
+   * <p>The returned set preserves the order of the input.
+   */
+  public static Set<String> artifactsToStrings(
+      BuildConfigurationValue targetConfiguration,
+      BuildConfigurationValue hostConfiguration,
+      Iterable<? extends Artifact> artifacts) {
+    Map<String, String> rootMap = new HashMap<>();
+    computeRootPaths(
+        targetConfiguration.getBinDirectory(RepositoryName.MAIN), path -> rootMap.put(path, "bin"));
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
-    rootMap.put(
-        hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getRoot().toString(),
-        "bin(host)");
-    rootMap.put(
-        hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getRoot().toString(),
-        "internal(host)");
+    computeRootPaths(
+        targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN),
+        path -> rootMap.put(path, "bin"));
+    computeRootPaths(
+        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN),
+        path -> rootMap.put(path, "internal"));
 
-    // The output paths that bin, genfiles, etc. refer to may or may not include the C++-contributed
-    // pieces. e.g. they may be bazel-out/gcc-X-glibc-Y-k8-fastbuild/ or they may be
-    // bazel-out/fastbuild/. This code adds support for the non-C++ case, too.
-    Map<String, String> prunedRootMap = new HashMap<>();
-    for (Map.Entry<String, String> root : rootMap.entrySet()) {
-      prunedRootMap.put(
-          OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(root.getKey()).replaceFirst(""),
-          root.getValue()
-      );
-    }
-    rootMap.putAll(prunedRootMap);
+    computeRootPaths(
+        hostConfiguration.getBinDirectory(RepositoryName.MAIN),
+        path -> rootMap.put(path, "bin(host)"));
+    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
+    computeRootPaths(
+        hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN),
+        path -> rootMap.put(path, "bin(host)"));
+    computeRootPaths(
+        hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN),
+        path -> rootMap.put(path, "internal(host)"));
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {
       ArtifactRoot root = artifact.getRoot();
       if (root.isSourceRoot()) {
-        if (root.isExternalSourceRoot()) {
-          files.add("src(external) " + artifact.getRootRelativePath());
-        } else {
-          files.add("src " + artifact.getRootRelativePath());
-        }
+        files.add("src " + artifact.getExecPath());
       } else {
-        String name = rootMap.getOrDefault(root.getRoot().toString(), "/");
+        // Find the most specific mapping.
+        String name = computeRootPaths(root, path -> rootMap.getOrDefault(path, "/"));
         files.add(name + " " + artifact.getRootRelativePath());
       }
     }
     return files;
   }
 
+  /** Creates a {@link RunfilesSupplier} for use in tests. */
+  public static RunfilesSupplier createRunfilesSupplier(
+      PathFragment runfilesDir, Runfiles runfiles) {
+    return new SingleRunfilesSupplier(
+        runfilesDir,
+        runfiles,
+        /*manifest=*/ null,
+        /*buildRunfileLinks=*/ false,
+        /*runfileLinksEnabled=*/ false);
+  }
 }

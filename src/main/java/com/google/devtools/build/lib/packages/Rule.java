@@ -20,22 +20,29 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.util.BinaryPredicate;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -84,9 +91,35 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   private final ImplicitOutputsFunction implicitOutputsFunction;
 
-  // Initialized in the call to populateOutputFiles.
-  private List<OutputFile> outputFiles;
-  private ListMultimap<String, OutputFile> outputFileMap;
+  /**
+   * A compact representation of a multimap from "output keys" to output files.
+   *
+   * <p>An output key is an identifier used to access the output in {@code ctx.outputs}, or the
+   * empty string in the case of an output that's not exposed there. For explicit outputs, the
+   * output key is the name of the attribute under which that output appears. For Starlark-defined
+   * implicit outputs, the output key is determined by the dict returned from the Starlark function.
+   * Native-defined implicit outputs are not named in this manner, and so are invisible to {@code
+   * ctx.outputs} and use the empty string key. (It'd be pathological for the empty string to be
+   * used as a key in the other two cases, but this class makes no attempt to prohibit that.)
+   *
+   * <p>Rather than naively store an ImmutableListMultimap, we save space by compressing it as an
+   * ImmutableList, where each key is followed by all the values having that key. We distinguish
+   * keys (Strings) from values (OutputFiles) by the fact that they have different types. The
+   * accessor methods traverse the list and create a more user-friendly view.
+   *
+   * <p>To distinguish implicit outputs from explicit outputs, we store all the implicit outputs in
+   * the list first, and record how many implicit output keys there are in a separate field.
+   *
+   * <p>The order of the implicit outputs is the same as returned by the implicit output function.
+   * This allows a native rule implementation and native implicit outputs function to agree on the
+   * index of a given kind of output. The order of explicit outputs preserves the attribute
+   * iteration order and the order of values in a list attribute; the latter is important so that
+   * {@code ctx.outputs.some_list} has a well-defined order.
+   */
+  // Both of these fields are initialized by populateOutputFiles().
+  private ImmutableList<Object> flattenedOutputFileMap;
+
+  private int numImplicitOutputKeys;
 
   Rule(
       Package pkg,
@@ -170,15 +203,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns true iff the outputs of this rule should be created beneath the
-   * bin directory, false if beneath genfiles.  For most rule
-   * classes, this is a constant, but for genrule, it is a property of the
-   * individual rule instance, derived from the 'output_to_bindir' attribute.
+   * Returns true iff the outputs of this rule should be created beneath the bin directory, false if
+   * beneath genfiles. For most rule classes, this is constant, but for genrule, it is a property of
+   * the individual target, derived from the 'output_to_bindir' attribute.
    */
-  public boolean hasBinaryOutput() {
+  public boolean outputsToBindir() {
     return ruleClass.getName().equals("genrule") // this is unfortunate...
         ? NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN)
-        : ruleClass.hasBinaryOutput();
+        : ruleClass.outputsToBindir();
   }
 
   /** Returns true if this rule is an analysis test (set by analysis_test = true). */
@@ -227,10 +259,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     Attribute attribute = ruleClass.getAttributeByNameMaybe(attributeName);
     // TODO(murali): This method should be property of ruleclass not rule instance.
     // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
-    // to this instance!.
+    // to this instance!
     return attribute != null
-        ? AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType())
-        : false;
+        && AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType());
   }
 
   /**
@@ -245,30 +276,98 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns an (unmodifiable, ordered) collection containing all the declared output files of this
-   * rule.
+   * Constructs and returns an immutable list containing all the declared output files of this rule.
    *
-   * <p>All implicit output files (declared in the {@link RuleClass}) are
-   * listed first, followed by any explicit files (declared via the 'outs' attribute). Additionally
-   * both implicit and explicit outputs will retain the relative order in which they were declared.
+   * <p>There are two kinds of outputs. Explicit outputs are declared in attributes of type OUTPUT
+   * or OUTPUT_LABEL. Implicit outputs are determined by custom rule logic in an "implicit outputs
+   * function" (either defined natively or in Starlark), and are named following a template pattern
+   * based on the target's attributes.
    *
-   * <p>This ordering is useful because it is propagated through to the list of targets returned by
-   * getOuts() and allows targets to access their implicit outputs easily via
-   * {@code getOuts().get(N)} (providing that N is less than the number of implicit outputs).
-   *
-   * <p>The fact that the relative order of the explicit outputs is also retained is less obviously
-   * useful but is still well defined.
+   * <p>All implicit output files (declared in the {@link RuleClass}) are listed first, followed by
+   * any explicit files (declared via output attributes). Additionally, both implicit and explicit
+   * outputs will retain the relative order in which they were declared.
    */
-  public Collection<OutputFile> getOutputFiles() {
-    return outputFiles;
+  public ImmutableList<OutputFile> getOutputFiles() {
+    // Discard the String keys, taking only the OutputFile values.
+    ImmutableList.Builder<OutputFile> result = ImmutableList.builder();
+    for (Object o : flattenedOutputFileMap) {
+      if (o instanceof OutputFile) {
+        result.add((OutputFile) o);
+      }
+    }
+    return result.build();
   }
 
   /**
-   * Returns an (unmodifiable, ordered) map containing the list of output files for every
-   * output type attribute.
+   * Constructs and returns an immutable list of all the implicit output files of this rule, in the
+   * order they were declared.
    */
-  public ListMultimap<String, OutputFile> getOutputFileMap() {
-    return outputFileMap;
+  public ImmutableList<OutputFile> getImplicitOutputFiles() {
+    ImmutableList.Builder<OutputFile> result = ImmutableList.builder();
+    int seenKeys = 0;
+    for (Object o : flattenedOutputFileMap) {
+      if (o instanceof String) {
+        if (++seenKeys > numImplicitOutputKeys) {
+          break;
+        }
+      } else {
+        result.add((OutputFile) o);
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * Constructs and returns an immutable multimap of the explicit outputs, from attribute name to
+   * associated value.
+   *
+   * <p>Keys are listed in the same order as attributes. Order of attribute values (outputs in an
+   * output list) is preserved.
+   *
+   * <p>Since this is a multimap, attributes that have no associated outputs are omitted from the
+   * result.
+   */
+  public ImmutableListMultimap<String, OutputFile> getExplicitOutputFileMap() {
+    ImmutableListMultimap.Builder<String, OutputFile> result = ImmutableListMultimap.builder();
+    int seenKeys = 0;
+    String key = null;
+    for (Object o : flattenedOutputFileMap) {
+      if (o instanceof String) {
+        seenKeys++;
+        key = (String) o;
+      } else if (seenKeys > numImplicitOutputKeys) {
+        result.put(key, (OutputFile) o);
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * Returns a map of the Starlark-defined implicit outputs, from dict key to output file.
+   *
+   * <p>If there is no implicit outputs function, or it is a native one, an empty map is returned.
+   *
+   * <p>This is not a multimap because Starlark-defined implicit output functions return exactly one
+   * output per key.
+   */
+  public ImmutableMap<String, OutputFile> getStarlarkImplicitOutputFileMap() {
+    if (!(implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction)) {
+      return ImmutableMap.of();
+    }
+    ImmutableMap.Builder<String, OutputFile> result = ImmutableMap.builder();
+    int seenKeys = 0;
+    String key = null;
+    for (Object o : flattenedOutputFileMap) {
+      if (o instanceof String) {
+        if (++seenKeys > numImplicitOutputKeys) {
+          break;
+        }
+        key = (String) o;
+      } else {
+        result.put(key, (OutputFile) o);
+      }
+    }
+    return result.buildOrThrow();
   }
 
   @Override
@@ -298,7 +397,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return attributes;
   }
 
-  /********************************************************************
+  /*
+   *******************************************************************
    * Attribute accessor functions.
    *
    * The below provide access to attribute definitions and other generic
@@ -308,11 +408,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * X for Rule Y?"), go through {@link RuleContext#attributes}. If no
    * RuleContext is available, create a localized {@link AbstractAttributeMapper}
    * instance instead.
-   ********************************************************************/
+   *******************************************************************
+   */
 
   /**
-   * Returns the default value for the attribute {@code attrName}, which may be
-   * of any type, but must exist (an exception is thrown otherwise).
+   * Returns the default value for the attribute {@code attrName}, which may be of any type, but
+   * must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
     Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
@@ -372,7 +473,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // TODO(b/151165647): this logic has always been wrong:
     // it spuriously matches occurrences of the package name earlier in the path.
     String absolutePath = location.toString();
-    int pos = absolutePath.indexOf(getLabel().getPackageName());
+    int pos = absolutePath.indexOf(label.getPackageName());
     return (pos < 0) ? null : absolutePath.substring(pos);
   }
 
@@ -398,7 +499,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     Integer index = ruleClass.getAttributeIndex(attrName);
     if (index == null) {
       throw new IllegalArgumentException(
-          "No such attribute " + attrName + " in " + ruleClass + " rule " + getLabel());
+          "No such attribute " + attrName + " in " + ruleClass + " rule " + label);
     }
     Attribute attr = ruleClass.getAttribute(index);
     if (attr.getType() != type) {
@@ -412,7 +513,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
               + " in "
               + ruleClass
               + " rule "
-              + getLabel());
+              + label);
     }
     return getAttrWithIndex(index);
   }
@@ -441,7 +542,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
               + " in "
               + ruleClass
               + " rule "
-              + getLabel());
+              + label);
     }
     return (BuildType.SelectorList<T>) attrValue;
   }
@@ -491,50 +592,44 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** Returns a new List instance containing all direct dependencies (all types). */
-  public Collection<Label> getLabels() {
-    final List<Label> labels = Lists.newArrayList();
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .stream()
-        .map(AttributeMap.DepEdge::getLabel)
-        .forEach(labels::add);
+  /** Returns a new list containing all direct dependencies (all types). */
+  public List<Label> getLabels() {
+    List<Label> labels = new ArrayList<>();
+    AggregatingAttributeMapper.of(this).visitAllLabels((attribute, label) -> labels.add(label));
     return labels;
   }
 
   /**
-   * Returns a new Collection containing all Labels that match a given Predicate, not including
-   * outputs.
+   * Returns a sorted set containing all labels that match a given {@link DependencyFilter}, not
+   * including outputs.
    *
-   * @param predicate A binary predicate that determines if a label should be included in the
-   *     result. The predicate is evaluated with this rule and the attribute that contains the
-   *     label. The label will be contained in the result iff (the predicate returned {@code true}
-   *     and the labels are not outputs)
+   * @param filter A dependency filter that determines whether a label should be included in the
+   *     result. {@link DependencyFilter#test} is called with this rule and the attribute that
+   *     contains the label. The label will be contained in the result iff the predicate returns
+   *     {@code true} <em>and</em> the label is not an output.
    */
-  public Collection<Label> getLabels(BinaryPredicate<? super Rule, Attribute> predicate) {
-    return ImmutableSortedSet.copyOf(getTransitions(predicate).values());
+  public ImmutableSortedSet<Label> getSortedLabels(DependencyFilter filter) {
+    ImmutableSortedSet.Builder<Label> labels = ImmutableSortedSet.naturalOrder();
+    AggregatingAttributeMapper.of(this)
+        .visitLabels(filter, (attribute, label) -> labels.add(label));
+    return labels.build();
   }
 
   /**
-   * Returns a new Multimap containing all attributes that match a given Predicate and corresponding
-   * labels, not including outputs.
+   * Returns a {@link Multimap} containing all non-output labels matching a given {@link
+   * DependencyFilter}, keyed by the corresponding attribute.
    *
-   * @param predicate A binary predicate that determines if a label should be included in the
-   *     result. The predicate is evaluated with this rule and the attribute that contains the
-   *     label. The label will be contained in the result iff (the predicate returned {@code true}
-   *     and the labels are not outputs)
+   * <p>Labels that appear in multiple attributes will be mapped from each of their corresponding
+   * attributes, provided they pass the {@link DependencyFilter}.
+   *
+   * @param filter A dependency filter that determines whether a label should be included in the
+   *     result. {@link DependencyFilter#test} is called with this rule and the attribute that
+   *     contains the label. The label will be contained in the result iff the predicate returns
+   *     {@code true} <em>and</em> the label is not an output.
    */
-  public Multimap<Attribute, Label> getTransitions(
-      final BinaryPredicate<? super Rule, Attribute> predicate) {
-    final Multimap<Attribute, Label> transitions = HashMultimap.create();
-    // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
-    // be visited may depend on the calling context. We shouldn't implicitly decide this for
-    // the caller.
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .stream()
-        .filter(depEdge -> predicate.apply(Rule.this, depEdge.getAttribute()))
-        .forEach(depEdge -> transitions.put(depEdge.getAttribute(), depEdge.getLabel()));
+  public Multimap<Attribute, Label> getTransitions(DependencyFilter filter) {
+    Multimap<Attribute, Label> transitions = HashMultimap.create();
+    AggregatingAttributeMapper.of(this).visitLabels(filter, transitions::put);
     return transitions;
   }
 
@@ -546,162 +641,180 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Check if this rule is valid according to the validityPredicate of its RuleClass.
    */
   void checkValidityPredicate(EventHandler eventHandler) {
-    PredicateWithMessage<Rule> predicate = getRuleClassObject().getValidityPredicate();
+    PredicateWithMessage<Rule> predicate = ruleClass.getValidityPredicate();
     if (!predicate.apply(this)) {
       reportError(predicate.getErrorReason(this), eventHandler);
     }
   }
 
   /**
-   * Collects the output files (both implicit and explicit). All the implicit output files are added
-   * first, followed by any explicit files. Additionally both implicit and explicit output files
-   * will retain the relative order in which they were declared.
+   * Collects the output files (both implicit and explicit). Must be called before the output
+   * accessors methods can be used, and must be called only once.
    */
   void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
       throws LabelSyntaxException, InterruptedException {
-    populateOutputFilesInternal(eventHandler, pkgBuilder, /*performChecks=*/ true);
+    populateOutputFilesInternal(
+        eventHandler, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ true);
   }
 
-  void populateOutputFilesUnchecked(EventHandler eventHandler, Package.Builder pkgBuilder)
-      throws InterruptedException {
+  void populateOutputFilesUnchecked(Package.Builder pkgBuilder) throws InterruptedException {
     try {
-      populateOutputFilesInternal(eventHandler, pkgBuilder, /*performChecks=*/ false);
+      populateOutputFilesInternal(
+          NullEventHandler.INSTANCE, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ false);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
   }
 
-  private void populateOutputFilesInternal(
-      EventHandler eventHandler, Package.Builder pkgBuilder, boolean performChecks)
-      throws LabelSyntaxException, InterruptedException {
-    Preconditions.checkState(outputFiles == null);
-    // Order is important here: implicit before explicit
-    ImmutableList.Builder<OutputFile> outputFilesBuilder = ImmutableList.builder();
-    ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder =
-        ImmutableListMultimap.builder();
-    populateImplicitOutputFiles(eventHandler, pkgBuilder, outputFilesBuilder, performChecks);
-    populateExplicitOutputFiles(
-        eventHandler, outputFilesBuilder, outputFileMapBuilder, performChecks);
-    outputFiles = outputFilesBuilder.build();
-    outputFileMap = outputFileMapBuilder.build();
+  @FunctionalInterface
+  private interface ExplicitOutputHandler {
+    void accept(Attribute attribute, Label outputLabel) throws LabelSyntaxException;
   }
 
-  // Explicit output files are user-specified attributes of type OUTPUT.
-  private void populateExplicitOutputFiles(
-      EventHandler eventHandler,
-      ImmutableList.Builder<OutputFile> outputFilesBuilder,
-      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder,
-      boolean performChecks)
-      throws LabelSyntaxException {
+  @FunctionalInterface
+  private interface ImplicitOutputHandler {
+    void accept(String outputKey, String outputName);
+  }
+
+  private void populateOutputFilesInternal(
+      EventHandler eventHandler, PackageIdentifier pkgId, boolean checkLabels)
+      throws LabelSyntaxException, InterruptedException {
+    Preconditions.checkState(flattenedOutputFileMap == null);
+
+    // We associate each output with its String key (or empty string if there's no key) as we go,
+    // and compress it down to a flat list afterwards. We use ImmutableListMultimap because it's
+    // more efficient than LinkedListMultimap and provides ordering guarantees among keys (whereas
+    // ArrayListMultimap doesn't).
+    ImmutableListMultimap.Builder<String, OutputFile> outputFileMap =
+        ImmutableListMultimap.builder();
+    // Detects collisions where the same output key is used for both an explicit and implicit entry.
+    HashSet<String> implicitOutputKeys = new HashSet<>();
+
+    // We need the implicits to appear before the explicits in the final data structure, so we
+    // process them first. We check for duplicates while handling the explicits.
+    //
+    // Each of these cases has two subcases, so we factor their bodies out into lambdas.
+
+    ImplicitOutputHandler implicitOutputHandler =
+        // outputKey: associated dict key if Starlark-defined, empty string otherwise
+        // outputName: package-relative path fragment
+        (outputKey, outputName) -> {
+          Label label;
+          if (checkLabels) { // controls label syntax validation only
+            try {
+              label = Label.create(pkgId, outputName);
+            } catch (LabelSyntaxException e) {
+              reportError(
+                  String.format(
+                      "illegal output file name '%s' in rule %s due to: %s",
+                      outputName, this.label, e.getMessage()),
+                  eventHandler);
+              return;
+            }
+          } else {
+            label = Label.createUnvalidated(pkgId, outputName);
+          }
+          validateOutputLabel(label, eventHandler);
+
+          OutputFile file = new OutputFile(label, this);
+          outputFileMap.put(outputKey, file);
+          implicitOutputKeys.add(outputKey);
+        };
+
+    // Populate the implicit outputs.
+    try {
+      RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
+      // TODO(bazel-team): Reconsider the ImplicitOutputsFunction abstraction. It doesn't seem to be
+      // a good fit if it forces us to downcast in situations like this. It also causes
+      // getImplicitOutputs() to declare that it throws EvalException (which then has to be
+      // explicitly disclaimed by the subclass SafeImplicitOutputsFunction).
+      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
+        for (Map.Entry<String, String> e :
+            ((StarlarkImplicitOutputsFunction) implicitOutputsFunction)
+                .calculateOutputs(eventHandler, attributeMap)
+                .entrySet()) {
+          implicitOutputHandler.accept(e.getKey(), e.getValue());
+        }
+      } else {
+        for (String out : implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
+          implicitOutputHandler.accept(/*outputKey=*/ "", out);
+        }
+      }
+    } catch (EvalException e) {
+      reportError(String.format("In rule %s: %s", label, e.getMessageWithStack()), eventHandler);
+    }
+
+    ExplicitOutputHandler explicitOutputHandler =
+        (attribute, outputLabel) -> {
+          String attrName = attribute.getName();
+          if (implicitOutputKeys.contains(attrName)) {
+            reportError(
+                String.format(
+                    "Implicit output key '%s' collides with output attribute name", attrName),
+                eventHandler);
+          }
+          if (checkLabels) {
+            if (!outputLabel.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
+              throw new IllegalStateException(
+                  String.format(
+                      "Label for attribute %s should refer to '%s' but instead refers to '%s'"
+                          + " (label '%s')",
+                      attribute,
+                      pkg.getName(),
+                      outputLabel.getPackageFragment(),
+                      outputLabel.getName()));
+            }
+            if (outputLabel.getName().equals(".")) {
+              throw new LabelSyntaxException("output file name can't be equal '.'");
+            }
+          }
+          validateOutputLabel(outputLabel, eventHandler);
+
+          OutputFile outputFile = new OutputFile(outputLabel, this);
+          outputFileMap.put(attrName, outputFile);
+        };
+
+    // Populate the explicit outputs.
     NonconfigurableAttributeMapper nonConfigurableAttributes =
         NonconfigurableAttributeMapper.of(this);
     for (Attribute attribute : ruleClass.getAttributes()) {
       String name = attribute.getName();
       Type<?> type = attribute.getType();
       if (type == BuildType.OUTPUT) {
-        Label outputLabel = nonConfigurableAttributes.get(name, BuildType.OUTPUT);
-        if (outputLabel != null) {
-          addLabelOutput(
-              attribute,
-              outputLabel,
-              eventHandler,
-              outputFilesBuilder,
-              outputFileMapBuilder,
-              performChecks);
+        Label label = nonConfigurableAttributes.get(name, BuildType.OUTPUT);
+        if (label != null) {
+          explicitOutputHandler.accept(attribute, label);
         }
       } else if (type == BuildType.OUTPUT_LIST) {
         for (Label label : nonConfigurableAttributes.get(name, BuildType.OUTPUT_LIST)) {
-          addLabelOutput(
-              attribute,
-              label,
-              eventHandler,
-              outputFilesBuilder,
-              outputFileMapBuilder,
-              performChecks);
+          explicitOutputHandler.accept(attribute, label);
         }
       }
     }
-  }
 
-  /**
-   * Implicit output files come from rule-specific patterns, and are a function of the rule's
-   * "name", "srcs", and other attributes.
-   */
-  private void populateImplicitOutputFiles(
-      EventHandler eventHandler,
-      Package.Builder pkgBuilder,
-      ImmutableList.Builder<OutputFile> outputFilesBuilder,
-      boolean performChecks)
-      throws InterruptedException {
-    try {
-      RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
-      for (String out : implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
-        Label label;
-        if (performChecks) {
-          try {
-            label = pkgBuilder.createLabel(out);
-          } catch (LabelSyntaxException e) {
-            reportError(
-                "illegal output file name '"
-                    + out
-                    + "' in rule "
-                    + getLabel()
-                    + " due to: "
-                    + e.getMessage(),
-                eventHandler);
-            continue;
-          }
-        } else {
-          label = Label.createUnvalidated(pkgBuilder.getPackageIdentifier(), out);
-        }
-        addOutputFile(label, eventHandler, outputFilesBuilder);
-      }
-    } catch (EvalException e) {
-      reportError(
-          String.format("In rule %s: %s", getLabel(), e.getMessageWithStack()), eventHandler);
-    }
-  }
-
-  private void addLabelOutput(
-      Attribute attribute,
-      Label label,
-      EventHandler eventHandler,
-      ImmutableList.Builder<OutputFile> outputFilesBuilder,
-      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder,
-      boolean performChecks)
-      throws LabelSyntaxException {
-    if (performChecks) {
-      if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
-        throw new IllegalStateException("Label for attribute " + attribute
-            + " should refer to '" + pkg.getName()
-            + "' but instead refers to '" + label.getPackageFragment()
-            + "' (label '" + label.getName() + "')");
-      }
-      if (label.getName().equals(".")) {
-        throw new LabelSyntaxException("output file name can't be equal '.'");
+    // Flatten the result into the final list.
+    ImmutableList.Builder<Object> builder = ImmutableList.builder();
+    for (Map.Entry<String, Collection<OutputFile>> e : outputFileMap.build().asMap().entrySet()) {
+      builder.add(e.getKey());
+      for (OutputFile out : e.getValue()) {
+        builder.add(out);
       }
     }
-    OutputFile outputFile = addOutputFile(label, eventHandler, outputFilesBuilder);
-    outputFileMapBuilder.put(attribute.getName(), outputFile);
+    flattenedOutputFileMap = builder.build();
+    numImplicitOutputKeys = implicitOutputKeys.size();
   }
 
-  private OutputFile addOutputFile(
-      Label label,
-      EventHandler eventHandler,
-      ImmutableList.Builder<OutputFile> outputFilesBuilder) {
+  private void validateOutputLabel(Label label, EventHandler eventHandler) {
     if (label.getName().equals(getName())) {
       // TODO(bazel-team): for now (23 Apr 2008) this is just a warning.  After
       // June 1st we should make it an error.
       reportWarning("target '" + getName() + "' is both a rule and a file; please choose "
                     + "another name for the rule", eventHandler);
     }
-    OutputFile outputFile = new OutputFile(pkg, label, ruleClass.getOutputFileKind(), this);
-    outputFilesBuilder.add(outputFile);
-    return outputFile;
   }
 
   void reportError(String message, EventHandler eventHandler) {
-    eventHandler.handle(Event.error(location, message));
+    eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
     this.containsErrors = true;
   }
 
@@ -709,14 +822,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     eventHandler.handle(Event.warn(location, message));
   }
 
-  /**
-   * Returns a string of the form "cc_binary rule //foo:foo"
-   *
-   * @return a string of the form "cc_binary rule //foo:foo"
-   */
+  /** Returns a string of the form "cc_binary rule //foo:foo" */
   @Override
   public String toString() {
-    return getRuleClass() + " rule " + getLabel();
+    return getRuleClass() + " rule " + label;
   }
 
  /**
@@ -728,10 +837,25 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Override
   public RuleVisibility getVisibility() {
+    // Temporary logic to relax config_setting's visibility enforcement while depot migrations set
+    // visibility settings properly (legacy code may have visibility settings that would break if
+    // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
+    // conditional should be removed.
+    if (ruleClass.getName().equals("config_setting")) {
+      ConfigSettingVisibilityPolicy policy = pkg.getConfigSettingVisibilityPolicy();
+      if (visibility != null) {
+        return visibility; // Use explicitly set visibility
+      } else if (policy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
+        return ConstantRuleVisibility.PUBLIC; // Default: //visibility:public.
+      } else {
+        return pkg.getDefaultVisibility(); // Default: same as all other rules.
+      }
+    }
+
+    // All other rules.
     if (visibility != null) {
       return visibility;
     }
-
     return pkg.getDefaultVisibility();
   }
 
@@ -750,19 +874,25 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return getPackage().getDefaultDistribs();
+      return pkg.getDefaultDistribs();
     }
   }
 
   @Override
   public License getLicense() {
-    if (isAttrDefined("licenses", BuildType.LICENSE)
+    // New style licenses defined by Starlark rules don't
+    // have old-style licenses. This is hardcoding the representation
+    // of new-style rules, but it's in the old-style licensing code path
+    // and will ultimately be removed.
+    if (ruleClass.isBazelLicense()) {
+      return License.NO_LICENSE;
+    } else if (isAttrDefined("licenses", BuildType.LICENSE)
         && isAttributeValueExplicitlySpecified("licenses")) {
       return NonconfigurableAttributeMapper.of(this).get("licenses", BuildType.LICENSE);
-    } else if (getRuleClassObject().ignoreLicenses()) {
+    } else if (ruleClass.ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
-      return getPackage().getDefaultLicense();
+      return pkg.getDefaultLicense();
     }
   }
 
@@ -779,30 +909,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
-  private void checkForNullLabel(Label labelToCheck, Object context) {
-    if (labelToCheck == null) {
-      throw new IllegalStateException(String.format(
-          "null label in rule %s, %s", getLabel().toString(), context));
-    }
-  }
-
-  // Consistency check: check if this label contains any weird labels (i.e.
-  // null-valued, with a packageFragment that is null...). The bug that prompted
-  // the introduction of this code is #2210848 (NullPointerException in
-  // Package.checkForConflicts() ).
-  void checkForNullLabels() {
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .forEach(depEdge -> checkForNullLabel(depEdge.getLabel(), depEdge.getAttribute()));
-    getOutputFiles().forEach(outputFile -> checkForNullLabel(outputFile.getLabel(), "output file"));
-  }
-
   /**
    * Returns the Set of all tags exhibited by this target.  May be empty.
    */
   public Set<String> getRuleTags() {
     Set<String> ruleTags = new LinkedHashSet<>();
-    for (Attribute attribute : getRuleClassObject().getAttributes()) {
+    for (Attribute attribute : ruleClass.getAttributes()) {
       if (attribute.isTaggable()) {
         Type<?> attrType = attribute.getType();
         String name = attribute.getName();
@@ -816,10 +928,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Computes labels of additional dependencies that can be provided by aspects that this rule
-   * can require from its direct dependencies.
+   * Computes labels of additional dependencies that can be provided by aspects that this rule can
+   * require from its direct dependencies.
    */
-  public Collection<? extends Label> getAspectLabelsSuperset(DependencyFilter predicate) {
+  public Collection<Label> getAspectLabelsSuperset(DependencyFilter predicate) {
     if (!hasAspects()) {
       return ImmutableList.of();
     }
@@ -833,10 +945,35 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
+   * Should this rule instance resolve toolchains?
+   *
+   * <p>This may happen for two reasons:
+   *
+   * <ol>
+   *   <li>The rule uses toolchains by definition ({@link
+   *       RuleClass.Builder#useToolchainResolution(ToolchainResolutionMode)}
+   *   <li>The rule instance has a select(), which means it may depend on target platform properties
+   *       that are only provided when toolchain resolution is enabled.
+   * </ol>
+   */
+  public boolean useToolchainResolution() {
+    ToolchainResolutionMode mode = ruleClass.useToolchainResolution();
+    if (mode.isActive()) {
+      return true;
+    } else if (mode == ToolchainResolutionMode.HAS_SELECT) {
+      RawAttributeMapper attr = RawAttributeMapper.of(this);
+      return (attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
+          && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty());
+    } else {
+      return false;
+    }
+  }
+
+  /**
    * @return The repository name.
    */
   public RepositoryName getRepository() {
-    return RepositoryName.createFromValidStrippedName(pkg.getWorkspaceName());
+    return label.getPackageIdentifier().getRepository();
   }
 
   /** Returns the suffix of target kind for all rules. */

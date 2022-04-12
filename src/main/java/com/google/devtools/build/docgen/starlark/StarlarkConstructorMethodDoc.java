@@ -30,7 +30,11 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   private final ImmutableList<StarlarkParamDoc> params;
 
   public StarlarkConstructorMethodDoc(
-      String fullyQualifiedName, Method method, StarlarkMethod callable) {
+      String fullyQualifiedName,
+      Method method,
+      StarlarkMethod callable,
+      StarlarkDocExpander expander) {
+    super(expander);
     this.fullyQualifiedName = fullyQualifiedName;
     this.method = method;
     this.callable = callable;
@@ -39,7 +43,8 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
             this,
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
-            callable.extraKeywords());
+            callable.extraKeywords(),
+            expander);
   }
 
   @Override
@@ -58,8 +63,8 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   }
 
   @Override
-  public String getDocumentation() {
-    return StarlarkDocUtils.substituteVariables(callable.doc());
+  public String getRawDocumentation() {
+    return callable.doc();
   }
 
   @Override

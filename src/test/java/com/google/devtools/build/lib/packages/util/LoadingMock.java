@@ -37,6 +37,6 @@ public class LoadingMock {
   }
 
   public ConfiguredRuleClassProvider createRuleClassProvider() {
-    return TestRuleClassProvider.getRuleClassProvider(true);
+    return TestRuleClassProvider.getRuleClassProviderWithClearedSuffix();
   }
 }

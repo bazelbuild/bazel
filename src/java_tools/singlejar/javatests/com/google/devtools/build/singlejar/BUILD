@@ -10,7 +10,6 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
-        "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJarMain",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:guava",

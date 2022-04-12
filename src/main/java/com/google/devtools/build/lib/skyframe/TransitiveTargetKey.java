@@ -28,8 +28,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 @Immutable
 @ThreadSafe
 public final class TransitiveTargetKey implements SkyKey {
+  public static final SkyFunctionName NAME = SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
+
   public static TransitiveTargetKey of(Label label) {
-    Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
     return new TransitiveTargetKey(label);
   }
 
@@ -41,7 +42,7 @@ public final class TransitiveTargetKey implements SkyKey {
 
   @Override
   public SkyFunctionName functionName() {
-    return SkyFunctions.TRANSITIVE_TARGET;
+    return NAME;
   }
 
   @Override

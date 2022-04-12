@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Marker interface for detecting feature flags in the Starlark setting map. */
-interface FeatureFlagValue {
+public interface FeatureFlagValue {
   /** Returns the value of this flag, or null if it's set default. */
   @Nullable
   String getValue();
@@ -93,7 +93,7 @@ interface FeatureFlagValue {
     for (Map.Entry<Label, String> entry : newValues.entrySet()) {
       newValueObjects.put(entry.getKey(), SetValue.of(entry.getValue()));
     }
-    result.addStarlarkOptions(newValueObjects.build());
+    result.addStarlarkOptions(newValueObjects.buildOrThrow());
     BuildOptions builtResult = result.build();
     if (builtResult.contains(ConfigFeatureFlagOptions.class)) {
       builtResult.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent = true;
@@ -111,6 +111,10 @@ interface FeatureFlagValue {
     Set<Label> flagsToTrim = new LinkedHashSet<>();
     Map<Label, Object> unknownFlagsToAdd = new LinkedHashMap<>();
     boolean changeAllValuesPresentOption = false;
+    if (original.contains(ConfigFeatureFlagOptions.class)) {
+      changeAllValuesPresentOption =
+          original.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent;
+    }
 
     // What do we need to change?
     original.getStarlarkOptions().entrySet().stream()
@@ -118,16 +122,9 @@ interface FeatureFlagValue {
         .forEach(featureFlagEntry -> seenFlags.add(featureFlagEntry.getKey()));
     flagsToTrim.addAll(Sets.difference(seenFlags, availableFlags));
     FeatureFlagValue unknownFlagValue =
-        (original.contains(ConfigFeatureFlagOptions.class)
-                && original.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
-            ? DefaultValue.INSTANCE
-            : UnknownValue.INSTANCE;
+        changeAllValuesPresentOption ? DefaultValue.INSTANCE : UnknownValue.INSTANCE;
     for (Label unknownFlag : Sets.difference(availableFlags, seenFlags)) {
       unknownFlagsToAdd.put(unknownFlag, unknownFlagValue);
-    }
-    if (original.contains(ConfigFeatureFlagOptions.class)) {
-      changeAllValuesPresentOption =
-          original.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent;
     }
 
     // Nothing changed? Return the original BuildOptions.
@@ -168,7 +165,7 @@ interface FeatureFlagValue {
     if (!unknownFlags.isEmpty()) {
       throw new UnknownValueException(unknownFlags);
     }
-    return knownValues.build();
+    return knownValues.buildOrThrow();
   }
 
   /** Exception class for when getFlagValues runs into UNKNOWN_VALUE. */

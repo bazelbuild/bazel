@@ -16,7 +16,9 @@
 import imp
 import unittest
 
-pkg_bzl = imp.load_source('pkg_bzl', 'tools/build_defs/pkg/path.bzl')
+pkg_bzl = imp.load_source(
+    'pkg_bzl',
+    'tools/build_defs/pkg/path.bzl')
 
 
 class File(object):

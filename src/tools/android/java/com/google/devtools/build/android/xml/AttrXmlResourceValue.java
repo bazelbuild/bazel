@@ -38,6 +38,7 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.resources.Visibility;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -48,7 +49,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
@@ -172,15 +172,17 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     ImmutableMap.Builder<String, ResourceXmlAttrValue> formats =
         ImmutableMap.<String, AttrXmlResourceValue.ResourceXmlAttrValue>builder();
     for (Map.Entry<String, SerializeFormat.DataValueXml> entry :
-        proto.getMappedXmlValue().entrySet()) {
+        proto.getMappedXmlValueMap().entrySet()) {
       switch (entry.getKey()) {
         case FLAGS:
           formats.put(
-              entry.getKey(), FlagResourceXmlAttrValue.of(entry.getValue().getMappedStringValue()));
+              entry.getKey(),
+              FlagResourceXmlAttrValue.of(entry.getValue().getMappedStringValueMap()));
           break;
         case ENUM:
           formats.put(
-              entry.getKey(), EnumResourceXmlAttrValue.of(entry.getValue().getMappedStringValue()));
+              entry.getKey(),
+              EnumResourceXmlAttrValue.of(entry.getValue().getMappedStringValueMap()));
           break;
         case REFERENCE:
           formats.put(entry.getKey(), ReferenceResourceXmlAttrValue.of());

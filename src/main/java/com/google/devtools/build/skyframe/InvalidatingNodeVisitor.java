@@ -13,22 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static java.lang.Math.min;
+import static java.util.concurrent.TimeUnit.MINUTES;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
+import com.google.errorprone.annotations.ForOverride;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
@@ -55,15 +63,16 @@ import javax.annotation.Nullable;
  * internally it spawns many worker threads to process the graph. The thread-safety of the workers
  * on the graph can be delicate, and is documented below. Moreover, no other modifications to the
  * graph can take place while invalidation occurs.
- *
- * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // Default thread count is equal to the number of cores to exploit
   // that level of hardware parallelism, since invalidation should be CPU-bound.
   // We may consider increasing this in the future.
-  private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+  @VisibleForTesting
+  static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+
   private static final int EXPECTED_PENDING_SET_SIZE = DEFAULT_THREAD_COUNT * 8;
   private static final int EXPECTED_VISITED_SET_SIZE = 1024;
 
@@ -112,20 +121,32 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     this.pendingVisitations = state.pendingValues;
   }
 
+  private static final Duration MIN_TIME_FOR_LOGGING = Duration.ofMillis(10);
+
   /** Initiates visitation and waits for completion. */
-  void run() throws InterruptedException {
-    // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
-    // the caller, and which are added by other threads during the run. Since no tasks have been
-    // started yet (the queueDirtying calls start them), this is thread-safe.
-    for (final Pair<SkyKey, InvalidationType> visitData :
-        ImmutableList.copyOf(pendingVisitations)) {
-      executor.execute(
-          new Runnable() {
-            @Override
-            public void run() {
-              visit(ImmutableList.of(visitData.first), visitData.second);
-            }
-          });
+  final void run() throws InterruptedException {
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged(
+            "invalidation of " + pendingVisitations.size() + " nodes", MIN_TIME_FOR_LOGGING)) {
+      // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
+      // the caller, and which are added by other threads during the run. Since no tasks have been
+      // started yet, this is thread-safe.
+      runInternal(ImmutableList.copyOf(pendingVisitations));
+    }
+    Preconditions.checkState(
+        pendingVisitations.isEmpty(),
+        "All dirty nodes should have been processed: %s",
+        pendingVisitations);
+  }
+
+  @ForOverride
+  protected void runInternal(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList)
+      throws InterruptedException {
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged("invalidation enqueuing", MIN_TIME_FOR_LOGGING)) {
+      for (Pair<SkyKey, InvalidationType> visitData : pendingList) {
+        executor.execute(() -> visit(ImmutableList.of(visitData.first), visitData.second));
+      }
     }
     try {
       executor.awaitQuiescence(/*interruptWorkers=*/ true);
@@ -134,16 +155,10 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       // problem. The wrapping provides a stack trace showing what caused the invalidation.
       throw new IllegalStateException(e);
     }
-
-    // Note: implementations that do not support interruption also do not update pendingVisitations.
-    Preconditions.checkState(!getSupportInterruptions() || pendingVisitations.isEmpty(),
-        "All dirty nodes should have been processed: %s", pendingVisitations);
   }
 
-  protected abstract boolean getSupportInterruptions();
-
   @VisibleForTesting
-  CountDownLatch getInterruptionLatchForTestingOnly() {
+  final CountDownLatch getInterruptionLatchForTestingOnly() {
     return executor.getInterruptionLatchForTestingOnly();
   }
 
@@ -158,7 +173,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     /** The node is dirty, but may be marked clean later during change pruning. */
     DIRTIED,
     /** The node is deleted. */
-    DELETED;
+    DELETED
   }
 
   /**
@@ -168,11 +183,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
    * interrupt comes in.
    */
   static class InvalidationState {
-
     private final Set<Pair<SkyKey, InvalidationType>> pendingValues =
         Collections.newSetFromMap(
-            new ConcurrentHashMap<Pair<SkyKey, InvalidationType>, Boolean>(
-                EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
+            new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
     private final InvalidationType defaultUpdateType;
 
     private InvalidationState(InvalidationType defaultUpdateType) {
@@ -180,13 +193,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     }
 
     void update(Iterable<SkyKey> diff) {
-      Iterables.addAll(pendingValues, Iterables.transform(diff,
-          new Function<SkyKey, Pair<SkyKey, InvalidationType>>() {
-            @Override
-            public Pair<SkyKey, InvalidationType> apply(SkyKey skyKey) {
-              return Pair.of(skyKey, defaultUpdateType);
-            }
-          }));
+      Iterables.addAll(
+          pendingValues, Iterables.transform(diff, skyKey -> Pair.of(skyKey, defaultUpdateType)));
     }
 
     @VisibleForTesting
@@ -200,36 +208,107 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     }
   }
 
-  static class DirtyingInvalidationState extends InvalidationState {
+  static final class DirtyingInvalidationState extends InvalidationState {
     public DirtyingInvalidationState() {
       super(InvalidationType.CHANGED);
     }
   }
 
-  static class DeletingInvalidationState extends InvalidationState {
+  static final class DeletingInvalidationState extends InvalidationState {
+    private ConcurrentHashMap<SkyKey, Boolean> doneKeysWithRdepsToRemove;
+    private ConcurrentHashMap<SkyKey, Boolean> visitedKeysAcrossInterruptions;
+
     DeletingInvalidationState() {
       super(InvalidationType.DELETED);
+      initializeFields();
+    }
+
+    private void initializeFields() {
+      doneKeysWithRdepsToRemove =
+          new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT);
+      visitedKeysAcrossInterruptions =
+          new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT);
+    }
+
+    @Override
+    boolean isEmpty() {
+      return super.isEmpty() && doneKeysWithRdepsToRemove.isEmpty();
+    }
+
+    void clear() {
+      initializeFields();
     }
   }
 
   /** A node-deleting implementation. */
-  static class DeletingNodeVisitor extends InvalidatingNodeVisitor<InMemoryGraph> {
-
+  static final class DeletingNodeVisitor extends InvalidatingNodeVisitor<InMemoryGraph> {
     private final Set<SkyKey> visited = Sets.newConcurrentHashSet();
     private final boolean traverseGraph;
+    private final DeletingInvalidationState state;
 
     DeletingNodeVisitor(
         InMemoryGraph graph,
         DirtyTrackingProgressReceiver progressReceiver,
-        InvalidationState state,
+        DeletingInvalidationState state,
         boolean traverseGraph) {
-      super(graph, progressReceiver, state);
+      super(
+          graph,
+          progressReceiver,
+          state,
+          NamedForkJoinPool.newNamedPool("deleting node visitor", DEFAULT_THREAD_COUNT));
       this.traverseGraph = traverseGraph;
+      this.state = state;
     }
 
     @Override
-    protected boolean getSupportInterruptions() {
-      return true;
+    protected void runInternal(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList)
+        throws InterruptedException {
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged(
+              "invalidation enqueuing for " + pendingList.size() + " nodes",
+              MIN_TIME_FOR_LOGGING)) {
+        // To avoid contention and scheduling too many jobs for our #cpus, we start
+        // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
+        int listSize = pendingList.size();
+        int numThreads = min(DEFAULT_THREAD_COUNT, listSize);
+        for (int i = 0; i < numThreads; i++) {
+          int index = i;
+          executor.execute(
+              () ->
+                  visit(
+                      Iterables.transform(
+                          pendingList.subList(
+                              (index * listSize) / numThreads,
+                              ((index + 1) * listSize) / numThreads),
+                          Pair::getFirst),
+                      InvalidationType.DELETED));
+        }
+      }
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged("invalidation graph traversal", MIN_TIME_FOR_LOGGING)) {
+        executor.awaitQuiescence(/*interruptWorkers=*/ true);
+      }
+      ConcurrentHashMap.KeySetView<SkyKey, Boolean> deletedKeys =
+          state.visitedKeysAcrossInterruptions.keySet();
+      // TODO(b/150299871): this is uninterruptible.
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged(
+              "reverse dep removal of "
+                  + deletedKeys.size()
+                  + " deleted rdeps from "
+                  + state.doneKeysWithRdepsToRemove.size()
+                  + " deps",
+              MIN_TIME_FOR_LOGGING)) {
+        state.doneKeysWithRdepsToRemove.forEachEntry(
+            /*parallelismThreshold=*/ 1024,
+            e -> {
+              NodeEntry entry = graph.get(null, Reason.RDEP_REMOVAL, e.getKey());
+              if (entry != null) {
+                entry.removeReverseDepsFromDoneEntryDueToDeletion(deletedKeys);
+              }
+            });
+        state.clear();
+      }
     }
 
     @Override
@@ -247,171 +326,165 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       }
       final Map<SkyKey, ? extends NodeEntry> entries =
           graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
-      for (final SkyKey key : unvisitedKeys) {
+      for (SkyKey key : unvisitedKeys) {
         executor.execute(
-            new Runnable() {
-              @Override
-              public void run() {
-                NodeEntry entry = entries.get(key);
-                Pair<SkyKey, InvalidationType> invalidationPair =
-                    Pair.of(key, InvalidationType.DELETED);
-                if (entry == null) {
-                  pendingVisitations.remove(invalidationPair);
-                  return;
-                }
+            () -> {
+              NodeEntry entry = entries.get(key);
+              Pair<SkyKey, InvalidationType> invalidationPair =
+                  Pair.of(key, InvalidationType.DELETED);
+              if (entry == null) {
+                pendingVisitations.remove(invalidationPair);
+                return;
+              }
 
-                if (traverseGraph) {
-                  // Propagate deletion upwards.
-                  visit(entry.getAllReverseDepsForNodeBeingDeleted(), InvalidationType.DELETED);
+              if (traverseGraph) {
+                // Propagate deletion upwards.
+                visit(entry.getAllReverseDepsForNodeBeingDeleted(), InvalidationType.DELETED);
 
-                  // Unregister this node as an rdep from its direct deps, since reverse dep
-                  // edges cannot point to non-existent nodes. To know whether the child has this
-                  // node as an "in-progress" rdep to be signaled, or just as a known rdep, we
-                  // look at the deps that this node declared during its last (presumably
-                  // interrupted) evaluation. If a dep is in this set, then it was notified to
-                  // signal this node, and so the rdep will be an in-progress rdep, if the dep
-                  // itself isn't done. Otherwise it will be a normal rdep. That information is
-                  // used to remove this node as an rdep from the correct list of rdeps in the
-                  // child -- because of our compact storage of rdeps, checking which list
-                  // contains this parent could be expensive.
-                  Set<SkyKey> signalingDeps =
+                // Unregister this node as an rdep from its direct deps, since reverse dep edges
+                // cannot point to non-existent nodes. To know whether the child has this node as an
+                // "in-progress" rdep to be signaled, or just as a known rdep, we look at the deps
+                // that this node declared during its last (presumably interrupted) evaluation. If a
+                // dep is in this set, then it was notified to signal this node, and so the rdep
+                // will be an in-progress rdep, if the dep itself isn't done. Otherwise it will be a
+                // normal rdep. That information is used to remove this node as an rdep from the
+                // correct list of rdeps in the child -- because of our compact storage of rdeps,
+                // checking which list contains this parent could be expensive.
+                Iterable<SkyKey> directDeps;
+                try {
+                  directDeps =
                       entry.isDone()
-                          ? ImmutableSet.<SkyKey>of()
-                          : entry.getTemporaryDirectDeps().toSet();
-                  Iterable<SkyKey> directDeps;
-                  try {
-                    directDeps =
-                        entry.isDone()
-                            ? entry.getDirectDeps()
-                            : entry.getAllDirectDepsForIncompleteNode();
-                  } catch (InterruptedException e) {
-                    throw new IllegalStateException(
-                        "Deletion cannot happen on a graph that may have blocking operations: "
-                            + key
-                            + ", "
-                            + entry,
-                        e);
-                  }
-                  Map<SkyKey, ? extends NodeEntry> depMap =
-                      graph.getBatch(key, Reason.INVALIDATION, directDeps);
+                          ? entry.getDirectDeps()
+                          : entry.getAllDirectDepsForIncompleteNode();
+                } catch (InterruptedException e) {
+                  throw new IllegalStateException(
+                      "Deletion cannot happen on a graph that may have blocking operations: "
+                          + key
+                          + ", "
+                          + entry,
+                      e);
+                }
+                // No need to do reverse dep surgery on nodes that are deleted/about to be deleted
+                // anyway.
+                Map<SkyKey, ? extends NodeEntry> depMap =
+                    graph.getBatch(
+                        key,
+                        Reason.INVALIDATION,
+                        Iterables.filter(
+                            directDeps,
+                            k ->
+                                !state.visitedKeysAcrossInterruptions.containsKey(k)
+                                    && !pendingVisitations.contains(
+                                        Pair.of(k, InvalidationType.DELETED))));
+                if (!depMap.isEmpty()) {
+                  // Don't do set operation below for signalingDeps if there's no work.
+                  Set<SkyKey> signalingDeps =
+                      entry.isDone() ? ImmutableSet.of() : entry.getTemporaryDirectDeps().toSet();
                   for (Map.Entry<SkyKey, ? extends NodeEntry> directDepEntry : depMap.entrySet()) {
                     NodeEntry dep = directDepEntry.getValue();
-                    if (dep != null) {
-                      if (dep.isDone() || !signalingDeps.contains(directDepEntry.getKey())) {
-                        try {
-                          dep.removeReverseDep(key);
-                        } catch (InterruptedException e) {
-                          throw new IllegalStateException(
-                              "Deletion cannot happen on a graph that may have blocking "
-                                  + "operations: "
-                                  + key
-                                  + ", "
-                                  + entry,
-                              e);
-                        }
-                      } else {
-                        // This step is not strictly necessary, since all in-progress nodes are
-                        // deleted during graph cleaning, which happens in a single
-                        // DeletingNodeVisitor visitation, aka the one right now. We leave this
-                        // here in case the logic changes.
-                        dep.removeInProgressReverseDep(key);
+                    if (dep == null) {
+                      continue;
+                    }
+                    if (dep.isDone()) {
+                      state.doneKeysWithRdepsToRemove.putIfAbsent(
+                          directDepEntry.getKey(), Boolean.TRUE);
+                      continue;
+                    }
+                    if (!signalingDeps.contains(directDepEntry.getKey())) {
+                      try {
+                        dep.removeReverseDep(key);
+                      } catch (InterruptedException e) {
+                        throw new IllegalStateException(
+                            "Deletion cannot happen on a graph that may have blocking "
+                                + "operations: "
+                                + key
+                                + ", "
+                                + entry,
+                            e);
                       }
+                    } else {
+                      // This step is not strictly necessary, since all in-progress nodes are
+                      // deleted during graph cleaning, which happens in a single
+                      // DeletingNodeVisitor visitation, aka the one right now. We leave this
+                      // here in case the logic changes.
+                      dep.removeInProgressReverseDep(key);
                     }
                   }
                 }
-
-                // Allow custom key-specific logic to update dirtiness status.
-                progressReceiver.invalidated(
-                    key, EvaluationProgressReceiver.InvalidationState.DELETED);
-                // Actually remove the node.
-                graph.remove(key);
-
-                // Remove the node from the set as the last operation.
-                pendingVisitations.remove(invalidationPair);
               }
+
+              // Allow custom key-specific logic to update dirtiness status.
+              progressReceiver.invalidated(
+                  key, EvaluationProgressReceiver.InvalidationState.DELETED);
+              // Actually remove the node.
+              graph.remove(key);
+
+              // Remove the node from the set and add it to global visited as the last operation.
+              state.visitedKeysAcrossInterruptions.put(key, Boolean.TRUE);
+              pendingVisitations.remove(invalidationPair);
             });
       }
     }
   }
 
   /** A node-dirtying implementation. */
-  static class DirtyingNodeVisitor extends InvalidatingNodeVisitor<QueryableGraph> {
+  static final class DirtyingNodeVisitor extends InvalidatingNodeVisitor<QueryableGraph> {
+    private static final int SAFE_STACK_DEPTH = 1 << 9;
 
     private final Set<SkyKey> changed =
         Collections.newSetFromMap(
-            new ConcurrentHashMap<SkyKey, Boolean>(
-                EXPECTED_VISITED_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
+            new ConcurrentHashMap<>(EXPECTED_VISITED_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
     private final Set<SkyKey> dirtied =
         Collections.newSetFromMap(
-            new ConcurrentHashMap<SkyKey, Boolean>(
-                EXPECTED_VISITED_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
-    private final boolean supportInterruptions;
+            new ConcurrentHashMap<>(EXPECTED_VISITED_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
 
     protected DirtyingNodeVisitor(
         QueryableGraph graph,
         DirtyTrackingProgressReceiver progressReceiver,
         InvalidationState state) {
       super(graph, progressReceiver, state);
-      this.supportInterruptions = true;
-    }
-
-    /**
-     * Use cases that do not require support for interruptibility can avoid unnecessary work by
-     * passing {@code false} for {@param supportInterruptions}.
-     */
-    protected DirtyingNodeVisitor(
-        QueryableGraph graph,
-        DirtyTrackingProgressReceiver progressReceiver,
-        InvalidationState state,
-        ForkJoinPool forkJoinPool,
-        boolean supportInterruptions) {
-      super(graph, progressReceiver, state, forkJoinPool);
-      this.supportInterruptions = supportInterruptions;
-    }
-
-    @Override
-    protected boolean getSupportInterruptions() {
-      return supportInterruptions;
     }
 
     @Override
     void visit(Iterable<SkyKey> keys, InvalidationType invalidationType) {
       Preconditions.checkState(invalidationType != InvalidationType.DELETED, keys);
-      visit(keys, invalidationType, null);
+      visit(keys, invalidationType, /*depthForOverflowCheck=*/ 0, null);
     }
 
     /**
      * Queues a task to dirty the nodes named by {@param keys}. May be called from multiple threads.
-     * It is possible that the same node is enqueued many times. However, we require that a node
-     * is only actually marked dirty/changed once, with two exceptions:
+     * It is possible that the same node is enqueued many times. However, we require that a node is
+     * only actually marked dirty/changed once, with two exceptions:
      *
-     * (1) If a node is marked dirty, it can subsequently be marked changed. This can occur if, for
-     * instance, FileValue workspace/foo/foo.cc is marked dirty because FileValue workspace/foo is
-     * marked changed (and every FileValue depends on its parent). Then FileValue
+     * <p>(1) If a node is marked dirty, it can subsequently be marked changed. This can occur if,
+     * for instance, FileValue workspace/foo/foo.cc is marked dirty because FileValue workspace/foo
+     * is marked changed (and every FileValue depends on its parent). Then FileValue
      * workspace/foo/foo.cc is itself changed (this can even happen on the same build).
      *
-     * (2) If a node is going to be marked both dirty and changed, as, for example, in the previous
-     * case if both workspace/foo/foo.cc and workspace/foo have been changed in the same build, the
-     * thread marking workspace/foo/foo.cc dirty may race with the one marking it changed, and so
-     * try to mark it dirty after it has already been marked changed. In that case, the
-     * {@link NodeEntry} ignores the second marking.
+     * <p>(2) If a node is going to be marked both dirty and changed, as, for example, in the
+     * previous case if both workspace/foo/foo.cc and workspace/foo have been changed in the same
+     * build, the thread marking workspace/foo/foo.cc dirty may race with the one marking it
+     * changed, and so try to mark it dirty after it has already been marked changed. In that case,
+     * the {@link NodeEntry} ignores the second marking.
      *
-     * The invariant that we do not process a (SkyKey, InvalidationType) pair twice is enforced by
-     * the {@link #changed} and {@link #dirtied} sets.
+     * <p>The invariant that we do not process a (SkyKey, InvalidationType) pair twice is enforced
+     * by the {@link #changed} and {@link #dirtied} sets.
      *
-     * The "invariant" is also enforced across builds by checking to see if the entry is already
+     * <p>The "invariant" is also enforced across builds by checking to see if the entry is already
      * marked changed, or if it is already marked dirty and we are just going to mark it dirty
      * again.
      *
-     * If either of the above tests shows that we have already started a task to mark this entry
+     * <p>If either of the above tests shows that we have already started a task to mark this entry
      * dirty/changed, or that it is already marked dirty/changed, we do not continue this task.
      */
     @ThreadSafe
     private void visit(
         Iterable<SkyKey> keys,
         final InvalidationType invalidationType,
+        int depthForOverflowCheck,
         @Nullable SkyKey enqueueingKeyForExistenceCheck) {
-      final boolean isChanged = (invalidationType == InvalidationType.CHANGED);
+      // Code from here until pendingVisitations#add is called below must be uninterruptible.
+      boolean isChanged = (invalidationType == InvalidationType.CHANGED);
       Set<SkyKey> setToCheck = isChanged ? changed : dirtied;
       int size = Iterables.size(keys);
       ArrayList<SkyKey> keysToGet = new ArrayList<>(size);
@@ -423,10 +496,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           keysToGet.add(key);
         }
       }
-      if (supportInterruptions) {
-        for (SkyKey key : keysToGet) {
-          pendingVisitations.add(Pair.of(key, invalidationType));
-        }
+      for (SkyKey key : keysToGet) {
+        pendingVisitations.add(Pair.of(key, invalidationType));
       }
       final Map<SkyKey, ? extends ThinNodeEntry> entries;
       try {
@@ -445,61 +516,79 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                 "key(s) %s not in the graph, but enqueued for dirtying by %s",
                 Iterables.limit(missingKeys, 10), enqueueingKeyForExistenceCheck));
       }
-      for (final SkyKey key : keysToGet) {
-        executor.execute(
-            () -> {
-              ThinNodeEntry entry = entries.get(key);
-
-              if (entry == null) {
-                if (supportInterruptions) {
-                  pendingVisitations.remove(Pair.of(key, invalidationType));
-                }
-                return;
-              }
-
-              if (entry.isChanged() || (!isChanged && entry.isDirty())) {
-                // If this node is already marked changed, or we are only marking this node
-                // dirty, and it already is, move along.
-                if (supportInterruptions) {
-                  pendingVisitations.remove(Pair.of(key, invalidationType));
-                }
-                return;
-              }
-
-              // It is not safe to interrupt the logic from this point until the end of the method.
-              // Any exception thrown should be unrecoverable.
-              // This entry remains in the graph in this dirty state until it is re-evaluated.
-              MarkedDirtyResult markedDirtyResult;
-              try {
-                markedDirtyResult = entry.markDirty(isChanged ? DirtyType.CHANGE : DirtyType.DIRTY);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                // This can only happen if the main thread has been interrupted, and so the
-                // AbstractQueueVisitor is shutting down. We haven't yet removed the pending
-                // visitation, so we can resume next time.
-                return;
-              } catch (IllegalStateException e) {
-                // Debugging for #10912.
-                throw new IllegalStateException("Crash caused by " + key, e);
-              }
-              if (markedDirtyResult == null) {
-                // Another thread has already dirtied this node. Don't do anything in this thread.
-                if (supportInterruptions) {
-                  pendingVisitations.remove(Pair.of(key, invalidationType));
-                }
-                return;
-              }
-              // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
-              // only be marked dirty (because only a dependency of theirs has changed).
-              visit(markedDirtyResult.getReverseDepsUnsafe(), InvalidationType.DIRTIED, key);
-
-              progressReceiver.invalidated(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
-              // Remove the node from the set as the last operation.
-              if (supportInterruptions) {
-                pendingVisitations.remove(Pair.of(key, invalidationType));
-              }
-            });
+      // We take a deeper thread stack in exchange for less contention in the executor.
+      int lastIndex = keysToGet.size() - 1;
+      if (lastIndex == -1) {
+        return;
       }
+      for (int i = 0; i < lastIndex; i++) {
+        SkyKey key = keysToGet.get(i);
+        executor.execute(() -> dirtyKeyAndVisitParents(key, entries, invalidationType, 0));
+      }
+      SkyKey lastParent = keysToGet.get(lastIndex);
+      if (depthForOverflowCheck > SAFE_STACK_DEPTH) {
+        logger.atInfo().atMostEvery(1, MINUTES).log(
+            "Stack depth too deep to safely recurse for %s (%s)",
+            lastParent, enqueueingKeyForExistenceCheck);
+        executor.execute(() -> dirtyKeyAndVisitParents(lastParent, entries, invalidationType, 0));
+        return;
+      }
+      if (!Thread.interrupted()) {
+        // Emulate what would happen if we'd submitted this to the executor: skip on interrupt.
+        dirtyKeyAndVisitParents(lastParent, entries, invalidationType, depthForOverflowCheck + 1);
+      }
+    }
+
+    private void dirtyKeyAndVisitParents(
+        SkyKey key,
+        Map<SkyKey, ? extends ThinNodeEntry> entries,
+        InvalidationType invalidationType,
+        int depthForOverflowCheck) {
+      ThinNodeEntry entry = entries.get(key);
+
+      if (entry == null) {
+        pendingVisitations.remove(Pair.of(key, invalidationType));
+        return;
+      }
+
+      boolean isChanged = invalidationType == InvalidationType.CHANGED;
+      if (entry.isChanged() || (!isChanged && entry.isDirty())) {
+        // If this node is already marked changed, or we are only marking this node
+        // dirty, and it already is, move along.
+        pendingVisitations.remove(Pair.of(key, invalidationType));
+        return;
+      }
+
+      // This entry remains in the graph in this dirty state until it is re-evaluated.
+      MarkedDirtyResult markedDirtyResult;
+      try {
+        markedDirtyResult = entry.markDirty(isChanged ? DirtyType.CHANGE : DirtyType.DIRTY);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        // This can only happen if the main thread has been interrupted, and so the
+        // AbstractQueueVisitor is shutting down. We haven't yet removed the pending
+        // visitation, so we can resume next time.
+        return;
+      } catch (IllegalStateException e) {
+        // Debugging for #10912.
+        throw new IllegalStateException("Crash caused by " + key, e);
+      }
+      if (markedDirtyResult == null) {
+        // Another thread has already dirtied this node. Don't do anything in this thread.
+        pendingVisitations.remove(Pair.of(key, invalidationType));
+        return;
+      }
+
+      progressReceiver.invalidated(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
+      pendingVisitations.remove(Pair.of(key, invalidationType));
+
+      // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
+      // only be marked dirty (because only a dependency of theirs has changed).
+      visit(
+          markedDirtyResult.getReverseDepsUnsafe(),
+          InvalidationType.DIRTIED,
+          depthForOverflowCheck,
+          key);
     }
   }
 }

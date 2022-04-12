@@ -22,7 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /** Rule definition for the {@code android_host_service_fixture} rule. */
@@ -41,7 +41,7 @@ public class AndroidHostServiceFixtureRule implements RuleDefinition {
         .add(
             attr("executable", LABEL)
                 .exec()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .mandatory()
                 .allowedFileTypes())
         .add(attr("service_names", STRING_LIST))
@@ -58,7 +58,7 @@ public class AndroidHostServiceFixtureRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_host_service_fixture")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(factoryClass)
         .build();
   }

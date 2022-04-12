@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar.javac;
 
+import static java.util.Locale.ENGLISH;
+
 import com.google.common.collect.ImmutableList;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
 import com.sun.tools.javac.api.DiagnosticFormatter;
@@ -141,5 +143,11 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
     FailFastException(String message) {
       super(message);
     }
+  }
+
+  public boolean isJSpecifyDiagnostic() {
+    return getKind().equals(Diagnostic.Kind.ERROR)
+        && getCode().equals("compiler.err.proc.messager")
+        && getMessage(ENGLISH).startsWith("[nullness] ");
   }
 }

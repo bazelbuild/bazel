@@ -17,25 +17,26 @@
 # Android
 
 # android/ directory anywhere in the repository
-android/ @ahumesky
+android/ @ahumesky @ted-xie
 
-/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @ted-xie @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
+/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @ted-xie @kevin1e100
 
-/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @ted-xie @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
+/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @ted-xie @kevin1e100
 
 # Apple
 
-/src/objc_tools/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
-
-/src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
+/src/main/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
+/src/test/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
+/src/test/shell/bazel/apple @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl @bazelbuild/rules_apple-team
+/tools/osx @bazelbuild/rules_apple-team
 
 # Documentation
 
-/site @aiuto @gregestren @jin @floriographygoth
+/site @gregestren @philomathing @fweikert
 
 # C++
 
@@ -59,11 +60,28 @@ android/ @ahumesky
 
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
-# Skylark
+# Starlark
 
-/src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @laurentlb @alandonovan
+/src/main/java/net/starlark/java/ @brandjon @tetromino
 
 /tools/coverage/ @lberki
 /tools/test/collect_coverage.sh @lberki
 /tools/test/collect_cc_coverage.sh @lberki
 /tools/test/CoverageOutputGenerator/ @lberki
+
+# Configurability
+
+/src/main/java/com/google/devtools/build/lib/analysis @bazelbuild/configurability
+/src/test/java/com/google/devtools/build/lib/analysis @bazelbuild/configurability
+/src/main/java/com/google/devtools/build/lib/rules/platform @bazelbuild/configurability
+/src/test/java/com/google/devtools/build/lib/rules/platform @bazelbuild/configurability
+/tools/platforms @bazelbuild/configurability
+
+# Remote Execution
+
+/src/main/java/com/google/devtools/build/lib/remote @bazelbuild/remote-execution
+/src/test/java/com/google/devtools/build/lib/remote @bazelbuild/remote-execution
+/src/test/py/bazel/remote @bazelbuild/remote-execution
+/src/test/shell/bazel/remote @bazelbuild/remote-execution
+/src/tools/remote @bazelbuild/remote-execution
+/third_party/remoteapis/build/bazel/remote @bazelbuild/remote-execution

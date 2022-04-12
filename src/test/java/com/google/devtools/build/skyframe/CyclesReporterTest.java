@@ -14,9 +14,15 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.skyframe.CyclesReporter.SingleCycleReporter;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,42 +49,24 @@ public class CyclesReporterTest {
   @Test
   public void notReportedAssertion() {
     SingleCycleReporter singleReporter =
-        new SingleCycleReporter() {
-          @Override
-          public boolean maybeReportCycle(
-              SkyKey topLevelKey,
-              CycleInfo cycleInfo,
-              boolean alreadyReported,
-              ExtendedEventHandler eventHandler) {
-            return false;
-          }
-        };
+        (topLevelKey, cycleInfo, alreadyReported, eventHandler) -> false;
 
     CycleInfo cycleInfo = new CycleInfo(ImmutableList.of(DUMMY_KEY));
     CyclesReporter cyclesReporter = new CyclesReporter(singleReporter);
-    try {
-      cyclesReporter.reportCycles(ImmutableList.of(cycleInfo), DUMMY_KEY,
-          NullEventHandler.INSTANCE);
-      assertThat(false).isTrue();
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            cyclesReporter.reportCycles(
+                ImmutableList.of(cycleInfo), DUMMY_KEY, NullEventHandler.INSTANCE));
   }
 
   @Test
   public void smoke() {
     final AtomicBoolean reported = new AtomicBoolean();
     SingleCycleReporter singleReporter =
-        new SingleCycleReporter() {
-          @Override
-          public boolean maybeReportCycle(
-              SkyKey topLevelKey,
-              CycleInfo cycleInfo,
-              boolean alreadyReported,
-              ExtendedEventHandler eventHandler) {
-            reported.set(true);
-            return true;
-          }
+        (topLevelKey, cycleInfo, alreadyReported, eventHandler) -> {
+          reported.set(true);
+          return true;
         };
 
     CycleInfo cycleInfo = new CycleInfo(ImmutableList.of(DUMMY_KEY));
@@ -86,5 +74,49 @@ public class CyclesReporterTest {
     cyclesReporter.reportCycles(ImmutableList.of(cycleInfo), DUMMY_KEY,
         NullEventHandler.INSTANCE);
     assertThat(reported.get()).isTrue();
+  }
+
+  @Test
+  public void alreadyReportedCycles() {
+    SingleCycleReporter mockReporter = mock(SingleCycleReporter.class);
+    when(mockReporter.maybeReportCycle(any(), any(), anyBoolean(), any())).thenReturn(true);
+    CyclesReporter cyclesReporter = new CyclesReporter(mockReporter);
+    SkyKey top1 = () -> SkyFunctionName.createHermetic("top1");
+    SkyKey top2 = () -> SkyFunctionName.createHermetic("top2");
+    SkyKey path1 = () -> SkyFunctionName.createHermetic("path1");
+    SkyKey path2 = () -> SkyFunctionName.createHermetic("path2");
+    SkyKey cycle1 = () -> SkyFunctionName.createHermetic("cycle1");
+    SkyKey cycle2 = () -> SkyFunctionName.createHermetic("cycle2");
+    CycleInfo top1FirstCycle =
+        new CycleInfo(ImmutableList.of(top1, path1), ImmutableList.of(cycle1, cycle2));
+    cyclesReporter.reportCycles(
+        ImmutableList.of(
+            top1FirstCycle,
+            new CycleInfo(ImmutableList.of(top1, path2), ImmutableList.of(cycle1, cycle2)),
+            new CycleInfo(ImmutableList.of(top1, path1), ImmutableList.of(cycle2, cycle1)),
+            new CycleInfo(ImmutableList.of(top1, path2), ImmutableList.of(cycle2, cycle1))),
+        top1,
+        NullEventHandler.INSTANCE);
+    verify(mockReporter)
+        .maybeReportCycle(
+            top1, top1FirstCycle, /*alreadyReported=*/ false, NullEventHandler.INSTANCE);
+    // Second cycle is filtered out because it is equivalent but for the path and cycle order.
+    verifyNoMoreInteractions(mockReporter);
+
+    CycleInfo top2FirstCycle =
+        new CycleInfo(ImmutableList.of(top2, path1), ImmutableList.of(cycle1, cycle2));
+    cyclesReporter.reportCycles(
+        ImmutableList.of(
+            top2FirstCycle,
+            new CycleInfo(ImmutableList.of(top2, path2), ImmutableList.of(cycle1, cycle2)),
+            new CycleInfo(ImmutableList.of(top2, path1), ImmutableList.of(cycle2, cycle1)),
+            new CycleInfo(ImmutableList.of(top2, path2), ImmutableList.of(cycle2, cycle1))),
+        top2,
+        NullEventHandler.INSTANCE);
+
+    verify(mockReporter)
+        .maybeReportCycle(
+            top2, top2FirstCycle, /*alreadyReported=*/ true, NullEventHandler.INSTANCE);
+    verifyNoMoreInteractions(mockReporter);
   }
 }

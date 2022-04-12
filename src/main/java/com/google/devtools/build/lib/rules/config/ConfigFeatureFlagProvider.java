@@ -19,8 +19,8 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigFeatureFlagProviderApi;
@@ -42,7 +42,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
    * Constructor and identifier for ConfigFeatureFlagProvider. This is the value of {@code
    * config_common.FeatureFlagInfo}.
    */
-  static final NativeProvider<ConfigFeatureFlagProvider> STARLARK_CONSTRUCTOR = new Constructor();
+  static final BuiltinProvider<ConfigFeatureFlagProvider> STARLARK_CONSTRUCTOR = new Constructor();
 
   static final RequiredProviders REQUIRE_CONFIG_FEATURE_FLAG_PROVIDER =
       RequiredProviders.acceptAnyBuilder().addStarlarkSet(ImmutableSet.of(id())).build();
@@ -51,10 +51,13 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
   private final Predicate<String> validityPredicate;
 
   private ConfigFeatureFlagProvider(String value, Predicate<String> validityPredicate) {
-    super(STARLARK_CONSTRUCTOR);
-
     this.value = value;
     this.validityPredicate = validityPredicate;
+  }
+
+  @Override
+  public BuiltinProvider<ConfigFeatureFlagProvider> getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   /** Creates a new ConfigFeatureFlagProvider with the given value and valid value predicate. */
@@ -68,17 +71,17 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
    */
   @StarlarkBuiltin(name = "FeatureFlagInfo", documented = false)
   @Immutable
-  private static final class Constructor extends NativeProvider<ConfigFeatureFlagProvider>
+  private static final class Constructor extends BuiltinProvider<ConfigFeatureFlagProvider>
       implements StarlarkValue {
 
     Constructor() {
-      super(ConfigFeatureFlagProvider.class, STARLARK_NAME);
+      super(STARLARK_NAME, ConfigFeatureFlagProvider.class);
     }
 
     @StarlarkMethod(
         name = "FeatureFlagInfo",
         documented = false,
-        parameters = {@Param(name = "value", named = true, type = String.class)},
+        parameters = {@Param(name = "value", named = true)},
         selfCall = true)
     public ConfigFeatureFlagProvider selfcall(String value) {
       return create(value, Predicates.alwaysTrue());

@@ -49,7 +49,7 @@ std::pair<std::string, std::string> SplitPath(const std::string &path) {
 }
 
 bool IsDevNull(const char *path) {
-  return path != NULL && *path != 0 && strncmp("/dev/null\0", path, 10) == 0;
+  return path != nullptr && *path != 0 && strncmp("/dev/null\0", path, 10) == 0;
 }
 
 bool IsRootDirectory(const std::string &path) {
@@ -77,7 +77,7 @@ std::string ResolveEnvvars(const std::string &path) {
   size_t start = 0;
   while ((start = result.find("${", start)) != std::string::npos) {
     // Just match to the next }
-    size_t end = result.find("}", start + 1);
+    size_t end = result.find('}', start + 1);
     if (end == std::string::npos) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "ResolveEnvvars(" << path << "): incomplete variable at position "
@@ -139,6 +139,9 @@ std::string TestOnly_NormalizeAbsPath(const std::string &s) {
 }
 
 Path::Path(const std::string &path)
+    : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
+
+Path::Path(const std::string &path, std::string *errorText)
     : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
 
 bool Path::IsNull() const { return path_ == "/dev/null"; }

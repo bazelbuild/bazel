@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:private"])
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-
 filegroup(
     name = "srcs",
     srcs = glob(
@@ -65,20 +63,4 @@ cc_test(
         ":runfiles",
         "@com_google_googletest//:gtest_main",
     ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//tools:__pkg__"],
 )

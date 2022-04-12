@@ -23,6 +23,37 @@ import net.starlark.java.syntax.Location;
  * values, each keyed by its Provider. Every Info is an instance of a Provider: if a Provider is
  * like a Java class, then an Info is like an instance of that class.
  */
+// TODO(adonovan): simplify the hierarchies below in these steps:
+// - Once to_{json,proto} are gone, StructApi can be deleted; structs should never again have
+//   methods.
+// - StructImpl.location can be pushed down into subclasses that need it, much as we did for
+//   StructImpl.provider in CL 341102857.
+// - StructImpl is then really just a collection of helper functions for subclasses
+//   getValue(String, Class), repr, equals, hash. Move them, and merge it into Info interface,
+//   or rename it InfoStruct or StructuredInfo if we absolutely need inheritance.
+// - Move StructProvider.STRUCT and make StructProvider private.
+//   The StructProvider.createStruct method could be a simple function like depset, select.
+//   StructProviderApi could be eliminated.
+// - eliminate StarlarkInfo + StarlarkInfo.
+// - NativeInfo's get{FieldNames,Value} methods are not needed by the Starlark interpreter,
+//   since all its fields are annotated. They exist for the hash/eq/str implementations
+//   defined in StructImpl over all its subclasses, and for json.encode. More thought is
+//   needed on how to bridge between annotated methods and user-defined Structures so that
+//   they appear similar to clients like json.encode.
+//
+// Info (result of analysis)
+// - StructImpl (structure with fields, to_{json,proto}). Implements Structure, StructApi.
+//   - OutputGroupInfo. Fields are output group names.
+//   - NativeInfo. Fields are Java annotated methods (tricky).
+//     - dozens of subclasses
+//   - StarlarkInfo. Has table of k/v pairs. Final. Supports x+y.
+//
+// Provider (key for analysis result Info; class symbol for StructImpls). Implements ProviderApi.
+// - BuiltinProvider
+//   - StructProvider (for basic 'struct' values). Callable. Implements ProviderApi.
+//   - dozens of singleton subclasses
+// - StarlarkProvider. Callable.
+//
 public interface Info extends StarlarkValue {
 
   /** Returns the provider that instantiated this Info. */
@@ -32,18 +63,8 @@ public interface Info extends StarlarkValue {
    * Returns the source location where this Info (provider instance) was created, or BUILTIN if it
    * was instantiated by Java code.
    */
-  default Location getCreationLoc() {
+  default Location getCreationLocation() {
     return Location.BUILTIN;
-  }
-
-  /**
-   * This method (which is redundant with getCreationLoc and should not be overridden or called) is
-   * required to pacify the AutoCodec annotation processor.
-   */
-  // TODO(adonovan): find out why and stop it.
-  // Alternatively rename various constructor parameters from 'location' to 'creationLoc'.
-  default Location getLocation() {
-    return getCreationLoc();
   }
 
   @Override

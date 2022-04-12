@@ -17,6 +17,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -30,7 +31,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public abstract class PackageErrorMessageValue implements SkyValue {
   /** Tri-state result of loading the package. */
-  enum Result {
+  public enum Result {
     /**
      * There was no error loading the package and {@link
      * com.google.devtools.build.lib.packages.Package#containsErrors} returned {@code false}.
@@ -51,7 +52,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
   }
 
   /** Returns the {@link Result} from loading the package. */
-  abstract Result getResult();
+  public abstract Result getResult();
 
   /**
    * If {@code getResult().equals(NO_SUCH_PACKAGE_EXCEPTION)}, returns the error message from the
@@ -96,11 +97,11 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     }
   }
 
-  @AutoCodec
+  @SerializationConstant
   static final PackageErrorMessageValue NO_ERROR_VALUE =
       new PackageErrorMessageValue() {
         @Override
-        Result getResult() {
+        public Result getResult() {
           return Result.NO_ERROR;
         }
 
@@ -110,11 +111,11 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
       };
 
-  @AutoCodec
+  @SerializationConstant
   static final PackageErrorMessageValue ERROR_VALUE =
       new PackageErrorMessageValue() {
         @Override
-        Result getResult() {
+        public Result getResult() {
           return Result.ERROR;
         }
 
@@ -124,16 +125,15 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
       };
 
-  @AutoCodec
-  static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
+  private static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
     private final String errorMessage;
 
-    public NoSuchPackageExceptionValue(String errorMessage) {
+    NoSuchPackageExceptionValue(String errorMessage) {
       this.errorMessage = errorMessage;
     }
 
     @Override
-    Result getResult() {
+    public Result getResult() {
       return Result.NO_SUCH_PACKAGE_EXCEPTION;
     }
 

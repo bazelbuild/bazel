@@ -14,7 +14,7 @@ sh_test(
         "$(JAVABASE)/bin/jar",
         "$(JAVABASE)/bin/javap",
         "$(location //third_party/ijar)",
-        "$(location //tools/jdk:langtools)",
+        "$(location //third_party/java/jdk/langtools:javac_jar)",
         # We assume unzip and zip to be on the path
         "unzip",
         "zip",
@@ -34,6 +34,8 @@ sh_test(
         # This is a precompiled .jar file because it needs to be compiled with JDK 11.
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
+        "records/records.jar",
+        "sealed/sealed.jar",
         ":source_debug_extension.jar",
         ":keep_for_compile_lib.jar",
         ":largest_regular.jar",
@@ -46,7 +48,7 @@ sh_test(
         # wrong.
         "libwrongcentraldir.jar",
         "@bazel_tools//tools/jdk:current_java_runtime",
-        "//tools/jdk:langtools",
+        "//third_party/java/jdk/langtools:javac_jar",
     ],
     shard_count = 5,
     tags = ["zip"],
@@ -145,6 +147,24 @@ genrule(
 )
 
 genrule(
+    name = "jar_with_manifest_sections_nostrip",
+    testonly = 1,
+    srcs = [":jar_with_manifest_sections"],
+    outs = ["jar-with-manifest-sections-nostrip.jar"],
+    cmd = "$(location //third_party/ijar) --target_label //foo:foo --nostrip_jar $< $@",
+    tools = ["//third_party/ijar"],
+)
+
+genrule(
+    name = "jar_with_target_label_and_manifest_sections_nostrip",
+    testonly = 1,
+    srcs = [":jar_with_target_label_and_manifest_sections"],
+    outs = ["jar-with-target-label-and-manifest-sections-nostrip.jar"],
+    cmd = "$(location //third_party/ijar) --target_label //foo:foo --nostrip_jar $< $@",
+    tools = ["//third_party/ijar"],
+)
+
+genrule(
     name = "jar_without_manifest_nostrip_idempotence",
     srcs = ["jar-without-manifest-nostrip.jar"],
     outs = ["jar-without-manifest-nostrip-idempotence.jar"],
@@ -189,11 +209,12 @@ genrule(
 java_library(
     name = "local_and_anonymous_lib",
     srcs = ["LocalAndAnonymous.java"],
+    javacopts = ["-source 8 -target 8"],
 )
 
 genrule(
     name = "local_and_anonymous_interface",
-    srcs = [":liblocal_and_anonymous_lib.jar"],
+    srcs = [":local_and_anonymous_lib"],
     outs = ["local_and_anonymous-interface.jar"],
     cmd = "$(location //third_party/ijar) $< $@",
     tools = ["//third_party/ijar"],
@@ -267,6 +288,55 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+java_binary(
+    name = "GenScalaTasty",
+    testonly = 1,
+    srcs = ["GenScalaTasty.java"],
+    main_class = "GenScalaTasty",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "scala_tasty",
+    testonly = 1,
+    outs = ["scala_tasty.jar"],
+    cmd = "$(location :GenScalaTasty) $@",
+    tools = [":GenScalaTasty"],
+)
+
+genrule(
+    name = "scala_tasty-interface",
+    testonly = 1,
+    srcs = [":scala_tasty.jar"],
+    outs = ["scala_tasty-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
+java_binary(
+    name = "GenJarWithManifestSections",
+    testonly = 1,
+    srcs = ["GenJarWithManifestSections.java"],
+    main_class = "GenJarWithManifestSections",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "jar_with_manifest_sections",
+    testonly = 1,
+    outs = ["jar-with-manifest-sections.jar"],
+    cmd = "$(location :GenJarWithManifestSections) $@",
+    tools = [":GenJarWithManifestSections"],
+)
+
+genrule(
+    name = "jar_with_target_label_and_manifest_sections",
+    testonly = 1,
+    outs = ["jar-with-target-label-and-manifest-sections.jar"],
+    cmd = "$(location :GenJarWithManifestSections) $@ //not:this",
+    tools = [":GenJarWithManifestSections"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -280,6 +350,7 @@ java_test(
         "UseRestrictedAnnotation.java",
         "jar-with-manifest.jar",
         "jar-with-manifest-and-target-label.jar",
+        "jar-with-manifest-sections.jar",
         "jar-without-manifest.jar",
         "package-info.java",
         ":empty_with_target_label",
@@ -289,12 +360,15 @@ java_test(
         ":interface_ijar_testlib_with_target_label",
         ":jar_with_manifest_and_target_label_nostrip",
         ":jar_with_manifest_nostrip",
+        ":jar_with_manifest_sections_nostrip",
+        ":jar_with_target_label_and_manifest_sections_nostrip",
         ":jar_without_manifest_nostrip",
         ":jar_without_manifest_nostrip_idempotence",
         ":kotlin_module-interface.jar",
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
         ":module_info-interface.jar",
+        ":scala_tasty-interface.jar",
     ],
     tags = ["zip"],
     test_class = "IjarTests",

@@ -18,12 +18,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import java.util.regex.Pattern;
 
 /**
  * C++-related file type definitions.
  */
 public final class CppFileTypes {
+  private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
+
   // .cu and .cl are CUDA and OpenCL source extensions, respectively. They are expected to only be
   // supported with clang. Bazel is not officially supporting these targets, and the extensions are
   // listed only as long as they work with the existing C++ actions.
@@ -34,6 +37,7 @@ public final class CppFileTypes {
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
   public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
+  public static final FileType BC_SOURCE = FileType.of(".bc");
 
   public static final FileTypeSet ALL_C_CLASS_SOURCE =
       FileTypeSet.of(
@@ -63,7 +67,7 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return path.endsWith(ext) && !PIC_PREPROCESSED_C.matches(path);
+          return OS.endsWith(path, ext) && !PIC_PREPROCESSED_C.matches(path);
         }
 
         @Override
@@ -78,7 +82,7 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return path.endsWith(ext) && !PIC_PREPROCESSED_CPP.matches(path);
+          return OS.endsWith(path, ext) && !PIC_PREPROCESSED_CPP.matches(path);
         }
 
         @Override
@@ -87,15 +91,46 @@ public final class CppFileTypes {
         }
       };
 
-  public static final FileType ASSEMBLER_WITH_C_PREPROCESSOR = FileType.of(".S");
-  public static final FileType PIC_ASSEMBLER = FileType.of(".pic.s");
+  // FileType is extended to use case-sensitive comparison also on Windows
+  public static final FileType ASSEMBLER_WITH_C_PREPROCESSOR =
+      new FileType() {
+        final String ext = ".S";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext);
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
+
+  // FileType is extended to use case-sensitive comparison also on Windows
+  public static final FileType PIC_ASSEMBLER =
+      new FileType() {
+        final String ext = ".pic.s";
+
+        @Override
+        public boolean apply(String path) {
+          return OS.endsWith(path, ext) && path.endsWith(".s");
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
+
+  // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType ASSEMBLER =
       new FileType() {
         final String ext = ".s";
 
         @Override
         public boolean apply(String path) {
-          return (path.endsWith(ext) && !PIC_ASSEMBLER.matches(path)) || path.endsWith(".asm");
+          return (path.endsWith(ext) && !PIC_ASSEMBLER.matches(path)) || OS.endsWith(path, ".asm");
         }
 
         @Override
@@ -113,11 +148,11 @@ public final class CppFileTypes {
         public boolean apply(String path) {
           if (PIC_ARCHIVE.matches(path)
               || ALWAYS_LINK_LIBRARY.matches(path)
-              || path.endsWith(".if.lib")) {
+              || OS.endsWith(path, ".if.lib")) {
             return false;
           }
           for (String ext : extensions) {
-            if (path.endsWith(ext)) {
+            if (OS.endsWith(path, ext)) {
               return true;
             }
           }
@@ -137,8 +172,8 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return (path.endsWith(ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(path))
-              || path.endsWith(".lo.lib");
+          return (OS.endsWith(path, ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(path))
+              || OS.endsWith(path, ".lo.lib");
         }
 
         @Override
@@ -154,7 +189,8 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return (path.endsWith(ext) && !PIC_OBJECT_FILE.matches(path)) || path.endsWith(".obj");
+          return (OS.endsWith(path, ext) && !PIC_OBJECT_FILE.matches(path))
+              || OS.endsWith(path, ".obj");
         }
 
         @Override
@@ -162,6 +198,8 @@ public final class CppFileTypes {
           return ImmutableList.of(ext, ".obj");
         }
       };
+  // Static library artifact created by rustc, can be used as a regular archive.
+  public static final FileType RUST_RLIB = FileType.of(".rlib");
 
   // Minimized bitcode file emitted by the ThinLTO compile step and used just for LTO indexing.
   public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
@@ -169,7 +207,8 @@ public final class CppFileTypes {
   public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll");
   // Unix shared libraries can be passed to linker, but not .dll on Windows
   public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
-  public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso", ".tbd", ".lib");
+  public static final FileType INTERFACE_SHARED_LIBRARY =
+      FileType.of(".ifso", ".tbd", ".lib", ".dll.a");
   public static final FileType LINKER_SCRIPT = FileType.of(".ld", ".lds", ".ldscript");
 
   // Windows DEF file: https://msdn.microsoft.com/en-us/library/28d6s79h.aspx
@@ -216,7 +255,7 @@ public final class CppFileTypes {
           // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't
           // have '.inc' files in the module map (since they're implictly textual).
           // TODO(bazel-team): Use HEADERS file type once clang-700 is the base clang we support.
-          return artifact.getFilename().endsWith(".h");
+          return OS.endsWith(artifact.getFilename(), ".h");
         }
       };
 

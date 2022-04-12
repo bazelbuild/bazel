@@ -16,11 +16,10 @@
 
 def _java_runtime_alias(ctx):
     """An experimental implementation of java_runtime_alias using toolchain resolution."""
-    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
-    else:
-        toolchain = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+    toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+    toolchain = toolchain_info.java_runtime
     return [
+        toolchain_info,
         toolchain,
         platform_common.TemplateVariableInfo({
             "JAVA": str(toolchain.java_executable_exec_path),
@@ -36,26 +35,20 @@ def _java_runtime_alias(ctx):
 java_runtime_alias = rule(
     implementation = _java_runtime_alias,
     toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
-    attrs = {
-        "_java_runtime": attr.label(
-            default = Label("@bazel_tools//tools/jdk:legacy_current_java_runtime"),
-        ),
-    },
+    incompatible_use_toolchain_transition = True,
 )
 
 def _java_host_runtime_alias(ctx):
     """An experimental implementation of java_host_runtime_alias using toolchain resolution."""
     runtime = ctx.attr._runtime
+    java_runtime = runtime[java_common.JavaRuntimeInfo]
+    template_variable_info = runtime[platform_common.TemplateVariableInfo]
+    toolchain_info = platform_common.ToolchainInfo(java_runtime = java_runtime)
     return [
-        runtime[java_common.JavaRuntimeInfo],
-        runtime[platform_common.TemplateVariableInfo],
-        # Create a new DefaultInfo instead of propagating runtime[DefaultInfo]
-        # directly.
-        DefaultInfo(
-            files = runtime[DefaultInfo].files,
-            data_runfiles = runtime[DefaultInfo].data_runfiles,
-            default_runfiles = runtime[DefaultInfo].default_runfiles,
-        ),
+        java_runtime,
+        template_variable_info,
+        toolchain_info,
+        runtime[DefaultInfo],
     ]
 
 java_host_runtime_alias = rule(
@@ -70,16 +63,44 @@ java_host_runtime_alias = rule(
             cfg = "host",
         ),
     },
+    provides = [
+        java_common.JavaRuntimeInfo,
+        platform_common.TemplateVariableInfo,
+        platform_common.ToolchainInfo,
+    ],
+)
+
+def _java_runtime_transition_impl(settings, attr):
+    return {"//command_line_option:java_runtime_version": attr.runtime_version}
+
+_java_runtime_transition = transition(
+    implementation = _java_runtime_transition_impl,
+    inputs = [],
+    outputs = ["//command_line_option:java_runtime_version"],
+)
+
+java_runtime_version_alias = rule(
+    implementation = _java_runtime_alias,
+    toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+    attrs = {
+        "runtime_version": attr.string(mandatory = True),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+    cfg = _java_runtime_transition,
 )
 
 def _java_toolchain_alias(ctx):
     """An experimental implementation of java_toolchain_alias using toolchain resolution."""
-    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
-    else:
-        toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
+    toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
+    toolchain = toolchain_info.java
     return struct(
-        providers = [toolchain],
+        providers = [
+            toolchain_info,
+            toolchain,
+        ],
         # Use the legacy provider syntax for compatibility with the native rules.
         java_toolchain = toolchain,
     )
@@ -87,13 +108,5 @@ def _java_toolchain_alias(ctx):
 java_toolchain_alias = rule(
     implementation = _java_toolchain_alias,
     toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
-    attrs = {
-        "_java_toolchain": attr.label(
-            default = Label("@bazel_tools//tools/jdk:legacy_current_java_toolchain"),
-        ),
-    },
+    incompatible_use_toolchain_transition = True,
 )
-
-# Add aliases for the legacy native rules to allow referring to both versions in @bazel_tools//tools/jdk
-legacy_java_toolchain_alias = native.java_toolchain_alias
-legacy_java_runtime_alias = native.java_runtime_alias

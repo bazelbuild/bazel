@@ -21,14 +21,14 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -74,8 +74,7 @@ public final class InstrumentedFilesCollector {
     return instrumentedFilesInfoBuilder.build();
   }
 
-  public static InstrumentedFilesInfo collectTransitive(
-      RuleContext ruleContext, InstrumentationSpec spec) {
+  public static InstrumentedFilesInfo collect(RuleContext ruleContext, InstrumentationSpec spec) {
     return collect(
         ruleContext,
         spec,
@@ -85,7 +84,7 @@ public final class InstrumentedFilesCollector {
             Order.STABLE_ORDER));
   }
 
-  public static InstrumentedFilesInfo collectTransitive(
+  public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       NestedSet<Pair<String, String>> reportedToActualSources) {
@@ -134,7 +133,7 @@ public final class InstrumentedFilesCollector {
   /**
    * Collects transitive instrumentation data from dependencies, collects local source files from
    * dependencies, collects local metadata files by traversing the action graph of the current
-   * configured target, collect rule-specific instrumentation support file sand creates baseline
+   * configured target, collect rule-specific instrumentation support files and creates baseline
    * coverage actions for the transitive closure of source files (if <code>withBaselineCoverage
    * </code> is true).
    */
@@ -167,6 +166,28 @@ public final class InstrumentedFilesCollector {
       NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage,
       NestedSet<Pair<String, String>> reportedToActualSources) {
+    return collect(
+        ruleContext,
+        spec,
+        localMetadataCollector,
+        rootFiles,
+        coverageSupportFiles,
+        coverageEnvironment,
+        withBaselineCoverage,
+        reportedToActualSources,
+        /* additionalMetadata= */ null);
+  }
+
+  public static InstrumentedFilesInfo collect(
+      RuleContext ruleContext,
+      InstrumentationSpec spec,
+      @Nullable LocalMetadataCollector localMetadataCollector,
+      @Nullable Iterable<Artifact> rootFiles,
+      NestedSet<Artifact> coverageSupportFiles,
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      boolean withBaselineCoverage,
+      NestedSet<Pair<String, String>> reportedToActualSources,
+      @Nullable Iterable<Artifact> additionalMetadata) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
 
@@ -213,6 +234,10 @@ public final class InstrumentedFilesCollector {
       instrumentedFilesInfoBuilder.collectLocalMetadata(localMetadataCollector, rootFiles);
     }
 
+    if (additionalMetadata != null) {
+      instrumentedFilesInfoBuilder.addMetadataFiles(additionalMetadata);
+    }
+
     return instrumentedFilesInfoBuilder.build();
   }
 
@@ -221,8 +246,8 @@ public final class InstrumentedFilesCollector {
    * representing a rule) should be instrumented according the --instrumentation_filter and
    * --instrument_test_targets settings in {@code config}.
    */
-  public static boolean shouldIncludeLocalSources(BuildConfiguration config,
-      TransitiveInfoCollection target) {
+  public static boolean shouldIncludeLocalSources(
+      BuildConfigurationValue config, TransitiveInfoCollection target) {
     return shouldIncludeLocalSources(config, target.getLabel(),
         target.getProvider(TestProvider.class) != null);
   }
@@ -232,7 +257,7 @@ public final class InstrumentedFilesCollector {
    * the --instrumentation_filter and --instrument_test_targets config settings.
    */
   public static boolean shouldIncludeLocalSources(
-      BuildConfiguration config, Label label, boolean isTest) {
+      BuildConfigurationValue config, Label label, boolean isTest) {
     return ((config.shouldInstrumentTestTargets() || !isTest)
         && config.getInstrumentationFilter().isIncluded(label.toString()));
   }
@@ -394,6 +419,10 @@ public final class InstrumentedFilesCollector {
           rootFiles, ruleContext.getAnalysisEnvironment(), metadataFilesBuilder);
     }
 
+    void addMetadataFiles(Iterable<Artifact> files) {
+      metadataFilesBuilder.addAll(files);
+    }
+
     InstrumentedFilesInfo build() {
       NestedSet<Artifact> baselineCoverageFiles = baselineCoverageInstrumentedFilesBuilder.build();
       return new InstrumentedFilesInfo(
@@ -416,10 +445,11 @@ public final class InstrumentedFilesCollector {
   private static Iterable<TransitiveInfoCollection> getPrerequisitesForAttributes(
       RuleContext ruleContext, Collection<String> attributeNames) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
-    for (String attr : attributeNames) {
-      if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
-          ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr));
+    for (String attributeName : attributeNames) {
+      Attribute attribute =
+          ruleContext.getRule().getRuleClassObject().getAttributeByNameMaybe(attributeName);
+      if (attribute != null) {
+        prerequisites.addAll(attributeDependencyPrerequisites(attribute, ruleContext));
       }
     }
     return prerequisites;
@@ -428,12 +458,17 @@ public final class InstrumentedFilesCollector {
   private static Iterable<TransitiveInfoCollection> getAllNonToolPrerequisites(
       RuleContext ruleContext) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
-    for (Attribute attr : ruleContext.getRule().getAttributes()) {
-      if ((attr.getType() == BuildType.LABEL_LIST || attr.getType() == BuildType.LABEL)
-          && !attr.getTransitionFactory().isTool()) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr.getName()));
-      }
+    for (Attribute attribute : ruleContext.getRule().getAttributes()) {
+      prerequisites.addAll(attributeDependencyPrerequisites(attribute, ruleContext));
     }
     return prerequisites;
+  }
+
+  private static List<? extends TransitiveInfoCollection> attributeDependencyPrerequisites(
+      Attribute attribute, RuleContext ruleContext) {
+    if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+      return ruleContext.getPrerequisites(attribute.getName());
+    }
+    return ImmutableList.of();
   }
 }

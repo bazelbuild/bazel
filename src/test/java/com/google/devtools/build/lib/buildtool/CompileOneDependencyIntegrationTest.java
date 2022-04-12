@@ -18,11 +18,9 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsE
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,29 +29,22 @@ import org.junit.runners.JUnit4;
  * Test the semantics of the compile_one_dependency flag: for each command-line argument (which must
  * be a source file path relative to the workspace) rebuild a single target that depends on it.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
-public class CompileOneDependencyIntegrationTest extends GoogleBuildIntegrationTestCase {
+public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
-  public void testCcBinaryMember() throws Exception {
+  public void testPyBinaryMember() throws Exception {
     EventCollector eventCollector = new EventCollector(EventKind.START);
     events.addHandler(eventCollector);
     addOptions("--compile_one_dependency");
+    // Make build super minimal.
+    addOptions("--nobuild_runfile_links");
 
-    write("package/BUILD",
-          "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')");
-    write("package/foo.cc",
-          "#include <stdio.h>",
-          "int main() {",
-          "  printf(\"Hello, world!\\n\");",
-          "  return 0;",
-          "}");
-    buildTarget("package/foo.cc");
+    write("package/BUILD", "py_binary(name='foo', srcs=['foo.py'])");
+    write("package/foo.py");
+    buildTarget("package/foo.py");
 
-    // Check that 'foo' is recompiled and linked.
-    assertContainsEvent(eventCollector, "Compiling package/foo.cc");
-    assertContainsEvent(eventCollector, "Linking package/foo");
+    assertContainsEvent(eventCollector, "Creating source manifest for //package:foo");
   }
 
   /**
@@ -103,5 +94,27 @@ public class CompileOneDependencyIntegrationTest extends GoogleBuildIntegrationT
     assertThat(e)
         .hasMessageThat()
         .contains("command succeeded, but there were errors parsing the target pattern");
+  }
+
+  @Test
+  public void sourcefilePrintsWarning() throws Exception {
+    write(
+        "file/BUILD", "genrule(name = 'x', srcs = ['src'], cmd = 'touch $@', outs =" + " ['out'])");
+    write("file/src");
+
+    buildTarget("file/src");
+
+    events.assertContainsWarning(
+        "//file:src is a source file, nothing will be built for it. If you want to build a target"
+            + " that consumes this file, try --compile_one_dependency");
+  }
+
+  @Test
+  public void nonSourceFileNoWarning() throws Exception {
+    write("file/BUILD", "genrule(name = 'x', cmd = 'touch $@', outs = ['out'])");
+
+    buildTarget("file/out");
+
+    events.assertNoWarningsOrErrors();
   }
 }

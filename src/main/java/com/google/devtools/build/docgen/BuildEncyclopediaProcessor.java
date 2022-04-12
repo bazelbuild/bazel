@@ -45,8 +45,8 @@ public abstract class BuildEncyclopediaProcessor {
     }
   };
 
-  /** Name of the product to insert into the documentation. */
-  protected final String productName;
+  /** Class that expand links to the BE. */
+  protected final RuleLinkExpander linkExpander;
 
   /** Rule class provider from which to extract the rule class hierarchy and attributes. */
   protected final ConfiguredRuleClassProvider ruleClassProvider;
@@ -56,8 +56,8 @@ public abstract class BuildEncyclopediaProcessor {
    * rule class hierarchy and attribute checking.
    */
   public BuildEncyclopediaProcessor(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
-    this.productName = productName;
+      RuleLinkExpander linkExpander, ConfiguredRuleClassProvider ruleClassProvider) {
+    this.linkExpander = linkExpander;
     this.ruleClassProvider = Preconditions.checkNotNull(ruleClassProvider);
   }
 
@@ -206,24 +206,19 @@ public abstract class BuildEncyclopediaProcessor {
   /**
    * Sets the {@link RuleLinkExpander} for the provided {@link RuleDocumentationAttributes}.
    *
-   * <p>This method is used to set the {@link RuleLinkExpander} for common attributes, such as
-   * those defined in {@link PredefinedAttributes}, so that rule references in the docs for those
+   * <p>This method is used to set the {@link RuleLinkExpander} for common attributes, such as those
+   * defined in {@link PredefinedAttributes}, so that rule references in the docs for those
    * attributes can be expanded.
    *
    * @param attributes The map containing the RuleDocumentationAttributes, keyed by attribute name.
-   * @param expander The RuleLinkExpander to set in each of the RuleDocumentationAttributes.
-   * @return A map of name to RuleDocumentationAttribute with the RuleLinkExpander set for each
-   *     attribute.
+   * @return The provided map of attributes.
    */
-  protected static Map<String, RuleDocumentationAttribute> expandCommonAttributes(
-      Map<String, RuleDocumentationAttribute> attributes, RuleLinkExpander expander) {
-    Map<String, RuleDocumentationAttribute> expanded = new HashMap<>(attributes.size());
-    for (Map.Entry<String, RuleDocumentationAttribute> entry : attributes.entrySet()) {
-      RuleDocumentationAttribute attribute = entry.getValue();
-      attribute.setRuleLinkExpander(expander);
-      expanded.put(entry.getKey(), attribute);
+  protected Map<String, RuleDocumentationAttribute> expandCommonAttributes(
+      Map<String, RuleDocumentationAttribute> attributes) {
+    for (RuleDocumentationAttribute attribute : attributes.values()) {
+      attribute.setRuleLinkExpander(linkExpander);
     }
-    return expanded;
+    return attributes;
   }
 
   /**

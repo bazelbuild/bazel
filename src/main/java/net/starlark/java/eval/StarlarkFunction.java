@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
@@ -28,16 +29,51 @@ import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
+@StarlarkBuiltin(
+    name = "function",
+    category = "core",
+    doc = "The type of functions declared in Starlark.")
 public final class StarlarkFunction implements StarlarkCallable {
 
-  private final Resolver.Function rfn;
+  final Resolver.Function rfn;
   private final Module module; // a function closes over its defining module
-  private final Tuple<Object> defaultValues;
 
-  StarlarkFunction(Resolver.Function rfn, Tuple<Object> defaultValues, Module module) {
+  // Index in Module.globals of ith Program global (Resolver.Binding(GLOBAL).index).
+  // See explanation at Starlark.execFileProgram.
+  final int[] globalIndex;
+
+  // Default values of optional parameters.
+  // Indices correspond to the subsequence of parameters after the initial
+  // required parameters and before *args/**kwargs.
+  // Contain MANDATORY for the required keyword-only parameters.
+  private final Tuple defaultValues;
+
+  // Cells (shared locals) of enclosing functions.
+  // Indexed by Resolver.Binding(FREE).index values.
+  private final Tuple freevars;
+
+  StarlarkFunction(
+      Resolver.Function rfn,
+      Module module,
+      int[] globalIndex,
+      Tuple defaultValues,
+      Tuple freevars) {
     this.rfn = rfn;
     this.module = module;
+    this.globalIndex = globalIndex;
     this.defaultValues = defaultValues;
+    this.freevars = freevars;
+  }
+
+  // Sets a global variable, given its index in this function's compiled Program.
+  void setGlobal(int progIndex, Object value) {
+    module.setGlobalByIndex(globalIndex[progIndex], value);
+  }
+
+  // Gets the value of a global variable, given its index in this function's compiled Program.
+  @Nullable
+  Object getGlobal(int progIndex) {
+    return module.getGlobalByIndex(globalIndex[progIndex]);
   }
 
   boolean isToplevel() {
@@ -103,8 +139,8 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   /**
-   * Returns the name of the function. Implicit functions (those not created by a def statement),
-   * may have names such as "<toplevel>" or "<expr>".
+   * Returns the name of the function, or "lambda" if anonymous. Implicit functions (those not
+   * created by a def statement), may have names such as "<toplevel>" or "<expr>".
    */
   @Override
   public String getName() {
@@ -135,24 +171,25 @@ public final class StarlarkFunction implements StarlarkCallable {
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    if (thread.mutability().isFrozen()) {
-      throw Starlark.errorf("Trying to call in frozen environment");
-    }
-    if (thread.isRecursiveCall(this)) {
+    if (!thread.isRecursionAllowed() && thread.isRecursiveCall(this)) {
       throw Starlark.errorf("function '%s' called recursively", getName());
     }
 
     // Compute the effective parameter values
     // and update the corresponding variables.
-    Object[] arguments = processArgs(thread.mutability(), positional, named);
-
     StarlarkThread.Frame fr = thread.frame(0);
-    ImmutableList<String> names = rfn.getParameterNames();
-    for (int i = 0; i < names.size(); ++i) {
-      fr.locals.put(names.get(i), arguments[i]);
+    fr.locals = processArgs(thread.mutability(), positional, named);
+
+    // Spill indicated locals to cells.
+    for (int index : rfn.getCellIndices()) {
+      fr.locals[index] = new Cell(fr.locals[index]);
     }
 
     return Eval.execFunctionBody(fr, rfn.getBody());
+  }
+
+  Cell getFreeVar(int index) {
+    return (Cell) freevars.get(index);
   }
 
   @Override
@@ -168,8 +205,9 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   // Checks the positional and named arguments to ensure they match the signature. It returns a new
-  // array of effective parameter values corresponding to the parameters of the signature. Newly
-  // allocated values (e.g. a **kwargs dict) use the Mutability mu.
+  // array of effective parameter values corresponding to the parameters of the signature. The
+  // returned array has size of locals and is directly pushed to the stack.
+  // Newly allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
   // If the function has optional parameters, their default values are supplied by getDefaultValue.
   private Object[] processArgs(Mutability mu, Object[] positional, Object[] named)
@@ -196,9 +234,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     ImmutableList<String> names = rfn.getParameterNames();
 
-    // TODO(adonovan): when we have flat frames, pass in the locals array here instead of
-    // allocating.
-    Object[] arguments = new Object[names.size()];
+    Object[] locals = new Object[rfn.getLocals().size()];
 
     // nparams is the number of ordinary parameters.
     int nparams =
@@ -226,12 +262,12 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     // Bind positional arguments to non-kwonly parameters.
     for (int i = 0; i < n; i++) {
-      arguments[i] = positional[i];
+      locals[i] = positional[i];
     }
 
     // Bind surplus positional arguments to *args parameter.
     if (rfn.hasVarargs()) {
-      arguments[nparams] = Tuple.wrap(Arrays.copyOfRange(positional, n, positional.length));
+      locals[nparams] = Tuple.wrap(Arrays.copyOfRange(positional, n, positional.length));
     }
 
     List<String> unexpected = null;
@@ -240,7 +276,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     Dict<String, Object> kwargs = null;
     if (rfn.hasKwargs()) {
       kwargs = Dict.of(mu);
-      arguments[rfn.getParameters().size() - 1] = kwargs;
+      locals[rfn.getParameters().size() - 1] = kwargs;
     }
     for (int i = 0; i < named.length; i += 2) {
       String keyword = (String) named[i]; // safe
@@ -248,15 +284,15 @@ public final class StarlarkFunction implements StarlarkCallable {
       int pos = names.indexOf(keyword); // the list should be short, so linear scan is OK.
       if (0 <= pos && pos < nparams) {
         // keyword is the name of a named parameter
-        if (arguments[pos] != null) {
+        if (locals[pos] != null) {
           throw Starlark.errorf("%s() got multiple values for parameter '%s'", getName(), keyword);
         }
-        arguments[pos] = value;
+        locals[pos] = value;
 
       } else if (kwargs != null) {
         // residual keyword argument
         int sz = kwargs.size();
-        kwargs.put(keyword, value, null);
+        kwargs.putEntry(keyword, value);
         if (kwargs.size() == sz) {
           throw Starlark.errorf(
               "%s() got multiple values for keyword argument '%s'", getName(), keyword);
@@ -289,7 +325,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     List<String> missingKwonly = null;
     for (int i = n; i < nparams; i++) {
       // provided?
-      if (arguments[i] != null) {
+      if (locals[i] != null) {
         continue;
       }
 
@@ -297,7 +333,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       if (i >= m) {
         Object dflt = defaultValues.get(i - m);
         if (dflt != MANDATORY) {
-          arguments[i] = dflt;
+          locals[i] = dflt;
           continue;
         }
       }
@@ -332,7 +368,7 @@ public final class StarlarkFunction implements StarlarkCallable {
           Joiner.on(", ").join(missingKwonly));
     }
 
-    return arguments;
+    return locals;
   }
 
   private static String plural(int n) {
@@ -361,9 +397,20 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   // The MANDATORY sentinel indicates a slot in the defaultValues
-  // tuple corresponding to a required parameter. It is not visible
-  // to Java or Starlark code.
+  // tuple corresponding to a required parameter.
+  // It is not visible to Java or Starlark code.
   static final Object MANDATORY = new Mandatory();
 
   private static class Mandatory implements StarlarkValue {}
+
+  // A Cell is a local variable shared between an inner and an outer function.
+  // It is a StarlarkValue because it is a stack operand and a Tuple element,
+  // but it is not visible to Java or Starlark code.
+  static final class Cell implements StarlarkValue {
+    Object x;
+
+    Cell(Object x) {
+      this.x = x;
+    }
+  }
 }

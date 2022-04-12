@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
@@ -69,22 +68,27 @@ public interface QueryableGraph {
   /**
    * Optimistically prefetches dependencies.
    *
-   * @see PrefetchDepsRequest
+   * @param requestor the key whose deps to fetch
+   * @param oldDeps deps from the previous build
+   * @param previouslyRequestedDeps deps that have already been requested during this build and
+   *     should not be prefetched because they will be subsequently fetched anyway
+   * @return {@code previouslyRequestedDeps} as a set if the implementation called {@link
+   *     GroupedList#toSet} (so that the caller may reuse it), otherwise {@code null}
    */
-  default void prefetchDeps(PrefetchDepsRequest request) throws InterruptedException {
-    if (request.oldDeps.isEmpty()) {
-      return;
-    }
-    request.excludedKeys = request.depKeys.toSet();
-    getBatchAsync(
-        request.requestor,
-        Reason.PREFETCH,
-        Iterables.filter(request.oldDeps, Predicates.not(Predicates.in(request.excludedKeys))));
+  @Nullable
+  default ImmutableSet<SkyKey> prefetchDeps(
+      SkyKey requestor, Set<SkyKey> oldDeps, GroupedList<SkyKey> previouslyRequestedDeps)
+      throws InterruptedException {
+    return null;
   }
 
   /** Checks whether this graph stores reverse dependencies. */
   default boolean storesReverseDeps() {
     return true;
+  }
+
+  default ImmutableSet<SkyKey> getAllKeysForTesting() {
+    throw new UnsupportedOperationException();
   }
 
   /**
@@ -165,8 +169,17 @@ public interface QueryableGraph {
     /** The node is being looked up to service {@link WalkableGraph#getValueAndRdeps}. */
     WALKABLE_GRAPH_VALUE_AND_RDEPS,
 
+    /** The node is being looked up to service another "graph lookup" function. */
+    WALKABLE_GRAPH_OTHER,
+
     /** Some other reason than one of the above that needs the node's value and deps. */
     OTHER_NEEDING_VALUE_AND_DEPS,
+
+    /** Some other reason than one of the above that needs the node's reverse deps. */
+    OTHER_NEEDING_REVERSE_DEPS,
+
+    /** Some other reason than one of the above that needs the node's value and reverse deps. */
+    OTHER_NEEDING_VALUE_AND_REVERSE_DEPS,
 
     /** Some other reason than one of the above. */
     OTHER;
@@ -175,38 +188,8 @@ public interface QueryableGraph {
       return this == WALKABLE_GRAPH_VALUE
           || this == WALKABLE_GRAPH_DEPS
           || this == WALKABLE_GRAPH_RDEPS
-          || this == WALKABLE_GRAPH_VALUE_AND_RDEPS;
-    }
-  }
-
-  /** Parameters for {@link QueryableGraph#prefetchDeps}. */
-  static class PrefetchDepsRequest {
-    public final SkyKey requestor;
-
-    /**
-     * Old dependencies to prefetch.
-     *
-     * <p>The implementation might ignore this if it has another way to determine the dependencies.
-     */
-    public final Set<SkyKey> oldDeps;
-
-    /**
-     * Direct deps that will be subsequently fetched and therefore should be excluded from
-     * prefetching.
-     */
-    public final GroupedList<SkyKey> depKeys;
-
-    /**
-     * Output parameter: {@code depKeys} as a set.
-     *
-     * <p>The implementation might set this, in which case, the caller could reuse it.
-     */
-    @Nullable public Set<SkyKey> excludedKeys = null;
-
-    public PrefetchDepsRequest(SkyKey requestor, Set<SkyKey> oldDeps, GroupedList<SkyKey> depKeys) {
-      this.requestor = requestor;
-      this.oldDeps = oldDeps;
-      this.depKeys = depKeys;
+          || this == WALKABLE_GRAPH_VALUE_AND_RDEPS
+          || this == WALKABLE_GRAPH_OTHER;
     }
   }
 }

@@ -13,20 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.DYNAMIC_LINKING_MODE;
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.IS_CC_TEST_FEATURE_NAME;
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LEGACY_IS_CC_TEST_FEATURE_NAME;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -85,9 +88,11 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -149,9 +154,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     private final CcInfo ccInfo;
 
     public CcLauncherInfo(CcInfo ccInfo, CcCompilationOutputs ccCompilationOutputs) {
-      super(PROVIDER);
       this.ccInfo = ccInfo;
       this.ccCompilationOutputs = ccCompilationOutputs;
+    }
+
+    @Override
+    public Provider getProvider() {
+      return PROVIDER;
     }
 
     public CcCompilationOutputs getCcCompilationOutputs(RuleContext ruleContext) {
@@ -159,8 +168,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return ccCompilationOutputs;
     }
 
+    @StarlarkMethod(name = "compilation_outputs", documented = false, useStarlarkThread = true)
+    public CcCompilationOutputs getCcCompilationOutputsStarlark(StarlarkThread thread)
+        throws EvalException {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+      return ccCompilationOutputs;
+    }
+
     public CcInfo getCcInfo(RuleContext ruleContext) {
       checkRestrictedUsage(ruleContext);
+      return ccInfo;
+    }
+
+    @StarlarkMethod(name = "cc_info", documented = false, useStarlarkThread = true)
+    public CcInfo getCcInfoForStarlark(StarlarkThread thread) throws EvalException {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
       return ccInfo;
     }
 
@@ -183,7 +205,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
   }
 
-  private static Runfiles collectRunfiles(
+  private static RuntimeFiles collectRunfiles(
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider toolchain,
@@ -193,12 +215,25 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       NestedSet<Artifact> transitiveArtifacts,
       boolean linkCompileOutputSeparately)
       throws RuleErrorException {
+    ImmutableList.Builder<Artifact> runtimeObjectsForCoverage = ImmutableList.builder();
+
     Runfiles.Builder builder =
         new Runfiles.Builder(
             ruleContext.getWorkspaceName(),
             ruleContext.getConfiguration().legacyExternalRunfiles());
     Function<TransitiveInfoCollection, Runfiles> runfilesMapping =
         CppHelper.runfilesFunction(ruleContext, linkingMode != Link.LinkingMode.DYNAMIC);
+    builder.add(ruleContext, runfilesMapping);
+
+    Runfiles.Builder coverageRuntimeObjectsBuilder =
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles());
+    coverageRuntimeObjectsBuilder.add(ruleContext, runfilesMapping);
+    runtimeObjectsForCoverage.addAll(
+        coverageRuntimeObjectsBuilder.build().getAllArtifacts().toList());
+    runtimeObjectsForCoverage.addAll(LibraryToLink.getDynamicLibrariesForRuntime(true, libraries));
+
     builder.addTransitiveArtifacts(transitiveArtifacts);
     // Add the shared libraries to the runfiles. This adds any shared libraries that are in the
     // srcs of this target.
@@ -213,12 +248,28 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       builder.merge(
           CppHelper.runfilesFunction(ruleContext, /* linkingStatically= */ false)
               .apply(transitiveInfoCollection));
+      runtimeObjectsForCoverage.addAll(
+          CppHelper.runfilesFunction(ruleContext, /* linkingStatically= */ true)
+              .apply(transitiveInfoCollection)
+              .getAllArtifacts()
+              .toList());
+      runtimeObjectsForCoverage.addAll(
+          CppHelper.runfilesFunction(ruleContext, /* linkingStatically= */ false)
+              .apply(transitiveInfoCollection)
+              .getAllArtifacts()
+              .toList());
     }
-    builder.add(ruleContext, runfilesMapping);
+    for (TransitiveInfoCollection transitiveInfoCollection :
+        ruleContext.getPrerequisites("dynamic_deps")) {
+      builder.merge(
+          transitiveInfoCollection.getProvider(RunfilesProvider.class).getDefaultRunfiles());
+    }
     // Add the C++ runtime libraries if linking them dynamically.
     if (linkingMode == Link.LinkingMode.DYNAMIC) {
       try {
         builder.addTransitiveArtifacts(toolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+        runtimeObjectsForCoverage.addAll(
+            toolchain.getDynamicRuntimeLinkInputs(featureConfiguration).toList());
       } catch (EvalException e) {
         throw ruleContext.throwWithRuleError(e);
       }
@@ -227,6 +278,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       if (!ccLibraryLinkingOutputs.isEmpty()
           && ccLibraryLinkingOutputs.getLibraryToLink().getDynamicLibrary() != null) {
         builder.addArtifact(ccLibraryLinkingOutputs.getLibraryToLink().getDynamicLibrary());
+        runtimeObjectsForCoverage.add(
+            ccLibraryLinkingOutputs.getLibraryToLink().getDynamicLibrary());
       }
     }
     // For cc_binary and cc_test rules, there is an implicit dependency on
@@ -239,7 +292,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       builder.addTarget(malloc, RunfilesProvider.DEFAULT_RUNFILES);
       builder.addTarget(malloc, runfilesMapping);
     }
-    return builder.build();
+    return RuntimeFiles.create(builder.build(), runtimeObjectsForCoverage.build());
+  }
+
+  @AutoValue
+  abstract static class RuntimeFiles {
+    static RuntimeFiles create(
+        Runfiles runfiles, ImmutableList<Artifact> runtimeObjectsForCoverage) {
+      return new AutoValue_CcBinary_RuntimeFiles(runfiles, runtimeObjectsForCoverage);
+    }
+
+    abstract Runfiles runfiles();
+
+    abstract ImmutableList<Artifact> runtimeObjectsForCoverage();
   }
 
   @Override
@@ -252,8 +317,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
   public static void init(
       CppSemantics semantics, RuleConfiguredTargetBuilder ruleBuilder, RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
+      throws InterruptedException, RuleErrorException {
     semantics.validateDeps(ruleContext);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")) {
       if (!ruleContext
@@ -280,7 +344,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
     ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
     ruleContext.initConfigurationMakeVariableContext(
-        new MapBackedMakeVariableSupplier(toolchainMakeVariables.build()),
+        new MapBackedMakeVariableSupplier(toolchainMakeVariables.buildOrThrow()),
         new CcFlagsSupplier(ruleContext));
 
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
@@ -320,13 +384,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     requestedFeaturesBuilder
         .addAll(ruleContext.getFeatures())
         .add(linkingMode == Link.LinkingMode.DYNAMIC ? DYNAMIC_LINKING_MODE : STATIC_LINKING_MODE);
+    ImmutableSet.Builder<String> disabledFeaturesBuilder = new ImmutableSet.Builder<>();
+    disabledFeaturesBuilder.addAll(ruleContext.getDisabledFeatures());
+    if (TargetUtils.isTestRule(ruleContext.getRule()) && cppConfiguration.useCcTestFeature()) {
+      requestedFeaturesBuilder.add(IS_CC_TEST_FEATURE_NAME);
+      disabledFeaturesBuilder.add(LEGACY_IS_CC_TEST_FEATURE_NAME);
+    }
 
     FdoContext fdoContext = common.getFdoContext();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
             requestedFeaturesBuilder.build(),
-            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+            /* unsupportedFeatures= */ disabledFeaturesBuilder.build(),
             ccToolchain,
             semantics);
 
@@ -362,7 +432,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
-    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);
+    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext);
     CcCompilationContext ccCompilationContext = compilationInfo.getCcCompilationContext();
     CcCompilationOutputs precompiledFileObjects =
         CcCompilationOutputs.builder()
@@ -467,7 +537,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // then a pdb file will be built along with the executable.
     Artifact pdbFile = null;
     if (featureConfiguration.isEnabled(CppRuleClasses.GENERATE_PDB_FILE)) {
-      pdbFile = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".pdb");
+      pdbFile =
+          ruleContext.getRelatedArtifact(
+              binary.getOutputDirRelativePath(
+                  ruleContext.getConfiguration().isSiblingRepositoryLayout()),
+              ".pdb");
     }
 
     NestedSetBuilder<CcLinkingContext.LinkerInput> extraLinkTimeLibrariesNestedSet =
@@ -488,6 +562,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Pair<CcLinkingOutputs, CcLauncherInfo> ccLinkingOutputsAndCcLinkingInfo =
         createTransitiveLinkingActions(
             ruleContext,
+            ruleBuilder,
             ccToolchain,
             featureConfiguration,
             fdoContext,
@@ -593,7 +668,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
       transitiveArtifacts.addTransitive(copiedRuntimeDynamicLibraries);
     }
-    Runfiles runfiles =
+    ImmutableList.Builder<Artifact> runtimeObjectsForCoverage =
+        ImmutableList.<Artifact>builder().add(binary);
+    RuntimeFiles runtimeFiles =
         collectRunfiles(
             ruleContext,
             featureConfiguration,
@@ -603,7 +680,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             linkingMode,
             transitiveArtifacts.build(),
             linkCompileOutputSeparately);
-    RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(ruleContext, runfiles, binary);
+    runtimeObjectsForCoverage.addAll(runtimeFiles.runtimeObjectsForCoverage());
+    RunfilesSupport runfilesSupport =
+        RunfilesSupport.withExecutable(ruleContext, runtimeFiles.runfiles(), binary);
 
     addTransitiveInfoProviders(
         ruleContext,
@@ -615,7 +694,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         filesToBuild,
         ccCompilationOutputs,
         ccCompilationContext,
-        libraries);
+        libraries,
+        runtimeObjectsForCoverage.build());
 
     // Support test execution on darwin.
     if (ApplePlatform.isApplePlatform(ccToolchain.getTargetCpu())
@@ -660,15 +740,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     CcStarlarkApiProvider.maybeAdd(ruleContext, ruleBuilder);
     ruleBuilder
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runtimeFiles.runfiles()))
         .addNativeDeclaredProvider(
             new DebugPackageProvider(ruleContext.getLabel(), strippedFile, binary, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, binary)
         .addNativeDeclaredProvider(ccLauncherInfo);
   }
 
-  public static Pair<CcLinkingOutputs, CcLauncherInfo> createTransitiveLinkingActions(
+  private static Pair<CcLinkingOutputs, CcLauncherInfo> createTransitiveLinkingActions(
       RuleContext ruleContext,
+      RuleConfiguredTargetBuilder ruleBuilder,
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
       FdoContext fdoContext,
@@ -795,7 +876,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcLinkingContext ccLinkingContext =
         ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")
             ? filterLibrariesThatAreLinkedDynamically(
-                ruleContext, ccInfo.getCcLinkingContext(), cppSemantics)
+                ruleContext, ruleBuilder, ccInfo.getCcLinkingContext(), cppSemantics)
             : ccInfo.getCcLinkingContext();
     if (ruleContext.hasErrors()) {
       return null;
@@ -898,10 +979,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    // Get the tool inputs necessary to run the dwp command.
-    NestedSet<Artifact> dwpFiles = toolchain.getDwpFiles();
-    Preconditions.checkState(!dwpFiles.isEmpty());
-
     // We apply a hierarchical action structure to limit the maximum number of inputs to any
     // single action.
     //
@@ -918,7 +995,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // action's input size.
     Packager packager =
         createIntermediateDwpPackagers(
-            context, dwpOutput, toolchain, dwpFiles, dwoFiles.toList(), 1);
+            context, dwpOutput, toolchain, toolchain.getDwpFiles(), dwoFiles.toList(), 1);
     packager.spawnAction.setMnemonic("CcGenerateDwp").addOutput(dwpOutput);
     packager.commandLine.addExecPath("-o", dwpOutput);
     context.registerAction(packager.build(context));
@@ -928,7 +1005,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     SpawnAction.Builder spawnAction = new SpawnAction.Builder();
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
 
-    Action[] build(RuleContext context) {
+    SpawnAction build(RuleContext context) {
       spawnAction.addCommandLine(
           commandLine.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build());
       return spawnAction.build(context);
@@ -995,23 +1072,26 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static NestedSet<Artifact> createDynamicLibrariesCopyActions(
       RuleContext ruleContext, Iterable<Artifact> dynamicLibrariesForRuntime) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (Artifact target : dynamicLibrariesForRuntime) {
+    for (Artifact lib : dynamicLibrariesForRuntime) {
       // If the binary and the DLL don't belong to the same package or the DLL is a source file,
       // we should copy the DLL to the binary's directory.
       if (!ruleContext
               .getLabel()
               .getPackageIdentifier()
-              .equals(target.getOwner().getPackageIdentifier())
-          || target.isSourceArtifact()) {
+              .equals(lib.getOwner().getPackageIdentifier())
+          || lib.isSourceArtifact()) {
+        String targetName = ruleContext.getTarget().getName();
+        PathFragment targetSubDir = PathFragment.create(targetName).getParentDirectory();
         // SymlinkAction on file is actually copy on Windows.
-        Artifact copy = ruleContext.getBinArtifact(target.getFilename());
-        ruleContext.registerAction(SymlinkAction.toArtifact(
-            ruleContext.getActionOwner(), target, copy, "Copying Execution Dynamic Library"));
+        Artifact copy = ruleContext.getBinArtifact(targetSubDir.getRelative(lib.getFilename()));
+        ruleContext.registerAction(
+            SymlinkAction.toArtifact(
+                ruleContext.getActionOwner(), lib, copy, "Copying Execution Dynamic Library"));
         result.add(copy);
       } else {
-        // If the target is already in the same directory as the binary, we don't need to copy it,
+        // If the library is already in the same directory as the binary, we don't need to copy it,
         // but we still add it the result.
-        result.add(target);
+        result.add(lib);
       }
     }
     return result.build();
@@ -1027,7 +1107,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Packager packager = new Packager();
     packager
         .spawnAction
-        .addTransitiveInputs(dwpTools)
+        .addTransitiveTools(dwpTools)
         .setExecutable(toolchain.getToolPathFragment(Tool.DWP, ruleContext));
     return packager;
   }
@@ -1069,20 +1149,37 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       NestedSet<Artifact> filesToBuild,
       CcCompilationOutputs ccCompilationOutputs,
       CcCompilationContext ccCompilationContext,
-      List<LibraryToLink> libraries)
+      List<LibraryToLink> libraries,
+      ImmutableList<Artifact> runtimeObjectsForCoverage)
       throws RuleErrorException {
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
+
+    ImmutableList<Artifact> additionalMetadata = null;
+    if (!runtimeObjectsForCoverage.isEmpty() && cppConfiguration.generateLlvmLCov()) {
+      Artifact runtimeObjectsList =
+          ruleContext.getBinArtifact(ruleContext.getLabel().getName() + "runtime_objects_list.txt");
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext.getActionOwner(),
+              runtimeObjectsList,
+              Joiner.on('\n')
+                      .join(
+                          runtimeObjectsForCoverage.stream()
+                              .map(Artifact::getRunfilesPathString)
+                              .collect(toImmutableList()))
+                  + "\n",
+              /*makeExecutable=*/ false,
+              Compression.DISALLOW));
+      additionalMetadata = ImmutableList.of(runtimeObjectsList);
+    }
     InstrumentedFilesInfo instrumentedFilesProvider =
         common.getInstrumentedFilesProvider(
             instrumentedObjectFiles,
             !TargetUtils.isTestRule(ruleContext.getRule()),
-            ccCompilationContext.getVirtualToOriginalHeaders());
-
-    NestedSet<Artifact> headerTokens =
-        CcCompilationHelper.collectHeaderTokens(
-            ruleContext, cppConfiguration, ccCompilationOutputs, /* addSelfTokens= */ true);
+            ccCompilationContext.getVirtualToOriginalHeaders(),
+            /* additionalMetadata= */ additionalMetadata);
 
     Map<String, NestedSet<Artifact>> outputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -1092,19 +1189,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             toolchain,
             featureConfiguration,
             ruleContext,
-            /* generateHeaderTokensGroup= */ false,
-            /* addSelfHeaderTokens= */ false,
             /* generateHiddenTopLevelGroup= */ false);
 
     builder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(
-            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
-        .addProvider(
-            CcNativeLibraryProvider.class,
-            new CcNativeLibraryProvider(collectTransitiveCcNativeLibraries(ruleContext, libraries)))
+            CcInfo.builder()
+                .setCcCompilationContext(ccCompilationContext)
+                .setCcNativeLibraryInfo(
+                    new CcNativeLibraryInfo(
+                        collectTransitiveCcNativeLibraries(ruleContext, libraries)))
+                .build())
         .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .addOutputGroup(OutputGroupInfo.VALIDATION, headerTokens)
+        .addOutputGroup(OutputGroupInfo.VALIDATION, ccCompilationContext.getHeaderTokens())
         .addOutputGroups(outputGroups);
 
     CppHelper.maybeAddStaticLinkMarkerProvider(builder, ruleContext);
@@ -1114,9 +1211,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, List<LibraryToLink> libraries) {
     NestedSetBuilder<LibraryToLink> builder = NestedSetBuilder.linkOrder();
     builder.addAll(libraries);
-    for (CcNativeLibraryProvider dep :
-        ruleContext.getPrerequisites("deps", CcNativeLibraryProvider.class)) {
-      builder.addTransitive(dep.getTransitiveCcNativeLibraries());
+    for (CcInfo dep : ruleContext.getPrerequisites("deps", CcInfo.PROVIDER)) {
+      builder.addTransitive(dep.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
     }
     return builder.build();
   }
@@ -1227,11 +1323,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           return null;
         }
 
-        @SuppressWarnings("rawtypes")
         NestedSet<Tuple> dynamicDeps =
             Depset.noneableCast(dynamicDepsField, Tuple.class, "dynamic_deps");
 
-        for (Tuple<?> exportsAndLinkerInput : dynamicDeps.toList()) {
+        for (Tuple exportsAndLinkerInput : dynamicDeps.toList()) {
           List<String> exportsFromDynamicDep =
               Sequence.noneableCast(
                   exportsAndLinkerInput.get(0), String.class, "exports_from_dynamic_dep");
@@ -1301,13 +1396,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Queue<GraphNodeInfo> allChildren = new ArrayDeque<>(directChildren);
     ImmutableSet.Builder<String> linkStaticallyLabels = ImmutableSet.builder();
     ImmutableSet.Builder<String> linkDynamicallyLabels = ImmutableSet.builder();
+    Set<String> seenLabels = new HashSet<>();
 
     while (!allChildren.isEmpty()) {
       node = allChildren.poll();
-      if (canBeLinkedDynamically.contains(node.getLabel().toString())) {
-        linkDynamicallyLabels.add(node.getLabel().toString());
+      String labelString = node.getLabel().toString();
+      if (seenLabels.contains(labelString)) {
+        continue;
+      }
+      seenLabels.add(labelString);
+      if (canBeLinkedDynamically.contains(labelString)) {
+        linkDynamicallyLabels.add(labelString);
       } else {
-        linkStaticallyLabels.add(node.getLabel().toString());
+        linkStaticallyLabels.add(labelString);
         allChildren.addAll(node.getChildren());
       }
     }
@@ -1327,10 +1428,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     linkerInputs.addAll(ccLinkingContext.getLinkerInputs().toList());
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-      graphStructureAspectNodes.add(dep.getProvider(GraphNodeInfo.class));
+      GraphNodeInfo nodeInfo = dep.getProvider(GraphNodeInfo.class);
+      if (nodeInfo != null) {
+        graphStructureAspectNodes.add(nodeInfo);
+      }
     }
-    graphStructureAspectNodes.add(
-        CppHelper.mallocForTarget(ruleContext).getProvider(GraphNodeInfo.class));
+    GraphNodeInfo mallocNodeInfo =
+        CppHelper.mallocForTarget(ruleContext).getProvider(GraphNodeInfo.class);
+    if (mallocNodeInfo != null) {
+      graphStructureAspectNodes.add(mallocNodeInfo);
+    }
 
     Set<String> canBeLinkedDynamically = new HashSet<>();
     for (CcLinkingContext.LinkerInput linkerInput : linkerInputs) {
@@ -1418,14 +1525,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       String owner = ccSharedLibraryInfo.getLinkerInput().getOwner().toString();
       for (String linkOnceStaticLib : ccSharedLibraryInfo.getLinkOnceStaticLibs()) {
         if (linkOnceStaticLibsMap.containsKey(linkOnceStaticLib)) {
-          ruleContext.attributeError(
-              "dynamic_deps",
-              "Two shared libraries in dependencies link the same library statically. Both "
-                  + linkOnceStaticLibsMap.get(linkOnceStaticLib)
-                  + " and "
-                  + owner
-                  + " link statically "
-                  + linkOnceStaticLib);
+          if (!linkOnceStaticLibsMap.get(linkOnceStaticLib).equals(owner)) {
+            ruleContext.attributeError(
+                "dynamic_deps",
+                "Two shared libraries in dependencies link the same library statically. Both "
+                    + linkOnceStaticLibsMap.get(linkOnceStaticLib)
+                    + " and "
+                    + owner
+                    + " link statically "
+                    + linkOnceStaticLib);
+          }
         }
         linkOnceStaticLibsMap.put(linkOnceStaticLib, owner);
       }
@@ -1434,7 +1543,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   }
 
   private static CcLinkingContext filterLibrariesThatAreLinkedDynamically(
-      RuleContext ruleContext, CcLinkingContext ccLinkingContext, CppSemantics cppSemantics) {
+      RuleContext ruleContext,
+      RuleConfiguredTargetBuilder ruleBuilder,
+      CcLinkingContext ccLinkingContext,
+      CppSemantics cppSemantics) {
     ImmutableList<CcSharedLibraryInfo> mergedCcSharedLibraryInfos =
         mergeCcSharedLibraryInfos(ruleContext, cppSemantics);
     ImmutableList<CcLinkingContext.LinkerInput> preloadedDeps =
@@ -1449,6 +1561,38 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         buildExportsMapFromOnlyDynamicDeps(ruleContext, mergedCcSharedLibraryInfos);
     ImmutableList<CcLinkingContext.LinkerInput> staticLinkerInputs =
         filterInputs(ruleContext, ccLinkingContext, exportsMap, linkOnceStaticLibsMap);
+
+    if (ruleContext
+        .getConfiguration()
+        .getFragment(CppConfiguration.class)
+        .experimentalCcSharedLibraryDebug()) {
+      ImmutableList.Builder<String> debugLinkerInputsFile = ImmutableList.builder();
+      debugLinkerInputsFile.add("Owner: " + ruleContext.getLabel());
+      for (CcLinkingContext.LinkerInput linkerInput :
+          Iterables.concat(staticLinkerInputs, preloadedDeps)) {
+        debugLinkerInputsFile.add(linkerInput.getOwner().toString());
+      }
+      Artifact linkOnceStaticLibsDebugFile =
+          ruleContext.getBinArtifact(
+              ruleContext.getLabel().getName() + "_link_once_static_libs.txt");
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext,
+              linkOnceStaticLibsDebugFile,
+              Joiner.on("\n").join(debugLinkerInputsFile.build()),
+              false));
+      NestedSetBuilder<Artifact> transitiveDebugFiles = NestedSetBuilder.stableOrder();
+      for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("dynamic_deps")) {
+        transitiveDebugFiles.addTransitive(
+            dep.get(OutputGroupInfo.STARLARK_CONSTRUCTOR).getOutputGroup("rule_impl_debug_files"));
+      }
+      ruleBuilder.addOutputGroup(
+          "rule_impl_debug_files",
+          NestedSetBuilder.<Artifact>stableOrder()
+              .add(linkOnceStaticLibsDebugFile)
+              .addTransitive(transitiveDebugFiles.build())
+              .build());
+    }
 
     return createLinkingContextWithDynamicDependencies(
         staticLinkerInputs, preloadedDeps, exportsMap.values());

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -42,7 +41,6 @@ import javax.annotation.Nullable;
  * .xa file for use by an extra action. This can only be done at execution time because actions may
  * store information only known at execution time into the protocol buffer.
  */
-@AutoCodec
 @Immutable // if shadowedAction is immutable
 public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteAction {
   private static final String UUID = "1759f81d-e72e-477d-b182-c4532bdbaeeb";
@@ -63,7 +61,7 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     try {
       return new ProtoDeterministicWriter(
           shadowedAction.getExtraActionInfo(ctx.getActionKeyContext()).build());
@@ -82,7 +80,7 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     fp.addString(UUID);
     fp.addString(shadowedAction.getKey(actionKeyContext, artifactExpander));
     fp.addBytes(shadowedAction.getExtraActionInfo(actionKeyContext).build().toByteArray());

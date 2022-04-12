@@ -14,59 +14,45 @@
 
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * For use when the {@link #argument} of the {@link SkyKey} cannot be a {@link SkyKey} itself,
  * either because it is a type like List or because it is already a different {@link SkyKey}.
  * Provides convenient boilerplate.
+ *
+ * <p>An argument's hash code might not be stable across JVM instances if it transitively depends on
+ * an object that uses the default identity-based {@link Object#hashCode} or {@link
+ * System#identityHashCode}. For this reason, the {@link #hashCode} field is {@code transient}.
+ * Subclasses should manage serialization (i.e. using {@code AutoCodec}) to ensure that {@link
+ * #AbstractSkyKey(Object)} is invoked on deserialization to freshly compute the hash code.
  */
 public abstract class AbstractSkyKey<T> implements SkyKey {
+
   // Visible for serialization.
   protected final T arg;
+
   /**
-   * Cache the hash code for this object. It might be expensive to compute. It is transient because
-   * argument's hash code might not be stable across JVM instances.
+   * Caches the hash code for this object. It might be expensive to compute.
+   *
+   * <p>The hash code is computed eagerly because it is expected that instances are interned,
+   * meaning that {@link #hashCode()} will be called immediately for every instance.
    */
-  private transient int hashCode;
+  private final transient int hashCode;
 
   protected AbstractSkyKey(T arg) {
-    this.arg = Preconditions.checkNotNull(arg);
+    this.arg = checkNotNull(arg);
+    this.hashCode = 31 * functionName().hashCode() + arg.hashCode();
   }
 
   @Override
   public final int hashCode() {
-    // We use the hash code caching strategy employed by java.lang.String. There are three subtle
-    // things going on here:
-    //
-    // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
-    // Yes, this means that if the hash code is really 0 then we will "recompute" it each time. But
-    // this isn't a problem in practice since a hash code of 0 should be rare.
-    //
-    // (2) Since we have no synchronization, multiple threads can race here thinking there are the
-    // first one to compute and cache the hash code.
-    //
-    // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
-    // thread may not be visible by another.
-    //
-    // All three of these issues are benign from a correctness perspective; in the end we have no
-    // overhead from synchronization, at the cost of potentially computing the hash code more than
-    // once.
-    int h = hashCode;
-    if (h == 0) {
-      h = computeHashCode();
-      hashCode = h;
-    }
-    return h;
+    return hashCode;
   }
 
   @Override
   public final T argument() {
     return arg;
-  }
-
-  private int computeHashCode() {
-    return 31 * functionName().hashCode() + arg.hashCode();
   }
 
   @Override
@@ -78,7 +64,9 @@ public abstract class AbstractSkyKey<T> implements SkyKey {
       return false;
     }
     AbstractSkyKey<?> that = (AbstractSkyKey<?>) obj;
-    return this.functionName().equals(that.functionName()) && this.arg.equals(that.arg);
+    return hashCode == that.hashCode
+        && functionName().equals(that.functionName())
+        && arg.equals(that.arg);
   }
 
   @Override

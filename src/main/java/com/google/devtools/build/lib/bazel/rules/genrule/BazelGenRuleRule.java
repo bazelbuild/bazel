@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 
@@ -41,7 +41,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .setOutputToGenfiles()
         .add(
             attr("$genrule_setup", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
@@ -65,10 +65,10 @@ public final class BazelGenRuleRule implements RuleDefinition {
 <p>A <code>genrule</code> generates one or more files using a user-defined Bash command.</p>
 
 <p>
-  Genrules are generic build rules that you can use if there's no specific rule for the task. If for
-  example you want to minify JavaScript files then you can use a genrule to do so. If however you
-  need to compile C++ files, stick to the existing <code>cc_*</code> rules, because all the heavy
-  lifting has already been done for you.
+  Genrules are generic build rules that you can use if there's no specific rule for the task.
+  For example, you could run a Bash one-liner. If however you need to compile C++ files, stick
+  to the existing <code>cc_*</code> rules, because all the heavy lifting has already been done
+  for you.
 </p>
 <p>
   Do not use a genrule for running tests. There are special dispensations for tests and test
@@ -81,7 +81,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
 <h4>Cross-compilation Considerations</h4>
 
 <p>
-  <em>See <a href="../user-manual.html#configurations">the user manual</a> for more info about
+  <em>See <a href="${link user-manual#configurations}">the user manual</a> for more info about
   cross-compilation.</em>
 </p>
 <p>
@@ -120,7 +120,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
   host configuration, because that's where the compiler will run in the other genrule. In this case,
   the build system does the right thing automatically: it builds the <code>srcs</code> and
   <code>outs</code> of the first genrule for the host configuration instead of the target
-  configuration. See <a href="../user-manual.html#configurations">the user manual</a> for more
+  configuration. See <a href="${link user-manual#configurations}">the user manual</a> for more
   info.
 </p>
 <p>

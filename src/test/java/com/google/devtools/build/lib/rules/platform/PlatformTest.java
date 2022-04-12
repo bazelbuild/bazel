@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -70,12 +71,17 @@ public class PlatformTest extends BuildViewTestCase {
 
     // Check the CPU and OS.
     ConstraintSettingInfo cpuConstraint =
-        ConstraintSettingInfo.create(makeLabel("//autoconfig:cpu"));
-    ConstraintSettingInfo osConstraint = ConstraintSettingInfo.create(makeLabel("//autoconfig:os"));
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//autoconfig:cpu"));
+    ConstraintSettingInfo osConstraint =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//autoconfig:os"));
     assertThat(hostPlatformProvider.constraints().get(cpuConstraint))
-        .isEqualTo(ConstraintValueInfo.create(cpuConstraint, makeLabel("//autoconfig:x86_32")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                cpuConstraint, Label.parseAbsoluteUnchecked("//autoconfig:x86_32")));
     assertThat(hostPlatformProvider.constraints().get(osConstraint))
-        .isEqualTo(ConstraintValueInfo.create(osConstraint, makeLabel("//autoconfig:linux")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                osConstraint, Label.parseAbsoluteUnchecked("//autoconfig:linux")));
 
     // Check the target platform.
     ConfiguredTarget targetPlatform = getConfiguredTarget("//autoconfig:target");
@@ -86,8 +92,12 @@ public class PlatformTest extends BuildViewTestCase {
 
     // Check the CPU and OS.
     assertThat(targetPlatformProvider.constraints().get(cpuConstraint))
-        .isEqualTo(ConstraintValueInfo.create(cpuConstraint, makeLabel("//autoconfig:x86_64")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                cpuConstraint, Label.parseAbsoluteUnchecked("//autoconfig:x86_64")));
     assertThat(targetPlatformProvider.constraints().get(osConstraint))
-        .isEqualTo(ConstraintValueInfo.create(osConstraint, makeLabel("//autoconfig:linux")));
+        .isEqualTo(
+            ConstraintValueInfo.create(
+                osConstraint, Label.parseAbsoluteUnchecked("//autoconfig:linux")));
   }
 }

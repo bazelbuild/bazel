@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
@@ -104,7 +104,7 @@ public final class AndroidDeviceRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("default_properties", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(JavaSemantics.PROPERTIES))
         /* <!-- #BLAZE_RULE(android_device).ATTRIBUTE(platform_apks) -->
         A list of apks to be installed on the device at boot time.
@@ -115,54 +115,54 @@ public final class AndroidDeviceRule implements RuleDefinition {
         .add(attr("pregenerate_oat_files_for_tests", BOOLEAN).value(false))
         .add(
             attr("$adb_static", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android:adb_static")))
         .add(
             attr("$adb", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android:adb")))
         .add(
             attr("$emulator_arm", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_arm")))
         .add(
             attr("$emulator_x86", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_x86")))
         .add(
             attr("$emulator_x86_bios", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_x86_bios")))
         .add(
             attr("$mksd", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:mksd")))
         .add(
             attr("$empty_snapshot_fs", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android/emulator:empty_snapshot_fs")))
         .add(
             attr("$xvfb_support", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android/emulator:xvfb_support")))
         .add(
             attr("$unified_launcher", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:unified_launcher")))
         .add(
             attr("$android_runtest", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:android_runtest")))
         .add(
             attr("$testing_shbase", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/android/emulator:shbase")))
         .add(
             attr("$sdk_path", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:sdk_path")))
         .add(
@@ -181,7 +181,7 @@ public final class AndroidDeviceRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_device")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(factoryClass)
         .build();
   }

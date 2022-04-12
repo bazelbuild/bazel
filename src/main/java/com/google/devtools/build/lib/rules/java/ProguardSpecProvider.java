@@ -34,8 +34,12 @@ public final class ProguardSpecProvider extends NativeInfo
   private final NestedSet<Artifact> transitiveProguardSpecs;
 
   public ProguardSpecProvider(NestedSet<Artifact> transitiveProguardSpecs) {
-    super(PROVIDER);
     this.transitiveProguardSpecs = transitiveProguardSpecs;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

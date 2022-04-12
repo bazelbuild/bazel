@@ -66,14 +66,13 @@ public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi
         doc = "The <code>AndroidManifestInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(name = "manifest", positional = true, named = true, type = FileApi.class),
-          @Param(name = "package", positional = true, named = true, type = String.class),
+          @Param(name = "manifest", positional = true, named = true),
+          @Param(name = "package", positional = true, named = true),
           @Param(
               name = "exports_manifest",
               positional = true,
               named = true,
-              defaultValue = "False",
-              type = Boolean.class),
+              defaultValue = "False"),
         },
         selfCall = true)
     AndroidManifestInfoApi<FileT> androidManifestInfo(

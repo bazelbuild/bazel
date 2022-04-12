@@ -64,6 +64,9 @@ java_library(
         ],
         exclude = ["DependencyInfo.java"],
     ),
+    javacopts = [
+        "--add-exports=java.xml/com.sun.org.apache.xerces.internal.dom=ALL-UNNAMED",
+    ],
     exports = [
         # Separated out to avoid a dependency cycle with resources/, but it logically belongs here.
         ":dependency_info",

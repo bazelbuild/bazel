@@ -17,13 +17,19 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -32,25 +38,21 @@ import net.starlark.java.eval.StarlarkThread;
     name = "JavaInfo",
     doc = "A provider encapsulating information about Java and Java-like targets.",
     category = DocCategory.PROVIDER)
-public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
+public interface JavaInfoApi<
+        FileT extends FileApi,
+        JavaOutputT extends JavaOutputApi<FileT>,
+        JavaPluginDataT extends JavaPluginDataApi>
+    extends StructApi, JavaPluginInfoApi<FileT, JavaPluginDataT, JavaOutputT> {
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",
-      doc =
-          "Returns a transitive set of Jars required on the target's runtime classpath. Returns"
-              + " the same as <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_runtime_deps\">JavaInfo.transitive_runtime_deps"
-              + "</a></code> for legacy reasons.",
+      doc = "Returns a transitive set of Jars required on the target's runtime classpath.",
       structField = true)
   Depset getTransitiveRuntimeJars();
 
   @StarlarkMethod(
       name = "transitive_compile_time_jars",
-      doc =
-          "Returns the transitive set of Jars required to build the target. Returns the same as"
-              + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_deps\">JavaInfo.transitive_deps</a></code> for"
-              + " legacy reasons.",
+      doc = "Returns the transitive set of Jars required to build the target.",
       structField = true)
   Depset getTransitiveCompileTimeJars();
 
@@ -93,16 +95,24 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
 
   @StarlarkMethod(
       name = "outputs",
-      doc = "Returns information about outputs of this Java/Java-like target.",
+      doc =
+          "Returns information about outputs of this Java/Java-like target. Deprecated: use"
+              + " java_outputs.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
+  @Deprecated
   JavaRuleOutputJarsProviderApi<?> getOutputJars();
 
   @StarlarkMethod(
       name = "annotation_processing",
       structField = true,
       allowReturnNones = true,
-      doc = "Returns information about annotation processing for this Java/Java-like target.")
+      doc =
+          "Returns information about annotation processors applied on this Java/Java-like target."
+              + "<p>Deprecated: Please use <code>plugins</code> instead (which returns information "
+              + "about annotation processors to be applied by consuming targets).")
+  @Nullable
   JavaAnnotationProcessingApi<?> getGenJarsProvider();
 
   @StarlarkMethod(
@@ -110,6 +120,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
       structField = true,
       allowReturnNones = true,
       doc = "Returns compilation information for this Java/Java-like target.")
+  @Nullable
   JavaCompilationInfoProviderApi<?> getCompilationInfoProvider();
 
   @StarlarkMethod(
@@ -121,20 +132,18 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
   @StarlarkMethod(
       name = "transitive_deps",
       doc =
-          "Returns the transitive set of Jars required to build the target. Returns the same as"
-              + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
-              + " for legacy reasons.",
+          "Deprecated: Please use <code><a class=\"anchor\" "
+              + "href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
+              + " instead. It returns the same value.",
       structField = true)
   Depset /*<FileT>*/ getTransitiveDeps();
 
   @StarlarkMethod(
       name = "transitive_runtime_deps",
       doc =
-          "Returns the transitive set of Jars required on the target's runtime classpath. Returns"
-              + " the same as <code><a class=\"anchor\""
+          "Deprecated: please use <code><a class=\"anchor\""
               + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
-              + "</a></code> for legacy reasons.",
+              + "</a></code> instead. It returns the same value",
       structField = true)
   Depset /*<FileT>*/ getTransitiveRuntimeDeps();
 
@@ -147,10 +156,17 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
   Depset /*<FileT>*/ getTransitiveSourceJars();
 
   @StarlarkMethod(
-      name = "transitive_exports",
+      name = "transitive_native_libraries",
       structField = true,
-      doc = "Returns a set of labels that are being exported from this rule transitively.")
-  Depset /*<Label>*/ getTransitiveExports();
+      doc = "Returns the transitive set of CC native libraries required by the target.")
+  Depset /*<LibraryToLink>*/ getTransitiveNativeLibrariesForStarlark();
+
+  @StarlarkMethod(
+      name = "cc_link_params_info",
+      structField = true,
+      doc = "C++ libraries to be linked into Java targets.",
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  CcInfoApi<FileT> getCcLinkParamInfo();
 
   /** Provider class for {@link JavaInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
@@ -162,17 +178,17 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         parameters = {
           @Param(
               name = "output_jar",
-              type = FileApi.class,
               named = true,
               doc =
                   "The jar that was created as a result of a compilation "
                       + "(e.g. javac, scalac, etc)."),
           @Param(
               name = "compile_jar",
-              type = FileApi.class,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
-              noneable = true,
-              defaultValue = "None",
               doc =
                   "A jar that is added as the compile-time dependency in lieu of "
                       + "<code>output_jar</code>. Typically this is the ijar produced by "
@@ -181,71 +197,153 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
                       + "If you cannot use ijar, consider instead using the output of "
                       + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
                       + "stamp_ijar</a></code>. If you do not wish to use either, "
-                      + "you can simply pass <code>output_jar</code>."),
+                      + "you can simply pass <code>output_jar</code>. "
+                      + "There are a couple of special cases when this parameter may be set to "
+                      + "<code>None</code>, for example adding a jar with resources or when used in"
+                      + " a terminal rule like <code>java_binary</code>."),
           @Param(
               name = "source_jar",
-              type = FileApi.class,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
-              noneable = true,
               defaultValue = "None",
               doc =
                   "The source jar that was used to create the output jar. "
                       + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
                       + "pack_sources</a></code> to produce this source jar."),
           @Param(
+              name = "compile_jdeps",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "jdeps information about compile time dependencies to be consumed by"
+                      + " JavaCompileAction. This should be a binary proto encoded using the"
+                      + " deps.proto protobuf included with Bazel.  If available this file is"
+                      + " typically produced by a header compiler."),
+          @Param(
+              name = "generated_class_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "A jar file containing class files compiled from sources generated during"
+                      + " annotation processing."),
+          @Param(
+              name = "generated_source_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc = "The source jar that was created as a result of annotation processing."),
+          @Param(
+              name = "native_headers_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "A jar containing CC header files supporting native method implementation"
+                      + " (typically output of javac -h)."),
+          @Param(
+              name = "manifest_proto",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "Manifest information for the rule output (if available). This should be a"
+                      + " binary proto encoded using the manifest.proto protobuf included with"
+                      + " Bazel.  IDEs and other tools can use this information for more efficient"
+                      + " processing."),
+          @Param(
               name = "neverlink",
-              type = Boolean.class,
               named = true,
               defaultValue = "False",
               doc = "If true only use this library for compilation and not at runtime."),
           @Param(
               name = "deps",
-              type = Sequence.class,
-              generic1 = JavaInfoApi.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
               named = true,
               defaultValue = "[]",
               doc = "Compile time dependencies that were used to create the output jar."),
           @Param(
               name = "runtime_deps",
-              type = Sequence.class,
-              generic1 = JavaInfoApi.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
               named = true,
               defaultValue = "[]",
               doc = "Runtime dependencies that are needed for this library."),
           @Param(
               name = "exports",
-              type = Sequence.class,
-              generic1 = JavaInfoApi.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
               named = true,
               defaultValue = "[]",
               doc =
-                  "Libraries to make available for users of this library. See also "
-                      + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
-                      + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
+                  "Libraries to make available for users of this library. See also <a"
+                      + " class=\"anchor\""
+                      + " href=\"$BE_ROOT/java.html#java_library.exports\">"
+                      + "java_library.exports</a>."),
+          @Param(
+              name = "exported_plugins",
+              named = true,
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = JavaPluginInfoApi.class)
+              },
+              defaultValue = "[]",
+              doc = "A list of exported plugins. Optional."),
           @Param(
               name = "jdeps",
-              type = FileApi.class,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               named = true,
               defaultValue = "None",
-              noneable = true,
               doc =
                   "jdeps information for the rule output (if available). This should be a binary"
                       + " proto encoded using the deps.proto protobuf included with Bazel.  If"
                       + " available this file is typically produced by a compiler. IDEs and other"
                       + " tools can use this information for more efficient processing."),
+          @Param(
+              name = "native_libraries",
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = CcInfoApi.class)},
+              named = true,
+              defaultValue = "[]",
+              doc = "CC native library dependencies that are needed for this library."),
         },
         selfCall = true,
         useStarlarkThread = true)
     @StarlarkConstructor
-    JavaInfoApi<?> javaInfo(
+    JavaInfoApi<?, ?, ?> javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,
         Object sourceJarApi,
+        Object compileJdepsApi,
+        Object generatedClassJarApi,
+        Object generatedSourceJarApi,
+        Object nativeHeadersJarApi,
+        Object manifestProtoApi,
         Boolean neverlink,
         Sequence<?> deps,
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
+        Sequence<?> exportedPlugins,
         Object jdepsApi,
+        Sequence<?> nativeLibraries,
         StarlarkThread thread)
         throws EvalException;
   }

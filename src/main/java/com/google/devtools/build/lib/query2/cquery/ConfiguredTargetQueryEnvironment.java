@@ -24,14 +24,15 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -48,9 +49,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -73,7 +72,7 @@ import javax.annotation.Nullable;
  * comments on {@link PostAnalysisQueryEnvironment#targetifyValues} and b/163052263 for details.
  */
 public class ConfiguredTargetQueryEnvironment
-    extends PostAnalysisQueryEnvironment<ConfiguredTarget> {
+    extends PostAnalysisQueryEnvironment<KeyedConfiguredTarget> {
   /** Common query functions and cquery specific functions. */
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   /** Cquery specific functions. */
@@ -81,7 +80,8 @@ public class ConfiguredTargetQueryEnvironment
 
   private CqueryOptions cqueryOptions;
 
-  private final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> configuredTargetKeyExtractor;
+  private final KeyExtractor<KeyedConfiguredTarget, ConfiguredTargetKey>
+      configuredTargetKeyExtractor;
 
   private final ConfiguredTargetAccessor accessor;
 
@@ -100,10 +100,11 @@ public class ConfiguredTargetQueryEnvironment
    * <p>This can also be used in cquery's {@code config} function to match against explicitly
    * specified configs. This, in particular, is where having user-friendly hashes is invaluable.
    */
-  private final ImmutableMap<String, BuildConfiguration> transitiveConfigurations;
+  private final ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations;
 
   @Override
-  protected KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> getConfiguredTargetKeyExtractor() {
+  protected KeyExtractor<KeyedConfiguredTarget, ConfiguredTargetKey>
+      getConfiguredTargetKeyExtractor() {
     return configuredTargetKeyExtractor;
   }
 
@@ -112,7 +113,7 @@ public class ConfiguredTargetQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       Collection<SkyKey> transitiveConfigurationKeys,
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
@@ -130,12 +131,7 @@ public class ConfiguredTargetQueryEnvironment
         walkableGraphSupplier,
         settings);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
-    this.configuredTargetKeyExtractor =
-        element ->
-            ConfiguredTargetKey.builder()
-                .setConfiguredTarget(element)
-                .setConfigurationKey(element.getConfigurationKey())
-                .build();
+    this.configuredTargetKeyExtractor = KeyedConfiguredTarget::getConfiguredTargetKey;
     this.transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
   }
@@ -145,7 +141,7 @@ public class ConfiguredTargetQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       Collection<SkyKey> transitiveConfigurationKeys,
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
@@ -177,38 +173,26 @@ public class ConfiguredTargetQueryEnvironment
     return ImmutableList.of(new ConfigFunction());
   }
 
-  private static BuildConfiguration mergeEqualBuildConfiguration(
-      BuildConfiguration left, BuildConfiguration right) {
-    if (!left.equals(right)) {
-      throw new IllegalArgumentException(
-          "Non-matching configurations " + left.checksum() + ", " + right.checksum());
-    }
-    return left;
-  }
-
-  private static ImmutableMap<String, BuildConfiguration> getTransitiveConfigurations(
+  private static ImmutableMap<String, BuildConfigurationValue> getTransitiveConfigurations(
       Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
       throws InterruptedException {
+    // BuildConfigurationKey and BuildConfigurationValue should be 1:1
+    // so merge function intentionally omitted
     return graph.getSuccessfulValues(transitiveConfigurationKeys).values().stream()
-        .map(value -> (BuildConfigurationValue) value)
-        .map(BuildConfigurationValue::getConfiguration)
-        .sorted(Comparator.comparing(BuildConfiguration::checksum))
-        .collect(
-            toImmutableMap(
-                BuildConfiguration::checksum,
-                Function.identity(),
-                ConfiguredTargetQueryEnvironment::mergeEqualBuildConfiguration));
+        .map(BuildConfigurationValue.class::cast)
+        .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
+        .collect(toImmutableMap(BuildConfigurationValue::checksum, Function.identity()));
   }
 
   @Override
-  public ImmutableList<NamedThreadSafeOutputFormatterCallback<ConfiguredTarget>>
+  public ImmutableList<NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTarget>>
       getDefaultOutputFormatters(
-          TargetAccessor<ConfiguredTarget> accessor,
+          TargetAccessor<KeyedConfiguredTarget> accessor,
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
-          BuildConfiguration hostConfiguration,
-          @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
+          BuildConfigurationValue hostConfiguration,
+          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
           PackageManager packageManager)
           throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
@@ -252,6 +236,13 @@ public class ConfiguredTargetQueryEnvironment
             OutputType.JSON),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+        new GraphOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            kct -> getFwdDeps(ImmutableList.of(kct))),
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
   }
@@ -268,7 +259,7 @@ public class ConfiguredTargetQueryEnvironment
 
   @Override
   public QueryTaskFuture<Void> getTargetsMatchingPattern(
-      QueryExpression owner, String pattern, Callback<ConfiguredTarget> callback) {
+      QueryExpression owner, String pattern, Callback<KeyedConfiguredTarget> callback) {
     TargetPattern patternToEval;
     try {
       patternToEval = getPattern(pattern);
@@ -286,29 +277,25 @@ public class ConfiguredTargetQueryEnvironment
           return Futures.immediateFuture(null);
         };
 
-    try {
-      return QueryTaskFutureImpl.ofDelegate(
-          Futures.catchingAsync(
-              patternToEval.evalAdaptedForAsync(
-                  resolver,
-                  getIgnoredPackagePrefixesPathFragments(),
-                  /* excludedSubdirectories= */ ImmutableSet.of(),
-                  (Callback<Target>)
-                      partialResult -> {
-                        List<ConfiguredTarget> transformedResult = new ArrayList<>();
-                        for (Target target : partialResult) {
-                          transformedResult.addAll(
-                              getConfiguredTargetsForConfigFunction(target.getLabel()));
-                        }
-                        callback.process(transformedResult);
-                      },
-                  QueryException.class),
-              TargetParsingException.class,
-              reportBuildFileErrorAsyncFunction,
-              MoreExecutors.directExecutor()));
-    } catch (InterruptedException e) {
-      return immediateCancelledFuture();
-    }
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.catchingAsync(
+            patternToEval.evalAdaptedForAsync(
+                resolver,
+                getIgnoredPackagePrefixesPathFragments(),
+                /* excludedSubdirectories= */ ImmutableSet.of(),
+                (Callback<Target>)
+                    partialResult -> {
+                      List<KeyedConfiguredTarget> transformedResult = new ArrayList<>();
+                      for (Target target : partialResult) {
+                        transformedResult.addAll(
+                            getConfiguredTargetsForConfigFunction(target.getLabel()));
+                      }
+                      callback.process(transformedResult);
+                    },
+                QueryException.class),
+            TargetParsingException.class,
+            reportBuildFileErrorAsyncFunction,
+            MoreExecutors.directExecutor()));
   }
 
   /**
@@ -316,17 +303,19 @@ public class ConfiguredTargetQueryEnvironment
    * null.
    */
   @Nullable
-  private ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration configuration)
-      throws InterruptedException {
+  private KeyedConfiguredTarget getConfiguredTarget(
+      Label label, BuildConfigurationValue configuration) throws InterruptedException {
     return getValueFromKey(
         ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build());
   }
 
   @Override
   @Nullable
-  protected ConfiguredTarget getValueFromKey(SkyKey key) throws InterruptedException {
+  protected KeyedConfiguredTarget getValueFromKey(SkyKey key) throws InterruptedException {
     ConfiguredTargetValue value = getConfiguredTargetValue(key);
-    return value == null ? null : value.getConfiguredTarget();
+    return value == null
+        ? null
+        : KeyedConfiguredTarget.create((ConfiguredTargetKey) key, value.getConfiguredTarget());
   }
 
   /**
@@ -334,16 +323,16 @@ public class ConfiguredTargetQueryEnvironment
    *
    * <p>If there are no matches, returns an empty list.
    */
-  private List<ConfiguredTarget> getConfiguredTargetsForConfigFunction(Label label)
+  private List<KeyedConfiguredTarget> getConfiguredTargetsForConfigFunction(Label label)
       throws InterruptedException {
-    ImmutableList.Builder<ConfiguredTarget> ans = ImmutableList.builder();
-    for (BuildConfiguration config : transitiveConfigurations.values()) {
-      ConfiguredTarget ct = getConfiguredTarget(label, config);
-      if (ct != null) {
-        ans.add(ct);
+    ImmutableList.Builder<KeyedConfiguredTarget> ans = ImmutableList.builder();
+    for (BuildConfigurationValue config : transitiveConfigurations.values()) {
+      KeyedConfiguredTarget kct = getConfiguredTarget(label, config);
+      if (kct != null) {
+        ans.add(kct);
       }
     }
-    ConfiguredTarget nullConfiguredTarget = getNullConfiguredTarget(label);
+    KeyedConfiguredTarget nullConfiguredTarget = getNullConfiguredTarget(label);
     if (nullConfiguredTarget != null) {
       ans.add(nullConfiguredTarget);
     }
@@ -355,38 +344,41 @@ public class ConfiguredTargetQueryEnvironment
    *
    * @param pattern the original pattern that {@code targets} were parsed from. Used for error
    *     message.
-   * @param targets the set of {@link ConfiguredTarget}s whose labels represent the targets being
-   *     requested.
+   * @param targetsFuture the set of {@link ConfiguredTarget}s whose labels represent the targets
+   *     being requested.
    * @param configPrefix the configuration to request {@code targets} in. This can be the
    *     configuration's checksum, any prefix of its checksum, or the special identifiers "host",
    *     "target", or "null".
    * @param callback the callback to receive the results of this method.
    * @return {@link QueryTaskCallable} that returns the correctly configured targets.
    */
-  QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
+  @SuppressWarnings("unchecked")
+  <T> QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
       String pattern,
-      ThreadSafeMutableSet<ConfiguredTarget> targets,
+      QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture,
       String configPrefix,
-      Callback<ConfiguredTarget> callback) {
+      Callback<KeyedConfiguredTarget> callback) {
     // There's no technical reason other callers beside ConfigFunction can't call this. But they'd
     // need to adjust the error messaging below to not make it config()-specific. Please don't just
     // remove that line: the counter-priority is making error messages as clear, precise, and
     // actionable as possible.
     return () -> {
-      List<ConfiguredTarget> transformedResult = new ArrayList<>();
+      ThreadSafeMutableSet<KeyedConfiguredTarget> targets =
+          (ThreadSafeMutableSet<KeyedConfiguredTarget>) targetsFuture.getIfSuccessful();
+      List<KeyedConfiguredTarget> transformedResult = new ArrayList<>();
       boolean userFriendlyConfigName = true;
-      for (ConfiguredTarget target : targets) {
+      for (KeyedConfiguredTarget target : targets) {
         Label label = getCorrectLabel(target);
-        ConfiguredTarget configuredTarget;
+        KeyedConfiguredTarget keyedConfiguredTarget;
         switch (configPrefix) {
           case "host":
-            configuredTarget = getHostConfiguredTarget(label);
+            keyedConfiguredTarget = getHostConfiguredTarget(label);
             break;
           case "target":
-            configuredTarget = getTargetConfiguredTarget(label);
+            keyedConfiguredTarget = getTargetConfiguredTarget(label);
             break;
           case "null":
-            configuredTarget = getNullConfiguredTarget(label);
+            keyedConfiguredTarget = getNullConfiguredTarget(label);
             break;
           default:
             ImmutableList<String> matchingConfigs =
@@ -394,7 +386,7 @@ public class ConfiguredTargetQueryEnvironment
                     .filter(fullConfig -> fullConfig.startsWith(configPrefix))
                     .collect(ImmutableList.toImmutableList());
             if (matchingConfigs.size() == 1) {
-              configuredTarget =
+              keyedConfiguredTarget =
                   getConfiguredTarget(
                       label,
                       Verify.verifyNotNull(transitiveConfigurations.get(matchingConfigs.get(0))));
@@ -424,12 +416,12 @@ public class ConfiguredTargetQueryEnvironment
                       + "A short ID is any prefix of a full ID. cquery shows short IDs. 'bazel "
                       + "config' shows full IDs.\n"
                       + "\n"
-                      + "For more help, see https://docs.bazel.build/cquery.html.",
+                      + "For more help, see https://bazel.build/docs/cquery.",
                   ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
             }
         }
-        if (configuredTarget != null) {
-          transformedResult.add(configuredTarget);
+        if (keyedConfiguredTarget != null) {
+          transformedResult.add(keyedConfiguredTarget);
         }
       }
       if (transformedResult.isEmpty()) {
@@ -452,26 +444,27 @@ public class ConfiguredTargetQueryEnvironment
    * the "actual" target instead of the alias target. Grr.
    */
   @Override
-  public Label getCorrectLabel(ConfiguredTarget target) {
+  public Label getCorrectLabel(KeyedConfiguredTarget target) {
     // Dereference any aliases that might be present.
-    return target.getOriginalLabel();
+    return target.getConfiguredTarget().getOriginalLabel();
   }
 
   @Nullable
   @Override
-  protected ConfiguredTarget getHostConfiguredTarget(Label label) throws InterruptedException {
+  protected KeyedConfiguredTarget getHostConfiguredTarget(Label label) throws InterruptedException {
     return getConfiguredTarget(label, hostConfiguration);
   }
 
   @Nullable
   @Override
-  protected ConfiguredTarget getTargetConfiguredTarget(Label label) throws InterruptedException {
+  protected KeyedConfiguredTarget getTargetConfiguredTarget(Label label)
+      throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
       return getConfiguredTarget(
           label, topLevelConfigurations.getConfigurationForTopLevelTarget(label));
     } else {
-      ConfiguredTarget toReturn;
-      for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
+      KeyedConfiguredTarget toReturn;
+      for (BuildConfigurationValue configuration : topLevelConfigurations.getConfigurations()) {
         toReturn = getConfiguredTarget(label, configuration);
         if (toReturn != null) {
           return toReturn;
@@ -483,45 +476,41 @@ public class ConfiguredTargetQueryEnvironment
 
   @Nullable
   @Override
-  protected ConfiguredTarget getNullConfiguredTarget(Label label) throws InterruptedException {
+  protected KeyedConfiguredTarget getNullConfiguredTarget(Label label) throws InterruptedException {
     return getConfiguredTarget(label, null);
   }
 
   @Nullable
   @Override
-  protected RuleConfiguredTarget getRuleConfiguredTarget(ConfiguredTarget configuredTarget) {
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      return (RuleConfiguredTarget) configuredTarget;
+  protected RuleConfiguredTarget getRuleConfiguredTarget(KeyedConfiguredTarget configuredTarget) {
+    if (configuredTarget.getConfiguredTarget() instanceof RuleConfiguredTarget) {
+      return (RuleConfiguredTarget) configuredTarget.getConfiguredTarget();
     }
     return null;
   }
 
   @Nullable
   @Override
-  protected BuildConfiguration getConfiguration(ConfiguredTarget target) {
+  protected BuildConfigurationValue getConfiguration(KeyedConfiguredTarget target) {
     try {
       return target.getConfigurationKey() == null
           ? null
-          : ((BuildConfigurationValue) graph.getValue(target.getConfigurationKey()))
-              .getConfiguration();
+          : (BuildConfigurationValue) graph.getValue(target.getConfigurationKey());
     } catch (InterruptedException e) {
       throw new IllegalStateException("Unexpected interruption during configured target query", e);
     }
   }
 
   @Override
-  protected ConfiguredTargetKey getSkyKey(ConfiguredTarget target) {
-    return ConfiguredTargetKey.builder()
-        .setConfiguredTarget(target)
-        .setConfiguration(getConfiguration(target))
-        .build();
+  protected ConfiguredTargetKey getSkyKey(KeyedConfiguredTarget target) {
+    return target.getConfiguredTargetKey();
   }
 
   @Override
-  public ThreadSafeMutableSet<ConfiguredTarget> createThreadSafeMutableSet() {
+  public ThreadSafeMutableSet<KeyedConfiguredTarget> createThreadSafeMutableSet() {
     return new ThreadSafeMutableKeyExtractorBackedSetImpl<>(
         configuredTargetKeyExtractor,
-        ConfiguredTarget.class,
+        KeyedConfiguredTarget.class,
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 }

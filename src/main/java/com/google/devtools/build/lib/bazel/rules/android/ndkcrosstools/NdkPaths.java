@@ -41,13 +41,19 @@ public class NdkPaths {
   private final String hostPlatform;
   private final ApiLevel apiLevel;
   private final Integer majorRevision;
+  private final String externalExecPathBase;
 
   public NdkPaths(
-      String repositoryName, String hostPlatform, ApiLevel apiLevel, Integer majorRevision) {
+      String repositoryName,
+      String hostPlatform,
+      ApiLevel apiLevel,
+      Integer majorRevision,
+      boolean siblingRepositoryLayout) {
     this.repositoryName = repositoryName;
     this.hostPlatform = hostPlatform;
     this.apiLevel = apiLevel;
     this.majorRevision = majorRevision;
+    this.externalExecPathBase = siblingRepositoryLayout ? ".." : "external";
   }
 
   public ImmutableList<ToolPath> createToolpaths(String toolchainName, String targetPlatform,
@@ -112,9 +118,11 @@ public class NdkPaths {
   public String createGccToolchainPath(String toolchainName) {
 
     String gccToolchainPathTemplate =
-        "external/%repositoryName%/ndk/toolchains/%toolchainName%/prebuilt/%hostPlatform%";
+        "%externalExecPathBase%/%repositoryName%/ndk/toolchains/%toolchainName%/prebuilt"
+            + "/%hostPlatform%";
 
     return gccToolchainPathTemplate
+        .replace("%externalExecPathBase%", externalExecPathBase)
         .replace("%repositoryName%", repositoryName)
         .replace("%toolchainName%", toolchainName)
         .replace("%hostPlatform%", hostPlatform);
@@ -130,9 +138,10 @@ public class NdkPaths {
    */
   public String createClangToolchainBuiltinIncludeDirectory(String clangVersion) {
     String clangBuiltinIncludeDirectoryPathTemplate =
-        "external/%repositoryName%/ndk/toolchains/llvm/prebuilt/%hostPlatform%/lib64/clang/"
-            + "%clangVersion%/include";
+        "%externalExecPathBase%/%repositoryName%/ndk/toolchains/llvm/prebuilt/%hostPlatform%/lib64/"
+            + "clang/%clangVersion%/include";
     return clangBuiltinIncludeDirectoryPathTemplate
+        .replace("%externalExecPathBase%", externalExecPathBase)
         .replace("%repositoryName%", repositoryName)
         .replace("%hostPlatform%", hostPlatform)
         .replace("%clangVersion%", clangVersion);
@@ -149,12 +158,13 @@ public class NdkPaths {
   public List<String> createGccToolchainBuiltinIncludeDirectories(
       final String toolchainName, final String targetPlatform, final String gccVersion) {
     final String toolchainIncludePathTemplate =
-        "external/%repositoryName%/ndk/toolchains/%toolchainName%/prebuilt/%hostPlatform%"
-            + "/lib/gcc/%targetPlatform%/%gccVersion%/%includeFolderName%";
+        "%externalExecPathBase%/%repositoryName%/ndk/toolchains/%toolchainName%/prebuilt/"
+            + "%hostPlatform%/lib/gcc/%targetPlatform%/%gccVersion%/%includeFolderName%";
     return Lists.transform(
         ImmutableList.of("include", "include-fixed"),
         includeFolderName ->
             toolchainIncludePathTemplate
+                .replace("%externalExecPathBase%", externalExecPathBase)
                 .replace("%repositoryName%", repositoryName)
                 .replace("%toolchainName%", toolchainName)
                 .replace("%hostPlatform%", hostPlatform)
@@ -175,9 +185,10 @@ public class NdkPaths {
     String correctedApiLevel = apiLevel.getCpuCorrectedApiLevel(targetCpu);
 
     String androidPlatformIncludePathTemplate =
-        "external/%repositoryName%/ndk/platforms/android-%apiLevel%/arch-%arch%";
+        "%externalExecPathBase%/%repositoryName%/ndk/platforms/android-%apiLevel%/arch-%arch%";
 
     return androidPlatformIncludePathTemplate
+        .replace("%externalExecPathBase%", externalExecPathBase)
         .replace("%repositoryName%", repositoryName)
         .replace("%apiLevel%", correctedApiLevel)
         .replace("%arch%", targetCpu);
@@ -192,7 +203,9 @@ public class NdkPaths {
     // This location does not exist prior to NDK 15
     Preconditions.checkState(majorRevision >= 15);
 
-    return "external/%repositoryName%/ndk/sysroot".replace("%repositoryName%", repositoryName);
+    return "%externalExecPathBase%/%repositoryName%/ndk/sysroot"
+        .replace("%externalExecPathBase%", externalExecPathBase)
+        .replace("%repositoryName%", repositoryName);
   }
 
   public String getCorrectedApiLevel(String targetCpu) {
@@ -203,7 +216,8 @@ public class NdkPaths {
 
     String cpuNoThumb = targetCpu.replaceAll("-thumb$", "");
 
-    String prefix = "external/%repositoryName%/ndk/sources/cxx-stl/gnu-libstdc++/%gccVersion%/";
+    String prefix =
+        "%externalExecPathBase%/%repositoryName%/ndk/sources/cxx-stl/gnu-libstdc++/%gccVersion%/";
     List<String> includePathTemplates = Arrays.asList(
         prefix + "include",
         prefix + "libs/%targetCpu%/include",
@@ -213,9 +227,10 @@ public class NdkPaths {
     for (String template : includePathTemplates) {
       includePaths.add(
           template
-            .replace("%repositoryName%", repositoryName)
-            .replace("%gccVersion%", gccVersion)
-            .replace("%targetCpu%", cpuNoThumb));
+              .replace("%externalExecPathBase%", externalExecPathBase)
+              .replace("%repositoryName%", repositoryName)
+              .replace("%gccVersion%", gccVersion)
+              .replace("%targetCpu%", cpuNoThumb));
     }
     return includePaths.build();
   }
@@ -223,7 +238,8 @@ public class NdkPaths {
   ImmutableList<String> createStlportIncludePaths() {
 
     String prefix =
-        "external/%repositoryName%/ndk/sources/cxx-stl/"
+        "%externalExecPathBase%/%repositoryName%/ndk/sources/cxx-stl/"
+            .replace("%externalExecPathBase%", externalExecPathBase)
             .replace("%repositoryName%", repositoryName);
 
     return ImmutableList.of(prefix + "stlport/stlport", prefix + "gabi++/include");
@@ -232,7 +248,9 @@ public class NdkPaths {
   ImmutableList<String> createLibcxxIncludePaths() {
 
     String prefix =
-        "external/%repositoryName%/ndk/sources/".replace("%repositoryName%", repositoryName);
+        "%externalExecPathBase%/%repositoryName%/ndk/sources/"
+            .replace("%externalExecPathBase%", externalExecPathBase)
+            .replace("%repositoryName%", repositoryName);
 
     ImmutableList.Builder<String> includePaths = ImmutableList.builder();
     
@@ -280,7 +298,8 @@ public class NdkPaths {
    * @return the directory of the target CPU's runtime .a files for linking
    */
   public String createLibcppLinkerPath(String targetCpu) {
-    return "external/%repositoryName%/ndk/sources/cxx-stl/llvm-libc++/libs/%targetCpu%"
+    return "%externalExecPathBase%/%repositoryName%/ndk/sources/cxx-stl/llvm-libc++/libs/%targetCpu%"
+        .replace("%externalExecPathBase%", externalExecPathBase)
         .replace("%repositoryName%", repositoryName)
         .replace("%targetCpu%", targetCpu);
   }

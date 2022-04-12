@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import java.util.List;
 
 /**
@@ -39,6 +38,8 @@ import java.util.List;
  */
 public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
 
+  protected J2ObjcLibrary(CppSemantics cppSemantics) {}
+
   public static final String NO_ENTRY_CLASS_ERROR_MSG =
       "Entry classes must be specified when flag --compilation_mode=opt is on in order to"
           + " perform J2ObjC dead code stripping.";
@@ -47,16 +48,13 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       ImmutableList.of("java_import", "java_library", "java_proto_library", "proto_library");
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
-    List<J2ObjcCcInfo> j2objcCcInfos = ruleContext.getPrerequisites("deps", J2ObjcCcInfo.class);
     return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-        .addDeps(ruleContext.getPrerequisiteConfiguredTargets("deps"))
-        .addDeps(ruleContext.getPrerequisiteConfiguredTargets("jre_deps"))
-        .addDepCcHeaderProviders(
-            j2objcCcInfos.stream().map(J2ObjcCcInfo::getCcInfo).collect(toList()))
+        .addDeps(ruleContext.getPrerequisites("deps"))
+        .addDeps(ruleContext.getPrerequisites("jre_deps"))
+        .addDirectCcCompilationContexts(ruleContext.getPrerequisites("deps", CcInfo.PROVIDER))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .setHasModuleMap()
         .build();
   }
 
@@ -75,38 +73,20 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     ObjcCommon common = common(ruleContext);
-    ObjcProvider objcProvider = common.getObjcProviderBuilder().build();
+    ObjcProvider objcProvider = common.getObjcProvider();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
-            ruleContext.getPrerequisites("deps", J2ObjcMappingFileProvider.class));
-
-    CompilationArtifacts moduleMapCompilationArtifacts =
-        new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-            .build();
-
-    new CompilationSupport.Builder()
-        .setRuleContext(ruleContext)
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .doNotUsePch()
-        .build()
-        .registerFullyLinkAction(
-            objcProvider,
-            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
-        .registerGenerateModuleMapAction(moduleMapCompilationArtifacts)
-        .validateAttributes();
+            ruleContext.getPrerequisites("deps", J2ObjcMappingFileProvider.PROVIDER));
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
-        .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
+        .addNativeDeclaredProvider(j2ObjcEntryClassProvider)
+        .addNativeDeclaredProvider(j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(objcProvider)
         .addNativeDeclaredProvider(
-            CcInfo.builder()
-                .setCcCompilationContext(objcProvider.getCcCompilationContext())
-                .build())
+            CcInfo.builder().setCcCompilationContext(common.getCcCompilationContext()).build())
         .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }

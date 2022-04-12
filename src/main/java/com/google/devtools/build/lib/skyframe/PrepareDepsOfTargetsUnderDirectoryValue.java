@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -44,7 +44,7 @@ import java.util.Objects;
  * directories above that one, but they don't need to be re-run.
  */
 public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
-  @AutoCodec
+  @SerializationConstant
   public static final PrepareDepsOfTargetsUnderDirectoryValue INSTANCE =
       new PrepareDepsOfTargetsUnderDirectoryValue();
 
@@ -74,7 +74,6 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
   /**
    * The argument value for {@link SkyKey}s of {@link PrepareDepsOfTargetsUnderDirectoryFunction}.
    */
-  @VisibleForTesting
   @AutoCodec
   public static final class PrepareDepsOfTargetsUnderDirectoryKey implements SkyKey {
     private static final Interner<PrepareDepsOfTargetsUnderDirectoryKey> interners =
@@ -89,9 +88,8 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
       this.filteringPolicy = Preconditions.checkNotNull(filteringPolicy);
     }
 
-    @VisibleForTesting
     @AutoCodec.Instantiator
-    static PrepareDepsOfTargetsUnderDirectoryKey create(
+    public static PrepareDepsOfTargetsUnderDirectoryKey create(
         RecursivePkgKey recursivePkgKey, FilteringPolicy filteringPolicy) {
       return interners.intern(
           new PrepareDepsOfTargetsUnderDirectoryKey(recursivePkgKey, filteringPolicy));

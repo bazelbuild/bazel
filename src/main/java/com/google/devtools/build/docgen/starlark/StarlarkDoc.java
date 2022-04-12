@@ -19,8 +19,8 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -32,15 +32,30 @@ import net.starlark.java.eval.Tuple;
 abstract class StarlarkDoc {
   protected static final String TOP_LEVEL_ID = "globals";
 
+  private final StarlarkDocExpander expander;
+
+  protected StarlarkDoc(StarlarkDocExpander expander) {
+    this.expander = expander;
+  }
+
   /**
    * Returns a string containing the name of the entity being documented.
    */
   public abstract String getName();
 
   /**
-   * Returns a string containing the formatted HTML documentation of the entity being documented.
+   * Returns a string containing the formatted HTML documentation of the entity being documented
+   * (without any variables).
    */
-  public abstract String getDocumentation();
+  public String getDocumentation() {
+    return expander.expand(getRawDocumentation());
+  }
+
+  /**
+   * Returns the HTML documentation of the entity being documented, which potentially contains
+   * variables and unresolved links.
+   */
+  public abstract String getRawDocumentation();
 
   protected String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
@@ -65,8 +80,8 @@ abstract class StarlarkDoc {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
     } else if (type.equals(NestedSet.class)) {
       return "<a class=\"anchor\" href=\"depset.html\">depset</a>";
-    } else if (StarlarkInterfaceUtils.getStarlarkBuiltin(type) != null) {
-      StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(type);
+    } else if (StarlarkAnnotations.getStarlarkBuiltin(type) != null) {
+      StarlarkBuiltin module = StarlarkAnnotations.getStarlarkBuiltin(type);
       if (module.documented()) {
         return String.format("<a class=\"anchor\" href=\"%1$s.html\">%1$s</a>",
                              module.name());

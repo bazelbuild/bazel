@@ -41,7 +41,7 @@ public class StarlarkInfoTest {
   @Test
   public void nullLocationDefaultsToBuiltin() throws Exception {
     StarlarkInfo info = StarlarkInfo.create(makeProvider(), ImmutableMap.of(), null);
-    assertThat(info.getCreationLoc()).isEqualTo(Location.BUILTIN);
+    assertThat(info.getCreationLocation()).isEqualTo(Location.BUILTIN);
   }
 
   @Test
@@ -132,14 +132,14 @@ public class StarlarkInfoTest {
 
   /** Creates an unexported schemaless provider type with builtin location. */
   private static StarlarkProvider makeProvider() {
-    return StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
+    return StarlarkProvider.builder(Location.BUILTIN).build();
   }
 
   /** Creates an exported schemaless provider type with builtin location. */
   private static StarlarkProvider makeExportedProvider() {
     StarlarkProvider.Key key =
         new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//package:target"), "provider");
-    return StarlarkProvider.createExportedSchemaless(key, Location.BUILTIN);
+    return StarlarkProvider.builder(Location.BUILTIN).setExported(key).build();
   }
 
   /**

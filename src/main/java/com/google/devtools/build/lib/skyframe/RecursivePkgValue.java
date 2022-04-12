@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -35,7 +36,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 @Immutable
 @ThreadSafe
 public class RecursivePkgValue implements SkyValue {
-  @AutoCodec
+  @SerializationConstant
   static final RecursivePkgValue EMPTY =
       new RecursivePkgValue(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER), false);
 

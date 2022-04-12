@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -63,6 +64,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    name = 'cc_toolchain',",
         "    command_line = '--cpp_out=$(OUT)',",
         "    blacklisted_protos = [':any_proto'],",
+        "    progress_message = 'Generating C++ proto_library %{label}',",
         ")");
     scratch.appendFile(
         "WORKSPACE",
@@ -206,7 +208,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     assertThat(protoCompileAction.getArguments())
         .contains(
             String.format(
-                "--cpp_out=%s", getTargetConfiguration().getGenfilesFragment().toString()));
+                "--cpp_out=%s", getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN)));
   }
 
   @Test
@@ -235,12 +237,12 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         .contains(
             String.format(
                 "--cpp_out=%s/external/bla",
-                getTargetConfiguration().getGenfilesFragment().toString()));
+                getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN)));
 
     Artifact headerFile =
         getDerivedArtifact(
             PathFragment.create("external/bla/foo/bar.pb.h"),
-            targetConfig.getGenfilesDirectory(),
+            targetConfig.getGenfilesDirectory(RepositoryName.create("bla")),
             getOwnerForAspect(
                 getConfiguredTarget("@bla//foo:bar_proto"),
                 ruleClassProvider.getNativeAspectClass(BazelCcProtoAspect.class.getSimpleName()),
@@ -389,20 +391,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testCcProtoLibraryNotLoadedThroughMacro() throws Exception {
-    if (!analysisMock.isThisBazel()) {
-      return;
-    }
-    setupTestCcProtoLibraryLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestCcProtoLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
-
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_proto_library"),

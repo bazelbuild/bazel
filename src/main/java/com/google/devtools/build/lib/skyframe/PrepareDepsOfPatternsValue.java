@@ -42,11 +42,9 @@ import java.util.Objects;
  * e.g., top-level consumers, and other functions which invoke {@link PrepareDepsOfPatternsFunction}
  * solely for its side-effects and which do not behave differently depending on those side-effects.
  */
-@AutoCodec
 @Immutable
 @ThreadSafe
 public final class PrepareDepsOfPatternsValue implements SkyValue {
-
   private final ImmutableList<TargetPatternKey> targetPatternKeys;
 
   public PrepareDepsOfPatternsValue(ImmutableList<TargetPatternKey> targetPatternKeys) {

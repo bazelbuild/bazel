@@ -102,7 +102,7 @@ public class IncludeScanningOptions extends OptionsBase {
   public int includeScanningParallelism;
 
   @Option(
-      name = "experimental_async_include_scanner",
+      name = "experimental_reuse_include_scanning_threads",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
@@ -110,6 +110,6 @@ public class IncludeScanningOptions extends OptionsBase {
         OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
       },
       defaultValue = "false",
-      help = "Switches to a new implementation of include scanning based on futures.")
-  public boolean useAsyncIncludeScanner;
+      help = "If enabled core threads of include scanner pool will not die during execution.")
+  public boolean experimentalReuseIncludeScanningThreads;
 }

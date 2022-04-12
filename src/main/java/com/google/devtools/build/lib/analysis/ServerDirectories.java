@@ -25,23 +25,29 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Represents the relevant directories for the server: the location of the embedded binaries
- * and the output directories.
+ * Represents the relevant directories for the server: the location of the embedded binaries and the
+ * output directories.
  */
 @Immutable
 public final class ServerDirectories {
   public static final String EXECROOT = "execroot";
 
-  /** Top-level user output directory; used, e.g., as default location for caches. */
-  private final Path outputUserRoot;
-  /** Where Blaze gets unpacked. */
+  /** Where Bazel gets unpacked. */
   private final Path installBase;
   /** The content hash of everything in installBase. */
   @Nullable private final HashCode installMD5;
+
   /** The root of the temp and output trees. */
   private final Path outputBase;
 
+  /** Top-level user output directory; used, e.g., as default location for caches. */
+  private final Path outputUserRoot;
+
   private final Path execRootBase;
+
+  // TODO(bazel-team): Use a builder to simplify/unify these constructors. This makes it easier to
+  // have sensible defaults, e.g. execRootBase = outputBase + "/execroot". Then reorder the fields
+  // to be consistent throughout this class.
 
   public ServerDirectories(
       Path installBase,
@@ -49,16 +55,20 @@ public final class ServerDirectories {
       Path outputUserRoot,
       Path execRootBase,
       @Nullable String installMD5) {
-    this.outputUserRoot = outputUserRoot;
     this.installBase = installBase;
-    this.outputBase = outputBase;
-    this.execRootBase = execRootBase;
     this.installMD5 =
         Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5));
+    this.outputBase = outputBase;
+    this.outputUserRoot = outputUserRoot;
+    this.execRootBase = execRootBase;
   }
 
   public ServerDirectories(Path installBase, Path outputBase, Path outputUserRoot) {
-    this(installBase, outputBase, outputUserRoot, outputBase.getRelative(EXECROOT), null);
+    this(
+        // Some tests set installBase to null.
+        // TODO(bazel-team): Be more consistent about whether nulls are permitted. (e.g. equals()
+        // presently doesn't tolerate them for some fields). We should probably just disallow them.
+        installBase, outputBase, outputUserRoot, outputBase.getRelative(EXECROOT), null);
   }
 
   private static HashCode checkMD5(HashCode hash) {
@@ -70,6 +80,14 @@ public final class ServerDirectories {
   /** Returns the installation base directory. */
   public Path getInstallBase() {
     return installBase;
+  }
+
+  /**
+   * Returns the MD5 content hash of the blaze binary (includes deploy JAR, embedded binaries, and
+   * anything else that ends up in the install_base).
+   */
+  public HashCode getInstallMD5() {
+    return installMD5;
   }
 
   /**
@@ -106,17 +124,9 @@ public final class ServerDirectories {
     return installBase;
   }
 
-  /**
-   * Returns the MD5 content hash of the blaze binary (includes deploy JAR, embedded binaries, and
-   * anything else that ends up in the install_base).
-   */
-  public HashCode getInstallMD5() {
-    return installMD5;
-  }
-
   @Override
   public int hashCode() {
-    return Objects.hash(installBase, installMD5, outputBase, outputUserRoot);
+    return Objects.hash(installBase, installMD5, outputBase, outputUserRoot, execRootBase);
   }
 
   @Override
@@ -131,6 +141,7 @@ public final class ServerDirectories {
     return this.installBase.equals(that.installBase)
         && Objects.equals(this.installMD5, that.installMD5)
         && this.outputBase.equals(that.outputBase)
-        && this.outputUserRoot.equals(that.outputUserRoot);
+        && this.outputUserRoot.equals(that.outputUserRoot)
+        && this.execRootBase.equals(that.execRootBase);
   }
 }

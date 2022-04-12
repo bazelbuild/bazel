@@ -236,8 +236,8 @@ public class OptionProcessorTest {
         .processedWith(new OptionProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Option that allows multiple occurrences must be of type java.util.List<E>, "
-                + "but is of type java.util.Collection<java.lang.String>");
+            "Option that allows multiple occurrences must be assignable to type java.util.List<E>,"
+                + " but is of type java.util.Collection<java.lang.String>");
   }
 
   @Test
@@ -247,8 +247,16 @@ public class OptionProcessorTest {
         .processedWith(new OptionProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Option that allows multiple occurrences must be of type java.util.List<E>, "
-                + "but is of type java.lang.String");
+            "Option that allows multiple occurrences must be assignable to type java.util.List<E>,"
+                + " but is of type java.lang.String");
+  }
+
+  @Test
+  public void allowMultipleOptionWithImmutableListTypeIsAllowed() {
+    assertAbout(javaSource())
+        .that(getFile("ImmutableListTypeForAllowMultipleOption.java"))
+        .processedWith(new OptionProcessor())
+        .compilesWithoutError();
   }
 
   @Test
@@ -294,16 +302,6 @@ public class OptionProcessorTest {
   }
 
   @Test
-  public void functionalExpansionOptionThatAllowsMultipleIsRejected() {
-    assertAbout(javaSource())
-        .that(getFile("FunctionalExpansionOptionWithAllowMultiple.java"))
-        .processedWith(new OptionProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Can't set an option to accumulate multiple values and let it expand to other flags.");
-  }
-
-  @Test
   public void expansionOptionWithImplicitRequirementIsRejected() {
     assertAbout(javaSource())
         .that(getFile("ExpansionOptionWithImplicitRequirement.java"))
@@ -311,15 +309,5 @@ public class OptionProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "Can't set an option to be both an expansion option and have implicit requirements.");
-  }
-
-  @Test
-  public void expansionOptionThatExpandsInTwoWaysIsRejected() {
-    assertAbout(javaSource())
-        .that(getFile("DoubleExpansionOption.java"))
-        .processedWith(new OptionProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Options cannot expand using both a static expansion list and an expansion function.");
   }
 }

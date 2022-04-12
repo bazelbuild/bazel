@@ -135,7 +135,7 @@ public class NinjaPhonyTargetsUtilTest {
       NinjaTarget ninjaTarget = parseNinjaTarget(text);
       builder.put(Iterables.getOnlyElement(ninjaTarget.getAllOutputs()), ninjaTarget);
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   @Test

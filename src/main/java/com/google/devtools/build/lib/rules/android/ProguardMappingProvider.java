@@ -30,8 +30,12 @@ public final class ProguardMappingProvider extends NativeInfo
   private final Artifact proguardMapping;
 
   public ProguardMappingProvider(Artifact proguardMapping) {
-    super(PROVIDER);
     this.proguardMapping = proguardMapping;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

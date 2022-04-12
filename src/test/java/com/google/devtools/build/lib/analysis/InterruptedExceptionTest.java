@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.Collection;
@@ -40,7 +40,8 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
-      protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+      protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+          throws IOException {
         if (path.toString().contains("causes_interrupt")) {
           mainThread.interrupt();
         }

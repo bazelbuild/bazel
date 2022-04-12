@@ -31,14 +31,22 @@ cc_library(
 # libprotoc-dev
 cc_library(
     name = "protoc_lib",
-    linkopts = ["-lprotoc", "-lpthread", "-lm"],
-    deps = [":protobuf"],
+    linkopts = [
+        "-lprotoc",
+        "-lpthread",
+        "-lm",
+    ],
     visibility = ["//visibility:public"],
+    deps = [":protobuf"],
 )
 
 # libgrpc++-dev
 cc_library(
     name = "grpc++_unsecure",
-    linkopts = ["-lgrpc++_unsecure", "-lgrpc_unsecure", "-lgpr"],
+    linkopts = [
+        "-lgrpc++_unsecure",
+        "-lgrpc_unsecure",
+        "-lgpr",
+    ],
     visibility = ["//visibility:public"],
 )

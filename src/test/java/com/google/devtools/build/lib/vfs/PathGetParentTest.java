@@ -37,7 +37,7 @@ public class PathGetParentTest {
   public final void createTestRoot() throws Exception  {
     fs = FileSystems.getNativeFileSystem();
     testRoot = fs.getPath(TestUtils.tmpDir()).getRelative("UnixPathGetParentTest");
-    FileSystemUtils.createDirectoryAndParents(testRoot);
+    testRoot.createDirectoryAndParents();
   }
 
   @After

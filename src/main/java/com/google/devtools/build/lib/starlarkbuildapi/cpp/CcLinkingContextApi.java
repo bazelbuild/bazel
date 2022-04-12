@@ -18,10 +18,13 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Wrapper for every C++ linking provider. */
@@ -61,4 +64,22 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       doc = "Returns the depset of linker inputs.",
       structField = true)
   Depset getStarlarkLinkerInputs();
+
+  /**
+   * TODO(bazel-team): Do not expose this publicly. This was a mistake. Linkstamps should be
+   * accessed through linker_inputs. Remove this method.
+   */
+  @StarlarkMethod(name = "linkstamps", documented = false, useStarlarkThread = true)
+  Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "go_link_c_archive",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  ExtraLinkTimeLibraryApi getGoLinkCArchiveForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "extra_link_time_libraries", documented = false, useStarlarkThread = true)
+  public Object getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread) throws EvalException;
 }

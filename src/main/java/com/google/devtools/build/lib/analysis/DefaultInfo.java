@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -27,99 +28,157 @@ import net.starlark.java.syntax.Location;
 
 /** DefaultInfo is provided by all targets implicitly and contains all standard fields. */
 @Immutable
-public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
-
-  private final Depset files;
-  private final Runfiles runfiles;
-  private final Runfiles dataRunfiles;
-  private final Runfiles defaultRunfiles;
-  private final Artifact executable;
-  private final FilesToRunProvider filesToRunProvider;
+public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
 
   /**
    * Singleton instance of the provider type for {@link DefaultInfo}.
    */
   public static final DefaultInfoProvider PROVIDER = new DefaultInfoProvider();
 
-  private DefaultInfo(
-      @Nullable RunfilesProvider runfilesProvider,
-      FileProvider fileProvider,
-      FilesToRunProvider filesToRunProvider) {
-    this(
-        Location.BUILTIN,
-        Depset.of(Artifact.TYPE, fileProvider.getFilesToBuild()),
-        Runfiles.EMPTY,
-        (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDataRunfiles(),
-        (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDefaultRunfiles(),
-        filesToRunProvider.getExecutable(),
-        filesToRunProvider);
-  }
-
-  private DefaultInfo(
-      Location loc,
-      Depset files,
-      Runfiles runfiles,
-      Runfiles dataRunfiles,
-      Runfiles defaultRunfiles,
-      Artifact executable,
-      @Nullable FilesToRunProvider filesToRunProvider) {
-    super(PROVIDER, loc);
-    this.files = files;
-    this.runfiles = runfiles;
-    this.dataRunfiles = dataRunfiles;
-    this.defaultRunfiles = defaultRunfiles;
-    this.executable = executable;
-    this.filesToRunProvider = filesToRunProvider;
-  }
-
-  public static DefaultInfo build(
-      @Nullable RunfilesProvider runfilesProvider,
-      FileProvider fileProvider,
-      FilesToRunProvider filesToRunProvider) {
-    return new DefaultInfo(runfilesProvider, fileProvider, filesToRunProvider);
-  }
-
   @Override
-  public Depset getFiles() {
-    return files;
+  public DefaultInfoProvider getProvider() {
+    return PROVIDER;
   }
 
-  @Override
-  public FilesToRunProvider getFilesToRun() {
-    return filesToRunProvider;
+  private DefaultInfo() {}
+
+  private DefaultInfo(Location loc) {
+    super(loc);
   }
 
   /**
    * Returns a set of runfiles acting as both the data runfiles and the default runfiles.
    *
-   * This is kept for legacy reasons.
+   * <p>This is kept for legacy reasons.
    */
-  public Runfiles getStatelessRunfiles() {
-    return runfiles;
-  }
+  public abstract Runfiles getStatelessRunfiles();
 
   @Override
-  public Runfiles getDataRunfiles() {
-    return dataRunfiles;
-  }
+  public abstract Runfiles getDataRunfiles();
 
   @Override
-  public Runfiles getDefaultRunfiles() {
-    if (dataRunfiles == null && defaultRunfiles == null) {
-      // This supports the legacy Starlark runfiles constructor -- if the 'runfiles' attribute
-      // is used, then default_runfiles will return all runfiles.
-      return runfiles;
-    } else {
-      return defaultRunfiles;
-    }
-  }
+  public abstract Runfiles getDefaultRunfiles();
 
   /**
    * If the rule producing this info object is marked 'executable' or 'test', this is an artifact
    * representing the file that should be executed to run the target. This is null otherwise.
    */
-  public Artifact getExecutable() {
-    return executable;
+  public abstract Artifact getExecutable();
+
+  @Override
+  public abstract FilesToRunProvider getFilesToRun();
+
+  /** Constructs an optimised DefaultInfo for native targets. */
+  public static DefaultInfo build(AbstractConfiguredTarget target) {
+    return new DelegatingDefaultInfo(target);
+  }
+
+  /** Default implementation of DefaultInfo object for Starlark targets. */
+  private static class DefaultDefaultInfo extends DefaultInfo {
+    private final Depset files;
+    private final Runfiles runfiles;
+    private final Runfiles dataRunfiles;
+    private final Runfiles defaultRunfiles;
+    private final Artifact executable;
+    private final FilesToRunProvider filesToRunProvider;
+
+    private DefaultDefaultInfo(
+        Location loc,
+        Depset files,
+        Runfiles runfiles,
+        Runfiles dataRunfiles,
+        Runfiles defaultRunfiles,
+        Artifact executable,
+        @Nullable FilesToRunProvider filesToRunProvider) {
+      super(loc);
+      this.files = files;
+      this.runfiles = runfiles;
+      this.dataRunfiles = dataRunfiles;
+      this.defaultRunfiles = defaultRunfiles;
+      this.executable = executable;
+      this.filesToRunProvider = filesToRunProvider;
+    }
+
+    @Override
+    public Depset getFiles() {
+      return files;
+    }
+
+    @Override
+    public FilesToRunProvider getFilesToRun() {
+      return filesToRunProvider;
+    }
+
+    @Override
+    public Runfiles getStatelessRunfiles() {
+      return runfiles;
+    }
+
+    @Override
+    public Runfiles getDataRunfiles() {
+      return dataRunfiles;
+    }
+
+    @Override
+    public Runfiles getDefaultRunfiles() {
+      if (dataRunfiles == null && defaultRunfiles == null) {
+        // This supports the legacy Starlark runfiles constructor -- if the 'runfiles' attribute
+        // is used, then default_runfiles will return all runfiles.
+        return runfiles;
+      } else {
+        return defaultRunfiles;
+      }
+    }
+
+    @Override
+    public Artifact getExecutable() {
+      return executable;
+    }
+  }
+
+  /** Optimised implementation of DefaultInfo object for native targets. */
+  private static class DelegatingDefaultInfo extends DefaultInfo {
+    private final AbstractConfiguredTarget target;
+
+    DelegatingDefaultInfo(AbstractConfiguredTarget target) {
+      this.target = target;
+    }
+
+    @Nullable
+    @Override
+    public Depset getFiles() {
+      return Depset.of(Artifact.TYPE, target.getProvider(FileProvider.class).getFilesToBuild());
+    }
+
+    @Nullable
+    @Override
+    public FilesToRunProvider getFilesToRun() {
+      return target.getProvider(FilesToRunProvider.class);
+    }
+
+    @Nullable
+    @Override
+    public Runfiles getDataRunfiles() {
+      RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
+      return (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDataRunfiles();
+    }
+
+    @Nullable
+    @Override
+    public Runfiles getDefaultRunfiles() {
+      RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
+      return (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDefaultRunfiles();
+    }
+
+    @Override
+    public Runfiles getStatelessRunfiles() {
+      return null;
+    }
+
+    @Override
+    public Artifact getExecutable() {
+      return target.getProvider(FilesToRunProvider.class).getExecutable();
+    }
   }
 
   /**
@@ -132,7 +191,7 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
     }
 
     @Override
-    public DefaultInfo constructor(
+    public DefaultInfoApi constructor(
         Object files,
         Object runfilesObj,
         Object dataRunfilesObj,
@@ -151,7 +210,7 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
                 + " 'default_runfiles'");
       }
 
-      return new DefaultInfo(
+      return new DefaultDefaultInfo(
           thread.getCallerLocation(),
           castNoneToNull(Depset.class, files),
           statelessRunfiles,

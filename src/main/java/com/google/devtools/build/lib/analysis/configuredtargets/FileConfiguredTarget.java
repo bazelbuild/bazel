@@ -35,9 +35,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.FileType;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 
 /**
  * A ConfiguredTarget for a source FileTarget. (Generated files use a subclass,
@@ -51,7 +52,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
 
   FileConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
       @Nullable InstrumentedFilesInfo instrumentedFilesInfo,
@@ -120,5 +121,10 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   @Override
   protected Object rawGetStarlarkProvider(String providerKey) {
     return providers.get(providerKey);
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDict() {
+    return ConfiguredTargetsUtil.getProvidersDict(this, providers);
   }
 }

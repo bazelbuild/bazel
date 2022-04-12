@@ -22,7 +22,6 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -30,6 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Represents Xcode versions and allows parsing them.
@@ -76,20 +76,24 @@ import net.starlark.java.eval.Printer;
  * <p>This class is immutable and can safely be shared among threads.
  */
 @Immutable
-@AutoCodec
 public final class DottedVersion implements DottedVersionApi<DottedVersion> {
-  /** Wrapper class for {@link DottedVersion} whose {@link #equals(Object)} method is string
+  /**
+   * Wrapper class for {@link DottedVersion} whose {@link #equals(Object)} method is string
    * equality.
    *
-   * <p>This is necessary because Bazel assumes that
-   * {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} that are equal yield
-   * fragments that are the same. However, this does not hold if the options hold a
-   * {@link DottedVersion} because trailing zeroes are not considered significant when comparing
-   * them, but they do matter in configuration fragments (for example, they end up in output
-   * directory names)</p>
-   * */
+   * <p>This is necessary because Bazel assumes that {@link
+   * com.google.devtools.build.lib.analysis.config.FragmentOptions} that are equal yield fragments
+   * that are the same. However, this does not hold if the options hold a {@link DottedVersion}
+   * because trailing zeroes are not considered significant when comparing them, but they do matter
+   * in configuration fragments (for example, they end up in output directory names).
+   *
+   * <p>When read from the {@code settings} dictionary in a Starlark transition function, these
+   * values are effectively opaque and need to be converted to strings for further use, such as
+   * comparing them by passing the string to {@code apple_common.dotted_version} to construct an
+   * instance of the actual version object.
+   */
   @Immutable
-  public static final class Option {
+  public static final class Option implements StarlarkValue {
     private final DottedVersion version;
 
     private Option(DottedVersion version) {
@@ -98,6 +102,21 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
 
     public DottedVersion get() {
       return version;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append(version.toString());
+    }
+
+    @Override
+    public String toString() {
+      return version.toString();
     }
 
     @Override
@@ -240,8 +259,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private final String stringRepresentation;
   private final int numOriginalComponents;
 
-  @AutoCodec.VisibleForSerialization
-  DottedVersion(
+  private DottedVersion(
       ImmutableList<Component> components, String stringRepresentation, int numOriginalComponents) {
     this.components = components;
     this.stringRepresentation = stringRepresentation;
@@ -370,15 +388,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     printer.append(stringRepresentation);
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class Component implements Comparable<Component> {
+  private static final class Component implements Comparable<Component> {
     private final int firstNumber;
     @Nullable private final String alphaSequence;
     private final int secondNumber;
     private final String stringRepresentation;
 
-    @AutoCodec.VisibleForSerialization
     Component(
         int firstNumber,
         @Nullable String alphaSequence,

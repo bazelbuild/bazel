@@ -145,7 +145,6 @@ public abstract class ActionOwner {
    * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
    * platform is {@code null}, then the host platform is assumed.
    */
-  @VisibleForTesting
   @Nullable
   public abstract PlatformInfo getExecutionPlatform();
 }

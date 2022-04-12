@@ -21,10 +21,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.NoneType;
 
 /**
  * Configured targets implementing this provider can contribute Android Sdk information to the
@@ -55,6 +56,7 @@ public interface AndroidSdkProviderApi<
       doc = "",
       documented = false,
       allowReturnNones = true)
+  @Nullable
   FileT getFrameworkAidl();
 
   @StarlarkMethod(
@@ -78,7 +80,13 @@ public interface AndroidSdkProviderApi<
   @Nullable
   FileT getSourceProperties();
 
-  @StarlarkMethod(name = "shrinked_android_jar", structField = true, doc = "", documented = false)
+  @StarlarkMethod(
+      name = "shrinked_android_jar",
+      structField = true,
+      doc = "",
+      documented = false,
+      allowReturnNones = true)
+  @Nullable
   FileT getShrinkedAndroidJar();
 
   @StarlarkMethod(name = "main_dex_classes", structField = true, doc = "", documented = false)
@@ -120,6 +128,15 @@ public interface AndroidSdkProviderApi<
   @StarlarkMethod(name = "zip_align", structField = true, doc = "", documented = false)
   FilesToRunProviderT getZipalign();
 
+  @StarlarkMethod(
+      name = "legacy_main_dex_list_generator",
+      structField = true,
+      doc = "",
+      documented = false,
+      allowReturnNones = true)
+  @Nullable
+  FilesToRunProviderT getLegacyMainDexListGenerator();
+
   /** The provider implementing this can construct the AndroidSdkInfo provider. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -142,125 +159,128 @@ public interface AndroidSdkProviderApi<
               name = "build_tools_version",
               doc = "A string of the build tools version.",
               positional = true,
-              named = false,
-              type = String.class),
+              named = false),
           @Param(
               name = "framework_aidl",
               doc = "An artifact of the AIDL framework.",
               positional = true,
-              named = false,
-              type = FileApi.class),
+              named = false),
           @Param(
               name = "aidl_lib",
               doc = "A transitive info collection of the AIDL lib.",
               positional = true,
               named = false,
-              type = TransitiveInfoCollectionApi.class,
-              noneable = true),
+              allowedTypes = {
+                @ParamType(type = TransitiveInfoCollectionApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "android_jar",
               doc = "An artifact of the Android Jar.",
               positional = true,
-              named = false,
-              type = FileApi.class),
+              named = false),
           @Param(
               name = "sourceProperties",
               doc = "An artifact of the AIDL lib.",
               positional = true,
               named = false,
-              type = FileApi.class,
-              noneable = true),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "shrinked_android_jar",
               doc = "An artifact of the shrunk Android Jar.",
               positional = true,
               named = false,
-              type = FileApi.class),
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "main_dex_classes",
               doc = "An artifact of the main dex classes.",
               positional = true,
-              named = false,
-              type = FileApi.class),
+              named = false),
           @Param(
               name = "adb",
               doc = "A files to run provider of ADB.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "dx",
               doc = "A files to run provider of Dx.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "main_dex_list_creator",
               doc = "A files to run provider of the main dex list creator.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "aidl",
               doc = "A files to run provider of AIDL.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "aapt",
               doc = "A files to run provider of AAPT.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "aapt2",
               doc = "A files to run provider of AAPT2.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "apk_builder",
               doc = "A files to run provider of the Apk builder.",
               positional = true,
               named = false,
-              type = FilesToRunProviderApi.class,
-              noneable = true),
+              allowedTypes = {
+                @ParamType(type = FilesToRunProviderApi.class),
+                @ParamType(type = NoneType.class),
+              }),
           @Param(
               name = "apk_signer",
               doc = "A files to run provider of the Apk signer.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "proguard",
               doc = "A files to run provider of Proguard.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "zipalign",
               doc = "A files to run provider of Zipalign.",
               positional = true,
-              named = false,
-              type = FilesToRunProviderApi.class),
+              named = false),
           @Param(
               name = "system",
               doc = "",
-              noneable = true,
+              defaultValue = "None",
+              positional = true,
+              named = false),
+          @Param(
+              name = "legacy_main_dex_list_generator",
               defaultValue = "None",
               positional = true,
               named = false,
-              type = StarlarkValue.class),
+              allowedTypes = {
+                @ParamType(type = FilesToRunProviderApi.class),
+                @ParamType(type = NoneType.class),
+              }),
         },
         selfCall = true)
     @StarlarkConstructor
     AndroidSdkProviderApi<FileT, FilesToRunProviderT, TransT> createInfo(
         String buildToolsVersion,
         FileT frameworkAidl,
-        /*noneable*/ Object aidlLib,
+        Object aidlLib,
         FileT androidJar,
-        /*noneable*/ Object sourceProperties,
-        FileT shrinkedAndroidJar,
+        Object sourceProperties,
+        Object shrinkedAndroidJar,
         FileT mainDexClasses,
         FilesToRunProviderT adb,
         FilesToRunProviderT dx,
@@ -268,11 +288,12 @@ public interface AndroidSdkProviderApi<
         FilesToRunProviderT aidl,
         FilesToRunProviderT aapt,
         FilesToRunProviderT aapt2,
-        /*noneable*/ Object apkBuilder,
+        Object apkBuilder,
         FilesToRunProviderT apkSigner,
         FilesToRunProviderT proguard,
         FilesToRunProviderT zipalign,
-        /*noneable*/ Object system)
+        Object system,
+        Object legacyMainDexListGenerator)
         throws EvalException;
   }
 }

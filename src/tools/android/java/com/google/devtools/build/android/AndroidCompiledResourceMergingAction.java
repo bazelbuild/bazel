@@ -259,12 +259,12 @@ public class AndroidCompiledResourceMergingAction {
       Files.copy(processedManifest, options.manifestOutput);
     } catch (MergeConflictException e) {
       logger.log(Level.SEVERE, e.getMessage());
-      System.exit(1);
+      throw e;
     } catch (MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       throw e;
     } catch (AndroidManifestProcessor.ManifestProcessingException e) {
-      System.exit(1);
+      throw e;
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Unexpected", e);
       throw e;

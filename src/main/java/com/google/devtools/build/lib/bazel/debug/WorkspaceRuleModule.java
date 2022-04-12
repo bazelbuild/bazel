@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Workspaces;
 import com.google.devtools.build.lib.server.FailureDetails.Workspaces.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
@@ -59,7 +58,6 @@ public final class WorkspaceRuleModule extends BlazeModule {
                 new AbruptExitException(
                     createDetailedExitCode(
                         "Error initializing workspace rule log file.",
-                        ExitCode.COMMAND_LINE_ERROR,
                         Code.WORKSPACES_LOG_INITIALIZATION_FAILURE)));
       }
       eventBus.register(this);
@@ -76,9 +74,7 @@ public final class WorkspaceRuleModule extends BlazeModule {
         String message =
             e.getMessage() == null ? "Error writing workspace rule log file." : e.getMessage();
         throw new AbruptExitException(
-            createDetailedExitCode(
-                message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, Code.WORKSPACES_LOG_WRITE_FAILURE),
-            e);
+            createDetailedExitCode(message, Code.WORKSPACES_LOG_WRITE_FAILURE), e);
       } finally {
         outFileStream = null;
       }
@@ -97,10 +93,8 @@ public final class WorkspaceRuleModule extends BlazeModule {
     }
   }
 
-  private static DetailedExitCode createDetailedExitCode(
-      String message, ExitCode exitCode, Code detailedCode) {
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
     return DetailedExitCode.of(
-        exitCode,
         FailureDetail.newBuilder()
             .setMessage(message)
             .setWorkspaces(Workspaces.newBuilder().setCode(detailedCode))

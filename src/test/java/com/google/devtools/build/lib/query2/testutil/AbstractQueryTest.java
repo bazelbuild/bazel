@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.testutil;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -28,11 +29,13 @@ import com.google.common.collect.Ordering;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
-import com.google.devtools.build.lib.graph.LabelSerializer;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
@@ -44,6 +47,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMu
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper.ResultAndTargets;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
@@ -59,6 +63,7 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -74,22 +79,33 @@ public abstract class AbstractQueryTest<T> {
 
   private static final String DEFAULT_UNIVERSE = "//...:*";
 
-  protected static final String BAD_PACKAGE_NAME =
-      "package names may contain "
-          + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
-          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
-
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
   protected AnalysisMock analysisMock;
 
+  protected ConfiguredRuleClassProvider.Builder setRuleClassProviders(MockRule... mockRules) {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    for (MockRule rule : mockRules) {
+      builder.addRuleDefinition(rule);
+    }
+    builder.addConfigurationFragment(DummyTestFragment.class);
+    return builder;
+  }
+
   @Before
   public final void initializeQueryHelper() throws Exception {
-    helper = createQueryHelper();
+    QueryHelper<T> helper = createQueryHelper();
     helper.setUp();
+    setUpWithQueryHelper(helper);
+  }
+
+  protected final void setUpWithQueryHelper(QueryHelper<T> helper) throws Exception {
+    this.helper = helper;
     mockToolsConfig = new MockToolsConfig(helper.getRootDirectory());
     analysisMock = AnalysisMock.get();
     helper.setUniverseScope(getDefaultUniverseScope());
+    helper.useRuleClassProvider(setRuleClassProviders().build());
   }
 
   /**
@@ -246,13 +262,6 @@ public abstract class AbstractQueryTest<T> {
     assertThat(failureDetail.getPackageLoading().getCode()).isEqualTo(code);
   }
 
-  protected static void assertQueryCode(ResultAndTargets<Target> result, Query.Code code) {
-    FailureDetail failureDetail =
-        result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
-    assertThat(failureDetail).isNotNull();
-    assertQueryCode(failureDetail, code);
-  }
-
   protected static void assertQueryCode(FailureDetail failureDetail, Query.Code code) {
     assertThat(failureDetail.getQuery().getCode()).isEqualTo(code);
   }
@@ -260,12 +269,21 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testTargetLiteralWithMissingTargets() throws Exception {
     writeFile("a/BUILD");
-    assertThat(evalThrows("//a:b", false).getMessage())
+    EvalThrowsResult evalThrowsResult = evalThrows("//a:b", false);
+    checkResultOfTargetLiteralWithMissingTargets(
+        evalThrowsResult.getMessage(), evalThrowsResult.getFailureDetail());
+  }
+
+  protected final void checkResultOfTargetLiteralWithMissingTargets(
+      String message, FailureDetail failureDetail) {
+    assertThat(message)
         .isEqualTo(
             "no such target '//a:b': target 'b' not declared in package 'a' "
                 + "defined by "
                 + helper.getRootDirectory().getPathString()
                 + "/a/BUILD");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
 
   protected void writeBuildFiles1() throws Exception {
@@ -290,16 +308,18 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testBadTargetLiterals() throws Exception {
-    runBadTargetLiteralsTest(true);
+    EvalThrowsResult result = evalThrows("bad:*:*", false);
+    checkResultofBadTargetLiterals(result.getMessage(), result.getFailureDetail());
   }
 
-  protected void runBadTargetLiteralsTest(boolean checkDetailedCode) throws Exception {
-    EvalThrowsResult result = evalThrows("bad:*:*", false);
-    if (checkDetailedCode) {
-      assertThat(result.getFailureDetail().getTargetPatterns().getCode())
-          .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-    }
-    assertThat(result.getMessage()).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
+  protected final void checkResultofBadTargetLiterals(String message, FailureDetail failureDetail) {
+    assertThat(failureDetail.getTargetPatterns().getCode())
+        .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
+    // TODO(bazel-team): This error message could use some improvement. It's verbose (duplicate
+    //   message) and shows an extra "@" that wasn't in the input.
+    assertThat(message)
+        .isEqualTo(
+            "Invalid package name 'bad:*': invalid package identifier '@//bad:*': contains ':'");
   }
 
   @Test
@@ -470,10 +490,10 @@ public abstract class AbstractQueryTest<T> {
         "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
-        "    values = {'test_arg': 'a'})",
+        "    values = {'foo': 'a'})",
         "config_setting(",
         "    name = 'b',",
-        "    values = {'test_arg': 'b'})");
+        "    values = {'foo': 'b'})");
     writeFile(
         "configurable/BUILD",
         "cc_binary(",
@@ -574,6 +594,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testDeps() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
@@ -609,13 +630,7 @@ public abstract class AbstractQueryTest<T> {
     if (testConfigurableAttributes()) {
       String implicitDeps = "";
       if (analysisMock.isThisBazel()) {
-        implicitDeps =
-            " + "
-                + helper.getToolsRepository()
-                + "//tools/def_parser:def_parser"
-                + " + "
-                + helper.getToolsRepository()
-                + "//tools/cpp:grep-includes";
+        implicitDeps = " + " + helper.getToolsRepository() + "//tools/def_parser:def_parser";
       }
       assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
           .containsExactlyElementsIn(
@@ -623,7 +638,8 @@ public abstract class AbstractQueryTest<T> {
                   helper.getToolsRepository()
                       + "//tools/cpp:malloc + //configurable:main + "
                       + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-                      + "//configurable:defaultdep + //conditions:a + //conditions:b"
+                      + "//configurable:defaultdep + //conditions:a + //conditions:b + "
+                      + "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain"
                       + implicitDeps));
     }
   }
@@ -939,11 +955,15 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testNoImplicitDeps() throws Exception {
     writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
 
     // Implicit dependencies:
     String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
+    if (!analysisMock.isThisBazel()) {
+      hostDepsExpr += " + //tools/cpp:malloc.cc";
+    }
     String implicitDepsExpr = "";
     if (analysisMock.isThisBazel()) {
       implicitDepsExpr +=
@@ -952,17 +972,15 @@ public abstract class AbstractQueryTest<T> {
               + "//tools/def_parser:def_parser"
               + " + "
               + helper.getToolsRepository()
-              + "//tools/def_parser:def_parser.exe"
-              + " + "
-              + helper.getToolsRepository()
-              + "//tools/cpp:grep-includes";
+              + "//tools/def_parser:def_parser.exe";
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";
+    String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
     assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr,
+        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr + " + " + toolchainDepsExpr,
         "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
     assertEqualsFiltered(
         targetDepsExpr + " + " + hostDepsExpr,
@@ -1052,9 +1070,9 @@ public abstract class AbstractQueryTest<T> {
 
     // Works for implicit edges too.  This is for consistency with --output
     // xml, which exposes them too.
-    String toolsRepository = helper.getToolsRepository();
-    assertThat(eval("labels(\"$python2to3\", //k)"))
-        .isEqualTo(eval(toolsRepository + "//tools/python:2to3"));
+    RepositoryName toolsRepository = helper.getToolsRepository();
+    assertThat(eval("labels(\"$py_toolchain_type\", //k)"))
+        .isEqualTo(eval(toolsRepository + "//tools/python:toolchain_type"));
 
     // Configurable deps:
     if (testConfigurableAttributes()) {
@@ -1284,14 +1302,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   private static <T> DotOutputVisitor<T> createVisitor(PrintWriter writer) {
-    return new DotOutputVisitor<T>(
-        writer,
-        new LabelSerializer<T>() {
-          @Override
-          public String serialize(Node<T> node) {
-            return node.getLabel().toString();
-          }
-        });
+    return new DotOutputVisitor<T>(writer, (Node<T> node) -> node.getLabel().toString());
   }
 
   @Test
@@ -1371,9 +1382,11 @@ public abstract class AbstractQueryTest<T> {
         "Fileset(name='x',",
         "        entries=[FilesetEntry(files=['a'])],",
         "        out='y')");
-    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)");
-    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
-    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
+    assertEqualsFiltered("//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)");
+    assertEqualsFiltered(
+        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
+    assertEqualsFiltered(
+        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
   }
 
   @Test
@@ -1463,7 +1476,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testSlashSlashDotDotDot() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "sh_library(name = 'a', srcs = ['a.sh'])");
     assertThat(eval("//...")).isEqualTo(eval("//a"));
@@ -1527,73 +1540,63 @@ public abstract class AbstractQueryTest<T> {
   }
 
   private void useExtendedSetOfRules() throws Exception {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    builder.addRuleDefinition(TestAspects.BASE_RULE);
-    builder.addRuleDefinition(TestAspects.ASPECT_REQUIRING_RULE);
-    builder.addRuleDefinition(TestAspects.EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_RULE);
-    builder.addRuleDefinition(TestAspects.HONEST_RULE);
-    builder.addRuleDefinition(TestAspects.SIMPLE_RULE);
-    helper.useRuleClassProvider(builder.build());
+    helper.useRuleClassProvider(
+        setRuleClassProviders(
+                TestAspects.BASE_RULE,
+                TestAspects.ASPECT_REQUIRING_RULE,
+                TestAspects.EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_RULE,
+                TestAspects.HONEST_RULE,
+                TestAspects.SIMPLE_RULE)
+            .build());
+  }
+
+  private void useReducedSetOfRules() throws Exception {
+    helper.clearAllFiles();
+    helper.useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 
   @Test
   public void testHaveDepsOnAspectsAttributes() throws Exception {
-    try {
-      useExtendedSetOfRules();
-      writeFile(
-          "a/BUILD",
-          "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
-          "honest(name='b', foo=[])");
-      writeFile("extra/BUILD", "honest(name='extra', foo=[])");
+    useExtendedSetOfRules();
+    writeFile(
+        "a/BUILD",
+        "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
+        "honest(name='b', foo=[])");
+    writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
-      Truth.assertThat(evalToString("deps(//a:a)")).contains("//extra:extra");
-    } finally {
-      helper.clearAllFiles();
-      helper.useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
-    }
+    Truth.assertThat(evalToString("deps(//a:a)")).contains("//extra:extra");
   }
 
   @Test
   public void testNoDepsOnAspectAttributeWhenAspectMissing() throws Exception {
-    try {
-      useExtendedSetOfRules();
-      writeFile(
-          "a/BUILD",
-          "aspect(name='a', foo=[':b'])",
-          "honest(name='b', foo=[])",
-          "extra_attribute_aspect_requiring_provider(name='c', foo=[':d'])",
-          "simple(name='d', foo=[])");
-      writeFile("extra/BUILD", "honest(name='extra', foo=[])");
+    useExtendedSetOfRules();
+    writeFile(
+        "a/BUILD",
+        "aspect(name='a', foo=[':b'])",
+        "honest(name='b', foo=[])",
+        "extra_attribute_aspect_requiring_provider(name='c', foo=[':d'])",
+        "simple(name='d', foo=[])");
+    writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
-      assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
-      assertThat(evalToString("deps(//a:c)")).doesNotContain("//extra:extra");
-    } finally {
-      helper.clearAllFiles();
-      helper.useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
-    }
+    assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
+    assertThat(evalToString("deps(//a:c)")).doesNotContain("//extra:extra");
   }
 
   @Test
   public void testNoDepsOnAspectAttributeWithNoImpicitDeps() throws Exception {
-    try {
-      useExtendedSetOfRules();
-      helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-      writeFile(
-          "a/BUILD",
-          "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
-          "honest(name='b', foo=[])");
-      writeFile("extra/BUILD", "honest(name='extra', foo=[])");
+    useExtendedSetOfRules();
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    writeFile(
+        "a/BUILD",
+        "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
+        "honest(name='b', foo=[])");
+    writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
-      Truth.assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
-    } finally {
-      helper.clearAllFiles();
-      helper.useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
-    }
+    Truth.assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
   }
 
   public void simpleVisibilityTest(String visibility, boolean expectVisible) throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1633,7 +1636,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_private_same_package() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "a/BUILD",
@@ -1644,7 +1647,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_package_group() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1656,7 +1659,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_package_group_invisible() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1669,7 +1672,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_package_group_include() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1683,7 +1686,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_java_javatests() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "java/com/google/a/BUILD",
@@ -1701,7 +1704,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_java_javatests_different_package() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "java/com/google/a/BUILD",
@@ -1720,7 +1723,7 @@ public abstract class AbstractQueryTest<T> {
   // java cannot see javatests
   @Test
   public void testVisible_javatests_java() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "javatests/com/google/a/BUILD",
@@ -1738,7 +1741,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_default_private() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -1750,7 +1753,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_default_public() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -1762,7 +1765,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testPackageGroupAllBeneath() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1782,6 +1785,55 @@ public abstract class AbstractQueryTest<T> {
     writeFile("baz/baz.bzl", "x = 2");
     assertThat(evalToString("buildfiles(deps(//foo)) + buildfiles(deps(//bar))"))
         .isEqualTo("//bar:BUILD //baz:BUILD //baz:baz.bzl //foo:BUILD");
+  }
+
+  @Test
+  public void bzlPackageBadDueToBrokenLoad() throws Exception {
+    writeFile("foo/BUILD", "load('//bar:bar.bzl', 'sym')");
+    writeFile("bar/BUILD", "load('//noexist:noexist.bzl', 'bad')");
+    writeFile("bar/bar.bzl", "sym = 0");
+    assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
+        .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+  }
+
+  @Test
+  public void bzlPackageBadDueToBrokenSyntax() throws Exception {
+    writeFile("foo/BUILD", "load('//bar:bar.bzl', 'sym')");
+    writeFile("bar/BUILD", "malformed syntax");
+    writeFile("bar/bar.bzl", "sym = 0");
+    assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
+        .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+  }
+
+  @Test
+  public void badRuleInDeps() throws Exception {
+    runBadRuleInDeps(Code.STARLARK_EVAL_ERROR);
+  }
+
+  protected final void runBadRuleInDeps(Object code) throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:bar'])");
+    writeFile("bar/BUILD", "sh_library(name = 'bar', srcs = 'bad_single_file')");
+    EvalThrowsResult evalThrowsResult =
+        evalThrows("deps(//foo:foo)", /*unconditionallyThrows=*/ false);
+    FailureDetail.Builder failureDetailBuilder = FailureDetail.newBuilder();
+    if (code instanceof FailureDetails.PackageLoading.Code) {
+      failureDetailBuilder.setPackageLoading(
+          FailureDetails.PackageLoading.newBuilder().setCode((Code) code));
+    } else if (code instanceof Query.Code) {
+      failureDetailBuilder.setQuery(FailureDetails.Query.newBuilder().setCode((Query.Code) code));
+    }
+    assertThat(evalThrowsResult.getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(failureDetailBuilder.build());
+  }
+
+  @Test
+  public void buildfilesBazel() throws Exception {
+    writeFile("bar/BUILD.bazel");
+    writeFile("bar/bar.bzl", "sym = 0");
+    writeFile("foo/BUILD.bazel", "load('//bar:bar.bzl', 'sym')");
+    assertThat(evalToListOfStrings("buildfiles(foo:*)"))
+        .containsExactly("//foo:BUILD.bazel", "//bar:bar.bzl", "//bar:BUILD.bazel");
   }
 
   @Test
@@ -1835,6 +1887,29 @@ public abstract class AbstractQueryTest<T> {
         "sh_library(name = 'd')");
     assertThat(evalToString("rdeps(//foo:a, //foo:d + //foo:c, 1)" + getDependencyCorrection()))
         .isEqualTo("//foo:b //foo:c //foo:d");
+  }
+
+  @Test
+  public void boundedDepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(evalToListOfStrings("deps(//foo:foo, 1)")).containsExactly("//foo:foo", "//foo:dep");
+  }
+
+  // Ideally we wouldn't fail on an irrelevant error (since //bar:missing is a dep of //foo:dep,
+  // not an rdep). This test documents the current non-ideal behavior.
+  @Test
+  public void boundedRdepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+                .getMessage())
+        .contains("preloading transitive closure failed: no such package 'bar':");
   }
 
   @Test
@@ -2022,8 +2097,8 @@ public abstract class AbstractQueryTest<T> {
    */
   public interface QueryHelper<T> {
 
-    @Before
     /** Basic set-up; this is called once at the beginning of a test, before anything else. */
+    @Before
     void setUp() throws Exception;
 
     void setKeepGoing(boolean keepGoing);
@@ -2068,14 +2143,14 @@ public abstract class AbstractQueryTest<T> {
     QueryEnvironment<T> getQueryEnvironment();
 
     /** Evaluates the given query and returns the result. Query is expected to have valid syntax. */
-    ResultAndTargets<T> evaluateQuery(String query) throws QueryException, InterruptedException;
+    ResultAndTargets<T> evaluateQuery(String query) throws Exception;
 
-    default Set<T> evaluateQueryRaw(String query) throws QueryException, InterruptedException {
+    default Set<T> evaluateQueryRaw(String query) throws Exception {
       return evaluateQuery(query).results;
     }
 
-    default String getToolsRepository() {
-      return "";
+    default RepositoryName getToolsRepository() {
+      return RepositoryName.MAIN;
     }
 
     /**
@@ -2127,4 +2202,3 @@ public abstract class AbstractQueryTest<T> {
     String getLabel(T target);
   }
 }
-

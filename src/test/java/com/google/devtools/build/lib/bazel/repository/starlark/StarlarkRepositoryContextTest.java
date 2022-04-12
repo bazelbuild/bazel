@@ -46,12 +46,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -60,6 +61,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -127,6 +129,7 @@ public final class StarlarkRepositoryContextTest {
   protected void setUpContextForRule(
       Map<String, Object> kwargs,
       ImmutableSet<PathFragment> ignoredPathFragments,
+      ImmutableMap<String, String> envVariables,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor repoRemoteExecutor,
       Attribute... attributes)
@@ -161,19 +164,20 @@ public final class StarlarkRepositoryContextTest {
             outputDirectory,
             ignoredPathFragments,
             environment,
-            ImmutableMap.of("FOO", "BAR"),
+            envVariables,
             downloader,
             1.0,
             /*processWrapper=*/ null,
-            new HashMap<>(),
             starlarkSemantics,
-            repoRemoteExecutor);
+            repoRemoteExecutor,
+            SyscallCache.NO_CACHE);
   }
 
-  protected void setUpContexForRule(String name) throws Exception {
+  protected void setUpContextForRule(String name) throws Exception {
     setUpContextForRule(
         ImmutableMap.of("name", name),
         ImmutableSet.of(),
+        ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
   }
@@ -183,6 +187,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", "test", "foo", "bar"),
         ImmutableSet.of(),
+        ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null,
         Attribute.attr("foo", Type.STRING).build());
@@ -193,8 +198,12 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testWhich() throws Exception {
-    setUpContexForRule("test");
-    StarlarkRepositoryContext.setPathEnvironment("/bin", "/path/sbin", ".");
+    setUpContextForRule(
+        ImmutableMap.of("name", "test"),
+        ImmutableSet.of(),
+        ImmutableMap.of("PATH", String.join(File.pathSeparator, "/bin", "/path/sbin", ".")),
+        StarlarkSemantics.DEFAULT,
+        /* repoRemoteExecutor= */ null);
     scratch.file("/bin/true").setExecutable(true);
     scratch.file("/path/sbin/true").setExecutable(true);
     scratch.file("/path/sbin/false").setExecutable(true);
@@ -211,7 +220,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testFile() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     context.createFile(context.path("foobar"), "", true, true, thread);
     context.createFile(context.path("foo/bar"), "foobar", true, true, thread);
     context.createFile(context.path("bar/foo/bar"), "", true, true, thread);
@@ -251,7 +260,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testDelete() throws Exception {
-    setUpContexForRule("testDelete");
+    setUpContextForRule("testDelete");
     Path bar = outputDirectory.getRelative("foo/bar");
     StarlarkPath barPath = context.path(bar.getPathString());
     context.createFile(barPath, "content", true, true, thread);
@@ -281,6 +290,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", "test"),
         ImmutableSet.of(PathFragment.create("under_workspace")),
+        ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
     assertThat(context.delete(underWorkspace.toString(), thread)).isTrue();
@@ -288,7 +298,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testRead() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     context.createFile(context.path("foo/bar"), "foobar", true, true, thread);
 
     String content = context.readFile(context.path("foo/bar"), thread);
@@ -297,24 +307,24 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testPatch() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     StarlarkPath foo = context.path("foo");
     context.createFile(foo, "line one\n", false, true, thread);
     StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
-    context.patch(patchFile, 0, thread);
+    context.patch(patchFile, StarlarkInt.of(0), thread);
     testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
   }
 
   @Test
   public void testCannotFindFileToPatch() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, 0, thread);
+      context.patch(patchFile, StarlarkInt.of(0), thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -328,7 +338,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testPatchOutsideOfExternalRepository() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"),
@@ -337,7 +347,7 @@ public final class StarlarkRepositoryContextTest {
         true,
         thread);
     try {
-      context.patch(patchFile, 0, thread);
+      context.patch(patchFile, StarlarkInt.of(0), thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -351,14 +361,14 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testPatchErrorWasThrown() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     StarlarkPath foo = context.path("foo");
     StarlarkPath patchFile = context.path("my.patch");
     context.createFile(foo, "line three\n", false, true, thread);
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, 0, thread);
+      context.patch(patchFile, StarlarkInt.of(0), thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -391,7 +401,7 @@ public final class StarlarkRepositoryContextTest {
             "$remotable",
             true,
             "exec_properties",
-            Dict.of((Mutability) null, "OSFamily", "Linux"));
+            Dict.builder().put("OSFamily", "Linux").buildImmutable());
 
     RepositoryRemoteExecutor repoRemoteExecutor = Mockito.mock(RepositoryRemoteExecutor.class);
     ExecutionResult executionResult =
@@ -405,6 +415,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         attrValues,
         ImmutableSet.of(),
+        ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, true)
             .build(),
@@ -416,7 +427,7 @@ public final class StarlarkRepositoryContextTest {
     StarlarkExecutionResult starlarkExecutionResult =
         context.execute(
             StarlarkList.of(/*mutability=*/ null, "/bin/cmd", "arg1"),
-            /*timeout=*/ 10,
+            /* timeoutI= */ StarlarkInt.of(10),
             /*uncheckedEnvironment=*/ Dict.empty(),
             /*quiet=*/ true,
             /*workingDirectory=*/ "",
@@ -438,7 +449,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testSymlink() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     context.createFile(context.path("foo"), "foobar", true, true, thread);
 
     context.symlink(context.path("foo"), context.path("bar"), thread);
@@ -457,7 +468,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testDirectoryListing() throws Exception {
-    setUpContexForRule("test");
+    setUpContextForRule("test");
     scratch.file("/my/folder/a");
     scratch.file("/my/folder/b");
     scratch.file("/my/folder/c");

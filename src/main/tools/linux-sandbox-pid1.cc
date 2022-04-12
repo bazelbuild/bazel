@@ -49,12 +49,117 @@
 #include <linux/fs.h>
 #endif
 
+#ifndef TEMP_FAILURE_RETRY
+// Some C standard libraries like musl do not define this macro, so we'll
+// include our own version for compatibility.
+#define TEMP_FAILURE_RETRY(exp)            \
+  ({                                       \
+    decltype(exp) _rc;                     \
+    do {                                   \
+      _rc = (exp);                         \
+    } while (_rc == -1 && errno == EINTR); \
+    _rc;                                   \
+  })
+#endif  // TEMP_FAILURE_RETRY
+
 #include "src/main/tools/linux-sandbox-options.h"
 #include "src/main/tools/linux-sandbox.h"
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
+static void WriteFile(const std::string &filename, const char *fmt, ...) {
+  FILE *stream = fopen(filename.c_str(), "w");
+  if (stream == nullptr) {
+    DIE("fopen(%s)", filename.c_str());
+  }
+
+  va_list ap;
+  va_start(ap, fmt);
+  int r = vfprintf(stream, fmt, ap);
+  va_end(ap);
+
+  if (r < 0) {
+    DIE("vfprintf");
+  }
+
+  if (fclose(stream) != 0) {
+    DIE("fclose(%s)", filename.c_str());
+  }
+}
+
 static int global_child_pid;
+
+// Helper methods
+static void CreateFile(const char *path) {
+  int handle = open(path, O_CREAT | O_WRONLY | O_EXCL, 0666);
+  if (handle < 0) {
+    DIE("open");
+  }
+  if (close(handle) < 0) {
+    DIE("close");
+  }
+}
+
+// Creates an empty file at 'path' by hard linking it from a known empty file.
+// This is over two times faster than creating empty files via open() on
+// certain filesystems (e.g. XFS).
+static void LinkFile(const char *path) {
+  if (link("tmp/empty_file", path) < 0) {
+    DIE("link %s", path);
+  }
+}
+
+// Recursively creates the file or directory specified in "path" and its parent
+// directories.
+// Return -1 on failure and sets errno to:
+//    EINVAL   path is null
+//    ENOTDIR  path exists and is not a directory
+//    EEXIST   path exists and is a directory
+//    ENOENT   stat call with the path failed
+static int CreateTarget(const char *path, bool is_directory) {
+  if (path == NULL) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  struct stat sb;
+  // If the path already exists...
+
+  if (stat(path, &sb) == 0) {
+    if (is_directory && S_ISDIR(sb.st_mode)) {
+      // and it's a directory and supposed to be a directory, we're done here.
+      return 0;
+    } else if (!is_directory && S_ISREG(sb.st_mode)) {
+      // and it's a regular file and supposed to be one, we're done here.
+      return 0;
+    } else {
+      // otherwise something is really wrong.
+      errno = is_directory ? ENOTDIR : EEXIST;
+      return -1;
+    }
+  } else {
+    // If stat failed because of any error other than "the path does not exist",
+    // this is an error.
+    if (errno != ENOENT) {
+      return -1;
+    }
+  }
+
+  // Create the parent directory.
+  if (CreateTarget(dirname(strdupa(path)), true) < 0) {
+    DIE("CreateTarget %s", dirname(strdupa(path)));
+  }
+
+  if (is_directory) {
+    if (mkdir(path, 0755) < 0) {
+      DIE("mkdir");
+    }
+  } else {
+    LinkFile(path);
+  }
+
+  return 0;
+}
 
 static void SetupSelfDestruction(int *sync_pipe) {
   // We could also poll() on the pipe fd to find out when the parent goes away,
@@ -94,26 +199,6 @@ static void SetupMountNamespace() {
   }
 }
 
-static void WriteFile(const std::string &filename, const char *fmt, ...) {
-  FILE *stream = fopen(filename.c_str(), "w");
-  if (stream == nullptr) {
-    DIE("fopen(%s)", filename.c_str());
-  }
-
-  va_list ap;
-  va_start(ap, fmt);
-  int r = vfprintf(stream, fmt, ap);
-  va_end(ap);
-
-  if (r < 0) {
-    DIE("vfprintf");
-  }
-
-  if (fclose(stream) != 0) {
-    DIE("fclose(%s)", filename.c_str());
-  }
-}
-
 static void SetupUserNamespace() {
   // Disable needs for CAP_SETGID.
   struct stat sb;
@@ -146,7 +231,6 @@ static void SetupUserNamespace() {
     inner_uid = global_outer_uid;
     inner_gid = global_outer_gid;
   }
-
   WriteFile("/proc/self/uid_map", "%d %d 1\n", inner_uid, global_outer_uid);
   WriteFile("/proc/self/gid_map", "%d %d 1\n", inner_gid, global_outer_gid);
 }
@@ -348,14 +432,18 @@ static void SetupNetworking() {
   }
 }
 
-static void EnterSandbox() {
-  if (chdir(opt.working_dir.c_str()) < 0) {
-    DIE("chdir(%s)", opt.working_dir.c_str());
+static void EnterWorkingDirectory() {
+  std::string path = opt.working_dir;
+  if (opt.hermetic) {
+    path = path.substr(opt.sandbox_root.size() + 1);
+  }
+
+  if (chdir(path.c_str()) < 0) {
+    DIE("chdir(%s)", path.c_str());
   }
 }
 
 static void ForwardSignal(int signum) {
-  PRINT_DEBUG("ForwardSignal(%d)", signum);
   kill(-global_child_pid, signum);
 }
 
@@ -373,7 +461,7 @@ static void SpawnChild() {
 
     // Try to assign our terminal to the child process.
     if (tcsetpgrp(STDIN_FILENO, getpgrp()) < 0 && errno != ENOTTY) {
-      DIE("tcsetpgrp")
+      DIE("tcsetpgrp");
     }
 
     // Unblock all signals, restore default handlers.
@@ -430,6 +518,125 @@ static int WaitForChild() {
   }
 }
 
+static void MountSandboxAndGoThere() {
+  if (mount(opt.sandbox_root.c_str(), opt.sandbox_root.c_str(), nullptr,
+            MS_BIND | MS_NOSUID, nullptr) < 0) {
+    DIE("mount");
+  }
+  if (chdir(opt.sandbox_root.c_str()) < 0) {
+    DIE("chdir(%s)", opt.sandbox_root.c_str());
+  }
+}
+
+static void CreateEmptyFile() {
+  // This is used as the base for bind mounting.
+  if (CreateTarget("tmp", true) < 0) {
+    DIE("CreateTarget tmp")
+  }
+  CreateFile("tmp/empty_file");
+}
+
+static void MountDev() {
+  if (CreateTarget("dev", true) < 0) {
+    DIE("CreateTarget /dev");
+  }
+  const char *devs[] = {"/dev/null", "/dev/random", "/dev/urandom", "/dev/zero",
+                        NULL};
+  for (int i = 0; devs[i] != NULL; i++) {
+    LinkFile(devs[i] + 1);
+    if (mount(devs[i], devs[i] + 1, NULL, MS_BIND, NULL) < 0) {
+      DIE("mount");
+    }
+  }
+  if (symlink("/proc/self/fd", "dev/fd") < 0) {
+    DIE("symlink");
+  }
+}
+
+static void MountAllMounts() {
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
+    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
+              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
+      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
+          tmpfs_dir.c_str());
+    }
+  }
+
+  // Make sure that our working directory is a mount point. The easiest way to
+  // do this is by bind-mounting it upon itself.
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
+            nullptr) < 0) {
+    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
+        opt.working_dir.c_str());
+  }
+  for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
+    if (opt.debug) {
+      if (strcmp(opt.bind_mount_sources[i].c_str(),
+                 opt.bind_mount_targets[i].c_str()) == 0) {
+        // The file is mounted to the same path inside the sandbox, as outside
+        // (e.g. /home/user -> <sandbox>/home/user), so we'll just show a
+        // simplified version of the mount command.
+        PRINT_DEBUG("mount: %s\n", opt.bind_mount_sources[i].c_str());
+      } else {
+        // The file is mounted to a custom location inside the sandbox.
+        // Create a user-friendly string for the sandboxed path and show it.
+        const std::string user_friendly_mount_target("<sandbox>" +
+                                                     opt.bind_mount_targets[i]);
+        PRINT_DEBUG("mount: %s -> %s\n", opt.bind_mount_sources[i].c_str(),
+                    user_friendly_mount_target.c_str());
+      }
+    }
+    const std::string full_sandbox_path(opt.sandbox_root +
+                                        opt.bind_mount_targets[i]);
+
+    struct stat sb;
+    if (stat(opt.bind_mount_sources[i].c_str(), &sb) < 0) {
+      DIE("stat");
+    }
+    bool IsDirectory = S_ISDIR(sb.st_mode);
+    if (CreateTarget(full_sandbox_path.c_str(), IsDirectory) < 0) {
+      DIE("CreateTarget %s", full_sandbox_path.c_str());
+    }
+    int result =
+        mount(opt.bind_mount_sources[i].c_str(), full_sandbox_path.c_str(),
+              NULL, MS_REC | MS_BIND | MS_RDONLY, NULL);
+    if (result != 0) {
+      DIE("mount");
+    }
+  }
+  for (const std::string &writable_file : opt.writable_files) {
+    PRINT_DEBUG("writable: %s", writable_file.c_str());
+    if (mount(writable_file.c_str(), writable_file.c_str(), nullptr,
+              MS_BIND | MS_REC, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
+          writable_file.c_str(), writable_file.c_str());
+    }
+  }
+}
+
+static void ChangeRoot() {
+  // move the real root to old_root, then detach it
+  char old_root[16] = "old-root-XXXXXX";
+  if (mkdtemp(old_root) == NULL) {
+    perror("mkdtemp");
+    DIE("mkdtemp returned NULL\n");
+  }
+  // pivot_root has no wrapper in libc, so we need syscall()
+  if (syscall(SYS_pivot_root, ".", old_root) < 0) {
+    DIE("syscall");
+  }
+  if (chroot(".") < 0) {
+    DIE("chroot");
+  }
+  if (umount2(old_root, MNT_DETACH) < 0) {
+    DIE("umount2");
+  }
+  if (rmdir(old_root) < 0) {
+    DIE("rmdir");
+  }
+}
+
 int Pid1Main(void *sync_pipe_param) {
   PRINT_DEBUG("Pid1Main started");
 
@@ -448,11 +655,21 @@ int Pid1Main(void *sync_pipe_param) {
   if (opt.fake_hostname) {
     SetupUtsNamespace();
   }
-  MountFilesystems();
-  MakeFilesystemMostlyReadOnly();
-  MountProc();
+
+  if (opt.hermetic) {
+    MountSandboxAndGoThere();
+    CreateEmptyFile();
+    MountDev();
+    MountProc();
+    MountAllMounts();
+    ChangeRoot();
+  } else {
+    MountFilesystems();
+    MakeFilesystemMostlyReadOnly();
+    MountProc();
+  }
   SetupNetworking();
-  EnterSandbox();
+  EnterWorkingDirectory();
 
   // Ignore terminal signals; we hand off the terminal to the child in
   // SpawnChild below.

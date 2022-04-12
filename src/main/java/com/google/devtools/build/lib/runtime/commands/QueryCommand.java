@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -89,7 +88,6 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       return Either.ofLeft(
           BlazeCommandResult.detailedExitCode(
               DetailedExitCode.of(
-                  ExitCode.COMMAND_LINE_ERROR,
                   FailureDetail.newBuilder()
                       .setMessage(e.getMessage())
                       .setQuery(
@@ -102,10 +100,18 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       formatter.verifyCompatible(queryEnv, expr);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return Either.ofLeft(finalizeBlazeCommandResult(ExitCode.COMMAND_LINE_ERROR, e));
+      return Either.ofLeft(BlazeCommandResult.failureDetail(e.getFailureDetail()));
     }
 
     expr = queryEnv.transformParsedQuery(expr);
+
+    // This only applies to --order_output=auto. Instead of being written directly to the stream
+    // by the callback, this option aggregates the results in the lexicographically sorted
+    // aggregator first before using the StreamedFormatter to write it to stream later.
+    // An exception to this is when somepath is used at the top level of the query expression.
+    boolean lexicographicallySortOutput =
+        QueryOutputUtils.lexicographicallySortOutput(queryOptions, formatter)
+            && !expr.isTopLevelSomePathFunction();
 
     OutputStream out;
     if (formatter.canBeBuffered()) {
@@ -128,7 +134,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
           hashFunction);
       streamedFormatter.setEventHandler(env.getReporter());
-      callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
+      if (lexicographicallySortOutput) {
+        callback = QueryUtil.newLexicographicallySortedTargetAggregator();
+      } else {
+        callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
+      }
     } else {
       callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
@@ -162,7 +172,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           out.flush();
         }
       }
-      if (!streamResults) {
+      if (!streamResults || lexicographicallySortOutput) {
         disableAnsiCharactersFiltering(env);
         try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
           Set<Target> targets =
@@ -218,8 +228,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     String message = "query interrupted";
     env.getReporter().handle(Event.error(message));
     return Either.ofLeft(
-        BlazeCommandResult.detailedExitCode(
-            InterruptedFailureDetails.detailedExitCode(message, Interrupted.Code.QUERY)));
+        BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message)));
   }
 
   private static Either<BlazeCommandResult, QueryEvalResult> reportAndCreateIOExceptionResult(

@@ -34,12 +34,14 @@ import net.starlark.java.syntax.DictExpression;
 import net.starlark.java.syntax.DotExpression;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
+import net.starlark.java.syntax.FloatLiteral;
 import net.starlark.java.syntax.FlowStatement;
 import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IndexExpression;
 import net.starlark.java.syntax.IntLiteral;
+import net.starlark.java.syntax.LambdaExpression;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
@@ -89,9 +91,8 @@ final class Eval {
         if (stmt instanceof AssignmentStatement) {
           AssignmentStatement assign = (AssignmentStatement) stmt;
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
-            String name = id.getName();
-            Object value = fn(fr).getModule().getGlobal(name);
-            fr.thread.postAssignHook.assign(name, value);
+            Object value = fn(fr).getGlobal(id.getBinding().getIndex());
+            fr.thread.postAssignHook.assign(id.getName(), value);
           }
         }
       }
@@ -116,9 +117,8 @@ final class Eval {
 
   private static TokenKind execFor(StarlarkThread.Frame fr, ForStatement node)
       throws EvalException, InterruptedException {
-    Object o = eval(fr, node.getCollection());
-    Iterable<?> seq = Starlark.toIterable(o);
-    EvalUtils.addIterator(o);
+    Iterable<?> seq = evalAsIterable(fr, node.getCollection());
+    EvalUtils.addIterator(seq);
     try {
       for (Object it : seq) {
         assign(fr, node.getVars(), it);
@@ -143,15 +143,13 @@ final class Eval {
       fr.setErrorLocation(node.getStartLocation());
       throw ex;
     } finally {
-      EvalUtils.removeIterator(o);
+      EvalUtils.removeIterator(seq);
     }
     return TokenKind.PASS;
   }
 
-  private static void execDef(StarlarkThread.Frame fr, DefStatement node)
+  private static StarlarkFunction newFunction(StarlarkThread.Frame fr, Resolver.Function rfn)
       throws EvalException, InterruptedException {
-    Resolver.Function rfn = node.getResolvedFunction();
-
     // Evaluate default value expressions of optional parameters.
     // We use MANDATORY to indicate a required parameter
     // (not null, because defaults must be a legal tuple value, as
@@ -175,10 +173,29 @@ final class Eval {
       defaults = EMPTY;
     }
 
-    assignIdentifier(
-        fr,
-        node.getIdentifier(),
-        new StarlarkFunction(rfn, Tuple.wrap(defaults), fn(fr).getModule()));
+    // Capture the cells of the function's
+    // free variables from the lexical environment.
+    Object[] freevars = new Object[rfn.getFreeVars().size()];
+    int i = 0;
+    for (Resolver.Binding bind : rfn.getFreeVars()) {
+      // Unlike expr(Identifier), we want the cell itself, not its content.
+      switch (bind.getScope()) {
+        case FREE:
+          freevars[i++] = fn(fr).getFreeVar(bind.getIndex());
+          break;
+        case CELL:
+          freevars[i++] = fr.locals[bind.getIndex()];
+          break;
+        default:
+          throw new IllegalStateException("unexpected: " + bind);
+      }
+    }
+
+    // Nested functions use the same globalIndex as their enclosing function,
+    // since both were compiled from the same Program.
+    StarlarkFunction fn = fn(fr);
+    return new StarlarkFunction(
+        rfn, fn.getModule(), fn.globalIndex, Tuple.wrap(defaults), Tuple.wrap(freevars));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
@@ -205,32 +222,23 @@ final class Eval {
     Module module = loader.load(moduleName);
     if (module == null) {
       fr.setErrorLocation(node.getStartLocation());
-      throw Starlark.errorf(
-          "file '%s' was not correctly loaded. Make sure the 'load' statement appears in the"
-              + " global scope in your file",
-          moduleName);
+      throw Starlark.errorf("module '%s' not found", moduleName);
     }
-    Map<String, Object> globals = module.getExportedGlobals();
 
     for (LoadStatement.Binding binding : node.getBindings()) {
       // Extract symbol.
       Identifier orig = binding.getOriginalName();
-      Object value = globals.get(orig.getName());
+      Object value = module.getGlobal(orig.getName());
       if (value == null) {
         fr.setErrorLocation(orig.getStartLocation());
         throw Starlark.errorf(
             "file '%s' does not contain symbol '%s'%s",
-            moduleName, orig.getName(), SpellChecker.didYouMean(orig.getName(), globals.keySet()));
+            moduleName,
+            orig.getName(),
+            SpellChecker.didYouMean(orig.getName(), module.getGlobals().keySet()));
       }
 
-      // Define module-local variable.
-      // TODO(adonovan): eventually the default behavior should be that
-      // loads bind file-locally. Either way, the resolver should designate
-      // the proper scope of binding.getLocalName() and this should become
-      // simply assign(binding.getLocalName(), value).
-      // Currently, we update the module but not module.exportedGlobals;
-      // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
-      fn(fr).getModule().setGlobal(binding.getLocalName().getName(), value);
+      assignIdentifier(fr, binding.getLocalName(), value);
     }
   }
 
@@ -267,7 +275,9 @@ final class Eval {
       case FOR:
         return execFor(fr, (ForStatement) st);
       case DEF:
-        execDef(fr, (DefStatement) st);
+        DefStatement def = (DefStatement) st;
+        StarlarkFunction fn = newFunction(fr, def.getResolvedFunction());
+        assignIdentifier(fr, def.getIdentifier(), fn);
         return TokenKind.PASS;
       case IF:
         return execIf(fr, (IfStatement) st);
@@ -301,6 +311,17 @@ final class Eval {
       ListExpression list = (ListExpression) lhs;
       assignSequence(fr, list.getElements(), value);
 
+    } else if (lhs instanceof DotExpression) {
+      // x.f = ...
+      DotExpression dot = (DotExpression) lhs;
+      Object object = eval(fr, dot.getObject());
+      String field = dot.getField().getName();
+      try {
+        EvalUtils.setField(object, field, value);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(dot.getDotLocation());
+        throw ex;
+      }
     } else {
       // Not possible for resolved ASTs.
       throw Starlark.errorf("cannot assign to '%s'", lhs);
@@ -310,38 +331,18 @@ final class Eval {
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
       throws EvalException {
     Resolver.Binding bind = id.getBinding();
-    // Legacy hack for incomplete identifier resolution.
-    // In a <toplevel> function, assignments to unresolved identifiers
-    // update the module, except for load statements and comprehensions,
-    // which should both be file-local.
-    // Load statements don't yet use assignIdentifier,
-    // so we need consider only comprehensions.
-    // In effect, we do the missing resolution using fr.compcount.
-    Resolver.Scope scope;
-    if (bind == null) {
-      scope =
-          fn(fr).isToplevel() && fr.compcount == 0
-              ? Resolver.Scope.GLOBAL //
-              : Resolver.Scope.LOCAL;
-    } else {
-      scope = bind.getScope();
-    }
-
-    String name = id.getName();
-    switch (scope) {
+    switch (bind.getScope()) {
       case LOCAL:
-        fr.locals.put(name, value);
+        fr.locals[bind.getIndex()] = value;
+        break;
+      case CELL:
+        ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
         break;
       case GLOBAL:
-        // Updates a module binding and sets its 'exported' flag.
-        // (Only load bindings are not exported.
-        // But exportedGlobals does at run time what should be done in the resolver.)
-        Module module = fn(fr).getModule();
-        module.setGlobal(name, value);
-        module.exportedGlobals.add(name);
+        fn(fr).setGlobal(bind.getIndex(), value);
         break;
       default:
-        throw new IllegalStateException(scope.toString());
+        throw new IllegalStateException(bind.getScope().toString());
     }
   }
 
@@ -380,9 +381,16 @@ final class Eval {
     Expression rhs = stmt.getRHS();
 
     if (lhs instanceof Identifier) {
+      // x op= y    (lhs must be evaluated only once)
       Object x = eval(fr, lhs);
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y);
+      Object z;
+      try {
+        z = inplaceBinaryOp(fr, op, x, y);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
       assignIdentifier(fr, (Identifier) lhs, z);
 
     } else if (lhs instanceof IndexExpression) {
@@ -391,14 +399,47 @@ final class Eval {
       IndexExpression index = (IndexExpression) lhs;
       Object object = eval(fr, index.getObject());
       Object key = eval(fr, index.getKey());
-      Object x = EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
+      Object x = EvalUtils.index(fr.thread, object, key);
       // Evaluate rhs after lhs.
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y);
+      Object z;
+      try {
+        z = inplaceBinaryOp(fr, op, x, y);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
       try {
         EvalUtils.setIndex(object, key, z);
       } catch (EvalException ex) {
         fr.setErrorLocation(stmt.getOperatorLocation());
+        throw ex;
+      }
+
+    } else if (lhs instanceof DotExpression) {
+      // object.field op= y  (lhs must be evaluated only once)
+      DotExpression dot = (DotExpression) lhs;
+      Object object = eval(fr, dot.getObject());
+      String field = dot.getField().getName();
+      try {
+        Object x =
+            Starlark.getattr(
+                fr.thread.mutability(),
+                fr.thread.getSemantics(),
+                object,
+                field,
+                /*defaultValue=*/ null);
+        Object y = eval(fr, rhs);
+        Object z;
+        try {
+          z = inplaceBinaryOp(fr, op, x, y);
+        } catch (EvalException ex) {
+          fr.setErrorLocation(stmt.getOperatorLocation());
+          throw ex;
+        }
+        EvalUtils.setField(object, field, z);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(dot.getDotLocation());
         throw ex;
       }
 
@@ -417,8 +458,16 @@ final class Eval {
       StarlarkList<?> list = (StarlarkList) x;
       list.extend(y);
       return list;
+    } else if (op == TokenKind.PIPE && x instanceof Dict && y instanceof Dict) {
+      // dict |= dict merges the contents of the second dict into the first.
+      @SuppressWarnings("unchecked")
+      Dict<Object, Object> xDict = (Dict<Object, Object>) x;
+      @SuppressWarnings("unchecked")
+      Dict<Object, Object> yDict = (Dict<Object, Object>) y;
+      xDict.putEntries(yDict);
+      return xDict;
     }
-    return EvalUtils.binaryOp(op, x, y, fr.thread.getSemantics(), fr.thread.mutability());
+    return EvalUtils.binaryOp(op, x, y, fr.thread);
   }
 
   // ---- expressions ----
@@ -462,6 +511,10 @@ final class Eval {
         } else {
           return StarlarkInt.of((BigInteger) n);
         }
+      case FLOAT_LITERAL:
+        return StarlarkFloat.of(((FloatLiteral) expr).getValue());
+      case LAMBDA:
+        return newFunction(fr, ((LambdaExpression) expr).getResolvedFunction());
       case LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
       case SLICE:
@@ -486,8 +539,7 @@ final class Eval {
       default:
         Object y = eval(fr, binop.getY());
         try {
-          return EvalUtils.binaryOp(
-              binop.getOperator(), x, y, fr.thread.getSemantics(), fr.thread.mutability());
+          return EvalUtils.binaryOp(binop.getOperator(), x, y, fr.thread);
         } catch (EvalException ex) {
           fr.setErrorLocation(binop.getOperatorLocation());
           throw ex;
@@ -509,14 +561,14 @@ final class Eval {
       Object v = eval(fr, entry.getValue());
       int before = dict.size();
       try {
-        dict.put(k, v, (Location) null);
+        dict.putEntry(k, v);
       } catch (EvalException ex) {
         fr.setErrorLocation(entry.getColonLocation());
         throw ex;
       }
       if (dict.size() == before) {
         fr.setErrorLocation(entry.getColonLocation());
-        throw Starlark.errorf("Duplicated key %s when creating dictionary", Starlark.repr(k));
+        throw Starlark.errorf("dictionary expression has duplicate key: %s", Starlark.repr(k));
       }
     }
     return dict;
@@ -634,52 +686,34 @@ final class Eval {
 
   private static Object evalIdentifier(StarlarkThread.Frame fr, Identifier id)
       throws EvalException, InterruptedException {
-    String name = id.getName();
     Resolver.Binding bind = id.getBinding();
-    if (bind == null) {
-      // Legacy behavior, to be removed.
-      Object result = fr.locals.get(name);
-      if (result != null) {
-        return result;
-      }
-      result = fn(fr).getModule().get(name);
-      if (result != null) {
-        return result;
-      }
-
-      // Assuming resolution was successfully applied before execution
-      // (which is not yet true for copybara, but will be soon),
-      // then the identifier must have been resolved but the
-      // resolution was not annotated onto the syntax tree---because
-      // it's a BUILD file that may share trees with the prelude.
-      // So this error does not mean "undefined variable" (morally a
-      // static error), but "variable was (dynamically) referenced
-      // before being bound", as in 'print(x); x=1'.
-      fr.setErrorLocation(id.getStartLocation());
-      throw Starlark.errorf("variable '%s' is referenced before assignment", name);
-    }
-
     Object result;
     switch (bind.getScope()) {
       case LOCAL:
-        result = fr.locals.get(name);
+        result = fr.locals[bind.getIndex()];
+        break;
+      case CELL:
+        result = ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x;
+        break;
+      case FREE:
+        result = fn(fr).getFreeVar(bind.getIndex()).x;
         break;
       case GLOBAL:
-        result = fn(fr).getModule().getGlobal(name);
+        result = fn(fr).getGlobal(bind.getIndex());
         break;
       case PREDECLARED:
-        // TODO(adonovan): call getPredeclared
-        result = fn(fr).getModule().get(name);
+        result = fn(fr).getModule().getPredeclared(id.getName());
+        break;
+      case UNIVERSAL:
+        result = Starlark.UNIVERSE.get(id.getName());
         break;
       default:
         throw new IllegalStateException(bind.toString());
     }
     if (result == null) {
-      // Since Scope was set, we know that the local/global variable is defined,
-      // but its assignment was not yet executed.
       fr.setErrorLocation(id.getStartLocation());
       throw Starlark.errorf(
-          "%s variable '%s' is referenced before assignment.", bind.getScope(), name);
+          "%s variable '%s' is referenced before assignment.", bind.getScope(), id.getName());
     }
     return result;
   }
@@ -689,7 +723,7 @@ final class Eval {
     Object object = eval(fr, index.getObject());
     Object key = eval(fr, index.getKey());
     try {
-      return EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
+      return EvalUtils.index(fr.thread, object, key);
     } catch (EvalException ex) {
       fr.setErrorLocation(index.getLbracketLocation());
       throw ex;
@@ -734,24 +768,8 @@ final class Eval {
   private static Object evalComprehension(StarlarkThread.Frame fr, Comprehension comp)
       throws EvalException, InterruptedException {
     final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
-    final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
-
-    // Save previous value (if any) of local variables bound in a 'for' clause
-    // so we can restore them later.
-    // TODO(adonovan): throw all this away when we implement flat environments.
-    List<Object> saved = new ArrayList<>(); // alternating keys and values
-    for (Comprehension.Clause clause : comp.getClauses()) {
-      if (clause instanceof Comprehension.For) {
-        for (Identifier ident :
-            Identifier.boundIdentifiers(((Comprehension.For) clause).getVars())) {
-          String name = ident.getName();
-          Object value = fr.locals.get(ident.getName()); // may be null
-          saved.add(name);
-          saved.add(value);
-        }
-      }
-    }
-    fr.compcount++;
+    final StarlarkList<Object> list =
+        comp.isDict() ? null : StarlarkList.newList(fr.thread.mutability());
 
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {
@@ -766,9 +784,8 @@ final class Eval {
           if (clause instanceof Comprehension.For) {
             Comprehension.For forClause = (Comprehension.For) clause;
 
-            Object iterable = eval(fr, forClause.getIterable());
-            Iterable<?> seq = Starlark.toIterable(iterable);
-            EvalUtils.addIterator(iterable);
+            Iterable<?> seq = evalAsIterable(fr, forClause.getIterable());
+            EvalUtils.addIterator(seq);
             try {
               for (Object elem : seq) {
                 assign(fr, forClause.getVars(), elem);
@@ -778,7 +795,7 @@ final class Eval {
               fr.setErrorLocation(forClause.getStartLocation());
               throw ex;
             } finally {
-              EvalUtils.removeIterator(iterable);
+              EvalUtils.removeIterator(seq);
             }
 
           } else {
@@ -795,34 +812,37 @@ final class Eval {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(fr, body.getKey());
           try {
-            EvalUtils.checkHashable(k);
+            Starlark.checkHashable(k);
             Object v = eval(fr, body.getValue());
-            dict.put(k, v, (Location) null);
+            dict.putEntry(k, v);
           } catch (EvalException ex) {
             fr.setErrorLocation(body.getColonLocation());
             throw ex;
           }
         } else {
-          list.add(eval(fr, ((Expression) comp.getBody())));
+          list.addElement(eval(fr, ((Expression) comp.getBody())));
         }
       }
     }
     new Lambda().execClauses(0);
-    fr.compcount--;
 
-    // Restore outer scope variables.
-    // This loop implicitly undefines comprehension variables.
-    for (int i = 0; i != saved.size(); ) {
-      String name = (String) saved.get(i++);
-      Object value = saved.get(i++);
-      if (value != null) {
-        fr.locals.put(name, value);
-      } else {
-        fr.locals.remove(name);
-      }
+    return comp.isDict() ? dict : list;
+  }
+
+  /**
+   * Evaluates an expression to an iterable Starlark value and returns an {@code Iterable} view of
+   * it. If evaluation fails or the value is not iterable, throws {@code EvalException} and sets the
+   * error location to the expression's start.
+   */
+  private static Iterable<?> evalAsIterable(StarlarkThread.Frame fr, Expression expr)
+      throws EvalException, InterruptedException {
+    Object o = eval(fr, expr);
+    try {
+      return Starlark.toIterable(o);
+    } catch (EvalException ex) {
+      fr.setErrorLocation(expr.getStartLocation());
+      throw ex;
     }
-
-    return comp.isDict() ? dict : StarlarkList.copyOf(fr.thread.mutability(), list);
   }
 
   private static final Object[] EMPTY = {};

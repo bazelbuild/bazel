@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
@@ -51,59 +51,6 @@ class OptionsUsage {
     }
   }
 
-  /**
-   * Paragraph-fill the specified input text, indenting lines to 'indent' and
-   * wrapping lines at 'width'.  Returns the formatted result.
-   */
-  static String paragraphFill(String in, int indent, int width) {
-    String indentString = Strings.repeat(" ", indent);
-    StringBuilder out = new StringBuilder();
-    String sep = "";
-    for (String paragraph : NEWLINE_SPLITTER.split(in)) {
-      // TODO(ccalvarin) break iterators expect hyphenated words to be line-breakable, which looks
-      // funny for --flag
-      BreakIterator boundary = BreakIterator.getLineInstance(); // (factory)
-      boundary.setText(paragraph);
-      out.append(sep).append(indentString);
-      int cursor = indent;
-      for (int start = boundary.first(), end = boundary.next();
-           end != BreakIterator.DONE;
-           start = end, end = boundary.next()) {
-        String word =
-            paragraph.substring(start, end); // (may include trailing space)
-        if (word.length() + cursor > width) {
-          out.append('\n').append(indentString);
-          cursor = indent;
-        }
-        out.append(word);
-        cursor += word.length();
-      }
-      sep = "\n";
-    }
-    return out.toString();
-  }
-
-  /**
-   * Returns the expansion for an option, if any, regardless of if the expansion is from a function
-   * or is statically declared in the annotation.
-   */
-  private static @Nullable ImmutableList<String> getExpansionIfKnown(
-      OptionDefinition optionDefinition, OptionsData optionsData) {
-    Preconditions.checkNotNull(optionDefinition);
-    return optionsData.getEvaluatedExpansion(optionDefinition);
-  }
-
-  // Placeholder tag "UNKNOWN" is ignored.
-  private static boolean shouldEffectTagBeListed(OptionEffectTag effectTag) {
-    return !effectTag.equals(OptionEffectTag.UNKNOWN);
-  }
-
-  // Tags that only apply to undocumented options are excluded.
-  private static boolean shouldMetadataTagBeListed(OptionMetadataTag metadataTag) {
-    return !metadataTag.equals(OptionMetadataTag.HIDDEN)
-        && !metadataTag.equals(OptionMetadataTag.INTERNAL);
-  }
-
   /** Appends the usage message for a single option-field message to 'usage'. */
   static void getUsage(
       OptionDefinition optionDefinition,
@@ -123,7 +70,7 @@ class OptionsUsage {
     if (optionDefinition.getAbbreviation() != '\0') {
       usage.append(" [-").append(optionDefinition.getAbbreviation()).append(']');
     }
-    if (!typeDescription.equals("")) {
+    if (!typeDescription.isEmpty()) {
       usage.append(" (").append(typeDescription).append("; ");
       if (optionDefinition.allowsMultiple()) {
         usage.append("may be used multiple times");
@@ -182,12 +129,66 @@ class OptionsUsage {
             .filter(OptionsUsage::shouldMetadataTagBeListed);
     String tagList =
         Stream.concat(effectTagStream, metadataTagStream)
-            .map(tag -> tag.toString().toLowerCase())
+            .map(tag -> Ascii.toLowerCase(tag.toString()))
             .collect(Collectors.joining(", "));
     if (!tagList.isEmpty()) {
       usage.append(paragraphFill("Tags: " + tagList, 6, 80)); // (indent, width)
       usage.append("\n");
     }
+  }
+
+  /**
+   * Paragraph-fill the specified input text, indenting lines to 'indent' and
+   * wrapping lines at 'width'.  Returns the formatted result.
+   */
+  static String paragraphFill(String in, int indent, int width) {
+    String indentString = " ".repeat(indent);
+    StringBuilder out = new StringBuilder();
+    String sep = "";
+    for (String paragraph : NEWLINE_SPLITTER.split(in)) {
+      // TODO(ccalvarin) break iterators expect hyphenated words to be line-breakable, which looks
+      // funny for --flag
+      BreakIterator boundary = BreakIterator.getLineInstance(); // (factory)
+      boundary.setText(paragraph);
+      out.append(sep).append(indentString);
+      int cursor = indent;
+      for (int start = boundary.first(), end = boundary.next();
+           end != BreakIterator.DONE;
+           start = end, end = boundary.next()) {
+        String word =
+            paragraph.substring(start, end); // (may include trailing space)
+        if (word.length() + cursor > width) {
+          out.append('\n').append(indentString);
+          cursor = indent;
+        }
+        out.append(word);
+        cursor += word.length();
+      }
+      sep = "\n";
+    }
+    return out.toString();
+  }
+
+  /**
+   * Returns the expansion for an option, if any, regardless of if the expansion is from a function
+   * or is statically declared in the annotation.
+   */
+  @Nullable
+  private static ImmutableList<String> getExpansionIfKnown(
+      OptionDefinition optionDefinition, OptionsData optionsData) {
+    Preconditions.checkNotNull(optionDefinition);
+    return optionsData.getEvaluatedExpansion(optionDefinition);
+  }
+
+  // Placeholder tag "UNKNOWN" is ignored.
+  private static boolean shouldEffectTagBeListed(OptionEffectTag effectTag) {
+    return !effectTag.equals(OptionEffectTag.UNKNOWN);
+  }
+
+  // Tags that only apply to undocumented options are excluded.
+  private static boolean shouldMetadataTagBeListed(OptionMetadataTag metadataTag) {
+    return !metadataTag.equals(OptionMetadataTag.HIDDEN)
+        && !metadataTag.equals(OptionMetadataTag.INTERNAL);
   }
 
   /** Append the usage message for a single option-field message to 'usage'. */
@@ -282,7 +283,7 @@ class OptionsUsage {
               .append("</a></code><br/>\n");
         }
       }
-      usage.append(expandsMsg.toString());
+      usage.append(expandsMsg);
     }
 
     // Add effect tags, if not UNKNOWN, and metadata tags, if not empty.
@@ -299,15 +300,15 @@ class OptionsUsage {
                       tag ->
                           String.format(
                               "<a href=\"#effect_tag_%s\"><code>%s</code></a>",
-                              tag, tag.name().toLowerCase())),
+                              tag, Ascii.toLowerCase(tag.name()))),
                   metadataTagStream.map(
                       tag ->
                           String.format(
                               "<a href=\"#metadata_tag_%s\"><code>%s</code></a>",
-                              tag, tag.name().toLowerCase())))
+                              tag, Ascii.toLowerCase(tag.name()))))
               .collect(Collectors.joining(", "));
       if (!tagList.isEmpty()) {
-        usage.append("<br>Tags: \n").append(tagList);
+        usage.append("<br>Tags:\n").append(tagList);
       }
     }
 

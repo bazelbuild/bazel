@@ -72,6 +72,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   static final QName TAG_PUBLIC = QName.valueOf("public");
   static final QName TAG_RAW = QName.valueOf("raw");
   static final QName TAG_STRING = QName.valueOf("string");
+  static final QName TAG_OVERLAYABLE = QName.valueOf("overlayable");
 
   /** Provides an enumeration resource type and simple value validation. */
   public enum Type {
@@ -89,7 +90,8 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     NAVIGATION(TAG_NAVIGATION),
     PUBLIC(TAG_PUBLIC),
     RAW(TAG_RAW),
-    STRING(TAG_STRING);
+    STRING(TAG_STRING),
+    OVERLAYABLE(TAG_OVERLAYABLE);
     private final QName tagName;
 
     Type(QName tagName) {
@@ -182,7 +184,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
     return of(
         Type.valueOf(proto.getValueType()),
-        ImmutableMap.copyOf(proto.getAttribute()),
+        ImmutableMap.copyOf(proto.getAttributeMap()),
         proto.hasValue() ? proto.getValue() : null);
   }
 

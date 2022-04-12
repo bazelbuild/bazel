@@ -86,7 +86,6 @@ public final class AndroidAssetsInfo extends NativeInfo
       NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveSymbols,
       NestedSet<Artifact> transitiveCompiledSymbols) {
-    super(PROVIDER);
     this.label = label;
     this.hasLocalAssets = validationResult != null;
     this.validationResult = validationResult;
@@ -95,6 +94,11 @@ public final class AndroidAssetsInfo extends NativeInfo
     this.transitiveAssets = transitiveAssets;
     this.transitiveSymbols = transitiveSymbols;
     this.transitiveCompiledSymbols = transitiveCompiledSymbols;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

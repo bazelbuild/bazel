@@ -11,10 +11,12 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/remote/downloader:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/grpc:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/zstd:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
@@ -26,8 +28,7 @@ NATIVE_SSL_TEST = ["NativeSslTest.java"]
 NATIVE_SSL_TEST_MAYBE = select({
     "//src/conditions:windows": NATIVE_SSL_TEST,
     "//src/conditions:darwin": NATIVE_SSL_TEST,
-    "//src/conditions:darwin_x86_64": NATIVE_SSL_TEST,
-    "//src/conditions:linux_x86_64": NATIVE_SSL_TEST,
+    "//src/conditions:linux": NATIVE_SSL_TEST,
     "//conditions:default": [],
 })
 
@@ -42,6 +43,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -68,6 +71,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
+        "//src/main/java/com/google/devtools/build/lib/remote/grpc",
         "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
@@ -93,12 +97,14 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:api_client",
+        "//third_party:auth",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:netty",
+        "//third_party:rxjava3",
         "//third_party:truth",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
@@ -110,5 +116,6 @@ java_test(
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",
+        "@zstd-jni//:zstd-jni",
     ],
 )

@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
   // Ensure we don't pass on any FDs from our parent to our child.
   CloseFds();
 
-  // Spawn the child that will fork the sandboxed progam with fresh namespaces
+  // Spawn the child that will fork the sandboxed program with fresh namespaces
   // etc.
   const pid_t child_pid = SpawnPid1();
 

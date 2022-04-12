@@ -40,8 +40,7 @@ public class QueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the query results should be printed. Allowed values for query are: "
-              + "build, graph, label, label_kind, locations, maxrank, minrank, package, proto, xml."
-  )
+              + "build, graph, label, label_kind, location, maxrank, minrank, package, proto, xml.")
   public String outputFormat;
 
   @Option(
@@ -53,13 +52,6 @@ public class QueryOptions extends CommonQueryOptions {
       help = "Whether each format is terminated with \\0 instead of newline.")
   public Void isNull;
 
-  @Option(
-      name = "line_terminator_null",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Whether each format is terminated with \\0 instead of newline.")
-  public boolean lineTerminatorNull;
 
   @Option(
     name = "order_results",
@@ -105,46 +97,32 @@ public class QueryOptions extends CommonQueryOptions {
   }
 
   @Option(
-    name = "order_output",
-    converter = OrderOutputConverter.class,
-    defaultValue = "auto",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "Output the results unordered (no), dependency-ordered (deps), or fully ordered (full). "
-            + "The default is 'auto', meaning that results are output either dependency-ordered or "
-            + "fully ordered, depending on the output formatter (dependency-ordered for proto, "
-            + "minrank, maxrank, and graph, fully ordered for all others). When output is fully "
-            + "ordered, nodes that would otherwise be unordered by the output formatter are "
-            + "alphabetized before output."
-  )
+      name = "order_output",
+      converter = OrderOutputConverter.class,
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Output the results unordered (no), dependency-ordered (deps), or fully ordered (full)."
+              + " The default is 'auto', meaning that results are output either dependency-ordered"
+              + " or fully ordered, depending on the output formatter (dependency-ordered for"
+              + " proto, minrank, maxrank, and graph, fully ordered for all others). When output"
+              + " is fully ordered, nodes are printed in a fully deterministic (total) order."
+              + " First, all nodes are sorted alphabetically. Then, each node in the list is used"
+              + " as the start of a post-order depth-first search in which outgoing edges to"
+              + " unvisited nodes are traversed in alphabetical order of the successor nodes."
+              + " Finally, nodes are printed in the reverse of the order in which they were"
+              + " visited.")
   public OrderOutput orderOutput;
 
   @Option(
-      name = "incompatible_prefer_unordered_output",
-      defaultValue = "false",
+      name = "incompatible_lexicographical_output",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If this option is set together with --order_output=auto (default) and if the output "
-              + "formatter supports streaming output, then the results will be unordered.")
-  public boolean preferUnorderedOutput;
-
-  @Option(
-    name = "graph:node_limit",
-    defaultValue = "512",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "The maximum length of the label string for a graph node in the output.  Longer labels"
-            + " will be truncated; -1 means no truncation.  This option is only applicable to"
-            + " --output=graph."
-  )
-  public int graphNodeStringLimit;
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If this option is set, sorts --order_output=auto output in lexicographical order.")
+  public boolean lexicographicalOutput;
 
   @Option(
       name = "graph:conditional_edges_limit",
@@ -155,18 +133,6 @@ public class QueryOptions extends CommonQueryOptions {
           "The maximum number of condition labels to show. -1 means no truncation and 0 means no "
               + "annotation. This option is only applicable to --output=graph.")
   public int graphConditionalEdgesLimit;
-
-  @Option(
-    name = "graph:factored",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
-            + "will be merged together and their labels concatenated. This option is only "
-            + "applicable to --output=graph."
-  )
-  public boolean graphFactored;
 
   @Option(
     name = "xml:line_numbers",
@@ -222,23 +188,6 @@ public class QueryOptions extends CommonQueryOptions {
               + " implementation only supports --order_output=no, as well as only a subset of"
               + " output formatters.")
   public TriState useGraphlessQuery;
-
-  @Option(
-      name = "experimental_graphless_genquery_force_sort",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help = "If true, and graphless query is enabled, sorts the output alphabetically.")
-  public boolean forceSortForGraphlessGenquery;
-
-  /** Ugly workaround since line terminator option default has to be constant expression. */
-  public String getLineTerminator() {
-    if (lineTerminatorNull) {
-      return "\0";
-    }
-
-    return System.lineSeparator();
-  }
 
   /** Return the current options as a set of QueryEnvironment settings. */
   @Override

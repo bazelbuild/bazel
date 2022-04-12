@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -98,12 +99,30 @@ public final class OptionsUtils {
 
     @Override
     public PathFragment convert(String input) {
-      return convertOptionsPathFragment(Preconditions.checkNotNull(input));
+      return convertOptionsPathFragment(checkNotNull(input));
     }
 
     @Override
     public String getTypeDescription() {
       return "a path";
+    }
+  }
+
+  /** Converter from String to PathFragment requiring the provided path to be absolute. */
+  public static class AbsolutePathFragmentConverter implements Converter<PathFragment> {
+
+    @Override
+    public PathFragment convert(String input) throws OptionsParsingException {
+      PathFragment parsed = convertOptionsPathFragment(checkNotNull(input));
+      if (!parsed.isAbsolute()) {
+        throw new OptionsParsingException(String.format("Not an absolute path: '%s'", input));
+      }
+      return parsed;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an absolute path";
     }
   }
 

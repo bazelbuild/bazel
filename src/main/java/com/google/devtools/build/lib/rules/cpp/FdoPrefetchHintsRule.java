@@ -52,7 +52,7 @@ public final class FdoPrefetchHintsRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("fdo_prefetch_hints")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(FdoPrefetchHints.class)
         .build();
   }

@@ -34,11 +34,11 @@ public abstract class ActionGraphVisitor extends
   protected void visitArtifact(Artifact artifact) {}
 
   /**
-   * Called for all actions in the visitation.  Hook for subclasses.
+   * Called for all actions in the visitation. Hook for subclasses.
    *
    * @param action
    */
-  protected void visitAction(ActionAnalysisMetadata action) {}
+  protected void visitAction(ActionAnalysisMetadata action) throws InterruptedException {}
 
   /**
    * Whether the given action should be visited. If this returns false, the visitation stops here,
@@ -67,7 +67,8 @@ public abstract class ActionGraphVisitor extends
     }
   }
 
-  @Override protected void white(Artifact artifact) {
+  @Override
+  protected void white(Artifact artifact) throws InterruptedException {
     ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
     visitArtifact(artifact);
     if (action != null && shouldVisit(action)) {
@@ -75,7 +76,8 @@ public abstract class ActionGraphVisitor extends
     }
   }
 
-  @Override protected void black(ActionAnalysisMetadata action) {
+  @Override
+  protected void black(ActionAnalysisMetadata action) throws InterruptedException {
     visitAction(action);
     for (Artifact input : action.getInputs().toList()) {
       if (shouldVisit(input)) {

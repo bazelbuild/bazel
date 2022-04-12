@@ -29,8 +29,8 @@ cc_toolchain_config(
 toolchain(
     name = "%toolchainName%_toolchain",
     target_compatible_with = [
-        "@bazel_tools//platforms:android",
-        "@bazel_tools//platforms:%platform_cpu%",
+        "@platforms//os:android",
+        "@platforms//cpu:%platform_cpu%",
     ],
     toolchain = "@androidndk//:%toolchainName%",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",

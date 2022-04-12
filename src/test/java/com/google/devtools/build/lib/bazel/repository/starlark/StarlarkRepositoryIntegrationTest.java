@@ -31,13 +31,13 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.OutputStream;
@@ -86,11 +86,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
               directories,
               ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
               BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
-      return ImmutableMap.of(
-          SkyFunctions.REPOSITORY_DIRECTORY,
-          function,
-          SkyFunctions.REPOSITORY,
-          new RepositoryLoaderFunction());
+      return ImmutableMap.of(SkyFunctions.REPOSITORY_DIRECTORY, function);
     }
   }
 
@@ -112,10 +108,10 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Override
-  protected void invalidatePackages() throws InterruptedException {
+  protected void invalidatePackages() throws InterruptedException, AbruptExitException {
     // Repository shuffling breaks access to config-needed paths like //tools/jdk:toolchain and
     // these tests don't do anything interesting with configurations anyway. So exempt them.
-    invalidatePackages(/*alsoConfigs=*/false);
+    invalidatePackages(/*alsoConfigs=*/ false);
   }
 
   @Test
@@ -134,7 +130,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    local=True,",
         "    attrs={'path': attr.string(mandatory=True)})");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("load('//:def.bzl', 'repo')")
@@ -222,7 +219,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    implementation=_impl,",
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='repo2', path='/repo2')")
@@ -251,7 +249,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    implementation=_impl,",
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='repo2', path='/repo2')")
@@ -281,7 +280,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    implementation=_impl,",
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='repo2', path='/repo2')")
@@ -354,9 +354,9 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   @Test
   public void testCycleErrorInWorkspaceFileWithExternalRepo() throws Exception {
     try (OutputStream output = scratch.resolve("WORKSPACE").getOutputStream(/* append= */ true)) {
-      output.write((
-          "\nload('//foo:bar.bzl', 'foobar')"
-              + "\ngit_repository(name = 'git_repo')").getBytes(StandardCharsets.UTF_8));
+      output.write(
+          ("\nload('//foo:bar.bzl', 'foobar')" + "\ngit_repository(name = 'git_repo')")
+              .getBytes(StandardCharsets.UTF_8));
     }
     scratch.file("BUILD", "");
     scratch.file("foo/BUILD", "");
@@ -384,7 +384,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
     scratch.file("/repo2/WORKSPACE");
 
-    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='bleh')")
@@ -406,7 +407,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   @Test
   public void testLoadDoesNotHideWorkspaceFunction() throws Exception {
     scratch.file("def.bzl", "def macro():", "  print('bleh')");
-    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("workspace(name='bleh')")
@@ -444,7 +446,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testMultipleLoadSameExtension() throws Exception {
-    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("load('//:def.bzl', 'f1')")

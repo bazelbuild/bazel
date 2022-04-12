@@ -69,6 +69,8 @@ EOF
 #define TARGET "World"
 EOF
   cat > lib/lib.c <<'EOF'
+#include <stdio.h>
+
 int greet(char *s) {
   printf("Hello %s\n", s);
   return 0;
@@ -338,10 +340,11 @@ EOF
   cat > rule/to_upper.bzl <<'EOF'
 def _to_upper_impl(ctx):
   output = ctx.actions.declare_file(ctx.label.name + ".txt")
-  ctx.actions.run_shell(
+  ctx.actions.run(
     inputs = ctx.files.src + ctx.files._toupper_sh,
     outputs = [output],
-    command = ["/bin/sh"] + [f.path for f in ctx.files._toupper_sh] \
+    executable = "/bin/sh",
+    arguments = [f.path for f in ctx.files._toupper_sh]
               +  [f.path for f in ctx.files.src] + [output.path],
     use_default_shell_env = True,
     mnemonic = "ToUpper",
@@ -490,10 +493,11 @@ EOF
   cat > rule/to_html.bzl <<'EOF'
 def _to_html_impl(ctx):
   output = ctx.actions.declare_file(ctx.label.name + ".html")
-  ctx.actions.run_shell(
+  ctx.actions.run(
     inputs = ctx.files.src + ctx.files._to_html + ctx.files._preamb + ctx.files._postamb,
     outputs = [output],
-    command = ["/bin/sh"] + [f.path for f in ctx.files._to_html] \
+    executable = "/bin/sh",
+    arguments = [f.path for f in ctx.files._to_html]
               +  [f.path for f in ctx.files.src] + [output.path],
     use_default_shell_env = True,
     mnemonic = "ToHtml",
@@ -643,10 +647,11 @@ EOF
   cat > rule/add_preamb.bzl <<'EOF'
 def _add_preamb_impl(ctx):
   output = ctx.actions.declare_file(ctx.label.name + ".txt")
-  ctx.actions.run_shell(
+  ctx.actions.run(
     inputs = ctx.files.src + ctx.files._add_preamb + ctx.files._preamb,
     outputs = [output],
-    command = ["/bin/sh"] + [f.path for f in ctx.files._add_preamb] \
+    executable = "/bin/sh",
+    arguments = [f.path for f in ctx.files._add_preamb] \
               +  [f.path for f in ctx.files.src] + [output.path],
     use_default_shell_env = True,
     mnemonic = "AddPreamb",

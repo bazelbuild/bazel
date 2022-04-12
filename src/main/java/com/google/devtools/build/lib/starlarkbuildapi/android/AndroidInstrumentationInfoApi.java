@@ -17,6 +17,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -44,6 +45,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
       documented = false,
       structField = true,
       allowReturnNones = true)
+  @Nullable
   ApkT getTarget();
 
   /** Provider for {@link AndroidInstrumentationInfoApi}. */
@@ -62,7 +64,6 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
         parameters = {
           @Param(
               name = "target",
-              type = ApkInfoApi.class,
               named = true,
               doc = "The target ApkInfo of the instrumentation test.")
         },

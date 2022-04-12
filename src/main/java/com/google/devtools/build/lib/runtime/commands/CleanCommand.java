@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -34,12 +35,11 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.ProcessUtils;
-import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -104,6 +104,17 @@ public final class CleanCommand implements BlazeCommand {
               + "in the background."
     )
     public boolean async;
+
+    @Option(
+        name = "remove_all_convenience_symlinks",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "If true, all symlinks in the workspace with  the prefix symlink_prefix will be"
+                + " deleted. Without this flag, only symlinks with the predefined suffixes are"
+                + " cleaned.")
+    public boolean removeAllConvenienceSymlinks;
   }
 
   private final OS os;
@@ -140,10 +151,36 @@ public final class CleanCommand implements BlazeCommand {
           createFailureDetail(message, Code.ARGUMENTS_NOT_RECOGNIZED));
     }
 
-    Options cleanOptions = options.getOptions(Options.class);
-    boolean async = cleanOptions.async;
     env.getEventBus().post(new NoBuildEvent());
+    Options cleanOptions = options.getOptions(Options.class);
+    boolean async = canUseAsync(cleanOptions.async, cleanOptions.expunge, os, env.getReporter());
+    env.getEventBus().post(new CleanStartingEvent(options));
 
+    try {
+      String symlinkPrefix =
+          options
+              .getOptions(BuildRequestOptions.class)
+              .getSymlinkPrefix(env.getRuntime().getProductName());
+      return actuallyClean(
+          env,
+          env.getOutputBase(),
+          cleanOptions.expunge,
+          async,
+          symlinkPrefix,
+          cleanOptions.removeAllConvenienceSymlinks);
+    } catch (CleanException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
+    } catch (InterruptedException e) {
+      String message = "clean interrupted";
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(message));
+    }
+  }
+
+  @VisibleForTesting
+  public static boolean canUseAsync(boolean async, boolean expunge, OS os, Reporter reporter) {
     // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
     // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
     // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
@@ -151,13 +188,11 @@ public final class CleanCommand implements BlazeCommand {
     // and exec(2).
     boolean asyncSupport = os == OS.LINUX;
     if (async && !asyncSupport) {
-      String fallbackName = cleanOptions.expunge ? "--expunge" : "synchronous clean";
-      env.getReporter()
-          .handle(
-              Event.info(
-                  null /*location*/,
-                  "--async cannot be used on non-Linux platforms, falling back to "
-                      + fallbackName));
+      String fallbackName = expunge ? "--expunge" : "synchronous clean";
+      reporter.handle(
+          Event.info(
+              null /*location*/,
+              "--async cannot be used on non-Linux platforms, falling back to " + fallbackName));
       async = false;
     }
 
@@ -166,32 +201,15 @@ public final class CleanCommand implements BlazeCommand {
             ? "Starting clean."
             : "Starting clean (this may take a while). "
                 + "Consider using --async if the clean takes more than several minutes.";
+    reporter.handle(Event.info(/* location= */ null, cleanBanner));
 
-    env.getEventBus().post(new CleanStartingEvent(options));
-    env.getReporter().handle(Event.info(null /*location*/, cleanBanner));
-
-    try {
-      String symlinkPrefix =
-          options
-              .getOptions(BuildRequestOptions.class)
-              .getSymlinkPrefix(env.getRuntime().getProductName());
-      return actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
-    } catch (CleanException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.failureDetail(e.getFailureDetail());
-    } catch (InterruptedException e) {
-      String message = "clean interrupted";
-      env.getReporter().handle(Event.error(message));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              message, FailureDetails.Interrupted.Code.CLEAN_COMMAND));
-    }
+    return async;
   }
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
       throws IOException, CommandException, InterruptedException {
     String tempBaseName =
-        path.getBaseName() + "_tmp_" + ProcessUtils.getpid() + "_" + UUID.randomUUID();
+        path.getBaseName() + "_tmp_" + ProcessHandle.current().pid() + "_" + UUID.randomUUID();
 
     // Keeping tempOutputBase in the same directory ensures it remains in the
     // same file system, and therefore the mv will be atomic and fast.
@@ -200,29 +218,38 @@ public final class CleanCommand implements BlazeCommand {
     env.getReporter()
         .handle(Event.info(null, pathItemName + " moved to " + tempPath + " for deletion"));
 
-    // Daemonize the shell and use the double-fork idiom to ensure that the shell
-    // exits even while the "rm -rf" command continues.
     String command =
         String.format(
-            "exec >&- 2>&- <&- && (/usr/bin/setsid /bin/rm -rf %s &)&",
-            ShellEscaper.escapeString(tempPath.getPathString()));
+            "/usr/bin/find %s -type d -not -perm -u=rwx -exec /bin/chmod -f u=rwx {} +; /bin/rm"
+                + " -rf %s",
+            tempBaseName, tempBaseName);
+    logger.atInfo().log("Executing daemonic shell command %s", command);
 
-    logger.atInfo().log("Executing shell command %s", ShellEscaper.escapeString(command));
-
-    // Doesn't throw iff command exited and was successful.
-    new CommandBuilder()
-        .addArg(command)
-        .useShell(true)
-        .setWorkingDir(tempPath.getParentDirectory())
-        .build()
-        .execute();
+    // Daemonize the shell to ensure that the shell exits even while the "rm
+    // -rf" command continues.
+    CommandResult result =
+        new CommandBuilder()
+            .addArg(
+                env.getBlazeWorkspace().getBinTools().getEmbeddedPath("daemonize").getPathString())
+            .addArgs("-l", "/dev/null")
+            .addArgs("-p", "/dev/null")
+            .addArg("--")
+            .addArgs("/bin/sh", "/bin/sh", "-c", command)
+            .setWorkingDir(tempPath.getParentDirectory())
+            .build()
+            .execute();
+    logger.atInfo().log("Shell command status: %s", result.getTerminationStatus());
   }
 
   private BlazeCommandResult actuallyClean(
-      CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
+      CommandEnvironment env,
+      Path outputBase,
+      boolean expunge,
+      boolean async,
+      String symlinkPrefix,
+      boolean removeAllConvenienceSymlinks)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
-    String workspaceDirectory = env.getWorkspace().getBaseName();
     if (env.getOutputService() != null) {
       try {
         env.getOutputService().clean();
@@ -265,7 +292,7 @@ public final class CleanCommand implements BlazeCommand {
       } catch (IOException e) {
         throw new CleanException(Code.OUTPUT_BASE_DELETE_FAILURE, e);
       }
-    } else if (expunge && async) {
+    } else if (expunge) {
       logger.atInfo().log("Expunging asynchronously...");
       runtime.prepareForAbruptShutdown();
       try {
@@ -301,11 +328,12 @@ public final class CleanCommand implements BlazeCommand {
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
         runtime.getRuleClassProvider().getSymlinkDefinitions(),
-        workspaceDirectory,
         env.getWorkspace(),
+        env.getOutputBase(),
         env.getReporter(),
         symlinkPrefix,
-        env.getRuntime().getProductName());
+        env.getRuntime().getProductName(),
+        removeAllConvenienceSymlinks);
 
     // shutdown on expunge cleans
     if (expunge) {

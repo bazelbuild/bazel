@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -43,6 +44,7 @@ public interface XcodeConfigInfoApi<
           "Returns the Xcode version that is being used to build.<p>"
               + "This will return <code>None</code> if no Xcode versions are available.",
       allowReturnNones = true)
+  @Nullable
   DottedVersionApi<?> getXcodeVersion();
 
   @StarlarkMethod(
@@ -55,7 +57,6 @@ public interface XcodeConfigInfoApi<
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
   DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
@@ -66,12 +67,7 @@ public interface XcodeConfigInfoApi<
           "The version of the platform SDK that will be used to build targets for the given "
               + "platform.",
       parameters = {
-        @Param(
-            name = "platform",
-            positional = true,
-            named = false,
-            type = ApplePlatformApi.class,
-            doc = "The apple platform."),
+        @Param(name = "platform", positional = true, named = false, doc = "The apple platform."),
       })
   DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
 

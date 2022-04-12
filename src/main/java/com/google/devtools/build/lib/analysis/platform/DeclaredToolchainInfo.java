@@ -17,9 +17,8 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import javax.annotation.Nullable;
 
 /**
@@ -29,7 +28,6 @@ import javax.annotation.Nullable;
  * are exposed to Starlark and Bazel via {@link ToolchainInfo} providers.
  */
 @AutoValue
-@AutoCodec
 public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   /**
    * The type of the toolchain being declared. This will be a label of a toolchain_type() target.
@@ -42,6 +40,9 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   /** The constraints describing the target environment. */
   public abstract ConstraintCollection targetConstraints();
 
+  /** The setting, that target build configuration needs to satisfy. */
+  public abstract ImmutableList<ConfigMatchingProvider> targetSettings();
+
   /** The label of the toolchain to resolve for use in toolchain-aware rules. */
   public abstract Label toolchainLabel();
 
@@ -50,6 +51,8 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
     private ToolchainTypeInfo toolchainType;
     private ConstraintCollection.Builder execConstraints = ConstraintCollection.builder();
     private ConstraintCollection.Builder targetConstraints = ConstraintCollection.builder();
+    private ImmutableList.Builder<ConfigMatchingProvider> targetSettings =
+        new ImmutableList.Builder<>();
     private Label toolchainLabel;
 
     /** Sets the type of the toolchain being declared. */
@@ -78,6 +81,11 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
     /** Adds constraints describing the target environment. */
     public Builder addTargetConstraints(ConstraintValueInfo... constraints) {
       return addTargetConstraints(ImmutableList.copyOf(constraints));
+    }
+
+    public Builder addTargetSettings(Iterable<ConfigMatchingProvider> targetSettings) {
+      this.targetSettings.addAll(targetSettings);
+      return this;
     }
 
     /** Sets the label of the toolchain to resolve for use in toolchain-aware rules. */
@@ -110,24 +118,17 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
             execConstraintsException, targetConstraintsException);
       }
       return new AutoValue_DeclaredToolchainInfo(
-          toolchainType, execConstraints, targetConstraints, toolchainLabel);
+          toolchainType,
+          execConstraints,
+          targetConstraints,
+          targetSettings.build(),
+          toolchainLabel);
     }
   }
 
   /** Returns a new {@link Builder} for creating {@link DeclaredToolchainInfo} instances. */
   public static Builder builder() {
     return new Builder();
-  }
-
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  static DeclaredToolchainInfo create(
-      ToolchainTypeInfo toolchainType,
-      ConstraintCollection execConstraints,
-      ConstraintCollection targetConstraints,
-      Label toolchainLabel) {
-    return new AutoValue_DeclaredToolchainInfo(
-        toolchainType, execConstraints, targetConstraints, toolchainLabel);
   }
 
   /**

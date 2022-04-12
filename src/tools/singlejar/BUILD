@@ -1,10 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
+load("//src:release_archive.bzl", "release_archive")
 
 # Description:
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
-
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 filegroup(
     name = "srcs",
@@ -44,27 +43,30 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-genrule(
+release_archive(
     name = "singlejar_transitive_zip",
-    srcs = [
+    package_dir = "java_tools",
+    visibility = ["//src:__pkg__"],
+    deps = [
         ":singlejar_zip",
         "//src:zlib_zip",
         "//src/main/cpp/util:cpp_util_with_deps_zip",
         "//src/main/protobuf:desugar_deps_zip",
     ],
-    outs = ["singlejar_transitive.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    tools = ["//src:merge_zip_files"],
-    visibility = ["//src:__pkg__"],
 )
 
-genrule(
+release_archive(
     name = "singlejar_zip",
-    srcs = SOURCES + [":singlejar_local"],
-    outs = ["singlejar.zip"],
-    cmd = "$(location //src:zip_files) src/tools/singlejar $@ $$(echo $(SRCS) | sort)",
-    tools = ["//src:zip_files"],
+    srcs = SOURCES,
+    package_dir = "src/tools/singlejar",
     visibility = ["//visibility:private"],
+)
+
+release_archive(
+    name = "singlejar_deploy_zip",
+    srcs = [":singlejar_local"],
+    package_dir = "java_tools/src/tools/singlejar",
+    visibility = ["//src:__pkg__"],
 )
 
 cc_binary(
@@ -115,11 +117,15 @@ cc_test(
         ":zip_headers",
         ":zlib_interface",
     ],
+    data = [
+        "data/multi_release.jar",
+    ],
     # Requires at least 5 GiB of memory
     exec_compatible_with = ["//:highcpu_machine"],
     deps = [
         ":combiners",
         ":input_jar",
+        ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],
@@ -531,21 +537,4 @@ genrule(
     cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
 )

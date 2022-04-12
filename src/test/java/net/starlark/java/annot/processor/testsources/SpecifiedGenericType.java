@@ -30,7 +30,7 @@ public class SpecifiedGenericType implements StarlarkValue {
       name = "specified_generic_type",
       documented = false,
       parameters = {
-        @Param(name = "one", type = Sequence.class, named = true),
+        @Param(name = "one", named = true),
       })
   public String specifiedGenericType(Sequence<String> one) {
     return "bar";

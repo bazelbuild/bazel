@@ -32,15 +32,11 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
-import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 
@@ -50,13 +46,19 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
+
+    if (ruleContext.attributes().has("strict_deps")
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("strict_deps")) {
+      ruleContext.attributeError("strict_deps", "The strict_deps attribute has been removed.");
+      return null;
+    }
 
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
         ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
-        constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
+        constructJcapFromAspectDeps(
+            ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true);
 
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path
@@ -77,37 +79,24 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
-    JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 
-    JavaInfo.Builder javaInfoBuilder =
-        JavaInfo.Builder.create()
-            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
-    if (ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced()
-        && !ruleContext.getDisabledFeatures().contains("jlpl_strict_deps")) {
-      JavaStrictCompilationArgsProvider strictDependencyArgsProviders =
-          new JavaStrictCompilationArgsProvider(
-              constructJcapFromAspectDeps(
-                  ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true));
-      javaInfoBuilder.addProvider(
-          JavaStrictCompilationArgsProvider.class, strictDependencyArgsProviders);
-    }
     JavaInfo javaInfo =
-        javaInfoBuilder
+        JavaInfo.Builder.create()
+            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
-            .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
+            .addProvider(
+                JavaCcInfoProvider.class, createCcLinkingInfo(ruleContext, ImmutableList.of()))
             .setJavaConstraints(ImmutableList.of("android"))
             .build();
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
+    return builder
         .setFilesToBuild(filesToBuild.build())
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
-        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
+        .addProvider(RunfilesProvider.simple(runfiles))
         .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addNativeDeclaredProvider(javaInfo)
-        .addNativeDeclaredProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()))
         .build();
   }
 

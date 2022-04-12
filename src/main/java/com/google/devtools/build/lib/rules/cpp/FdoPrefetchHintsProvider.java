@@ -14,21 +14,25 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 
 /** Provider that contains the profile used for prefetch hints. */
 @Immutable
 public final class FdoPrefetchHintsProvider extends NativeInfo {
-  public static final NativeProvider<FdoPrefetchHintsProvider> PROVIDER =
-      new NativeProvider<FdoPrefetchHintsProvider>(
-          FdoPrefetchHintsProvider.class, "FdoPrefetchHintsInfo") {};
+  public static final BuiltinProvider<FdoPrefetchHintsProvider> PROVIDER =
+      new BuiltinProvider<FdoPrefetchHintsProvider>(
+          "FdoPrefetchHintsInfo", FdoPrefetchHintsProvider.class) {};
 
   private final FdoInputFile fdoInputFile;
 
   public FdoPrefetchHintsProvider(FdoInputFile fdoInputFile) {
-    super(PROVIDER);
     this.fdoInputFile = fdoInputFile;
+  }
+
+  @Override
+  public BuiltinProvider<FdoPrefetchHintsProvider> getProvider() {
+    return PROVIDER;
   }
 
   public FdoInputFile getInputFile() {

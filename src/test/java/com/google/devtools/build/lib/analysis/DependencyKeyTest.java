@@ -17,7 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -46,8 +48,9 @@ public class DependencyKeyTest extends AnalysisTestCase {
             .build();
 
     assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
-    assertThat(hostDep.getAspects().getAllAspects())
-        .containsExactlyElementsIn(twoAspects.getAllAspects());
+    assertThat(Iterables.transform(hostDep.getAspects().getUsedAspects(), AspectDeps::getAspect))
+        .containsExactlyElementsIn(
+            Iterables.transform(twoAspects.getUsedAspects(), AspectDeps::getAspect));
     assertThat(hostDep.getTransition().isHostTransition()).isTrue();
   }
 
@@ -61,7 +64,7 @@ public class DependencyKeyTest extends AnalysisTestCase {
             .setAspects(AspectCollection.EMPTY)
             .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
-    assertThat(dep.getAspects().getAllAspects()).isEmpty();
+    assertThat(dep.getAspects().getUsedAspects()).isEmpty();
   }
 
   @Test

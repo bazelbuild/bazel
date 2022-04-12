@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.cmdline;
 
+import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProcessTargetName;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableMap;
@@ -20,19 +22,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
+import com.google.devtools.build.lib.cmdline.LabelParser.Parts;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.io.InvalidObjectException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -55,27 +53,102 @@ import net.starlark.java.eval.StarlarkValue;
 @AutoCodec
 @Immutable
 @ThreadSafe
-public final class Label
-    implements Comparable<Label>, Serializable, StarlarkValue, SkyKey, CommandLineItem {
-
+public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
   /**
    * Package names that aren't made relative to the current repository because they mean special
    * things to Bazel.
    */
-  public static final ImmutableSet<PathFragment> ABSOLUTE_PACKAGE_NAMES =
+  private static final ImmutableSet<String> ABSOLUTE_PACKAGE_NAMES =
       ImmutableSet.of(
-          // Used for select
-          PathFragment.create("conditions"),
-          // Visibility is labels aren't actually targets
-          PathFragment.create("visibility"),
+          // Used for select's `//conditions:default` label (not a target)
+          "conditions",
+          // Used for the public and private visibility labels (not targets)
+          "visibility",
           // There is only one //external package
-          LabelConstants.EXTERNAL_PACKAGE_NAME);
+          LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString());
+
+  // Intern "__pkg__" and "__subpackages__" pseudo-targets, which appears in labels used for
+  // visibility specifications. This saves a couple tenths of a percent of RAM off the loading
+  // phase. Note that general interning of all values for `name` is *not* beneficial. See
+  // Google-internal cl/386077913 and cl/185394812 for more context.
+  private static final String PKG_VISIBILITY_NAME = "__pkg__";
+  private static final String SUBPACKAGES_VISIBILITY_NAME = "__subpackages__";
 
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
   private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
+  // TODO(b/200024947): Make this public.
+  /**
+   * Parses a raw label string that contains the canonical form of a label. It must be of the form
+   * {@code [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it must be a canonical
+   * repo name, otherwise the label will be assumed to be in the main repo.
+   */
+  private static Label parseCanonical(String raw) throws LabelSyntaxException {
+    Parts parts = Parts.parse(raw);
+    parts.checkPkgIsAbsolute();
+    RepositoryName repoName =
+        parts.repo == null
+            ? RepositoryName.MAIN
+            : RepositoryName.createFromValidStrippedName(parts.repo);
+    return createUnvalidated(
+        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
+  }
+
+  /** Computes the repo name for the label, within the context of a current repo. */
+  private static RepositoryName computeRepoNameWithRepoContext(
+      Parts parts, RepositoryName currentRepo, RepositoryMapping repoMapping) {
+    if (parts.repo == null) {
+      // Certain package names when used without a "@" part are always absolutely in the main repo,
+      // disregarding the current repo and repo mappings.
+      return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg) ? RepositoryName.MAIN : currentRepo;
+    }
+    // TODO(b/200024947): Make repo mapping take a string and return a RepositoryName.
+    return repoMapping.get(RepositoryName.createFromValidStrippedName(parts.repo));
+  }
+
+  // TODO(b/200024947): Make this public.
+  /**
+   * Parses a raw label string within the context of a current repo. It must be of the form {@code
+   * [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it will undergo {@code
+   * repoMapping}, otherwise the label will be assumed to be in {@code currentRepo}.
+   */
+  private static Label parseWithRepoContext(
+      String raw, RepositoryName currentRepo, RepositoryMapping repoMapping)
+      throws LabelSyntaxException {
+    Parts parts = Parts.parse(raw);
+    parts.checkPkgIsAbsolute();
+    RepositoryName repoName = computeRepoNameWithRepoContext(parts, currentRepo, repoMapping);
+    return createUnvalidated(
+        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
+  }
+
+  // TODO(b/200024947): Make this public.
+  /**
+   * Parses a raw label string within the context of a current package. It can be of a
+   * package-relative form ({@code :quux}). Otherwise, it must be of the form {@code
+   * [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it will undergo {@code
+   * repoMapping}, otherwise the label will be assumed to be in the repo of {@code
+   * packageIdentifier}.
+   */
+  private static Label parseWithPackageContext(
+      String raw, PackageIdentifier packageIdentifier, RepositoryMapping repoMapping)
+      throws LabelSyntaxException {
+    Parts parts = Parts.parse(raw);
+    // pkg is either absolute or empty
+    if (!parts.pkg.isEmpty()) {
+      parts.checkPkgIsAbsolute();
+    }
+    RepositoryName repoName =
+        computeRepoNameWithRepoContext(parts, packageIdentifier.getRepository(), repoMapping);
+    PathFragment pkgFragment =
+        parts.pkgIsAbsolute
+            ? PathFragment.create(parts.pkg)
+            : packageIdentifier.getPackageFragment();
+    return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target);
+  }
+
   /**
    * Factory for Labels from absolute string form. e.g.
    *
@@ -87,87 +160,27 @@ public final class Label
    * {@literal @}foo//bar:baz
    * </pre>
    *
-   * <p>Treats labels in the default repository as being in the main repository instead.
+   * <p>Labels that don't begin with a repository name are considered to be in the main repository,
+   * so for instance {@code //foo/bar} will turn into {@code @//foo/bar}.
    *
-   * <p>Labels that begin with a repository name may have the repository name remapped to a
-   * different name if it appears in {@code repositoryMapping}. This happens if the current
-   * repository being evaluated is external to the main repository and the main repository set the
-   * {@code repo_mapping} attribute when declaring this repository.
+   * <p>Labels that begin with a repository name will undergo {@code repositoryMapping}.
    *
    * @param absName label-like string to be parsed
    * @param repositoryMapping map of repository names from the local name found in the current
    *     repository to the global name declared in the main repository
    */
+  // TODO(b/200024947): Remove this.
+  public static Label parseAbsolute(String absName, RepositoryMapping repositoryMapping)
+      throws LabelSyntaxException {
+    Preconditions.checkNotNull(repositoryMapping);
+    return parseWithRepoContext(absName, RepositoryName.MAIN, repositoryMapping);
+  }
+
+  // TODO(b/200024947): Remove this.
   public static Label parseAbsolute(
       String absName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
-    return parseAbsolute(
-        absName, /* defaultToMain= */ true, repositoryMapping);
-  }
-
-  /**
-   * Factory for Labels from absolute string form. e.g.
-   *
-   * <pre>
-   * //foo/bar
-   * //foo/bar:quux
-   * {@literal @}foo
-   * {@literal @}foo//bar
-   * {@literal @}foo//bar:baz
-   * </pre>
-   *
-   * <p>Labels that begin with a repository name may have the repository name remapped to a
-   * different name if it appears in {@code repositoryMapping}. This happens if the current
-   * repository being evaluated is external to the main repository and the main repository set the
-   * {@code repo_mapping} attribute when declaring this repository.
-   *
-   * @param absName label-like string to be parsed
-   * @param defaultToMain Treat labels in the default repository as being in the main one instead.
-   * @param repositoryMapping map of repository names from the local name found in the current
-   *     repository to the global name declared in the main repository
-   */
-  public static Label parseAbsolute(
-      String absName,
-      boolean defaultToMain,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
-    Preconditions.checkNotNull(repositoryMapping);
-    String repo = defaultToMain ? "@" : RepositoryName.DEFAULT_REPOSITORY;
-    int packageStartPos = absName.indexOf("//");
-    if (packageStartPos > 0) {
-      repo = absName.substring(0, packageStartPos);
-      absName = absName.substring(packageStartPos);
-    } else if (absName.startsWith("@")) {
-      repo = absName;
-      absName = "//:" + absName.substring(1);
-    }
-    String error = RepositoryName.validate(repo);
-    if (error != null) {
-      throw new LabelSyntaxException(
-          "invalid repository name '" + StringUtilities.sanitizeControlChars(repo) + "': " + error);
-    }
-    try {
-      LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
-      PackageIdentifier pkgId =
-          validatePackageName(
-              labelParts.getPackageName(), labelParts.getTargetName(), repo, repositoryMapping);
-      PathFragment packageFragment = pkgId.getPackageFragment();
-      if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
-        pkgId =
-            PackageIdentifier.create(getGlobalRepoName("@", repositoryMapping), packageFragment);
-      }
-      return create(pkgId, labelParts.getTargetName());
-    } catch (BadLabelException e) {
-      throw new LabelSyntaxException(e.getMessage());
-    }
-  }
-
-  private static RepositoryName getGlobalRepoName(
-      String repo, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
-    Preconditions.checkNotNull(repositoryMapping);
-    RepositoryName repoName = RepositoryName.create(repo);
-    return repositoryMapping.getOrDefault(repoName, repoName);
+    return parseAbsolute(absName, RepositoryMapping.createAllowingFallback(repositoryMapping));
   }
 
   /**
@@ -177,18 +190,13 @@ public final class Label
    *
    * <p>Do not use this when the argument is not hard-wired.
    */
-  @Deprecated
-  // TODO(b/110698008): create parseAbsoluteUnchecked that passes repositoryMapping
-  public static Label parseAbsoluteUnchecked(String absName, boolean defaultToMain) {
+  // TODO(b/200024947): Remove this.
+  public static Label parseAbsoluteUnchecked(String absName) {
     try {
-      return parseAbsolute(absName, defaultToMain, /* repositoryMapping= */ ImmutableMap.of());
+      return parseCanonical(absName);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
     }
-  }
-
-  public static Label parseAbsoluteUnchecked(String absName) {
-    return parseAbsoluteUnchecked(absName, true);
   }
 
   /**
@@ -200,17 +208,23 @@ public final class Label
    *     LabelValidator#validateTargetName}.
    * @throws LabelSyntaxException if either of the arguments was invalid.
    */
+  // TODO(b/200024947): Remove this...?
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
-    return create(validatePackageName(packageName, targetName), targetName);
+    return createUnvalidated(
+        PackageIdentifier.parse(packageName),
+        validateAndProcessTargetName(packageName, targetName));
   }
 
   /**
    * Similar factory to above, but takes a package identifier to allow external repository labels to
    * be created.
    */
+  // TODO(b/200024947): Remove this...?
   public static Label create(PackageIdentifier packageId, String targetName)
       throws LabelSyntaxException {
-    return createUnvalidated(packageId, validateTargetName(packageId, targetName));
+    return createUnvalidated(
+        packageId,
+        validateAndProcessTargetName(packageId.getPackageFragment().getPathString(), targetName));
   }
 
   /**
@@ -221,18 +235,25 @@ public final class Label
    */
   @AutoCodec.Instantiator
   public static Label createUnvalidated(PackageIdentifier packageIdentifier, String name) {
-    return LABEL_INTERNER.intern(new Label(packageIdentifier, name));
+    String internedName = name;
+    if (internedName.equals(PKG_VISIBILITY_NAME)) {
+      internedName = PKG_VISIBILITY_NAME;
+    } else if (internedName.equals(SUBPACKAGES_VISIBILITY_NAME)) {
+      internedName = SUBPACKAGES_VISIBILITY_NAME;
+    }
+    return LABEL_INTERNER.intern(new Label(packageIdentifier, internedName));
   }
 
   /**
-   * Resolves a relative label using a workspace-relative path to the current working directory. The
-   * method handles these cases:
+   * Parses and resolves a label string relative to the given workspace-relative directory.
    *
    * <ul>
-   *   <li>The label is absolute.
-   *   <li>The label starts with a colon.
-   *   <li>The label consists of a relative path, a colon, and a local part.
-   *   <li>The label consists only of a local part.
+   *   <li>If the input is an absolute label, it is parsed as normal.
+   *   <li>If the input starts with a colon or does not contain a colon, the package path is taken
+   *       to be the working directory, and the part after the leading colon (if present) is taken
+   *       to be the target.
+   *   <li>If the input has a non-empty part before a colon, it is appended to the working directory
+   *       to form the package path, and the part after the colon is taken as the target.
    * </ul>
    *
    * <p>Note that this method does not support any of the special syntactic constructs otherwise
@@ -244,75 +265,22 @@ public final class Label
    *
    * @throws LabelSyntaxException if the resulting label is not valid
    */
-  public static Label parseCommandLineLabel(String label, PathFragment workspaceRelativePath)
+  public static Label parseCommandLineLabel(String raw, PathFragment workspaceRelativePath)
       throws LabelSyntaxException {
     Preconditions.checkArgument(!workspaceRelativePath.isAbsolute());
-    if (LabelValidator.isAbsolute(label)) {
-      return parseAbsolute(label, ImmutableMap.of());
+    Parts parts = Parts.parse(raw);
+    PathFragment pathFragment;
+    if (parts.repo == null && !parts.pkgIsAbsolute) {
+      pathFragment = workspaceRelativePath.getRelative(parts.pkg);
+    } else {
+      pathFragment = PathFragment.create(parts.pkg);
     }
-    int index = label.indexOf(':');
-    if (index < 0) {
-      index = 0;
-      label = ":" + label;
-    }
-    PathFragment path = workspaceRelativePath.getRelative(label.substring(0, index));
-    // Use the String, String constructor, to make sure that the package name goes through the
-    // validity check.
-    return create(path.getPathString(), label.substring(index + 1));
-  }
-
-  /**
-   * Validates the given target name and returns a normalized name if it is valid. Otherwise it
-   * throws a SyntaxException.
-   */
-  private static String validateTargetName(PackageIdentifier packageIdentifier, String name)
-      throws LabelSyntaxException {
-    String error = LabelValidator.validateTargetName(name);
-    if (error != null) {
-      error = "invalid target name '" + StringUtilities.sanitizeControlChars(name) + "': " + error;
-      if (packageIdentifier.getPackageFragment().getPathString().endsWith("/" + name)) {
-        error += " (perhaps you meant \":" + name + "\"?)";
-      }
-      throw new LabelSyntaxException(error);
-    }
-
-    // TODO(bazel-team): This should be an error, but we can't make it one for legacy reasons.
-    if (name.endsWith("/.")) {
-      name = name.substring(0, name.length() - 2);
-    }
-    return name;
-  }
-
-  private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
-      throws LabelSyntaxException {
-    return validatePackageName(
-        packageIdentifier, name, /* repo= */ null, /* repositoryMapping= */ null);
-  }
-
-  /**
-   * Validates the given package name and returns a canonical {@link PackageIdentifier} instance if
-   * it is valid. Otherwise it throws a SyntaxException.
-   */
-  private static PackageIdentifier validatePackageName(
-      String packageIdentifier,
-      String name,
-      String repo,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
-    String error = null;
-    try {
-      return PackageIdentifier.parse(packageIdentifier, repo, repositoryMapping);
-    } catch (LabelSyntaxException e) {
-      error = e.getMessage();
-      error = "invalid package name '" + packageIdentifier + "': " + error;
-      // This check is just for a more helpful error message
-      // i.e. valid target name, invalid package name, colon-free label form
-      // used => probably they meant "//foo:bar.c" not "//foo/bar.c".
-      if (packageIdentifier.endsWith("/" + name)) {
-        error += " (perhaps you meant \":" + name + "\"?)";
-      }
-      throw new LabelSyntaxException(error);
-    }
+    // TODO(b/200024947): This method will eventually need to take a repo mapping too.
+    RepositoryName repoName =
+        parts.repo == null
+            ? RepositoryName.MAIN
+            : RepositoryName.createFromValidStrippedName(parts.repo);
+    return create(PackageIdentifier.create(repoName, pathFragment), parts.target);
   }
 
   /** The name and repository of the package. */
@@ -329,16 +297,12 @@ public final class Label
     this.name = name;
   }
 
-  private Object writeReplace() {
-    return new LabelSerializationProxy(getUnambiguousCanonicalForm());
-  }
-
-  private void readObject(ObjectInputStream unusedStream) throws InvalidObjectException {
-    throw new InvalidObjectException("Serialization is allowed only by proxy");
-  }
-
   public PackageIdentifier getPackageIdentifier() {
     return packageIdentifier;
+  }
+
+  public RepositoryName getRepository() {
+    return packageIdentifier.getRepository();
   }
 
   /**
@@ -360,6 +324,9 @@ public final class Label
    * Returns the execution root for the workspace, relative to the execroot (e.g., for label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
    * it will returns an empty string.
+   *
+   * @deprecated The sole purpose of this method is to implement the workspace_root method. For
+   *     other purposes, use {@link RepositoryName#getExecPath} instead.
    */
   @StarlarkMethod(
       name = "workspace_root",
@@ -370,7 +337,8 @@ public final class Label
               + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
-  public String getWorkspaceRoot(StarlarkSemantics semantics) {
+  @Deprecated
+  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) {
     return packageIdentifier
         .getRepository()
         .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
@@ -394,6 +362,9 @@ public final class Label
    *
    * <p>Make sure that the label refers to a file. Non-file labels do not necessarily have
    * PathFragment representations.
+   *
+   * <p>The package's repository is not included in the returned fragment. To account for it,
+   * compose this with {@code #getRepository()#getExecPath}.
    */
   public PathFragment toPathFragment() {
     // PathFragments are normalized, so if we do this on a non-file target named '.'
@@ -434,7 +405,7 @@ public final class Label
    * <p>invariant: {@code parseAbsolute(x.getCanonicalForm(), false).equals(x)}
    */
   public String getCanonicalForm() {
-    return getDefaultCanonicalForm();
+    return packageIdentifier.getCanonicalForm() + ":" + name;
   }
 
   public String getUnambiguousCanonicalForm() {
@@ -455,15 +426,6 @@ public final class Label
               + " == \"foo\"</pre>")
   public String getWorkspaceName() {
     return packageIdentifier.getRepository().strippedName();
-  }
-
-  /**
-   * Renders this label in canonical form, except with labels in the main and default repositories
-   * conflated.
-   */
-  public String getDefaultCanonicalForm() {
-    String repository = packageIdentifier.getRepository().getDefaultCanonicalForm();
-    return repository + "//" + packageIdentifier.getPackageFragment() + ":" + name;
   }
 
   /**
@@ -531,25 +493,24 @@ public final class Label
               + "Label(\"@remapped//wiz:quux\")\n"
               + "</pre>",
       parameters = {
-        @Param(
-            name = "relName",
-            type = String.class,
-            doc = "The label that will be resolved relative to this one.")
+        @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
     HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
-    return getRelativeWithRemapping(relName, hrm.getRepoMapping());
+    return getRelativeWithRemapping(relName, hrm.getRepoMappingForCurrentBzlFile(thread));
   }
 
   /**
-   * An interface for retrieving a repository mapping.
+   * An interface for retrieving a repository mapping that's applicable for the repo containing the
+   * current .bzl file (more precisely, the .bzl file where the function at the innermost Starlark
+   * stack frame lives).
    *
    * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
    * that type here because logically it belongs in Bazel, above this package.
    */
   public interface HasRepoMapping {
-    ImmutableMap<RepositoryName, RepositoryName> getRepoMapping();
+    RepositoryMapping getRepoMappingForCurrentBzlFile(StarlarkThread thread);
   }
 
   /**
@@ -560,56 +521,28 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux};
    * {@code @repo//foo:bar} relative to anything will be {@code @repo//foo:bar} if {@code @repo} is
    * not in {@code repositoryMapping} but will be {@code @other_repo//foo:bar} if there is an entry
-   * {@code @repo -> @other_repo} in {@code repositoryMapping}
+   * {@code @repo -> @other_repo} in {@code repositoryMapping}.
    *
    * @param relName the relative label name; must be non-empty
    * @param repositoryMapping the map of local repository names in external repository to global
    *     repository names in main repo; can be empty, but not null
    */
+  // TODO(b/200024947): Remove this.
+  public Label getRelativeWithRemapping(String relName, RepositoryMapping repositoryMapping)
+      throws LabelSyntaxException {
+    Preconditions.checkNotNull(repositoryMapping);
+    if (relName.isEmpty()) {
+      throw new LabelSyntaxException("empty package-relative label");
+    }
+    return parseWithPackageContext(relName, packageIdentifier, repositoryMapping);
+  }
+
+  // TODO(b/200024947): Remove this.
   public Label getRelativeWithRemapping(
       String relName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
-    Preconditions.checkNotNull(repositoryMapping);
-    if (relName.length() == 0) {
-      throw new LabelSyntaxException("empty package-relative label");
-    }
-
-    if (LabelValidator.isAbsolute(relName)) {
-      return resolveRepositoryRelative(parseAbsolute(relName, false, repositoryMapping));
-    } else if (relName.equals(":")) {
-      throw new LabelSyntaxException("':' is not a valid package-relative label");
-    } else if (relName.charAt(0) == ':') {
-      return getLocalTargetLabel(relName.substring(1));
-    } else {
-      return getLocalTargetLabel(relName);
-    }
-  }
-
-  /**
-   * Resolves the repository of a label in the context of another label.
-   *
-   * <p>This is necessary so that dependency edges in remote repositories do not need to explicitly
-   * mention their repository name. Otherwise, referring to e.g. <code>//a:b</code> in a remote
-   * repository would point back to the main repository, which is usually not what is intended.
-   *
-   * <p>The return value will not be in the default repository.
-   */
-  public Label resolveRepositoryRelative(Label relative) {
-    if (packageIdentifier.getRepository().isDefault()
-        || !relative.packageIdentifier.getRepository().isDefault()) {
-      return relative;
-    } else {
-      try {
-        return create(
-            PackageIdentifier.create(
-                packageIdentifier.getRepository(), relative.getPackageFragment()),
-            relative.getName());
-      } catch (LabelSyntaxException e) {
-        // We are creating the new label from an existing one which is guaranteed to be valid, so
-        // this can't happen
-        throw new IllegalStateException(e);
-      }
-    }
+    return getRelativeWithRemapping(
+        relName, RepositoryMapping.createAllowingFallback(repositoryMapping));
   }
 
   @Override
@@ -622,6 +555,15 @@ public final class Label
     return hashCode(name, packageIdentifier);
   }
 
+  /**
+   * Specialization of {@link Arrays#hashCode()} that does not require constructing a 2-element
+   * array.
+   */
+  private static int hashCode(Object obj1, Object obj2) {
+    int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
+    return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
+  }
+
   /** Two labels are equal iff both their name and their package name are equal. */
   @Override
   public boolean equals(Object other) {
@@ -632,7 +574,7 @@ public final class Label
       return false;
     }
     Label otherLabel = (Label) other;
-    // Package identifiers are interned so we compare them first.
+    // Package identifiers are (weakly) interned so we compare them first.
     return packageIdentifier.equals(otherLabel.packageIdentifier) && name.equals(otherLabel.name);
   }
 
@@ -668,7 +610,7 @@ public final class Label
    */
   public static PathFragment getContainingDirectory(Label label) {
     PathFragment pkg = label.getPackageFragment();
-    String name = label.getName();
+    String name = label.name;
     if (name.equals(".")) {
       return pkg;
     }
@@ -699,14 +641,5 @@ public final class Label
   @Override
   public String expandToCommandLine() {
     return getCanonicalForm();
-  }
-
-  /**
-   * Specialization of {@link Arrays#hashCode()} that does not require constructing a 2-element
-   * array.
-   */
-  private static final int hashCode(Object obj1, Object obj2) {
-    int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
-    return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
   }
 }

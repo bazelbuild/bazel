@@ -39,6 +39,7 @@ def android_sh_test(**kwargs):
     # Test with released android_tools version.
     native.sh_test(
         name = name,
+        args = ["--without_platforms"],
         data = data,
         **kwargs
     )
@@ -47,8 +48,17 @@ def android_sh_test(**kwargs):
     # as the test itself.
     native.sh_test(
         name = name + "_with_head_android_tools",
+        args = ["--without_platforms"],
         data = data + [
             "//tools/android/runtime_deps:android_tools.tar.gz",
         ],
+        **kwargs
+    )
+
+    # Test with platform-based toolchain resolution.
+    native.sh_test(
+        name = name + "_with_platforms",
+        data = data,
+        args = ["--with_platforms"],
         **kwargs
     )

@@ -58,6 +58,16 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
   }
 
   @Override
+  public void str(Printer printer) {
+    printer.append("<FeatureConfiguration(");
+    printer.append("ENABLED:");
+    printer.append(Joiner.on(", ").join(featureConfiguration.getEnabledFeatureNames()));
+    printer.append(";REQUESTED:");
+    printer.append(Joiner.on(", ").join(featureConfiguration.getRequestedFeatures()));
+    printer.append(")>");
+  }
+
+  @Override
   public void debugPrint(Printer printer) {
     printer.append("<FeatureConfiguration(");
     printer.append(Joiner.on(", ").join(featureConfiguration.getEnabledFeatureNames()));

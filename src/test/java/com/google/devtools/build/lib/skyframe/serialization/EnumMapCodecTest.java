@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
@@ -44,7 +45,10 @@ public class EnumMapCodecTest {
     SerializationException exception =
         assertThrows(
             SerializationException.class,
-            () -> TestUtils.toBytes(new SubEnum<>(TestEnum.class), ImmutableMap.of()));
+            () ->
+                TestUtils.toBytes(
+                    new SerializationContext(ImmutableClassToInstanceMap.of()),
+                    new SubEnum<>(TestEnum.class)));
     assertThat(exception).hasMessageThat().contains("Cannot serialize subclasses of EnumMap");
   }
 

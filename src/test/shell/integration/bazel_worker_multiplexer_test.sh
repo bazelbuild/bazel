@@ -90,7 +90,7 @@ def _impl(ctx):
       executable=worker,
       progress_message="Working on %s" % ctx.label.name,
       mnemonic="Work",
-      execution_requirements={"supports-multiplex-workers": "1"},
+      execution_requirements={"supports-multiplex-workers": "1", "supports-multiplex-sandboxing": "1"},
       arguments=ctx.attr.worker_args + argfile_arguments,
   )
 
@@ -191,7 +191,8 @@ EOF
   assert_equals "1" $work_count
 }
 
-function test_build_fails_when_worker_exits() {
+# Flaky
+function DISABLED_test_build_fails_when_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -205,10 +206,13 @@ EOF
   bazel build :hello_world_1 &> $TEST_log \
     || fail "build failed"
 
-  bazel build :hello_world_2 &> $TEST_log \
-    && fail "expected build to failed" || true
+  bazel build --worker_verbose :hello_world_2 >> $TEST_log 2>&1 \
+    && fail "expected build to fail" || true
 
-  expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
+  error_msgs=$(egrep -o -- 'Worker process (did not return a|returned an unparseable) WorkResponse' "$TEST_log")
+
+  [ -n "$error_msgs" ] \
+    || fail "expected error message not found"
 }
 
 function test_worker_restarts_when_worker_binary_changes() {
@@ -239,7 +243,7 @@ EOF
   assert_equals "$worker_uuid_1" "$worker_uuid_2"
 
   # Modify the example worker jar to trigger a rebuild of the worker.
-  tr -cd '[:alnum:]' < /dev/urandom | head -c32 > dummy_file
+  tr -cd '[:alnum:]' < /dev/urandom | head -c32 > dummy_file || true
   zip worker_lib.jar dummy_file
   rm dummy_file
 
@@ -471,28 +475,31 @@ EOF
 
 function test_crashed_worker_causes_log_dump() {
   prepare_example_worker
-  cat >>BUILD <<'EOF'
+  # TODO(larsrc): Spread this pattern to other tests
+  func_name=${FUNCNAME[0]##test*:}  # Test name without generated prefix
+  cat | sed "s/##FUNCNAME##/$func_name/;" >>BUILD <<'EOF'
 [work(
-  name = "hello_world_%s" % idx,
+  name = "##FUNCNAME##_%s" % idx,
   worker = ":worker",
   worker_args = ["--poison_after=1", "--hard_poison"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
 
-  bazel build :hello_world_1 &> $TEST_log \
+  bazel build :${func_name}_1 &> $TEST_log \
     || fail "build failed"
 
-  bazel build :hello_world_2 &> $TEST_log \
+  bazel build :${func_name}_2 &> $TEST_log \
     && fail "expected build to fail" || true
 
-  expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "Worker process did not return a WorkResponse:"
+  expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "I'm a very poisoned worker and will just crash."
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
-function test_multiple_target_without_delay() {
+# Flaky
+function DISABLED_test_multiple_target_without_delay() {
   prepare_example_worker
   cat >>BUILD <<EOF
 work(
@@ -522,7 +529,8 @@ EOF
 }
 
 # We just need to test the build completion, no assertion is needed.
-function test_multiple_target_with_delay() {
+# Flaky
+function DISABLED_test_multiple_target_with_delay() {
   prepare_example_worker
   cat >>BUILD <<EOF
 work(
@@ -547,4 +555,71 @@ EOF
   bazel build  :hello_world_1 :hello_world_2 :hello_world_3 &> $TEST_log \
     || fail "build failed"
 }
+
+# This is just to test that file handling in multiplex example worker works.
+function test_multiplexer_files() {
+  prepare_example_worker
+
+  mkdir -p dir1/dir2
+  echo "base file" > file.txt
+  echo "subdir file" > dir1/dir2/file.txt
+
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  srcs = [":file.txt", ":dir1/dir2/file.txt"],
+  args = ["hello world", "FILE:${WORKSPACE_SUBDIR}/file.txt", "FILE:${WORKSPACE_SUBDIR}/dir1/dir2/file.txt"],
+)
+EOF
+
+  bazel build  :hello_world &> $TEST_log \
+    || (sleep 1 && fail "build failed")
+  assert_equals "hello world base file subdir file" "$( echo $(cat $BINS/hello_world.out))"
+}
+
+function test_sandboxed_multiplexer_files() {
+  prepare_example_worker
+  echo "base file" > file.txt
+
+  mkdir -p ${PWD}/dir1/dir2
+  echo "base file" > file.txt
+  echo "subdir file" > dir1/dir2/file.txt
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  srcs = [":file.txt", ":dir1/dir2/file.txt"],
+  args = ["hello world", "FILE:${WORKSPACE_SUBDIR}/file.txt", "FILE:${WORKSPACE_SUBDIR}/dir1/dir2/file.txt"],
+)
+
+EOF
+
+  bazel build :hello_world --experimental_worker_multiplex_sandboxing &> $TEST_log \
+    || fail "build failed"
+  assert_equals "hello world base file subdir file" "$( echo $(cat $BINS/hello_world.out))"
+}
+
+function test_sandboxed_multiplexer_files_fails_if_ignoring_sandbox() {
+  prepare_example_worker
+  echo "base file" > file.txt
+
+  mkdir -p ${PWD}/dir1/dir2
+  echo "base file" > file.txt
+  echo "subdir file" > dir1/dir2/file.txt
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world_ignore_sandbox",
+  worker = ":worker",
+  srcs = [":file.txt", ":dir1/dir2/file.txt"],
+  args = ["--ignore_sandbox", "hello world", "FILE:${WORKSPACE_SUBDIR}/file.txt", "FILE:${WORKSPACE_SUBDIR}/dir1/dir2/file.txt"],
+)
+
+EOF
+
+  bazel build :hello_world_ignore_sandbox --experimental_worker_multiplex_sandboxing &> $TEST_log \
+    && fail "expected build to fail"
+  expect_log "java.nio.file.NoSuchFileException"
+}
+
 run_suite "Worker multiplexer integration tests"

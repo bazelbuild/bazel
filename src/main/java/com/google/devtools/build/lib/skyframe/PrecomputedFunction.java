@@ -30,9 +30,4 @@ public class PrecomputedFunction implements SkyFunction {
       InterruptedException {
     throw new IllegalStateException(skyKey + " not set");
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

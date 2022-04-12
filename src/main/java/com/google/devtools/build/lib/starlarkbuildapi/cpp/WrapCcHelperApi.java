@@ -40,7 +40,7 @@ public interface WrapCcHelperApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, ?>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
         CcCompilationContextT extends CcCompilationContextApi<FileT>,
@@ -52,12 +52,8 @@ public interface WrapCcHelperApi<
       documented = false,
       doc = "",
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(
-            name = "cc_toolchain",
-            positional = false,
-            named = true,
-            type = CcToolchainProviderApi.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
       })
   public FeatureConfigurationT starlarkGetFeatureConfiguration(
       starlarkRuleContextT starlarkRuleContext, CcToolchainProviderT ccToolchain)
@@ -67,7 +63,7 @@ public interface WrapCcHelperApi<
       name = "collect_transitive_swig_includes",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true),
       })
   public Depset starlarkCollectTransitiveSwigIncludes(starlarkRuleContextT starlarkRuleContext);
 
@@ -75,25 +71,13 @@ public interface WrapCcHelperApi<
       name = "create_compile_actions",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true,
-            type = FeatureConfigurationApi.class),
-        @Param(
-            name = "cc_toolchain",
-            positional = false,
-            named = true,
-            type = CcToolchainProviderApi.class),
-        @Param(name = "cc_file", positional = false, named = true, type = FileApi.class),
-        @Param(name = "header_file", positional = false, named = true, type = FileApi.class),
-        @Param(
-            name = "dep_compilation_contexts",
-            positional = false,
-            named = true,
-            type = Sequence.class),
-        @Param(name = "target_copts", positional = false, named = true, type = Sequence.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "cc_file", positional = false, named = true),
+        @Param(name = "header_file", positional = false, named = true),
+        @Param(name = "dep_compilation_contexts", positional = false, named = true),
+        @Param(name = "target_copts", positional = false, named = true),
       })
   public CompilationInfoT starlarkCreateCompileActions(
       starlarkRuleContextT starlarkRuleContext,
@@ -110,7 +94,7 @@ public interface WrapCcHelperApi<
       documented = false,
       doc = "",
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true),
       })
   public String starlarkGetMangledTargetName(starlarkRuleContextT starlarkRuleContext)
       throws EvalException, InterruptedException;
@@ -120,8 +104,8 @@ public interface WrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(name = "swig_includes", positional = false, named = true, type = Depset.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "swig_includes", positional = false, named = true),
       })
   // TODO(plf): Not written in Starlark because of PythonRunfilesProvider.
   public WrapCcIncludeProviderT getWrapCcIncludeProvider(
@@ -132,50 +116,34 @@ public interface WrapCcHelperApi<
       name = "register_swig_action",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
-        @Param(
-            name = "cc_toolchain",
-            positional = false,
-            named = true,
-            type = CcToolchainProviderApi.class),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true,
-            noneable = false,
-            type = FeatureConfigurationApi.class),
-        @Param(
-            name = "wrapper_compilation_context",
-            positional = false,
-            named = true,
-            type = CcCompilationContextApi.class),
-        @Param(name = "swig_includes", positional = false, named = true, type = Depset.class),
-        @Param(name = "swig_source", positional = false, named = true, type = FileApi.class),
-        @Param(name = "sub_parameters", positional = false, named = true, type = Sequence.class),
-        @Param(name = "cc_file", positional = false, named = true, type = FileApi.class),
-        @Param(name = "header_file", positional = false, named = true, type = FileApi.class),
-        @Param(name = "output_files", positional = false, named = true, type = Sequence.class),
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "wrapper_compilation_context", positional = false, named = true),
+        @Param(name = "swig_includes", positional = false, named = true),
+        @Param(name = "swig_source", positional = false, named = true),
+        @Param(name = "sub_parameters", positional = false, named = true),
+        @Param(name = "cc_file", positional = false, named = true),
+        @Param(name = "header_file", positional = false, named = true),
+        @Param(name = "output_files", positional = false, named = true),
         @Param(
             name = "out_dir",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
         @Param(
             name = "java_dir",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
-        @Param(name = "auxiliary_inputs", positional = false, named = true, type = Depset.class),
-        @Param(name = "swig_attribute_name", positional = false, named = true, type = String.class),
+        @Param(name = "auxiliary_inputs", positional = false, named = true),
+        @Param(name = "swig_attribute_name", positional = false, named = true),
         @Param(
             name = "zip_tool",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "None",
             allowedTypes = {
               @ParamType(type = FilesToRunProviderApi.class),

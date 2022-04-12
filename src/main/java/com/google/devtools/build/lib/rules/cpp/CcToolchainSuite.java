@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -25,29 +24,28 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import java.util.Map;
 
 /**
  * Implementation of the {@code cc_toolchain_suite} rule.
  *
  * <p>This is currently a no-op because the logic that transforms this rule into something that can
- * be understood by the {@code cc_*} rules is in
- * {@link com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader}.
+ * be understood by the {@code cc_*} rules is in {@link
+ * com.google.devtools.build.lib.rules.cpp.CppConfiguration}.
  */
 public class CcToolchainSuite implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
-    String transformedCpu = cppConfiguration.getTransformedCpuFromOptions();
+    String transformedCpu = ruleContext.getConfiguration().getCpu();
     String compiler = cppConfiguration.getCompilerFromOptions();
-    String key = transformedCpu + (compiler == null ? "" : ("|" + compiler));
+    String key = transformedCpu + (Strings.isNullOrEmpty(compiler) ? "" : ("|" + compiler));
     Map<String, Label> toolchains =
         ruleContext.attributes().get("toolchains", BuildType.LABEL_DICT_UNARY);
     Label selectedCcToolchain = toolchains.get(key);
@@ -59,7 +57,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       // toolchains and provide it here as well.
       ccToolchainProvider =
           selectCcToolchain(
-              CcToolchainProvider.class,
+              CcToolchainProvider.PROVIDER,
               ruleContext,
               transformedCpu,
               compiler,
@@ -69,7 +67,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       // and providing CcToolchainInfo.
       CcToolchainAttributesProvider selectedAttributes =
           selectCcToolchain(
-              CcToolchainAttributesProvider.class,
+              CcToolchainAttributesProvider.PROVIDER,
               ruleContext,
               transformedCpu,
               compiler,
@@ -94,9 +92,8 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccToolchainProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .setFilesToBuild(ccToolchainProvider.getAllFiles())
-            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
-            .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
+            .setFilesToBuild(ccToolchainProvider.getAllFilesIncludingLibc())
+            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     if (ccToolchainProvider.getLicensesProvider() != null) {
       builder.add(LicensesProvider.class, ccToolchainProvider.getLicensesProvider());
@@ -106,7 +103,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
   }
 
   private <T extends HasCcToolchainLabel> T selectCcToolchain(
-      Class<T> clazz,
+      BuiltinProvider<T> providerType,
       RuleContext ruleContext,
       String cpu,
       String compiler,
@@ -114,14 +111,14 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       throws RuleErrorException {
     T selectedAttributes = null;
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
-      T attributes = clazz.cast(dep.get(ToolchainInfo.PROVIDER));
+      T attributes = dep.get(providerType);
       if (attributes != null && attributes.getCcToolchainLabel().equals(selectedCcToolchain)) {
         selectedAttributes = attributes;
         break;
       }
     }
     if (selectedAttributes != null) {
-      return clazz.cast(selectedAttributes);
+      return selectedAttributes;
     }
 
     String errorMessage =

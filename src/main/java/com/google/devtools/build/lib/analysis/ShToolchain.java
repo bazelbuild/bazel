@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Class to work with the shell toolchain, e.g. get the shell interpreter's path. */
@@ -25,7 +25,7 @@ public final class ShToolchain {
    *
    * <p>This method checks the configuration's {@link ShellConfiguration} fragment.
    */
-  public static PathFragment getPath(BuildConfiguration config) {
+  public static PathFragment getPath(BuildConfigurationValue config) {
     PathFragment result = PathFragment.EMPTY_FRAGMENT;
 
     ShellConfiguration configFragment =

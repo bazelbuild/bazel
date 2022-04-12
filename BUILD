@@ -24,9 +24,11 @@ filegroup(
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
+        "//site/en:srcs",
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",
+        "//src/main/starlark/tests/builtins_bzl:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -49,6 +51,7 @@ filegroup(
     srcs = [
         ":WORKSPACE",
         ":distdir.bzl",
+        ":distdir_deps.bzl",
     ],
     visibility = [
         "//src/test/shell/bazel:__subpackages__",
@@ -80,11 +83,10 @@ pkg_tar(
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
+        "@zstd-jni//:zstd-jni",
     ],
-    remap_paths = {
-        "..": "derived/jars",
-    },
-    strip_prefix = ".",
+    package_dir = "derived/jars",
+    strip_prefix = "external",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
@@ -108,14 +110,30 @@ filegroup(
     visibility = ["//:__subpackages__"],
 )
 
+# Additional generated files that are not Java sources (which could otherwise
+# be included in //src:derived_java_sources).
+filegroup(
+    name = "generated_resources",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
+    ],
+)
+
 pkg_tar(
     name = "bazel-srcs",
-    srcs = [":srcs"],
+    srcs = [
+        ":generated_resources",
+        ":srcs",
+    ],
+    # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
         "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.
-        "../googleapis": "third_party/googleapis",
-        "../remoteapis": "third_party/remoteapis",
+        "external/googleapis": "third_party/googleapis",
+        "external/remoteapis": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
@@ -125,8 +143,7 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    package_dir = "platforms",
-    strip_prefix = ".",
+    strip_prefix = "external",
     visibility = ["//:__subpackages__"],
 )
 
@@ -171,15 +188,6 @@ genrule(
     visibility = ["//:__subpackages__"],
 )
 
-# This is a workaround for fetching Bazel toolchains, for remote execution.
-# See https://github.com/bazelbuild/bazel/issues/3246.
-# Will be removed once toolchain fetching is supported.
-filegroup(
-    name = "dummy_toolchain_reference",
-    srcs = ["@bazel_toolchains//configs/debian8_clang/0.2.0/bazel_0.9.0:empty"],
-    visibility = ["//visibility:public"],
-)
-
 constraint_setting(name = "machine_size")
 
 # A machine with "high cpu count".
@@ -197,23 +205,16 @@ platform(
     parents = ["@local_config_platform//:host"],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
+REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
 
 [
     platform(
         name = platform_name + "_platform",
+        exec_properties = {
+            "dockerNetwork": "standard",
+            "dockerPrivileged": "true",
+        },
         parents = ["@" + platform_name + "//config:platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "dockerNetwork"
-                value: "standard"
-            }
-            properties: {
-                name: "dockerPrivileged"
-                value: "true"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]
@@ -226,14 +227,10 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
         constraint_values = [
             "//:highcpu_machine",
         ],
+        exec_properties = {
+            "gceMachineType": "e2-highcpu-32",
+        },
         parents = ["//:" + platform_name + "_platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "gceMachineType"
-                value: "n1-highcpu-32"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]

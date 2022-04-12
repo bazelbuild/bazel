@@ -13,17 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
@@ -31,8 +35,8 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -48,7 +52,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -56,8 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,13 +71,17 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
-/**
- * Common parts of the implementation of cc rules.
- */
-public final class CcCommon {
+/** Common parts of the implementation of cc rules. */
+public final class CcCommon implements StarlarkValue {
 
   /** Name of the build variable for the sysroot path variable name. */
   public static final String SYSROOT_VARIABLE_NAME = "sysroot";
@@ -123,7 +128,8 @@ public final class CcCommon {
           CppActionNames.CLIF_MATCH,
           CppActionNames.LINKSTAMP_COMPILE,
           CppActionNames.CC_FLAGS_MAKE_VARIABLE,
-          CppActionNames.LTO_BACKEND);
+          CppActionNames.LTO_BACKEND,
+          CppActionNames.CPP_HEADER_ANALYSIS);
 
   public static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
@@ -159,7 +165,7 @@ public final class CcCommon {
 
   private final FdoContext fdoContext;
 
-  public CcCommon(RuleContext ruleContext) {
+  public CcCommon(RuleContext ruleContext) throws RuleErrorException {
     this(
         ruleContext,
         Preconditions.checkNotNull(
@@ -198,19 +204,23 @@ public final class CcCommon {
     return mergedOutputGroups;
   }
 
+  @StarlarkMethod(name = "copts", structField = true, documented = false)
+  public Sequence<String> getCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getCopts());
+  }
+
+  @StarlarkMethod(name = "linkopts", structField = true, documented = false)
+  public Sequence<String> getLinkoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getLinkopts());
+  }
+
   /**
-   * Returns our own linkopts from the rule attribute. This determines linker
-   * options to use when building this target and anything that depends on it.
+   * Returns our own linkopts from the rule attribute. This determines linker options to use when
+   * building this target and anything that depends on it.
    */
   public ImmutableList<String> getLinkopts() {
     Preconditions.checkState(hasAttribute("linkopts", Type.STRING_LIST));
-    Iterable<String> ourLinkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
-    List<String> result;
-    if (ourLinkopts != null) {
-      result = CppHelper.expandLinkopts(ruleContext, "linkopts", ourLinkopts);
-    } else {
-      result = ImmutableList.of();
-    }
+    ImmutableList<String> result = CppHelper.getLinkopts(ruleContext);
 
     if (ApplePlatform.isApplePlatform(ccToolchain.getTargetCpu()) && result.contains("-static")) {
       ruleContext.attributeError(
@@ -236,6 +246,14 @@ public final class CcCommon {
         .addAll(CppHelper.getPackageCopts(ruleContext))
         .addAll(CppHelper.getAttributeCopts(ruleContext))
         .build();
+  }
+
+  // TODO(gnish): Delete this method once package default copts are gone.
+  // All of the package default copts will be included in rule attribute
+  // after the migration.
+  @StarlarkMethod(name = "unexpanded_package_copts", structField = true, documented = false)
+  public Sequence<String> getUnexpandedPackageCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(ruleContext.getRule().getPackage().getDefaultCopts());
   }
 
   private boolean hasAttribute(String name, Type<?> type) {
@@ -264,6 +282,30 @@ public final class CcCommon {
       }
     }
     return mapToListOfPairs(map);
+  }
+
+  @StarlarkMethod(name = "srcs", documented = false, structField = true)
+  public Sequence<Tuple> getSourcesForStarlark() {
+    List<Pair<Artifact, Label>> sources = getSources();
+    ImmutableList<Tuple> tupleList =
+        sources.stream().map(p -> Tuple.pair(p.first, p.second)).collect(toImmutableList());
+    return StarlarkList.immutableCopyOf(tupleList);
+  }
+
+  @StarlarkMethod(name = "private_hdrs", documented = false, structField = true)
+  public Sequence<Tuple> getPrivateHeaderForStarlark() {
+    return convertListPairToTuple(getPrivateHeaders());
+  }
+
+  @StarlarkMethod(name = "public_hdrs", documented = false, structField = true)
+  public Sequence<Tuple> getPublicHeaderForStarlark() {
+    return convertListPairToTuple(getHeaders());
+  }
+
+  private Sequence<Tuple> convertListPairToTuple(List<Pair<Artifact, Label>> listPair) {
+    ImmutableList<Tuple> tupleList =
+        listPair.stream().map(p -> Tuple.pair(p.first, p.second)).collect(toImmutableList());
+    return StarlarkList.immutableCopyOf(tupleList);
   }
 
   /**
@@ -338,9 +380,8 @@ public final class CcCommon {
     return result.build();
   }
 
-  /**
-   * Returns the C++ toolchain provider.
-   */
+  /** Returns the C++ toolchain provider. */
+  @StarlarkMethod(name = "toolchain", documented = false, structField = true)
   public CcToolchainProvider getToolchain() {
     return ccToolchain;
   }
@@ -356,6 +397,21 @@ public final class CcCommon {
    */
   public List<Pair<Artifact, Label>> getHeaders() {
     return getHeaders(ruleContext);
+  }
+
+  @StarlarkMethod(
+      name = "report_invalid_options",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      })
+  public void reportInvalidOptionsForStarlark(StarlarkRuleContext starlarkRuleContext)
+      throws EvalException {
+    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+    reportInvalidOptions(ruleContext);
+    if (ruleContext.hasErrors()) {
+      throw new EvalException("Invalid options.");
+    }
   }
 
   public void reportInvalidOptions(RuleContext ruleContext) {
@@ -391,10 +447,17 @@ public final class CcCommon {
         return null;
       }
 
+      TransitiveInfoCollection toolchain;
+      if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
+        toolchain = ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+      } else {
+        toolchain =
+            ruleContext.getPrerequisite(
+                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
+      }
+
       try {
-        return CcCommon.computeCcFlags(
-            ruleContext,
-            ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME));
+        return CcCommon.computeCcFlags(ruleContext, toolchain);
       } catch (RuleErrorException e) {
         throw new ExpansionException(e.getMessage());
       }
@@ -409,13 +472,11 @@ public final class CcCommon {
   }
 
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
-  @AutoCodec
-  static class CoptsFilter {
+  public static final class CoptsFilter implements StarlarkValue {
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 
-    @VisibleForSerialization
-    CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
+    private CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
       this.noCoptsPattern = noCoptsPattern;
       this.allPasses = allPasses;
     }
@@ -444,7 +505,8 @@ public final class CcCommon {
   }
 
   /** Returns copts filter built from the make variable expanded nocopts attribute. */
-  CoptsFilter getCoptsFilter() {
+  @StarlarkMethod(name = "copts_filter", structField = true, documented = false)
+  public CoptsFilter getCoptsFilter() {
     return getCoptsFilter(ruleContext);
   }
 
@@ -485,18 +547,6 @@ public final class CcCommon {
     }
   }
 
-  // TODO(bazel-team): calculating nocopts every time is not very efficient,
-  // fix this after the rule migration. The problem is that in some cases we call this after
-  // the RCT is created (so RuleContext is not accessible), in some cases during the creation.
-  // It would probably make more sense to use TransitiveInfoProviders.
-  /**
-   * Returns true if the rule context has a nocopts regex that matches the given value, false
-   * otherwise.
-   */
-  static boolean noCoptsMatches(String option, RuleContext ruleContext) {
-    return !getCoptsFilter(ruleContext).passesFilter(option);
-  }
-
   private static final String DEFINES_ATTRIBUTE = "defines";
   private static final String LOCAL_DEFINES_ATTRIBUTE = "local_defines";
 
@@ -512,6 +562,11 @@ public final class CcCommon {
     return getDefinesFromAttribute(DEFINES_ATTRIBUTE);
   }
 
+  @StarlarkMethod(name = "defines", structField = true, documented = false)
+  public Sequence<String> getDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(getDefines());
+  }
+
   /**
    * Returns a list of define tokens from "local_defines" attribute.
    *
@@ -524,9 +579,38 @@ public final class CcCommon {
     return getDefinesFromAttribute(LOCAL_DEFINES_ATTRIBUTE);
   }
 
+  @StarlarkMethod(name = "local_defines", structField = true, documented = false)
+  public Sequence<String> getLocalDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(getNonTransitiveDefines());
+  }
+
   private List<String> getDefinesFromAttribute(String attr) {
     List<String> defines = new ArrayList<>();
-    for (String define : ruleContext.getExpander().list(attr)) {
+
+    // collect labels that can be subsituted in defines
+    Map<Label, ImmutableCollection<Artifact>> map = Maps.newLinkedHashMap();
+
+    if (ruleContext.attributes().has("deps", LABEL_LIST)) {
+      for (TransitiveInfoCollection current : ruleContext.getPrerequisites("deps")) {
+        map.put(
+            AliasProvider.getDependencyLabel(current),
+            current.getProvider(FileProvider.class).getFilesToBuild().toList());
+      }
+    }
+
+    if (ruleContext.attributes().has("data", LABEL_LIST)) {
+      for (TransitiveInfoCollection current : ruleContext.getPrerequisites("data")) {
+        Label dataDependencyLabel = AliasProvider.getDependencyLabel(current);
+        if (!map.containsKey(dataDependencyLabel)) {
+          map.put(
+              dataDependencyLabel,
+              current.getProvider(FileProvider.class).getFilesToBuild().toList());
+        }
+      }
+    }
+    // tokenize defines and substitute make variables
+    for (String define :
+        ruleContext.getExpander().withExecLocations(ImmutableMap.copyOf(map)).list(attr)) {
       List<String> tokens = new ArrayList<>();
       try {
         ShellUtils.tokenize(tokens, define);
@@ -548,11 +632,17 @@ public final class CcCommon {
     return defines;
   }
 
+  @StarlarkMethod(name = "loose_include_dirs", structField = true, documented = false)
+  public Sequence<String> getLooseIncludeDirsForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getLooseIncludeDirs().stream().map(PathFragment::toString).collect(toImmutableList()));
+  }
+
   /**
    * Determines a list of loose include directories that are only allowed to be referenced when
    * headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
-  Set<PathFragment> getLooseIncludeDirs() throws InterruptedException {
+  Set<PathFragment> getLooseIncludeDirs() {
     ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();
     // The package directory of the rule contributes includes. Note that this also covers all
     // non-subpackage sub-directories.
@@ -560,11 +650,7 @@ public final class CcCommon {
         ruleContext
             .getLabel()
             .getPackageIdentifier()
-            .getExecPath(
-                ruleContext
-                    .getAnalysisEnvironment()
-                    .getStarlarkSemantics()
-                    .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+            .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
     result.add(rulePackage);
 
     if (ruleContext
@@ -577,27 +663,25 @@ public final class CcCommon {
           ruleContext
               .getLabel()
               .getPackageIdentifier()
-              .getExecPath(
-                  ruleContext
-                      .getAnalysisEnvironment()
-                      .getStarlarkSemantics()
-                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+              .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       // For now, anything with an 'includes' needs a blanket declaration
       result.add(packageFragment.getRelative("**"));
     }
     return result.build();
   }
 
-  List<PathFragment> getSystemIncludeDirs() throws InterruptedException {
-    boolean siblingRepositoryLayout =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+  @StarlarkMethod(name = "system_include_dirs", structField = true, documented = false)
+  public Sequence<String> getSystemIncludeDirsForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getSystemIncludeDirs().stream().map(PathFragment::toString).collect(toImmutableList()));
+  }
+
+  List<PathFragment> getSystemIncludeDirs() {
+    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
     PathFragment packageExecPath = packageIdentifier.getExecPath(siblingRepositoryLayout);
-    PathFragment packageSourceRoot = packageIdentifier.getPackagePath();
+    PathFragment packageSourceRoot = packageIdentifier.getPackagePath(siblingRepositoryLayout);
     for (String includesAttr : ruleContext.getExpander().list("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",
@@ -633,10 +717,9 @@ public final class CcCommon {
       // must have manifested in includesPath already.
       PathFragment outIncludesPath = packageSourceRoot.getRelative(includesAttr);
       if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
-        result.add(
-            ruleContext.getConfiguration().getGenfilesFragment().getRelative(outIncludesPath));
+        result.add(ruleContext.getGenfilesFragment().getRelative(outIncludesPath));
       }
-      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(outIncludesPath));
+      result.add(ruleContext.getBinFragment().getRelative(outIncludesPath));
     }
     return result;
   }
@@ -698,6 +781,11 @@ public final class CcCommon {
         /* prefixConsumer= */ true);
   }
 
+  @StarlarkMethod(name = "linker_scripts", structField = true, documented = false)
+  public Sequence<Artifact> getLinkerScriptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getLinkerScripts());
+  }
+
   /** Returns any linker scripts found in the "deps" attribute of the rule. */
   List<Artifact> getLinkerScripts() {
     return ruleContext.getPrerequisiteArtifacts("deps").filter(CppFileTypes.LINKER_SCRIPT).list();
@@ -725,19 +813,69 @@ public final class CcCommon {
     return ruleContext.getPrerequisiteArtifact("$def_parser");
   }
 
+  @StarlarkMethod(
+      name = "instrumented_files_info",
+      documented = false,
+      parameters = {
+        @Param(name = "files", positional = false, named = true),
+        @Param(name = "with_base_line_coverage", positional = false, named = true),
+      })
+  public InstrumentedFilesInfo getInstrumentedFilesProviderForStarlark(
+      Sequence<?> files, boolean withBaselineCoverage) throws EvalException {
+    try {
+      return getInstrumentedFilesProvider(
+          Sequence.cast(files, Artifact.class, "files"), withBaselineCoverage);
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "instrumented_files_info_from_compilation_context",
+      documented = false,
+      parameters = {
+        @Param(name = "files", positional = false, named = true),
+        @Param(name = "with_base_line_coverage", positional = false, named = true),
+        @Param(name = "compilation_context", positional = false, named = true),
+        @Param(name = "additional_metadata", positional = false, named = true),
+      })
+  public InstrumentedFilesInfo getInstrumentedFilesProviderFromCompilationContextForStarlark(
+      Sequence<?> files,
+      boolean withBaselineCoverage,
+      Object compilationContext,
+      Sequence<?> additionalMetadata)
+      throws EvalException {
+    try {
+      CcCompilationContext ccCompilationContext = (CcCompilationContext) compilationContext;
+      Sequence<Artifact> metadata =
+          additionalMetadata == null
+              ? null
+              : Sequence.cast(additionalMetadata, Artifact.class, "files");
+      return getInstrumentedFilesProvider(
+          Sequence.cast(files, Artifact.class, "files"),
+          withBaselineCoverage,
+          ccCompilationContext.getVirtualToOriginalHeaders(),
+          metadata);
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
+
   /** Provides support for instrumentation. */
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
       Iterable<Artifact> files, boolean withBaselineCoverage) throws RuleErrorException {
     return getInstrumentedFilesProvider(
         files,
         withBaselineCoverage,
-        /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+        /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* additionalMetadata= */ null);
   }
 
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
       Iterable<Artifact> files,
       boolean withBaselineCoverage,
-      NestedSet<Pair<String, String>> virtualToOriginalHeaders)
+      NestedSet<Pair<String, String>> virtualToOriginalHeaders,
+      @Nullable Iterable<Artifact> additionalMetadata)
       throws RuleErrorException {
     return InstrumentedFilesCollector.collect(
         ruleContext,
@@ -747,7 +885,8 @@ public final class CcCommon {
         CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
         CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, cppConfiguration, ccToolchain),
         withBaselineCoverage,
-        virtualToOriginalHeaders);
+        virtualToOriginalHeaders,
+        additionalMetadata);
   }
 
   public String getPurpose(CppSemantics semantics) {
@@ -797,6 +936,22 @@ public final class CcCommon {
       ImmutableSet<String> unsupportedFeatures,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
+    return configureFeaturesOrReportRuleError(
+        ruleContext,
+        ruleContext.getConfiguration(),
+        requestedFeatures,
+        unsupportedFeatures,
+        toolchain,
+        cppSemantics);
+  }
+
+  public static FeatureConfiguration configureFeaturesOrReportRuleError(
+      RuleContext ruleContext,
+      BuildConfigurationValue buildConfiguration,
+      ImmutableSet<String> requestedFeatures,
+      ImmutableSet<String> unsupportedFeatures,
+      CcToolchainProvider toolchain,
+      CppSemantics cppSemantics) {
     cppSemantics.validateLayeringCheckFeatures(
         ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
     try {
@@ -804,7 +959,7 @@ public final class CcCommon {
           requestedFeatures,
           unsupportedFeatures,
           toolchain,
-          ruleContext.getFragment(CppConfiguration.class));
+          buildConfiguration.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
@@ -821,11 +976,13 @@ public final class CcCommon {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
     if (!toolchain.supportsHeaderParsing()) {
-      // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
+      // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
     }
-    if (toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
+
+    if (!requestedFeatures.contains(CppRuleClasses.LANG_OBJC)
+        && toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
 
@@ -865,7 +1022,8 @@ public final class CcCommon {
             .addAll(ImmutableSet.of(cppConfiguration.getCompilationMode().toString()))
             .addAll(DEFAULT_ACTION_CONFIGS)
             .addAll(requestedFeatures)
-            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
+            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
+            .addAll(cppConfiguration.getAppleBitcodeMode().getFeatureNames());
 
     if (!cppConfiguration.dontEnableHostNonhost()) {
       if (toolchain.isToolConfiguration()) {
@@ -888,15 +1046,28 @@ public final class CcCommon {
     }
 
     FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
+
+    boolean enablePropellerOptimize =
+        (cppConfiguration.getPropellerOptimizeLabel() != null
+            || cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
+            || cppConfiguration.getPropellerOptimizeAbsoluteLdProfile() != null);
+
     if (branchFdoProvider != null && cppConfiguration.getCompilationMode() == CompilationMode.OPT) {
       if ((branchFdoProvider.isLlvmFdo() || branchFdoProvider.isLlvmCSFdo())
           && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
         allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
-        // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
-        // explicitly disabled.
-        if (toolchain.isLLVMCompiler()
-            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        // Support implicit enabling of ThinLTO for FDO unless it has been explicitly disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
+        }
+
+        // Support implicit enabling of split functions for FDO unless it has been explicitly
+        // disabled
+        // or propeller_optimize is used. propeller_optimize must also disable split functions as
+        // they are mutually exclusive.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.SPLIT_FUNCTIONS)
+            && !enablePropellerOptimize) {
+          allFeatures.add(CppRuleClasses.ENABLE_FDO_SPLIT_FUNCTIONS);
         }
       }
       if (branchFdoProvider.isLlvmCSFdo()) {
@@ -904,19 +1075,19 @@ public final class CcCommon {
       }
       if (branchFdoProvider.isAutoFdo()) {
         allFeatures.add(CppRuleClasses.AUTOFDO);
-        // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
-        // explicitly disabled.
-        if (toolchain.isLLVMCompiler()
-            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        // Support implicit enabling of ThinLTO for AFDO unless it has been disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+        }
+        // Support implicit enabling of FSAFDO for AFDO unless it has been disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.FSAFDO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_FSAFDO);
         }
       }
       if (branchFdoProvider.isAutoXBinaryFdo()) {
         allFeatures.add(CppRuleClasses.XBINARYFDO);
-        // For LLVM, support implicit enabling of ThinLTO for XFDO unless it has been
-        // explicitly disabled.
-        if (toolchain.isLLVMCompiler()
-            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        // Support implicit enabling of ThinLTO for XFDO unless it has been explicitly disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_XFDO_THINLTO);
         }
       }
@@ -925,7 +1096,7 @@ public final class CcCommon {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
     }
 
-    if (cppConfiguration.getPropellerOptimizeLabel() != null) {
+    if (enablePropellerOptimize) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.PROPELLER_OPTIMIZE);
     }
 
@@ -963,8 +1134,7 @@ public final class CcCommon {
    */
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain)
       throws RuleErrorException {
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
+    CcToolchainProvider toolchainProvider = toolchain.get(CcToolchainProvider.PROVIDER);
 
     // Determine the original value of CC_FLAGS.
     String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();
@@ -1010,6 +1180,19 @@ public final class CcCommon {
     }
 
     return sysrootFlag;
+  }
+
+  @StarlarkMethod(
+      name = "compute_cc_flags_from_feature_config",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true)
+      })
+  public List<String> computeCcFlagsFromFeatureConfigForStarlark(
+      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain)
+      throws RuleErrorException {
+    return computeCcFlagsFromFeatureConfig(starlarkRuleContext.getRuleContext(), ccToolchain);
   }
 
   private static List<String> computeCcFlagsFromFeatureConfig(
@@ -1078,17 +1261,7 @@ public final class CcCommon {
               .add(requestedFeaturesFile)
               .build());
     }
-    return outputGroupsBuilder.build();
-  }
-
-  public static void checkRuleLoadedThroughMacro(RuleContext ruleContext) {
-    if (!ruleContext.getFragment(CppConfiguration.class).loadCcRulesFromBzl()) {
-      return;
-    }
-
-    if (!hasValidTag(ruleContext) || !ruleContext.getRule().wasCreatedByMacro()) {
-      registerMigrationRuleError(ruleContext);
-    }
+    return outputGroupsBuilder.buildOrThrow();
   }
 
   public static boolean isOldStarlarkApiWhiteListed(
@@ -1098,26 +1271,14 @@ public final class CcCommon {
 
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
+    if (label.getRepository().getName().equals("@_builtins")) {
+      // always permit builtins
+      return true;
+    }
     if (label != null) {
       return whitelistedPackages.stream()
           .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
     }
     return false;
-  }
-
-  private static boolean hasValidTag(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
-        .get("tags", Type.STRING_LIST)
-        .contains("__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__");
-  }
-
-  private static void registerMigrationRuleError(RuleContext ruleContext) {
-    ruleContext.ruleError(
-        "The native C++/Objc rules are deprecated. Please load "
-            + ruleContext.getRule().getRuleClass()
-            + " from the rules_cc repository. See http://github.com/bazelbuild/rules_cc and "
-            + "https://github.com/bazelbuild/bazel/issues/7643. You can temporarily bypass this "
-            + "error by setting --incompatible_load_cc_rules_from_bzl=false.");
   }
 }

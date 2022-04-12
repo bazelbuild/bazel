@@ -53,7 +53,7 @@ public class CcProtoLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("cc_proto_library")
         .factoryClass(CcProtoLibrary.class)
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .build();
   }
 }

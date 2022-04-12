@@ -173,7 +173,6 @@ class WindowsRemoteTest(test_base.TestBase):
   # it elsewhere, add --test_env=JAVA_HOME to your Bazel invocation to fix this
   # test.
   def testJavaTestWithRuntimeRunsRemotely(self):
-    java_home = os.getenv('JAVA_HOME', 'c:/openjdk')
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'package(default_visibility = ["//visibility:public"])',
@@ -183,11 +182,6 @@ class WindowsRemoteTest(test_base.TestBase):
         '  main_class = "TestFoo",',
         '  use_testrunner = 0,',
         '  data = ["//bar:bar.txt"],',
-        ')',
-        'java_runtime(',
-        '    name = "jdk8",',
-        '    srcs = [],',
-        '    java_home = "' + java_home + '",',
         ')',
     ])
     self.ScratchFile(
@@ -203,9 +197,8 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Test.
-    exit_code, stdout, stderr = self._RunRemoteBazel([
-        'test', '--test_output=all', '--javabase=//foo:jdk8', '//foo:foo_test'
-    ])
+    exit_code, stdout, stderr = self._RunRemoteBazel(
+        ['test', '--test_output=all', '//foo:foo_test'])
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
   # Genrules are notably different than tests because RUNFILES_DIR is not set

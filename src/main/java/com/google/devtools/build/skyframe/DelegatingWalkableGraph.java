@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -49,7 +50,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys)
+  public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> batchGet = getBatch(null, Reason.WALKABLE_GRAPH_VALUE, keys);
     Map<SkyKey, SkyValue> result = Maps.newHashMapWithExpectedSize(batchGet.size());
@@ -174,5 +175,10 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       }
     }
     return result;
+  }
+
+  @Override
+  public ImmutableSet<SkyKey> getAllKeysForTesting() {
+    return graph.getAllKeysForTesting();
   }
 }

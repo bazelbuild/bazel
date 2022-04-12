@@ -1,7 +1,0 @@
-#!/bin/bash
-
-(
-  printf 'Bazel does not yet support protobuf compiling.\n'
-) >&2
-
-exit 1

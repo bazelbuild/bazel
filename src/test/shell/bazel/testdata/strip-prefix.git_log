@@ -1,0 +1,19 @@
+commit f8167a60de4460e89601724fb13b4fc505da3f3d (HEAD -> main)
+Author: Yun Peng <pcloudy@google.com>
+Date:   Mon Nov 23 17:31:04 2020 +0100
+
+    First commit
+
+diff --git a/prefix-foo/BUILD b/prefix-foo/BUILD
+new file mode 100644
+index 0000000..e69de29
+diff --git a/prefix-foo/WORKSPACE b/prefix-foo/WORKSPACE
+new file mode 100644
+index 0000000..e69de29
+diff --git a/prefix-foo/defs.bzl b/prefix-foo/defs.bzl
+new file mode 100644
+index 0000000..3563ad1
+--- /dev/null
++++ b/prefix-foo/defs.bzl
+@@ -0,0 +1 @@
++FOO=123

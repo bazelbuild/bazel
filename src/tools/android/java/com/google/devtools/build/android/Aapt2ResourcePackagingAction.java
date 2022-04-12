@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.toList;
 
 import com.android.builder.core.VariantType;
 import com.android.utils.StdLogger;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
@@ -46,6 +47,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Provides an entry point for the resource processing using the AOSP build tools.
@@ -69,9 +71,6 @@ import java.util.List;
 public class Aapt2ResourcePackagingAction {
 
   private static final StdLogger STD_LOGGER = new StdLogger(StdLogger.Level.WARNING);
-
-  private static Aapt2ConfigOptions aaptConfigOptions;
-  private static Options options;
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
@@ -154,6 +153,15 @@ public class Aapt2ResourcePackagingAction {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "List of APKs used during linking.")
     public List<Path> additionalApksToLinkAgainst;
+
+    @Option(
+        name = "packageId",
+        defaultValue = "-1",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Resource ID prefix; see AAPT2 documentation for --package-id.")
+    public int packageId;
 
     @Option(
         name = "rOutput",
@@ -329,6 +337,13 @@ public class Aapt2ResourcePackagingAction {
         help = "Unused/deprecated option.")
     public boolean isTestWithResources;
 
+    @Option(
+        name = "includeProguardLocationReferences",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "When generating proguard configurations, include location references.")
+    public boolean includeProguardLocationReferences;
   }
 
   public static void main(String[] args) throws Exception {
@@ -340,8 +355,13 @@ public class Aapt2ResourcePackagingAction {
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
-    aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
-    options = optionsParser.getOptions(Options.class);
+
+    Aapt2ConfigOptions aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
+    Options options = optionsParser.getOptions(Options.class);
+
+    Preconditions.checkArgument(
+        options.packageId == -1 || (options.packageId >= 2 && options.packageId <= 255),
+        "packageId must be in the range [2,255]");
 
     try (ScopedTemporaryDirectory scopedTmp =
             new ScopedTemporaryDirectory("android_resources_tmp");
@@ -369,7 +389,10 @@ public class Aapt2ResourcePackagingAction {
           options
               .primaryData
               .processDataBindings(
-                  options.dataBindingInfoOut, options.packageForR, databindingResourcesRoot)
+                  options.dataBindingInfoOut,
+                  options.packageForR,
+                  databindingResourcesRoot,
+                  aaptConfigOptions.useDataBindingAndroidX)
               .compile(compiler, compiledResources)
               .processManifest(
                   manifest ->
@@ -455,6 +478,8 @@ public class Aapt2ResourcePackagingAction {
           ResourceLinker.create(aaptConfigOptions.aapt2, executorService, linkedOut)
               .profileUsing(profiler)
               .customPackage(options.packageForR)
+              .packageId(
+                  options.packageId != -1 ? Optional.of(options.packageId) : Optional.empty())
               .outputAsProto(aaptConfigOptions.resourceTableAsProto)
               .dependencies(ImmutableList.copyOf(dependencies))
               .include(compiledResourceDeps)
@@ -466,6 +491,7 @@ public class Aapt2ResourcePackagingAction {
               .debug(aaptConfigOptions.debug)
               .includeGeneratedLocales(aaptConfigOptions.generatePseudoLocale)
               .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
+              .includeProguardLocationReferences(options.includeProguardLocationReferences)
               .link(compiled);
       profiler.recordEndOf("link").startTask("validate");
 

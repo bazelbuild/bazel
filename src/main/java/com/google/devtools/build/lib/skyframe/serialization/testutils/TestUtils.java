@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -29,9 +29,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Mutability;
 
 /** Helpers for serialization tests. */
 public class TestUtils {
@@ -46,11 +44,6 @@ public class TestUtils {
     codec.serialize(context, value, codedOut);
     codedOut.flush();
     return bytes.toByteArray();
-  }
-
-  public static <T> ByteString toBytes(T value, ImmutableMap<Class<?>, Object> dependencies)
-      throws IOException, SerializationException {
-    return toBytes(new SerializationContext(dependencies), value);
   }
 
   public static <T> ByteString toBytes(SerializationContext serializationContext, T value)
@@ -75,12 +68,13 @@ public class TestUtils {
 
   public static <T> T roundTrip(T value, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return new DeserializationContext(registry, ImmutableMap.of())
+    return new DeserializationContext(registry, ImmutableClassToInstanceMap.of())
         .deserialize(
-            toBytes(new SerializationContext(registry, ImmutableMap.of()), value).newCodedInput());
+            toBytes(new SerializationContext(registry, ImmutableClassToInstanceMap.of()), value)
+                .newCodedInput());
   }
 
-  public static <T> T roundTrip(T value, ImmutableMap<Class<?>, Object> dependencies)
+  public static <T> T roundTrip(T value, ImmutableClassToInstanceMap<Object> dependencies)
       throws IOException, SerializationException {
     ObjectCodecRegistry.Builder builder = AutoRegistry.get().getBuilder();
     for (Object constant : dependencies.values()) {
@@ -93,7 +87,7 @@ public class TestUtils {
   }
 
   public static <T> T roundTrip(T value) throws IOException, SerializationException {
-    return TestUtils.roundTrip(value, ImmutableMap.of());
+    return TestUtils.roundTrip(value, ImmutableClassToInstanceMap.of());
   }
 
   /**
@@ -103,9 +97,6 @@ public class TestUtils {
   public static void assertModulesEqual(Module module1, Module module2) {
     assertThat(module1.getClientData()).isEqualTo(module2.getClientData());
     assertThat(module1.getGlobals()).containsExactlyEntriesIn(module2.getGlobals()).inOrder();
-    assertThat(module1.getExportedGlobals())
-        .containsExactlyEntriesIn(module2.getExportedGlobals())
-        .inOrder();
     assertThat(module1.getPredeclaredBindings())
         .containsExactlyEntriesIn(module2.getPredeclaredBindings())
         .inOrder();
@@ -121,7 +112,7 @@ public class TestUtils {
   }
 
   public static Object fromBytesMemoized(ByteString bytes, ObjectCodecRegistry registry)
-      throws IOException, SerializationException {
+      throws SerializationException {
     return new ObjectCodecs(registry).deserializeMemoized(bytes.newCodedInput());
   }
 
@@ -134,12 +125,6 @@ public class TestUtils {
   }
 
   public static <T> T roundTripMemoized(T original, ObjectCodec<?>... codecs)
-      throws IOException, SerializationException {
-    return roundTripMemoized(original, getBuilderWithAdditionalCodecs(codecs).build());
-  }
-
-  public static <T> T roundTripMemoized(
-      T original, @Nullable Mutability mutability, ObjectCodec<?>... codecs)
       throws IOException, SerializationException {
     return roundTripMemoized(original, getBuilderWithAdditionalCodecs(codecs).build());
   }

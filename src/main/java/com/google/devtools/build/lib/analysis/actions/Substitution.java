@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.stream.Collectors;
 
@@ -41,14 +40,10 @@ public abstract class Substitution {
 
   public abstract String getValue();
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class StringSubstitution extends Substitution {
+  private static final class StringSubstitution extends Substitution {
     private final String key;
     private final String value;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
     StringSubstitution(String key, String value) {
       this.key = key;
       this.value = value;
@@ -65,14 +60,10 @@ public abstract class Substitution {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class ListSubstitution extends Substitution {
+  private static final class ListSubstitution extends Substitution {
     private final String key;
     private final ImmutableList<?> value;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
     ListSubstitution(String key, ImmutableList<?> value) {
       this.key = key;
       this.value = value;
@@ -170,7 +161,6 @@ public abstract class Substitution {
    * string until requested. Often a template action is never executed, meaning the string is never
    * needed.
    */
-  @AutoCodec
   public static final class PathFragmentSubstitution extends ComputedSubstitution {
     private final PathFragment pathFragment;
 
@@ -191,7 +181,6 @@ public abstract class Substitution {
    * <p>This is more memory efficient than directly using the {@Label#toString}, since that method
    * constructs a new string every time it's called.
    */
-  @AutoCodec
   public static final class LabelSubstitution extends ComputedSubstitution {
     private final Label label;
 
@@ -211,13 +200,11 @@ public abstract class Substitution {
    *
    * <p>This is much more memory efficient than eagerly joining them into a string.
    */
-  @AutoCodec
-  public static final class JoinedArtifactListShortPathSubstitution extends ComputedSubstitution {
+  private static final class JoinedArtifactListShortPathSubstitution extends ComputedSubstitution {
     private final ImmutableList<Artifact> artifacts;
     private final String joinStr;
 
-    @AutoCodec.Instantiator
-    public JoinedArtifactListShortPathSubstitution(
+    JoinedArtifactListShortPathSubstitution(
         String key, ImmutableList<Artifact> artifacts, String joinStr) {
       super(key);
       this.artifacts = artifacts;
@@ -237,14 +224,12 @@ public abstract class Substitution {
    *
    * <p>This is much more memory efficient than eagerly joining them into a string.
    */
-  @AutoCodec
-  public static final class JoinedArtifactNestedSetShortPathSubstitution
+  private static final class JoinedArtifactNestedSetShortPathSubstitution
       extends ComputedSubstitution {
     private final NestedSet<Artifact> artifacts;
     private final String joinStr;
 
-    @AutoCodec.Instantiator
-    public JoinedArtifactNestedSetShortPathSubstitution(
+    JoinedArtifactNestedSetShortPathSubstitution(
         String key, NestedSet<Artifact> artifacts, String joinStr) {
       super(key);
       this.artifacts = artifacts;

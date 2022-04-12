@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
@@ -33,6 +35,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "py",
     doc = "A configuration fragment for Python.",
     category = DocCategory.CONFIGURATION_FRAGMENT)
+@RequiresOptions(options = {PythonOptions.class})
 public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final PythonVersion version;
@@ -49,30 +52,20 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   // TODO(brandjon): Remove this once migration to Python toolchains is complete.
   private final boolean useToolchains;
 
-  // TODO(brandjon): Remove this once migration for native rule access is complete.
-  private final boolean loadPythonRulesFromBzl;
-
   private final boolean defaultToExplicitInitPy;
 
-  PythonConfiguration(
-      PythonVersion version,
-      PythonVersion defaultVersion,
-      TriState buildPythonZip,
-      boolean buildTransitiveRunfilesTrees,
-      boolean py2OutputsAreSuffixed,
-      boolean disallowLegacyPyProvider,
-      boolean useToolchains,
-      boolean loadPythonRulesFromBzl,
-      boolean defaultToExplicitInitPy) {
-    this.version = version;
-    this.defaultVersion = defaultVersion;
-    this.buildPythonZip = buildPythonZip;
-    this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
-    this.py2OutputsAreSuffixed = py2OutputsAreSuffixed;
-    this.disallowLegacyPyProvider = disallowLegacyPyProvider;
-    this.useToolchains = useToolchains;
-    this.loadPythonRulesFromBzl = loadPythonRulesFromBzl;
-    this.defaultToExplicitInitPy = defaultToExplicitInitPy;
+  public PythonConfiguration(BuildOptions buildOptions) {
+    PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
+    PythonVersion pythonVersion = pythonOptions.getPythonVersion();
+
+    this.version = pythonVersion;
+    this.defaultVersion = pythonOptions.getDefaultPythonVersion();
+    this.buildPythonZip = pythonOptions.buildPythonZip;
+    this.buildTransitiveRunfilesTrees = pythonOptions.buildTransitiveRunfilesTrees;
+    this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
+    this.disallowLegacyPyProvider = pythonOptions.incompatibleDisallowLegacyPyProvider;
+    this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
+    this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
   }
 
   @Override
@@ -161,17 +154,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
    */
   public boolean useToolchains() {
     return useToolchains;
-  }
-
-  /**
-   * Returns true if native Python rules should fail at analysis time when the magic tag, {@code
-   * __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__}, is not present.
-   *
-   * <p>This tag is set by the macros in bazelbuild/rules_python and should not be used anywhere
-   * else.
-   */
-  public boolean loadPythonRulesFromBzl() {
-    return loadPythonRulesFromBzl;
   }
 
   /**

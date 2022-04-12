@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -54,6 +55,14 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getUnsignedApk();
 
+  /** Returns the deploy jar used to build the APK. */
+  @StarlarkMethod(
+      name = "deploy_jar",
+      doc = "Returns the deploy jar used to build the APK.",
+      documented = false,
+      structField = true)
+  FileT getDeployJar();
+
   /** Returns the coverage metadata artifact generated in the transitive closure. */
   @StarlarkMethod(
       name = "coverage_metadata",
@@ -61,6 +70,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       documented = false,
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileT getCoverageMetadata();
 
   /**
@@ -90,7 +100,18 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       documented = false,
       structField = true,
       allowReturnNones = true)
+  @Nullable
   FileT getSigningLineage();
+
+  /** Returns the minimum API version for signing the APK with key rotation. */
+  @StarlarkMethod(
+      name = "signing_min_v3_rotation_api_version",
+      doc = "Returns the minimum API version for signing the APK with key rotation.",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  String getSigningMinV3RotationApiVersion();
 
   /** Provider for {@link ApkInfoApi}. */
   @StarlarkBuiltin(

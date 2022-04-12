@@ -15,6 +15,7 @@ package com.google.devtools.build.docgen;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.testutil.TestData.BaseRule;
 import com.google.devtools.build.docgen.testutil.TestData.IntermediateRule;
@@ -104,7 +105,7 @@ public class RuleDocumentationAttributeTest {
   }
 
   @Test
-  public void testSynopsisForStringAttribute() {
+  public void testSynopsisForStringAttribute() throws BuildEncyclopediaDocException {
     final String defaultValue = "9";
     Attribute attribute = Attribute.attr("foo_version", Type.STRING)
         .value(defaultValue).build();
@@ -116,7 +117,7 @@ public class RuleDocumentationAttributeTest {
   }
 
   @Test
-  public void testSynopsisForIntegerAttribute() {
+  public void testSynopsisForIntegerAttribute() throws BuildEncyclopediaDocException {
     StarlarkInt defaultValue = StarlarkInt.of(384);
     Attribute attribute = Attribute.attr("bar_limit", Type.INTEGER)
         .value(defaultValue).build();
@@ -128,7 +129,7 @@ public class RuleDocumentationAttributeTest {
   }
 
   @Test
-  public void testSynopsisForLabelListAttribute() {
+  public void testSynopsisForLabelListAttribute() throws BuildEncyclopediaDocException {
     Attribute attribute = Attribute.attr("some_labels", BuildType.LABEL_LIST)
         .allowedRuleClasses("foo_rule")
         .allowedFileTypes()
@@ -137,11 +138,25 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertThat(doc).isEqualTo("List of <a href=\"../build-ref.html#labels\">labels</a>; optional");
+    assertThat(doc).isEqualTo("List of <a href=\"${link build-ref#labels}\">labels</a>; optional");
   }
 
   @Test
-  public void testSynopsisForMandatoryAttribute() {
+  public void testSynopsisForMandatoryAttribute() throws BuildEncyclopediaDocException {
+    Attribute attribute =
+        Attribute.attr("baz_labels", BuildType.LABEL)
+            .mandatory()
+            .allowedFileTypes(CppFileTypes.CPP_HEADER)
+            .build();
+    RuleDocumentationAttribute attributeDoc =
+        RuleDocumentationAttribute.create(TestRule.class, "testrule", "", 0, "", NO_FLAGS);
+    attributeDoc.setAttribute(attribute);
+    String doc = attributeDoc.getSynopsis();
+    assertThat(doc).isEqualTo("<a href=\"${link build-ref#labels}\">Label</a>; required");
+  }
+
+  @Test
+  public void testSynopsisWithRuleLinkExpander() throws BuildEncyclopediaDocException {
     Attribute attribute = Attribute.attr("baz_labels", BuildType.LABEL)
         .mandatory()
         .allowedFileTypes(CppFileTypes.CPP_HEADER)
@@ -149,7 +164,12 @@ public class RuleDocumentationAttributeTest {
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
+
+    DocLinkMap linkMap = new DocLinkMap("", ImmutableMap.of("build-ref", "THE_REF.html"));
+    RuleLinkExpander expander = new RuleLinkExpander(false, linkMap);
+    attributeDoc.setRuleLinkExpander(expander);
+
     String doc = attributeDoc.getSynopsis();
-    assertThat(doc).isEqualTo("<a href=\"../build-ref.html#labels\">Label</a>; required");
+    assertThat(doc).isEqualTo("<a href=\"THE_REF.html#labels\">Label</a>; required");
   }
 }

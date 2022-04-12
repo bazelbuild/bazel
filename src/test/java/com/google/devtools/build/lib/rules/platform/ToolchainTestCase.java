@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.IterableSubject;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -50,7 +51,8 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
   public ConstraintValueInfo defaultedConstraint;
 
   public Label testToolchainTypeLabel;
-  public ToolchainTypeInfo testToolchainType;
+  public ToolchainTypeRequirement testToolchainType;
+  public ToolchainTypeInfo testToolchainTypeInfo;
 
   protected static IterableSubject assertToolchainLabels(
       RegisteredToolchainsValue registeredToolchainsValue) {
@@ -81,7 +83,7 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
     }
 
     // Make sure the label is under the packageRoot.
-    if (!label.getPackageIdentifier().getRepository().equals(packageRoot.getRepository())) {
+    if (!label.getRepository().equals(packageRoot.getRepository())) {
       return false;
     }
 
@@ -118,23 +120,27 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         "platform(name = 'mac',",
         "    constraint_values = ['//constraints:mac', '//constraints:non_default_value'])");
 
-    setting = ConstraintSettingInfo.create(makeLabel("//constraints:os"));
-    linuxConstraint = ConstraintValueInfo.create(setting, makeLabel("//constraints:linux"));
-    macConstraint = ConstraintValueInfo.create(setting, makeLabel("//constraints:mac"));
+    setting = ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraints:os"));
+    linuxConstraint =
+        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//constraints:linux"));
+    macConstraint =
+        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//constraints:mac"));
     defaultedSetting =
-        ConstraintSettingInfo.create(makeLabel("//constraints:setting_with_default"));
+        ConstraintSettingInfo.create(
+            Label.parseAbsoluteUnchecked("//constraints:setting_with_default"));
     defaultedConstraint =
-        ConstraintValueInfo.create(defaultedSetting, makeLabel("//constraints:non_default_value"));
+        ConstraintValueInfo.create(
+            defaultedSetting, Label.parseAbsoluteUnchecked("//constraints:non_default_value"));
 
     linuxPlatform =
         PlatformInfo.builder()
-            .setLabel(makeLabel("//platforms:linux"))
+            .setLabel(Label.parseAbsoluteUnchecked("//platforms:linux"))
             .addConstraint(linuxConstraint)
             .addConstraint(defaultedConstraint)
             .build();
     macPlatform =
         PlatformInfo.builder()
-            .setLabel(makeLabel("//platforms:mac"))
+            .setLabel(Label.parseAbsoluteUnchecked("//platforms:mac"))
             .addConstraint(macConstraint)
             .addConstraint(defaultedConstraint)
             .build();
@@ -190,8 +196,9 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         ImmutableList.of("//constraints:linux"),
         "bar");
 
-    testToolchainTypeLabel = makeLabel("//toolchain:test_toolchain");
-    testToolchainType = ToolchainTypeInfo.create(testToolchainTypeLabel);
+    testToolchainTypeLabel = Label.parseAbsoluteUnchecked("//toolchain:test_toolchain");
+    testToolchainType = ToolchainTypeRequirement.create(testToolchainTypeLabel);
+    testToolchainTypeInfo = ToolchainTypeInfo.create(testToolchainTypeLabel);
   }
 
   protected EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(

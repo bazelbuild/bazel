@@ -119,6 +119,26 @@ EOF
   wc output || fail "no output produced"
 }
 
+function test_empty_file_in_runfiles() {
+  mkdir d
+  touch d/main.py
+  cat > BUILD <<'EOF'
+py_binary(
+    name = "py_tool",
+    main = "d/main.py",
+    srcs = ["d/main.py"],
+)
+genrule(
+    name = "rule",
+    outs = ["out.txt"],
+    tools = [":py_tool"],
+    cmd = "echo hello > $(location out.txt)"
+)
+EOF
+  bazel build //:rule --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e output ]] || fail "no output produced"
+}
+
 function test_negating_flags() {
   cat > BUILD <<'EOF'
 genrule(
@@ -166,6 +186,19 @@ EOF
 
   bazel test //:little_test --execution_log_json_file output.json 2>&1 >> $TEST_log || fail "could not test"
   grep "listedOutputs" output.json || fail "log does not contain listed outputs"
+}
+
+function test_no_remote_cache() {
+  cat > BUILD <<'EOF'
+genrule(
+      name = "action",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)",
+      tags = ["no-remote-cache"],
+)
+EOF
+  bazel build //:action --execution_log_json_file=output.json 2>&1 >> $TEST_log || fail "could not build"
+  grep "\"remoteCacheable\": false" output.json || fail "log does not contain valid remoteCacheable entry"
 }
 
 run_suite "execlog_tests"

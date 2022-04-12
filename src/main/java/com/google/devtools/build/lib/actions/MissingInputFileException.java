@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import net.starlark.java.syntax.Location;
 
@@ -25,12 +26,19 @@ import net.starlark.java.syntax.Location;
  * <p>If a missing input file is an input to an action, an {@link ActionExecutionException} is
  * thrown instead.
  */
-public class MissingInputFileException extends BuildFailedException {
+public class MissingInputFileException extends Exception implements DetailedException {
+  private final DetailedExitCode detailedExitCode;
   private final Location location;
 
   public MissingInputFileException(FailureDetail failureDetail, Location location) {
-    super(failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
+    super(failureDetail.getMessage());
+    this.detailedExitCode = DetailedExitCode.of(failureDetail);
     this.location = location;
+  }
+
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 
   /**

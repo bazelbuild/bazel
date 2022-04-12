@@ -33,7 +33,7 @@ public class FakeConfigApi implements StarlarkConfigApi {
   }
 
   @Override
-  public BuildSettingApi stringSetting(Boolean flag) {
+  public BuildSettingApi stringSetting(Boolean flag, Boolean allowMultiple) {
     return new FakeBuildSettingDescriptor();
   }
 

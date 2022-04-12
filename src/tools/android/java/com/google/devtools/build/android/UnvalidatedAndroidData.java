@@ -116,7 +116,10 @@ class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
 
   /* Processes the resources for databinding annotations if dataBindingOut is defined. */
   public UnvalidatedAndroidData processDataBindings(
-      @Nullable Path dataBindingOut, String packagePath, Path dataBindingWorkingDirectory)
+      @Nullable Path dataBindingOut,
+      String packagePath,
+      Path dataBindingWorkingDirectory,
+      boolean useDataBindingAndroidX)
       throws IOException {
 
     if (dataBindingOut == null) {
@@ -137,7 +140,8 @@ class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
               resource,
               metadataWorkingDirectory,
               packagePath,
-              false));
+              /* shouldZipDataBindingInfo= */ false,
+              useDataBindingAndroidX));
     }
 
     AndroidResourceOutputs.archiveDirectory(metadataWorkingDirectory, dataBindingOut);

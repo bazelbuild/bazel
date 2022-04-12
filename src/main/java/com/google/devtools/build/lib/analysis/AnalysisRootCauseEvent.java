@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -35,12 +35,12 @@ import javax.annotation.Nullable;
  * cause. It also allows UIs to collate errors by root cause.
  */
 public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue configuration;
   private final Label label;
   private final String errorMessage;
 
   public AnalysisRootCauseEvent(
-      @Nullable BuildConfiguration configuration, Label label, String errorMessage) {
+      @Nullable BuildConfigurationValue configuration, Label label, String errorMessage) {
     this.configuration = configuration;
     this.label = label;
     this.errorMessage = errorMessage;

@@ -100,13 +100,6 @@ args2_test = rule(implementation = _impl2, test = True)
 EOF
 }
 
-function assert_foo1_failed() {
-  # The command fails because Bazel invokes it incorrectly.
-  expect_log "error executing shell command"
-  expect_log "\$: command not found"
-  expect_not_log "output .*foo/foo1.* was not created"
-}
-
 function assert_command_succeeded() {
   local -r output=$1
 

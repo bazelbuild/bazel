@@ -31,7 +31,7 @@ public interface CommandAction extends Action {
    * <p>In most cases, this expands any params files. One notable exception is C/C++ compilation
    * with the "compiler_param_file" feature.
    */
-  List<String> getArguments() throws CommandLineExpansionException;
+  List<String> getArguments() throws CommandLineExpansionException, InterruptedException;
 
   /**
    * Returns a map of command line variables to their values that constitute the environment in

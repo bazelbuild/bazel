@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -38,12 +39,12 @@ public class RootTest {
   private FileSystem fs;
 
   @Before
-  public final void initializeFileSystem() throws Exception {
+  public final void initializeFileSystem() {
     fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   }
 
   @Test
-  public void testEqualsAndHashCodeContract() throws Exception {
+  public void testEqualsAndHashCodeContract() {
     FileSystem otherFs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     new EqualsTester()
         .addEqualityGroup(Root.absoluteRoot(fs), Root.absoluteRoot(fs))
@@ -53,7 +54,7 @@ public class RootTest {
   }
 
   @Test
-  public void testPathRoot() throws Exception {
+  public void testPathRoot() {
     Root root = Root.fromPath(fs.getPath("/foo"));
     assertThat(root.asPath()).isEqualTo(fs.getPath("/foo"));
     assertThat(root.contains(fs.getPath("/foo/bar"))).isTrue();
@@ -70,7 +71,7 @@ public class RootTest {
   }
 
   @Test
-  public void testFilesystemTransform() throws Exception {
+  public void testFilesystemTransform() {
     FileSystem fs2 = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     Root root = Root.fromPath(fs.getPath("/foo"));
     Root root2 = Root.toFileSystem(root, fs2);
@@ -80,7 +81,7 @@ public class RootTest {
   }
 
   @Test
-  public void testFileSystemAbsoluteRoot() throws Exception {
+  public void testFileSystemAbsoluteRoot() {
     Root root = Root.absoluteRoot(fs);
     assertThat(root.asPath()).isNull();
     assertThat(root.contains(fs.getPath("/foo"))).isTrue();
@@ -98,7 +99,7 @@ public class RootTest {
   }
 
   @Test
-  public void testCompareTo() throws Exception {
+  public void testCompareTo() {
     Root a = Root.fromPath(fs.getPath("/a"));
     Root b = Root.fromPath(fs.getPath("/b"));
     Root root = Root.absoluteRoot(fs);
@@ -124,18 +125,20 @@ public class RootTest {
     Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root otherFooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root barPathRoot = Root.fromPath(fs.getPath("/bar"));
+    Root bazPathRoot = Root.fromPath(fs.getPath("/baz"));
     Root fsAabsoluteRoot = Root.absoluteRoot(fs);
 
     assertThat(fooPathRoot).isNotSameInstanceAs(otherFooPathRoot);
     assertThat(fooPathRoot).isEqualTo(otherFooPathRoot);
 
     ObjectCodecRegistry registry = AutoRegistry.get();
-    ImmutableMap<Class<?>, Object> dependencies =
-        ImmutableMap.<Class<?>, Object>builder()
+    ImmutableClassToInstanceMap<Object> dependencies =
+        ImmutableClassToInstanceMap.builder()
             .put(FileSystem.class, fs)
             .put(
                 Root.RootCodecDependencies.class,
-                new Root.RootCodecDependencies(/*likelyPopularRoot=*/ fooPathRoot))
+                new Root.RootCodecDependencies(
+                    /*likelyPopularRoots=*/ ImmutableList.of(fooPathRoot, bazPathRoot)))
             .build();
     ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
     for (Object val : dependencies.values()) {
@@ -154,6 +157,10 @@ public class RootTest {
         (Root) objectCodecs.deserialize(objectCodecs.serialize(barPathRoot));
     assertThat(barPathRootDeserialized).isNotSameInstanceAs(barPathRoot);
     assertThat(barPathRootDeserialized).isEqualTo(barPathRoot);
+
+    Root bazPathRootDeserialized =
+        (Root) objectCodecs.deserialize(objectCodecs.serialize(bazPathRoot));
+    assertThat(bazPathRootDeserialized).isSameInstanceAs(bazPathRoot);
 
     Root fsAabsoluteRootDeserialized =
         (Root) objectCodecs.deserialize(objectCodecs.serialize(fsAabsoluteRoot));

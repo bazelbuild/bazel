@@ -13,12 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
+
+import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.WriteRequest;
+import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
+import com.google.protobuf.ByteString;
+import io.grpc.stub.StreamObserver;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -153,5 +161,54 @@ public class TestUtils {
     public void execute(Runnable command) {
       delegate.execute(command);
     }
+  }
+
+  public static final ByteStreamImplBase newNoErrorByteStreamService(byte[] blob) {
+    return new ByteStreamImplBase() {
+      @Override
+      public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+        return new StreamObserver<WriteRequest>() {
+
+          byte[] receivedData = new byte[blob.length];
+          long nextOffset = 0;
+
+          @Override
+          public void onNext(WriteRequest writeRequest) {
+            if (nextOffset == 0) {
+              assertThat(writeRequest.getResourceName()).isNotEmpty();
+              assertThat(writeRequest.getResourceName()).endsWith(String.valueOf(blob.length));
+            } else {
+              assertThat(writeRequest.getResourceName()).isEmpty();
+            }
+
+            assertThat(writeRequest.getWriteOffset()).isEqualTo(nextOffset);
+
+            ByteString data = writeRequest.getData();
+
+            System.arraycopy(data.toByteArray(), 0, receivedData, (int) nextOffset, data.size());
+
+            nextOffset += data.size();
+            boolean lastWrite = blob.length == nextOffset;
+            assertThat(writeRequest.getFinishWrite()).isEqualTo(lastWrite);
+          }
+
+          @Override
+          public void onError(Throwable throwable) {
+            fail("onError should never be called.");
+          }
+
+          @Override
+          public void onCompleted() {
+            assertThat(nextOffset).isEqualTo(blob.length);
+            assertThat(receivedData).isEqualTo(blob);
+
+            WriteResponse response =
+                WriteResponse.newBuilder().setCommittedSize(nextOffset).build();
+            streamObserver.onNext(response);
+            streamObserver.onCompleted();
+          }
+        };
+      }
+    };
   }
 }

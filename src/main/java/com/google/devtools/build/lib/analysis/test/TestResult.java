@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -46,6 +47,7 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
   private final TestResultData data;
   private final boolean cached;
   @Nullable protected final Path execRoot;
+  @Nullable private final DetailedExitCode systemFailure;
 
   /**
    * Construct the TestResult for the given test / status.
@@ -55,48 +57,54 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
    * @param cached true if this is a locally cached test result.
    * @param execRoot The execution root in which the action was carried out; can be null, in which
    *     case everything depending on the execution root is ignored.
+   * @param systemFailure Description of the system failure responsible for the test not succeeding;
+   *     null if no such failure occurred
    */
   public TestResult(
-      TestRunnerAction testAction, TestResultData data, boolean cached, @Nullable Path execRoot) {
+      TestRunnerAction testAction,
+      TestResultData data,
+      boolean cached,
+      @Nullable Path execRoot,
+      @Nullable DetailedExitCode systemFailure) {
     this.testAction = checkNotNull(testAction);
     this.data = checkNotNull(data);
     this.cached = cached;
     this.execRoot = execRoot;
+    this.systemFailure = systemFailure;
   }
 
-  public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
-    this(testAction, data, cached, null);
+  public TestResult(
+      TestRunnerAction testAction,
+      TestResultData data,
+      boolean cached,
+      @Nullable DetailedExitCode systemFailure) {
+    this(testAction, data, cached, null, systemFailure);
   }
 
   public static boolean isBlazeTestStatusPassed(BlazeTestStatus status) {
     return status == BlazeTestStatus.PASSED || status == BlazeTestStatus.FLAKY;
   }
 
-  /**
-   * @return The test action.
-   */
+  /** Returns the test action. */
   public TestRunnerAction getTestAction() {
     return testAction;
   }
 
   /**
-   * @return The test log path. Note, that actual log file may no longer
-   *         correspond to this artifact - use getActualLogPath() method if
-   *         you need log location.
+   * Returns the test log path. Note, that actual log file may no longer correspond to this
+   * artifact. Use getActualLogPath() method if you need log location.
    */
   public Path getTestLogPath() {
     Path testLogPath = testAction.getTestLog().getPath();
     // If we have an exec root we'll use its fileSystem
     if (execRoot != null) {
       FileSystem fileSystem = execRoot.getFileSystem();
-      return fileSystem.getPath(testLogPath.getPathString());
+      return fileSystem.getPath(testLogPath.asFragment());
     }
     return testLogPath;
   }
 
-  /**
-   * Return if result was loaded from local action cache.
-   */
+  /** Returns whether the result was loaded from local action cache. */
   public final boolean isCached() {
     return cached;
   }
@@ -117,9 +125,7 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
             /*lastAttempt=*/ true));
   }
 
-  /**
-   * @return Coverage data artifact, if available and null otherwise.
-   */
+  /** Returns the coverage data artifact, if available, and null otherwise. */
   public Path getCoverageData() {
     if (data.getHasCoverage()) {
       return testAction.getCoverageData().getPath();
@@ -127,41 +133,33 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
     return null;
   }
 
-  /**
-   * @return The test status artifact.
-   */
+  /** Returns the test status artifact. */
   public Artifact getTestStatusArtifact() {
     // these artifacts are used to keep track of the number of pending and completed tests.
     return testAction.getCacheStatusArtifact();
   }
 
   /**
-   * Gets the test name in a user-friendly format.
-   * Will generally include the target name and shard number, if applicable.
-   *
-   * @return The test name.
+   * Returns the test name in a user-friendly format. Will generally include the target name and
+   * shard number, if applicable.
    */
   public String getTestName() {
     return testAction.getTestName();
   }
 
-  /**
-   * @return The test label.
-   */
+  /** Returns the test label. */
   public String getLabel() {
     return Label.print(testAction.getOwner().getLabel());
   }
 
-  /**
-   * @return The test shard number.
-   */
+  /** Returns the test shard number. */
   public int getShardNum() {
     return testAction.getShardNum();
   }
 
   /**
-   * @return Total number of test shards. 0 means
-   *     no sharding, whereas 1 means degenerate sharding.
+   * Returns the total number of test shards. 0 means no sharding, whereas 1 means degenerate
+   * sharding.
    */
   public int getTotalShards() {
     return testAction.getExecutionSettings().getTotalShards();
@@ -172,8 +170,17 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
   }
 
   /**
-   * @return Collection of files created by the test, tagged by their name indicating usage (e.g.,
-   *     "test.log").
+   * Returns the description of the system failure responsible for the test not succeeding or {@code
+   * null} if no such failure occurred.
+   */
+  @Nullable
+  public DetailedExitCode getSystemFailure() {
+    return systemFailure;
+  }
+
+  /**
+   * Returns the collection of files created by the test, tagged by their name indicating usage
+   * (e.g., "test.log").
    */
   private Collection<Pair<String, Path>> getFiles() {
     // TODO(ulfjack): Cache the set of generated files in the TestResultData.

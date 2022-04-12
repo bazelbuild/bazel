@@ -19,7 +19,6 @@ import static org.mockito.Mockito.RETURNS_MOCKS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 
 import junit.framework.TestCase;
 import org.junit.runner.Request;
@@ -40,7 +39,7 @@ public class MemoizingRequestTest extends TestCase {
   public void testConstructorDoesNoWork() {
     new MemoizingRequest(mockRequestDelegate);
 
-    verifyZeroInteractions(mockRequestDelegate);
+    verifyNoMoreInteractions(mockRequestDelegate);
   }
 
   public void testMemoizesRunner() {
@@ -68,6 +67,6 @@ public class MemoizingRequestTest extends TestCase {
 
     assertThat(firstRunner).isSameInstanceAs(stubRunner);
     assertThat(secondRunner).isSameInstanceAs(firstRunner);
-    verifyZeroInteractions(mockRequestDelegate);
+    verifyNoMoreInteractions(mockRequestDelegate);
   }
 }

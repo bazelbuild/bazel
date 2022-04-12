@@ -58,12 +58,7 @@ public interface AndroidCcLinkParamsProviderApi<
         doc = "The <code>AndroidCcLinkParamsInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "store",
-              doc = "The CcInfo provider.",
-              positional = true,
-              named = false,
-              type = CcInfoApi.class),
+          @Param(name = "store", doc = "The CcInfo provider.", positional = true, named = false),
         },
         selfCall = true)
     @StarlarkConstructor

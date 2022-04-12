@@ -8,9 +8,7 @@
 
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
-package(
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 licenses(["notice"])
 
@@ -22,6 +20,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skydoc/rendering:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_binary(
@@ -45,33 +44,19 @@ java_binary(
 java_library(
     name = "skydoc_lib",
     srcs = glob(["*.java"]),
-    visibility = ["//src/test:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/javascript",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/proto",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/python",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/stubs",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/tools/starlark/java/com/google/devtools/starlark/common",
         "//third_party:guava",
     ],
 )

@@ -21,14 +21,14 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Type;
 
 /**
- * A native provider to allow select()s to know the type, default value, and label when selecting on
- * build settings
+ * A built-in provider to allow select()s to know the type, default value, and label when selecting
+ * on build settings
  */
 public class BuildSettingProvider implements TransitiveInfoProvider {
 
   public static final RequiredProviders REQUIRE_BUILD_SETTING_PROVIDER =
       RequiredProviders.acceptAnyBuilder()
-          .addNativeSet(ImmutableSet.of(BuildSettingProvider.class))
+          .addBuiltinSet(ImmutableSet.of(BuildSettingProvider.class))
           .build();
 
   private final BuildSetting buildSetting;
@@ -43,6 +43,10 @@ public class BuildSettingProvider implements TransitiveInfoProvider {
 
   public Type<?> getType() {
     return buildSetting.getType();
+  }
+
+  public boolean allowsMultiple() {
+    return buildSetting.allowsMultiple();
   }
 
   public Object getDefaultValue() {

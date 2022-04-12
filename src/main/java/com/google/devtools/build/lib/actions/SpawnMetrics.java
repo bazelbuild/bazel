@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
@@ -68,6 +69,12 @@ public final class SpawnMetrics {
   private final long inputBytes;
   private final long inputFiles;
   private final long memoryEstimateBytes;
+  private final long inputBytesLimit;
+  private final long inputFilesLimit;
+  private final long outputBytesLimit;
+  private final long outputFilesLimit;
+  private final long memoryBytesLimit;
+  private final Duration timeLimit;
 
   private SpawnMetrics(Builder builder) {
     this.execKind = builder.execKind;
@@ -84,6 +91,12 @@ public final class SpawnMetrics {
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
+    this.inputBytesLimit = builder.inputBytesLimit;
+    this.inputFilesLimit = builder.inputFilesLimit;
+    this.outputBytesLimit = builder.outputBytesLimit;
+    this.outputFilesLimit = builder.outputFilesLimit;
+    this.memoryBytesLimit = builder.memoryBytesLimit;
+    this.timeLimit = builder.timeLimit;
   }
 
   /** The kind of execution the metrics refer to (remote/local/worker). */
@@ -195,6 +208,36 @@ public final class SpawnMetrics {
     return memoryEstimateBytes;
   }
 
+  /** Limit of total size in bytes of inputs or 0 if unavailable. */
+  public long inputBytesLimit() {
+    return inputBytesLimit;
+  }
+
+  /** Limit of total number of input files or 0 if unavailable. */
+  public long inputFilesLimit() {
+    return inputFilesLimit;
+  }
+
+  /** Limit of total size in bytes of outputs or 0 if unavailable. */
+  public long outputBytesLimit() {
+    return outputBytesLimit;
+  }
+
+  /** Limit of total number of output files or 0 if unavailable. */
+  public long outputFilesLimit() {
+    return outputFilesLimit;
+  }
+
+  /** Memory limit or 0 if unavailable. */
+  public long memoryLimit() {
+    return memoryBytesLimit;
+  }
+
+  /** Time limit or 0 if unavailable. */
+  public Duration timeLimit() {
+    return timeLimit;
+  }
+
   /**
    * Generates a String representation of the stats.
    *
@@ -221,6 +264,12 @@ public final class SpawnMetrics {
       stats.add("input files: " + inputFiles);
       stats.add("input bytes: " + inputBytes);
       stats.add("memory bytes: " + memoryEstimateBytes);
+      stats.add("input files limit: " + inputFilesLimit);
+      stats.add("input bytes limit: " + inputBytesLimit);
+      stats.add("output files limit: " + outputFilesLimit);
+      stats.add("output bytes limit: " + outputBytesLimit);
+      stats.add("memory limit: " + memoryBytesLimit);
+      stats.add("time limit: " + timeLimit.getSeconds() + " seconds");
     }
     Joiner.on(", ").appendTo(sb, stats);
     sb.append("]");
@@ -254,7 +303,7 @@ public final class SpawnMetrics {
       // Return "not available" string if total is 0 and result is undefined.
       return "N/A";
     }
-    return String.format("%.2f%%", duration.toMillis() * 100.0 / total.toMillis());
+    return String.format(Locale.US, "%.2f%%", duration.toMillis() * 100.0 / total.toMillis());
   }
 
   /** Builder class for SpawnMetrics. */
@@ -273,6 +322,12 @@ public final class SpawnMetrics {
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
+    private long inputBytesLimit = 0;
+    private long inputFilesLimit = 0;
+    private long outputBytesLimit = 0;
+    private long outputFilesLimit = 0;
+    private long memoryBytesLimit = 0;
+    private Duration timeLimit = Duration.ZERO;
 
     public static Builder forLocalExec() {
       return forExec(ExecKind.LOCAL);
@@ -339,6 +394,11 @@ public final class SpawnMetrics {
       return this;
     }
 
+    public Builder addSetupTime(Duration setupTime) {
+      this.setupTime = this.setupTime.plus(setupTime);
+      return this;
+    }
+
     public Builder setUploadTime(Duration uploadTime) {
       this.uploadTime = uploadTime;
       return this;
@@ -380,6 +440,36 @@ public final class SpawnMetrics {
       return this;
     }
 
+    public Builder setInputBytesLimit(long inputBytesLimit) {
+      this.inputBytesLimit = inputBytesLimit;
+      return this;
+    }
+
+    public Builder setInputFilesLimit(long inputFilesLimit) {
+      this.inputFilesLimit = inputFilesLimit;
+      return this;
+    }
+
+    public Builder setOutputBytesLimit(long outputBytesLimit) {
+      this.outputBytesLimit = outputBytesLimit;
+      return this;
+    }
+
+    public Builder setOutputFilesLimit(long outputFilesLimit) {
+      this.outputFilesLimit = outputFilesLimit;
+      return this;
+    }
+
+    public Builder setMemoryBytesLimit(long memoryBytesLimit) {
+      this.memoryBytesLimit = memoryBytesLimit;
+      return this;
+    }
+
+    public Builder setTimeLimit(Duration timeLimit) {
+      this.timeLimit = timeLimit;
+      return this;
+    }
+
     public Builder addDurations(SpawnMetrics metric) {
       totalTime = totalTime.plus(metric.totalTime());
       parseTime = parseTime.plus(metric.parseTime());
@@ -400,6 +490,12 @@ public final class SpawnMetrics {
       inputFiles += metric.inputFiles();
       inputBytes += metric.inputBytes();
       memoryEstimateBytes += metric.memoryEstimate();
+      inputFilesLimit += metric.inputFilesLimit();
+      inputBytesLimit += metric.inputBytesLimit();
+      outputFilesLimit += metric.outputFilesLimit();
+      outputBytesLimit += metric.outputBytesLimit();
+      memoryBytesLimit += metric.memoryLimit();
+      timeLimit = timeLimit.plus(metric.timeLimit());
       return this;
     }
 
@@ -407,6 +503,13 @@ public final class SpawnMetrics {
       inputFiles = Long.max(inputFiles, metric.inputFiles());
       inputBytes = Long.max(inputBytes, metric.inputBytes());
       memoryEstimateBytes = Long.max(memoryEstimateBytes, metric.memoryEstimate());
+      inputFilesLimit = Long.max(inputFilesLimit, metric.inputFilesLimit());
+      inputBytesLimit = Long.max(inputBytesLimit, metric.inputBytesLimit());
+      outputFilesLimit = Long.max(outputFilesLimit, metric.outputFilesLimit());
+      outputBytesLimit = Long.max(outputBytesLimit, metric.outputBytesLimit());
+      memoryBytesLimit = Long.max(memoryBytesLimit, metric.memoryLimit());
+      timeLimit =
+          Duration.ofSeconds(Long.max(timeLimit.getSeconds(), metric.timeLimit().getSeconds()));
       return this;
     }
   }

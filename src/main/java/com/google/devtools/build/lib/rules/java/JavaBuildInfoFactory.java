@@ -21,14 +21,12 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.TimestampFormatter;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -54,9 +52,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       DateTimeFormatter.ofPattern("EEE MMM d HH:mm:ss yyyy");
 
   // A default formatter that returns a date in UTC format.
-  @AutoCodec
-  @VisibleForSerialization
-  static class DefaultTimestampFormatter implements TimestampFormatter {
+  private static class DefaultTimestampFormatter implements TimestampFormatter {
     @Override
     public String format(long timestamp) {
       return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(DEFAULT_TIME_FORMAT)
@@ -71,10 +67,9 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
   @Override
   public final BuildInfoCollection create(
       BuildInfoContext context,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       Artifact stableStatus,
-      Artifact volatileStatus,
-      RepositoryName repositoryName) {
+      Artifact volatileStatus) {
     WriteBuildInfoPropertiesAction redactedInfo =
         getHeader(
             context,
@@ -83,8 +78,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createRedactedTranslator(),
             true,
-            true,
-            repositoryName);
+            true);
     WriteBuildInfoPropertiesAction nonvolatileInfo =
         getHeader(
             context,
@@ -93,8 +87,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             NestedSetBuilder.create(Order.STABLE_ORDER, stableStatus),
             createNonVolatileTranslator(),
             false,
-            true,
-            repositoryName);
+            true);
     WriteBuildInfoPropertiesAction volatileInfo =
         getHeader(
             context,
@@ -103,8 +96,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             NestedSetBuilder.create(Order.STABLE_ORDER, volatileStatus),
             createVolatileTranslator(),
             true,
-            false,
-            repositoryName);
+            false);
     List<Action> actions = new ArrayList<>(3);
     actions.add(redactedInfo);
     actions.add(nonvolatileInfo);
@@ -134,14 +126,13 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
 
   private WriteBuildInfoPropertiesAction getHeader(
       BuildInfoContext context,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       PathFragment propertyFileName,
       NestedSet<Artifact> inputs,
       BuildInfoPropertiesTranslator translator,
       boolean includeVolatile,
-      boolean includeNonVolatile,
-      RepositoryName repositoryName) {
-    ArtifactRoot outputPath = config.getIncludeDirectory(repositoryName);
+      boolean includeNonVolatile) {
+    ArtifactRoot outputPath = config.getBuildInfoDirectory(RepositoryName.MAIN);
     final Artifact output =
         context.getBuildInfoArtifact(
             propertyFileName,
@@ -159,7 +150,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
   }
 
   @Override
-  public boolean isEnabled(BuildConfiguration config) {
+  public boolean isEnabled(BuildConfigurationValue config) {
     return config.hasFragment(JavaConfiguration.class);
   }
 }

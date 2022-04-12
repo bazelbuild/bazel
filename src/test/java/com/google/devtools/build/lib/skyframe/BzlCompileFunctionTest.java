@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -33,10 +35,13 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.List;
-import net.starlark.java.syntax.LoadStatement;
-import net.starlark.java.syntax.StarlarkFile;
-import net.starlark.java.syntax.Statement;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,7 +50,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BzlCompileFunctionTest extends BuildViewTestCase {
 
-  private class MockFileSystem extends InMemoryFileSystem {
+  private static class MockFileSystem extends InMemoryFileSystem {
     PathFragment throwIOExceptionFor = null;
 
     MockFileSystem() {
@@ -53,8 +58,8 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
-      if (throwIOExceptionFor != null && path.asFragment().equals(throwIOExceptionFor)) {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+      if (path.equals(throwIOExceptionFor)) {
         throw new IOException("bork");
       }
       return super.statIfFound(path, followSymlinks);
@@ -90,7 +95,6 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     Throwable e = errorInfo.getException();
-    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(skyKey);
     assertThat(e).isInstanceOf(NoSuchPackageException.class);
     assertThat(e).hasMessageThat().contains("bork");
   }
@@ -117,18 +121,11 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    List<String> loads = getLoads(result.get(skyKey).getAST());
+    List<String> loads =
+        BzlLoadFunction.getLoadsFromProgram(result.get(skyKey).getProgram()).stream()
+            .map(Pair::getFirst)
+            .collect(toImmutableList());
     assertThat(loads).containsExactly(":bar.bzl");
-  }
-
-  private static List<String> getLoads(StarlarkFile file) {
-    List<String> loads = Lists.newArrayList();
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        loads.add(((LoadStatement) stmt).getImport().getValue());
-      }
-    }
-    return loads;
   }
 
   @Test
@@ -139,5 +136,34 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
     assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
     assertThat(result.get(skyKey).getError()).contains("cannot load '//pkg:foo.bzl': no such file");
+  }
+
+  @Test
+  public void testBigIntegerLiterals() throws Exception {
+    // This test ensures that numerical literals with values that can't be expressed as Java longs
+    // can be compiled. Regression test for b/217548647.
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//pkg:bigint.bzl"));
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/bigint.bzl",
+        String.format(
+            "[%s, %s]",
+            BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE),
+            BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE)));
+
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    BzlCompileValue bzlCompileValue = result.get(skyKey);
+    assertThat(bzlCompileValue.lookupSuccessful()).isTrue();
+
+    try (Mutability mu = Mutability.create()) {
+      Object val =
+          Starlark.execFileProgram(
+              bzlCompileValue.getProgram(),
+              Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of()),
+              new StarlarkThread(mu, StarlarkSemantics.DEFAULT));
+      assertThat(val.toString()).isEqualTo("[-9223372036854775809, 9223372036854775808]");
+    }
   }
 }

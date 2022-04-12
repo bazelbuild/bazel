@@ -66,7 +66,7 @@ public final class BuildEventServiceProtoUtil {
             1,
             com.google.devtools.build.v1.BuildEvent.newBuilder()
                 .setEventTime(timestamp)
-                .setBuildEnqueued(BuildEnqueued.newBuilder()))
+                .setBuildEnqueued(BuildEnqueued.getDefaultInstance()))
         .build();
   }
 
@@ -203,7 +203,7 @@ public final class BuildEventServiceProtoUtil {
     private String buildRequestId;
     private String commandName;
     private Set<String> keywords;
-    private @Nullable String projectId;
+    @Nullable private String projectId;
 
     public Builder buildRequestId(String value) {
       this.buildRequestId = value;

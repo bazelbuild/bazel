@@ -30,8 +30,13 @@ import java.util.Set;
 @AutoValue
 public abstract class UnloadedToolchainContextImpl implements SkyValue, UnloadedToolchainContext {
 
-  public static Builder builder() {
-    return new AutoValue_UnloadedToolchainContextImpl.Builder();
+  public static Builder builder(ToolchainContextKey key) {
+    return new AutoValue_UnloadedToolchainContextImpl.Builder()
+        .setKey(key)
+        .setRequiredToolchainTypes(ImmutableSet.of())
+        .setRequestedLabelToToolchainType(ImmutableMap.of())
+        .setToolchainTypeToResolved(
+            ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder().build());
   }
 
   /** Builder class to help create the {@link UnloadedToolchainContextImpl}. */
@@ -74,9 +79,4 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
   }
 
   protected abstract Builder toBuilder();
-
-  @Override
-  public UnloadedToolchainContext withoutResolvedToolchains() {
-    return this.toBuilder().setToolchainTypeToResolved(ImmutableSetMultimap.of()).build();
-  }
 }

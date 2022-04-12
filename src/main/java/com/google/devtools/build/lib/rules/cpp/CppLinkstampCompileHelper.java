@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -43,7 +43,7 @@ public class CppLinkstampCompileHelper {
       RuleErrorConsumer ruleErrorConsumer,
       ActionConstructionContext actionConstructionContext,
       @Nullable Artifact grepIncludes,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Artifact sourceFile,
       Artifact outputFile,
       NestedSet<Artifact> compilationInputs,
@@ -95,7 +95,7 @@ public class CppLinkstampCompileHelper {
     return builder.buildOrThrowIllegalStateException();
   }
 
-  private static NestedSet<String> computeAllLinkstampDefines(
+  private static Iterable<String> computeAllLinkstampDefines(
       String labelReplacement,
       String outputReplacement,
       Iterable<String> additionalLinkstampDefines,
@@ -126,14 +126,12 @@ public class CppLinkstampCompileHelper {
       defines.add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
     }
 
-    return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER,
-        Iterables.transform(
-            defines.build(),
-            define ->
-                define
-                    .replaceAll(labelPattern, labelReplacement)
-                    .replaceAll(outputPathPattern, outputReplacement)));
+    return Iterables.transform(
+        defines.build(),
+        define ->
+            define
+                .replaceAll(labelPattern, labelReplacement)
+                .replaceAll(outputPathPattern, outputReplacement));
   }
 
   private static CcToolchainVariables getVariables(

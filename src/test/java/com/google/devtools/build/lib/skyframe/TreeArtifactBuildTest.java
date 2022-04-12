@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -965,8 +966,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     Path execRoot =
         fs.getPath(TestUtils.tmpDir()).getRelative("execroot").getRelative("default-exec-root");
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, "out"),
+    return SpecialArtifact.create(
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"),
         execPath,
         ACTION_LOOKUP_KEY,
         SpecialArtifactType.TREE);
@@ -1040,7 +1041,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env) {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
@@ -1048,14 +1049,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
                 actions,
                 (ActionLookupKey) skyKey,
                 /*outputFiles=*/ null));
-      } catch (ActionConflictException e) {
+      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

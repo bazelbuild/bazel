@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -42,6 +44,8 @@ import net.starlark.java.eval.StarlarkValue;
             + "line, following the same conventions as the standard CPython interpreter.",
     category = DocCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
+
+  static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
 
   @StarlarkMethod(
       name = "interpreter_path",
@@ -86,6 +90,15 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               + "(only) <code>\"PY2\"</code> and <code>\"PY3\"</code>.")
   String getPythonVersionForStarlark();
 
+  @StarlarkMethod(
+      name = "stub_shebang",
+      structField = true,
+      doc =
+          "\"Shebang\" expression prepended to the bootstrapping Python stub script "
+              + "used when executing <code>py_binary</code> targets.  Does not apply "
+              + "to Windows.")
+  String getStubShebang();
+
   /** Provider type for {@link PyRuntimeInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface PyRuntimeInfoProviderApi extends ProviderApi {
@@ -96,8 +109,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
         parameters = {
           @Param(
               name = "interpreter_path",
-              type = String.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              },
               positional = false,
               named = true,
               defaultValue = "None",
@@ -106,8 +121,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "a value for this argument if you pass in <code>interpreter</code>."),
           @Param(
               name = "interpreter",
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               positional = false,
               named = true,
               defaultValue = "None",
@@ -116,9 +133,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "a value for this argument if you pass in <code>interpreter_path</code>."),
           @Param(
               name = "files",
-              type = Depset.class,
-              generic1 = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               positional = false,
               named = true,
               defaultValue = "None",
@@ -129,10 +147,20 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "<code>files</code> becomes an empty <code>depset</code> instead."),
           @Param(
               name = "python_version",
-              type = String.class,
               positional = false,
               named = true,
               doc = "The value for the new object's <code>python_version</code> field."),
+          @Param(
+              name = "stub_shebang",
+              allowedTypes = {@ParamType(type = String.class)},
+              positional = false,
+              named = true,
+              defaultValue = "'" + DEFAULT_STUB_SHEBANG + "'",
+              doc =
+                  "The value for the new object's <code>stub_shebang</code> field. "
+                      + "Default is <code>"
+                      + DEFAULT_STUB_SHEBANG
+                      + "</code>."),
         },
         useStarlarkThread = true,
         selfCall = true)
@@ -142,6 +170,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
+        String stubShebang,
         StarlarkThread thread)
         throws EvalException;
   }

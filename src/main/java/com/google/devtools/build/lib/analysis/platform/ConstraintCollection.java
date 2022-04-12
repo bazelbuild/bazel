@@ -29,8 +29,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
@@ -47,7 +45,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /** A collection of constraint values. */
 @Immutable
-@AutoCodec
 @AutoValue
 public abstract class ConstraintCollection
     implements ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> {
@@ -96,15 +93,6 @@ public abstract class ConstraintCollection
   /** Returns a new {@link Builder} suitable for creating {@link ConstraintCollection} instances. */
   public static Builder builder() {
     return new Builder();
-  }
-
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  static ConstraintCollection create(
-      @Nullable ConstraintCollection parent,
-      ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints)
-      throws DuplicateConstraintException {
-    return builder().parent(parent).addConstraints(constraints).build();
   }
 
   @Override

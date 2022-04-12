@@ -17,19 +17,25 @@ package com.google.devtools.build.lib.buildeventservice;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventservice.client.ManagedBuildEventServiceGrpcClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+import io.grpc.Metadata;
+import io.grpc.stub.MetadataUtils;
 import java.io.IOException;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
-/**
- * Bazel's BES module.
- */
+/** Bazel's BES module. */
 public class BazelBuildEventServiceModule
     extends BuildEventServiceModule<BuildEventServiceOptions> {
 
@@ -37,7 +43,21 @@ public class BazelBuildEventServiceModule
   abstract static class BackendConfig {
     abstract String besBackend();
 
+    @Nullable
+    abstract String besProxy();
+
+    abstract ImmutableList<Map.Entry<String, String>> besHeaders();
+
     abstract AuthAndTLSOptions authAndTLSOptions();
+
+    static BackendConfig create(
+        BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) {
+      return new AutoValue_BazelBuildEventServiceModule_BackendConfig(
+          besOptions.besBackend,
+          besOptions.besProxy,
+          ImmutableMap.copyOf(besOptions.besHeaders).entrySet().asList(),
+          authAndTLSOptions);
+    }
   }
 
   private BuildEventServiceClient client;
@@ -51,26 +71,45 @@ public class BazelBuildEventServiceModule
   @Override
   protected BuildEventServiceClient getBesClient(
       BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
-    BackendConfig newConfig =
-        new AutoValue_BazelBuildEventServiceModule_BackendConfig(
-            besOptions.besBackend, authAndTLSOptions);
+    BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
       config = newConfig;
       client =
-          new ManagedBuildEventServiceGrpcClient(
-              newGrpcChannel(besOptions, authAndTLSOptions),
-              GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
+          new BuildEventServiceGrpcClient(
+              newGrpcChannel(config),
+              GoogleAuthUtils.newCallCredentials(config.authAndTLSOptions()),
+              makeGrpcInterceptor(config));
     }
     return client;
   }
 
+  private static ClientInterceptor makeGrpcInterceptor(BackendConfig config) {
+    if (config.besHeaders().isEmpty()) {
+      return null;
+    }
+    return MetadataUtils.newAttachHeadersInterceptor(makeGrpcMetadata(config));
+  }
+
+  @VisibleForTesting
+  static Metadata makeGrpcMetadata(BackendConfig config) {
+    Metadata extraHeaders = new Metadata();
+    for (Entry<String, String> header : config.besHeaders()) {
+      extraHeaders.put(
+          Metadata.Key.of(header.getKey(), Metadata.ASCII_STRING_MARSHALLER), header.getValue());
+    }
+    return extraHeaders;
+  }
+
   // newGrpcChannel is only defined so it can be overridden in tests to not use a real network link.
   @VisibleForTesting
-  protected ManagedChannel newGrpcChannel(
-      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
+  protected ManagedChannel newGrpcChannel(BackendConfig config) throws IOException {
     return GoogleAuthUtils.newChannel(
-        besOptions.besBackend, besOptions.besProxy, authAndTLSOptions, /* interceptors= */ null);
+        /*executor=*/ null,
+        config.besBackend(),
+        config.besProxy(),
+        config.authAndTLSOptions(),
+        /* interceptors= */ null);
   }
 
   @Override
@@ -82,7 +121,7 @@ public class BazelBuildEventServiceModule
     this.config = null;
   }
 
-  private static final ImmutableSet<String> WHITELISTED_COMMANDS =
+  private static final ImmutableSet<String> ALLOWED_COMMANDS =
       ImmutableSet.of(
           "fetch",
           "build",
@@ -95,8 +134,8 @@ public class BazelBuildEventServiceModule
           "mobile-install");
 
   @Override
-  protected Set<String> whitelistedCommands(BuildEventServiceOptions besOptions) {
-    return WHITELISTED_COMMANDS;
+  protected Set<String> allowedCommands(BuildEventServiceOptions besOptions) {
+    return ALLOWED_COMMANDS;
   }
 
   @Override

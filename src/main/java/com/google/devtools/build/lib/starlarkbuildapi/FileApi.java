@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -32,7 +33,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "and cannot be used to directly read or write file contents. Rather, you use it to "
             + "construct the action graph in a rule implementation function by passing it to "
             + "action-creating functions. See the "
-            + "<a href='../rules.$DOC_EXT#files'>Rules page</a> for more information."
+            + "<a href='$STARLARK_DOCS_ROOT/rules.html#files'>Rules page</a> for more information."
             + "" // curse google-java-format b/145078219
             + "<p>When a <code>File</code> is passed to an <a"
             + " href='Args.html'><code>Args</code></a> object without using a"
@@ -54,7 +55,12 @@ public interface FileApi extends StarlarkValue {
       doc = "The base name of this file. This is the name of the file inside the directory.")
   String getFilename();
 
-  @StarlarkMethod(name = "extension", structField = true, doc = "The file extension of this file.")
+  @StarlarkMethod(
+      name = "extension",
+      structField = true,
+      doc =
+          "The file extension of this file, following (not including) the rightmost period. "
+              + "Empty string if the file's basename includes no periods.")
   String getExtension();
 
   @StarlarkMethod(
@@ -62,6 +68,7 @@ public interface FileApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true,
       doc = "A label of a target that produces this File.")
+  @Nullable
   Label getOwnerLabel();
 
   @StarlarkMethod(

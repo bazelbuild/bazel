@@ -45,7 +45,6 @@ public abstract class BlazeJavaCompilerPlugin {
    * @param standardJavacopts The standard javac command-line flags.
    * @param blazeJavacopts Blaze-specific command-line flags.
    * @throws InvalidCommandLineException if the arguments are invalid
-   * @return The flags that do not belong to this plugin.
    */
   public void processArgs(
       ImmutableList<String> standardJavacopts, ImmutableList<String> blazeJavacopts)

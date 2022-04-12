@@ -104,12 +104,12 @@ def _update(ctx, git_repo):
     reset(ctx, git_repo)
     clean(ctx, git_repo)
 
-    if git_repo.init_submodules:
-        ctx.report_progress("Updating submodules")
-        update_submodules(ctx, git_repo)
-    elif git_repo.recursive_init_submodules:
+    if git_repo.recursive_init_submodules:
         ctx.report_progress("Updating submodules recursively")
         update_submodules(ctx, git_repo, recursive = True)
+    elif git_repo.init_submodules:
+        ctx.report_progress("Updating submodules")
+        update_submodules(ctx, git_repo)
 
 def init(ctx, git_repo):
     cl = ["git", "init", str(git_repo.directory)]

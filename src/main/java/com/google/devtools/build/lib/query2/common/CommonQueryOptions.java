@@ -23,6 +23,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.EnumSet;
 import java.util.List;
@@ -50,6 +51,23 @@ public class CommonQueryOptions extends OptionsBase {
   public List<String> universeScope;
 
   @Option(
+      name = "line_terminator_null",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether each format is terminated with \\0 instead of newline.")
+  public boolean lineTerminatorNull;
+
+  /** Ugly workaround since line terminator option default has to be constant expression. */
+  public String getLineTerminator() {
+    if (lineTerminatorNull) {
+      return "\0";
+    }
+
+    return System.lineSeparator();
+  }
+
+  @Option(
       name = "infer_universe_scope",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
@@ -60,7 +78,7 @@ public class CommonQueryOptions extends OptionsBase {
               + " --universe_scope value inferred for a query expression that uses universe-scoped"
               + " functions (e.g.`allrdeps`) may not be what you want, so you should use this"
               + " option only if you know what you are doing. See"
-              + " https://docs.bazel.build/versions/master/query.html#sky-query for details and"
+              + " https://bazel.build/versions/reference/query#sky-query for details and"
               + " examples. If --universe_scope is set, then this option's value is ignored. Note:"
               + " this option applies only to `query` (i.e. not `cquery`).")
   public boolean inferUniverseScope;
@@ -82,7 +100,7 @@ public class CommonQueryOptions extends OptionsBase {
               + " target. That means if the top-level target is in the target configuration, only"
               + " configured targets also in the target configuration will be returned. If the"
               + " top-level target is in the host configuration, only host configured targets will"
-              + " be returned.")
+              + " be returned. This option will NOT exclude resolved toolchains.")
   public boolean includeToolDeps;
 
   @Option(
@@ -93,7 +111,8 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "If enabled, implicit dependencies will be included in the dependency graph over "
               + "which the query operates. An implicit dependency is one that is not explicitly "
-              + "specified in the BUILD file but added by bazel.")
+              + "specified in the BUILD file but added by bazel. For cquery, this option controls "
+              + "filtering resolved toolchains.")
   public boolean includeImplicitDeps;
 
   @Option(
@@ -110,7 +129,7 @@ public class CommonQueryOptions extends OptionsBase {
 
   @Option(
       name = "include_aspects",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
@@ -135,6 +154,23 @@ public class CommonQueryOptions extends OptionsBase {
     }
     return settings;
   }
+
+  ///////////////////////////////////////////////////////////
+  // LOCATION OUTPUT FORMATTER OPTIONS                     //
+  ///////////////////////////////////////////////////////////
+
+  // TODO(tanzhengwei): Clean up in next major release
+  @Option(
+      name = "incompatible_display_source_file_location",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "True by default, displays the target of the source file. "
+              + "If true, displays the location of line 1 of source files in location outputs. "
+              + "This flag only exists for migration purposes.")
+  public boolean displaySourceFileLocation;
 
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
@@ -253,4 +289,30 @@ public class CommonQueryOptions extends OptionsBase {
               + "precise mode is not completely precise: the decision whether to compute an aspect "
               + "is decided in the analysis phase, which is not run during 'bazel query'.")
   public AspectResolver.Mode aspectDeps;
+
+  ///////////////////////////////////////////////////////////
+  // GRAPH OUTPUT FORMATTER OPTIONS                        //
+  ///////////////////////////////////////////////////////////
+
+  @Option(
+      name = "graph:node_limit",
+      defaultValue = "512",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The maximum length of the label string for a graph node in the output.  Longer labels"
+              + " will be truncated; -1 means no truncation.  This option is only applicable to"
+              + " --output=graph.")
+  public int graphNodeStringLimit;
+
+  @Option(
+      name = "graph:factored",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
+              + "will be merged together and their labels concatenated. This option is only "
+              + "applicable to --output=graph.")
+  public boolean graphFactored;
 }

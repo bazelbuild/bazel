@@ -98,7 +98,7 @@ public class ResourceConverterTest {
     resourceConverter = new ResourceConverter(() -> null);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert(".5"));
-    assertThat(thrown).hasMessageThat().contains("not an int");
+    assertThat(thrown).hasMessageThat().contains("This flag takes an integer");
   }
 
   @Test

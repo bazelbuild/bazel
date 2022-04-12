@@ -66,10 +66,11 @@ test_custom_message() {
   cat > rule.bzl <<'EOF'
 def _rule_impl(ctx):
   out = ctx.actions.declare_file(ctx.label.name + ".txt")
-  ctx.actions.run_shell(
+  ctx.actions.run(
     inputs = ctx.files._data,
     outputs = [out],
-    command = ["cp"] + [f.path for f in ctx.files._data] + [out.path],
+    executable = "cp",
+    arguments = [f.path for f in ctx.files._data] + [out.path],
     mnemonic = "copying",
     progress_message = "Copying implict data dependency for %s" % ctx.label
   )

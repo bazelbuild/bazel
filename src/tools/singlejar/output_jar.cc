@@ -72,9 +72,8 @@ OutputJar::OutputJar()
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
-  manifest_.Append(
-      "Manifest-Version: 1.0\r\n"
-      "Created-By: singlejar\r\n");
+  manifest_.AppendLine("Manifest-Version: 1.0");
+  manifest_.AppendLine("Created-By: singlejar");
 }
 
 static std::string Basename(const std::string &path) {
@@ -127,22 +126,28 @@ int OutputJar::Doit(Options *options) {
 
   if (!options_->main_class.empty()) {
     build_properties_.AddProperty("main.class", options_->main_class);
-    manifest_.Append("Main-Class: ");
-    manifest_.Append(options_->main_class);
-    manifest_.Append("\r\n");
+    manifest_.AppendLine("Main-Class: " + options_->main_class);
   }
 
-  // Copy CDS archive file (.jsa) if it is set.
+  // Copy CDS archive file (.jsa) if it is set. Page aligned start offset
+  // is required.
   if (!options_->cds_archive.empty()) {
-    AppendCDSArchive(options->cds_archive);
+    AppendPageAlignedFile(options->cds_archive, "Jsa-Offset", "cds.archive");
   }
 
+  // Copy JDK lib/modules if set. Page aligned start offset is required for
+  // the file.
+  if (!options_->jdk_lib_modules.empty()) {
+    AppendPageAlignedFile(options_->jdk_lib_modules,
+                          "JDK-Lib-Modules-Offset", std::string());
+  }
+
+  if (options_->multi_release) {
+    manifest_.EnableMultiRelease();
+  }
   for (auto &manifest_line : options_->manifest_lines) {
     if (!manifest_line.empty()) {
-      manifest_.Append(manifest_line);
-      if (manifest_line[manifest_line.size() - 1] != '\n') {
-        manifest_.Append("\r\n");
-      }
+      manifest_.AppendLine(manifest_line);
     }
   }
 
@@ -206,7 +211,6 @@ int OutputJar::Doit(Options *options) {
   // First, write a directory entry for the META-INF, followed by the manifest
   // file, followed by the build properties file.
   WriteMetaInf();
-  manifest_.Append("\r\n");
   WriteEntry(manifest_.OutputEntry(compress));
   if (!options_->exclude_build_data) {
     WriteEntry(build_properties_.OutputEntry(compress));
@@ -278,11 +282,12 @@ bool OutputJar::Open() {
     return false;
   }
 
-  HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE,
-                             // Must share for reading, otherwise
-                             // symlink-following file existence checks (e.g.
-                             // java.nio.file.Files.exists()) fail.
-                             FILE_SHARE_READ, NULL, CREATE_ALWAYS, 0, NULL);
+  HANDLE hFile =
+      CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE,
+                  // Must share for reading, otherwise
+                  // symlink-following file existence checks (e.g.
+                  // java.nio.file.Files.exists()) fail.
+                  FILE_SHARE_READ, nullptr, CREATE_ALWAYS, 0, nullptr);
   if (hFile == INVALID_HANDLE_VALUE) {
     diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__,
               wpath.c_str());
@@ -958,7 +963,7 @@ ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
   while (static_cast<size_t>(total_written) < count) {
     ssize_t len = std::min(kBufferSize, count - total_written);
     DWORD n_read;
-    if (!::ReadFile(hFile, buffer.get(), len, &n_read, NULL)) {
+    if (!::ReadFile(hFile, buffer.get(), len, &n_read, nullptr)) {
       return -1;
     }
     if (n_read == 0) {
@@ -1013,9 +1018,8 @@ void OutputJar::AppendFile(Options *options, const char *const file_path) {
   }
 }
 
-void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
-  // Align the shared archive start offset at page alignment, which is
-  // required by mmap.
+off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path) {
+  // Align the file start offset at page boundary.
   off64_t cur_offset = Position();
   size_t pagesize;
 #ifdef _WIN32
@@ -1030,8 +1034,8 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
   size_t written;
   if (gap > 0) {
     char *zeros = (char *)malloc(gap);
-    if (!zeros) {
-      return;
+    if (zeros == nullptr) {
+      diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
     }
     memset(zeros, 0, gap);
     written = fwrite(zeros, 1, gap, file_);
@@ -1039,21 +1043,31 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
     free(zeros);
   }
 
-  // Copy archived data
-  AppendFile(options_, cds_archive.c_str());
+  // Copy file
+  AppendFile(options_, file_path.c_str());
 
-  // Write the file offset of the shared archive section as a manifest
-  // attribute.
-  char cds_manifest_attr[50];
-  snprintf( cds_manifest_attr, sizeof(cds_manifest_attr),
-    "Jsa-Offset: %ld", (long)aligned_offset); // NOLINT(runtime/int,
-                                              // google-runtime-int)
-  manifest_.Append(cds_manifest_attr);
-  manifest_.Append("\r\n");
+  return aligned_offset;
+}
 
-  // Add to build_properties
-  build_properties_.AddProperty("cds.archive",
-                                cds_archive.c_str());
+void OutputJar::AppendPageAlignedFile(const std::string &file,
+                                      const std::string &manifest_attr_name,
+                                      const std::string &property_name) {
+  // Align the shared archive start offset at page alignment, which is
+  // required by mmap.
+  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(file);
+
+  // Write the start offset of the copied content as a manifest attribute.
+  char manifest_attr[50];
+  snprintf(manifest_attr, sizeof(manifest_attr),
+    "%s: %ld", manifest_attr_name.c_str(),
+    (long)aligned_offset); // NOLINT(runtime/int,
+                           // google-runtime-int)
+  manifest_.AppendLine(manifest_attr);
+
+  if (!property_name.empty()) {
+    // Add to build_properties.
+    build_properties_.AddProperty(property_name.c_str(), file.c_str());
+  }
 }
 
 void OutputJar::ExtraCombiner(const std::string &entry_name,

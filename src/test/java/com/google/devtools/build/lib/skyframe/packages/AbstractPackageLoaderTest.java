@@ -60,11 +60,11 @@ public abstract class AbstractPackageLoaderTest {
 
   protected abstract AbstractPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir);
 
-  protected abstract ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader);
-
   protected AbstractPackageLoader.Builder newPackageLoaderBuilder() {
     return newPackageLoaderBuilder(root).useDefaultStarlarkSemantics().setCommonReporter(reporter);
   }
+
+  protected abstract ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader);
 
   protected PackageLoader newPackageLoader() {
     return newPackageLoaderBuilder().build();

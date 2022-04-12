@@ -16,11 +16,13 @@ package com.google.devtools.build.buildjar.javac;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.protobuf.ByteString;
 import java.nio.file.Path;
+import java.util.OptionalInt;
 import javax.annotation.Nullable;
-import javax.annotation.processing.Processor;
 
 /**
  * Arguments to a single compilation performed by {@link BlazeJavacMain}.
@@ -60,13 +62,6 @@ public abstract class BlazeJavacArguments {
   /** The compiler plugins. */
   public abstract ImmutableList<BlazeJavaCompilerPlugin> plugins();
 
-  /**
-   * Annotation processor classes. In production builds, processors are specified by string class
-   * name in {@link #javacOptions}; this is used for tests that instantate processors directly.
-   */
-  @Nullable
-  public abstract ImmutableList<Processor> processors();
-
   /** The class output directory (-d). */
   public abstract Path classOutput();
 
@@ -81,6 +76,11 @@ public abstract class BlazeJavacArguments {
   /** Stop compiling after the first diagnostic that could cause transitive classpath fallback. */
   public abstract boolean failFast();
 
+  /** The Inputs' path and digest received from a WorkRequest */
+  public abstract ImmutableMap<String, ByteString> inputsAndDigest();
+
+  public abstract OptionalInt requestId();
+
   public static Builder builder() {
     return new AutoValue_BlazeJavacArguments.Builder()
         .classPath(ImmutableList.of())
@@ -89,12 +89,13 @@ public abstract class BlazeJavacArguments {
         .blazeJavacOptions(ImmutableList.of())
         .sourceFiles(ImmutableList.of())
         .sourcePath(ImmutableList.of())
-        .processors(null)
         .sourceOutput(null)
         .builtinProcessors(ImmutableSet.of())
         .processorPath(ImmutableList.of())
         .plugins(ImmutableList.of())
-        .failFast(false);
+        .failFast(false)
+        .inputsAndDigest(ImmutableMap.of())
+        .requestId(OptionalInt.empty());
   }
 
   /** {@link BlazeJavacArguments}Builder. */
@@ -118,8 +119,6 @@ public abstract class BlazeJavacArguments {
 
     Builder sourceFiles(ImmutableList<Path> sourceFiles);
 
-    Builder processors(ImmutableList<Processor> processors);
-
     Builder builtinProcessors(ImmutableSet<String> builtinProcessors);
 
     Builder sourceOutput(Path sourceOutput);
@@ -129,6 +128,10 @@ public abstract class BlazeJavacArguments {
     Builder plugins(ImmutableList<BlazeJavaCompilerPlugin> plugins);
 
     Builder failFast(boolean failFast);
+
+    Builder inputsAndDigest(ImmutableMap<String, ByteString> inputsAndDigest);
+
+    Builder requestId(OptionalInt requestId);
 
     BlazeJavacArguments build();
   }

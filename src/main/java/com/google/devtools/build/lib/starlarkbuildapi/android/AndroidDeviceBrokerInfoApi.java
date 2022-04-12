@@ -49,7 +49,6 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
         parameters = {
           @Param(
               name = "type",
-              type = String.class,
               named = true,
               doc =
                   "The type of device broker that is appropriate to use to interact with "

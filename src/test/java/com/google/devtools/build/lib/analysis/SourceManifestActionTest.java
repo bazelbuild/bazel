@@ -18,9 +18,9 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -74,7 +74,8 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     pythonSourceFile = ActionsTestUtil.createArtifact(trivialRoot, pythonSourcePath);
     fakeManifest.put(buildFilePath.relativeTo(rootDirectory), buildFile);
     fakeManifest.put(pythonSourcePath.relativeTo(rootDirectory), pythonSourceFile);
-    ArtifactRoot outputDir = ArtifactRoot.asDerivedRoot(rootDirectory, "blaze-output");
+    ArtifactRoot outputDir =
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "blaze-output");
     manifestOutputPath = rootDirectory.getRelative("blaze-output/trivial.runfiles_manifest");
     manifestOutputFile = ActionsTestUtil.createArtifact(outputDir, manifestOutputPath);
   }
@@ -83,8 +84,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
    * Get the contents of a file internally using an in memory output stream.
    *
    * @return returns the file contents as a string.
-   * @throws ActionExecutionException
-   * @throws InterruptedException
    * @throws IOException
    */
   public String getFileContentsAsString(SourceManifestAction manifest) throws IOException {

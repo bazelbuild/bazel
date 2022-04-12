@@ -23,11 +23,15 @@ import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
+import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
+import com.google.devtools.build.lib.worker.WorkRequestHandler;
+import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestHandlerBuilder;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,13 +44,33 @@ public class BazelJavaBuilder {
   public static void main(String[] args) {
     BazelJavaBuilder builder = new BazelJavaBuilder();
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
-      WorkRequestHandler workerHandler = new WorkRequestHandler(builder::parseAndBuild);
-      System.exit(workerHandler.processRequests(System.in, System.out, System.err));
+      WorkRequestHandler workerHandler =
+          new WorkRequestHandlerBuilder(
+                  builder::parseAndBuild,
+                  System.err,
+                  new ProtoWorkerMessageProcessor(System.in, System.out))
+              .setCpuUsageBeforeGc(Duration.ofSeconds(10))
+              .build();
+      int exitCode = 1;
+      try {
+        workerHandler.processRequests();
+        exitCode = 0;
+      } catch (IOException e) {
+        System.err.println(e.getMessage());
+      } finally {
+        // Prevent hanging threads from keeping the worker alive.
+        System.exit(exitCode);
+      }
     } else {
-      System.exit(
-          builder.parseAndBuild(
-              Arrays.asList(args),
-              new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()))));
+      PrintWriter pw =
+          new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()));
+      int returnCode;
+      try {
+        returnCode = builder.parseAndBuild(Arrays.asList(args), pw);
+      } finally {
+        pw.flush();
+      }
+      System.exit(returnCode);
     }
   }
 

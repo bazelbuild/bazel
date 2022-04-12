@@ -60,8 +60,8 @@ function assert_only_action_foo() {
 
 function assert_only_action_foo_textproto() {
   expect_log_once "actions {"
-  assert_contains "input_dep_set_ids: \"0\"" $1
-  assert_contains "output_ids: \"2\"" $1
+  assert_contains "input_dep_set_ids: 1" $1
+  assert_contains "output_ids: 3" $1
   assert_contains "mnemonic: \"Genrule\"" $1
   return 0
 }
@@ -96,7 +96,7 @@ EOF
   assert_contains "//$pkg:bar" output
 }
 
-function test_aquery_text() {
+function test_basic_aquery_text() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -116,6 +116,7 @@ EOF
   assert_contains "Mnemonic: Genrule" output
   assert_contains "Target: //$pkg:bar" output
   assert_contains "Configuration: .*-fastbuild" output
+  assert_contains "Execution platform: ${default_host_platform}" output
   # Only check that the inputs/outputs/command line/environment exist, but not
   # their actual contents since that would be too much.
   assert_contains "Inputs: \[" output
@@ -130,6 +131,69 @@ EOF
   bazel aquery --output=text --noinclude_commandline "//$pkg:bar" > output \
     2> "$TEST_log" || fail "Expected success"
   assert_not_contains "echo unused" output
+}
+
+function test_basic_aquery_textproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --output=proto "//$pkg:bar" \
+    || fail "Expected success"
+
+  bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify than ids come in integers instead of strings.
+  assert_contains "id: 1" output
+  assert_not_contains "id: \"1\"" output
+
+  # Verify that paths are broken down to path fragments.
+  assert_contains "path_fragments {" output
+  assert_contains "primary_output_id" output
+  # Verify that the appropriate action was included.
+  assert_contains "label: \"dummy.txt\"" output
+  assert_contains "mnemonic: \"Genrule\"" output
+  assert_contains "mnemonic: \".*-fastbuild\"" output
+  assert_contains "execution_platform: \"${default_host_platform}\"" output
+  assert_contains "echo unused" output
+}
+
+function test_basic_aquery_jsonproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify than ids come in integers instead of strings.
+  assert_contains "\"id\": 1," output
+  assert_not_contains "\"id\": \"1\"" output
+
+  # Verify that paths are broken down to path fragments.
+  assert_contains "\"pathFragments\": \[{" output
+
+  # Verify that the appropriate action was included.
+  assert_contains "\"label\": \"dummy.txt\"" output
+  assert_contains "\"mnemonic\": \"Genrule\"" output
+  assert_contains "\"mnemonic\": \".*-fastbuild\"" output
+  assert_contains "\"executionPlatform\": \"${default_host_platform}\"" output
+  assert_contains "echo unused" output
 }
 
 function test_aquery_include_artifacts() {
@@ -158,58 +222,6 @@ EOF
 
   assert_not_contains "Inputs: \[" output
   assert_not_contains "Outputs: \[" output
-}
-
-function test_aquery_textproto() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "bar",
-    srcs = ["dummy.txt"],
-    outs = ["bar_out.txt"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  echo "hello aquery" > "$pkg/in.txt"
-
-  bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "exec_path: \"$pkg/dummy.txt\"" output
-  assert_contains "nemonic: \"Genrule\"" output
-  assert_contains "mnemonic: \".*-fastbuild\"" output
-  assert_contains "echo unused" output
-
-  bazel aquery --output=textproto --noinclude_commandline "//$pkg:bar" > output \
-    2> "$TEST_log" || fail "Expected success"
-  assert_not_contains "echo unused" output
-}
-
-function test_aquery_jsonproto() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "bar",
-    srcs = ["dummy.txt"],
-    outs = ["bar_out.txt"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  echo "hello aquery" > "$pkg/in.txt"
-
-  bazel aquery --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "\"execPath\": \"$pkg/dummy.txt\"" output
-  assert_contains "\"mnemonic\": \"Genrule\"" output
-  assert_contains "\"mnemonic\": \".*-fastbuild\"" output
-  assert_contains "echo unused" output
-
-  bazel aquery --output=jsonproto --noinclude_commandline "//$pkg:bar" > output \
-    2> "$TEST_log" || fail "Expected success"
-  assert_not_contains "echo unused" output
 }
 
 function test_aquery_starlark_env() {
@@ -708,11 +720,28 @@ EOF
     2> "$TEST_log" || fail "Expected success"
 }
 
-function test_aquery_include_param_file_cc_binary() {
-  if is_darwin; then
-    return 0
-  fi
+function test_aquery_noinclude_artifacts() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+cc_binary(
+    name='foo',
+    srcs=['foo.cc']
+)
+EOF
 
+  # cc_binary targets write param files and use them in CppLinkActions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text --noinclude_artifacts ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_not_contains "Inputs: " output
+  assert_not_contains "Outputs: " output
+}
+
+function test_aquery_include_param_file_cc_binary() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -737,10 +766,6 @@ EOF
 }
 
 function test_aquery_include_param_file_starlark_rule() {
-  if is_darwin; then
-    return 0
-  fi
-
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/test_rule.bzl" <<'EOF'
@@ -790,11 +815,48 @@ EOF
     2> "$TEST_log" || fail "Expected success"
 }
 
-function test_aquery_include_param_file_not_enabled_by_default() {
-  if is_darwin; then
-    return 0
-  fi
+# Regression test for b/191070494.
+function test_aquery_include_param_files_tree_artifact_writes_unexpanded_dir() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "${pkg}"/def.bzl <<'EOF'
+def _r(ctx):
+  dir = ctx.actions.declare_directory(ctx.label.name + "_dir")
+  ctx.actions.run_shell(outputs=[dir], command="touch %s/file" % dir.path)
 
+  param_file = ctx.actions.declare_file(ctx.label.name + "_param_file")
+  args = ctx.actions.args()
+  args.add_all([dir])
+  ctx.actions.write(param_file, args)
+
+  file = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.run_shell(
+      mnemonic = "Action",
+      outputs = [file],
+      inputs = [param_file],
+      command = "cp %s %s" % (param_file.path, file.path)
+  )
+  return DefaultInfo(files=depset([file]))
+
+r = rule(implementation=_r)
+EOF
+  cat > "${pkg}"/BUILD <<'EOF'
+load(":def.bzl", "r")
+r(name="a")
+EOF
+
+  bazel aquery --include_param_files \
+      "mnemonic(Action, //${pkg}:a)" > output 2> "${TEST_log}" \
+      || fail "Expected aquery to succeed"
+
+  cat output >> "${TEST_log}"
+  assert_matches \
+      "${PRODUCT_NAME}-out/[^/]+-fastbuild/bin/${pkg}/a_dir" \
+      "$(grep --after-context=1000 'Params File Content' output | tail -n +2 |
+          sed 's/^[[:space:]]\+//')"
+}
+
+function test_aquery_include_param_file_not_enabled_by_default() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -854,25 +916,118 @@ EOF
 
   QUERY="//$pkg:all"
 
+  # In fastbuild, we expect exactly 1 CppCompileActionTemplate, which is a PIC
+  # action on Darwin and Windows and a noPIC action on Linux.
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  expect_log_n "CppCompileActionTemplate compiling.*.cc" 1 \
+    "Expected exactly 1 CppCompileActionTemplates."
+  assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
+
   # Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
   # while Linux has both PIC and non-PIC CppCompileActionTemplates
+  bazel aquery -c opt --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
   if (is_darwin || $is_windows); then
     expected_num_actions=1
   else
     expected_num_actions=2
   fi
-
-  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  expect_log_n "CppCompileActionTemplate compiling .*.cc" $expected_num_actions "Expected exactly $expected_num_actions CppCompileActionTemplates."
-
+  expect_log_n "CppCompileActionTemplate compiling.*.cc" $expected_num_actions \
+    "Expected exactly $expected_num_actions CppCompileActionTemplates."
   assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
 
   bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
     2> "$TEST_log" || fail "Expected success"
 }
+
+function test_aquery_single_aspect() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+MyBaseRuleProvider = provider(
+  fields = {
+    'dummy_field': 'dummy field'
+  }
+)
+
+MyProvider = provider(
+  fields = {
+    'dummy_field': 'dummy field'
+  }
+)
+
+def _base_rule_impl(ctx):
+  return [MyBaseRuleProvider(dummy_field = 1)]
+
+base_rule = rule(
+  attrs = {
+    'srcs': attr.label_list(allow_files = True),
+  },
+  implementation = _base_rule_impl
+)
+
+def _my_jpl_aspect_imp(target, ctx):
+  if hasattr(ctx.rule.attr, 'srcs'):
+    out = ctx.actions.declare_file('out_jpl_{}'.format(target))
+    ctx.actions.run(
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],
+      outputs = [out],
+      executable = 'dummy',
+      mnemonic = 'MyJplAspect'
+    )
+  return [MyProvider(dummy_field = 1)]
+
+my_jpl_aspect = aspect(
+  attr_aspects = ['deps', 'exports'],
+  required_aspect_providers = [['proto_java']],
+  attrs = {
+    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
+  },
+  implementation = _my_jpl_aspect_imp,
+)
+
+def _jpl_rule_impl(ctx):
+  return struct()
+
+my_jpl_rule = rule(
+  attrs = {
+    'deps': attr.label_list(aspects = [my_jpl_aspect]),
+    'srcs': attr.label_list(allow_files = True),
+    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
+  },
+  implementation = _jpl_rule_impl
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(':rule.bzl', 'my_jpl_rule', 'base_rule')
+base_rule(
+  name = 'x',
+  srcs = [':x.java'],
+)
+my_jpl_rule(
+  name = 'my_aspect',
+  deps = [':x'],
+  aspect_param = 'y'
+)
+EOF
+
+  QUERY="deps(//$pkg:my_aspect)"
+
+  bazel aquery --output=text --include_aspects ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Mnemonic: MyJplAspect" output
+  assert_contains "AspectDescriptors: \[.*:rule.bzl%my_jpl_aspect(aspect_param='y')" output
+
+  bazel aquery --output=textproto --include_aspects --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
 
 function test_aquery_aspect_on_aspect() {
   local pkg="${FUNCNAME[0]}"
@@ -1084,88 +1239,7 @@ EOF
 
   assert_only_action_foo_textproto output
 }
-
-function test_basic_aquery_proto_v2() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "bar",
-    srcs = ["dummy.txt"],
-    outs = ["bar_out.txt"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  bazel aquery --output=proto "//$pkg:bar" > output_v1 || fail "Expected success"
-  bazel clean
-
-  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" > output_v2 2> "$TEST_log" \
-    || fail "Expected success"
-  [[ output_v1 != output_v2 ]] || fail "proto content should be different."
-}
-
-function test_basic_aquery_textproto_v2() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "bar",
-    srcs = ["dummy.txt"],
-    outs = ["bar_out.txt"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" \
-    || fail "Expected success"
-
-  bazel aquery --incompatible_proto_output_v2 --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  # Verify than ids come in integers instead of strings.
-  assert_contains "id: 1" output
-  assert_not_contains "id: \"1\"" output
-
-  # Verify that paths are broken down to path fragments.
-  assert_contains "path_fragments {" output
-  assert_contains "primary_output_id" output
-  # Verify that the appropriate action was included.
-  assert_contains "label: \"dummy.txt\"" output
-  assert_contains "mnemonic: \"Genrule\"" output
-  assert_contains "mnemonic: \".*-fastbuild\"" output
-  assert_contains "echo unused" output
-}
-
-function test_basic_aquery_jsonproto_v2() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "bar",
-    srcs = ["dummy.txt"],
-    outs = ["bar_out.txt"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  bazel aquery --incompatible_proto_output_v2 --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  # Verify than ids come in integers instead of strings.
-  assert_contains "\"id\": 1," output
-  assert_not_contains "\"id\": \"1\"" output
-
-  # Verify that paths are broken down to path fragments.
-  assert_contains "\"pathFragments\": \[{" output
-
-  # Verify that the appropriate action was included.
-  assert_contains "\"label\": \"dummy.txt\"" output
-  assert_contains "\"mnemonic\": \"Genrule\"" output
-  assert_contains "\"mnemonic\": \".*-fastbuild\"" output
-  assert_contains "echo unused" output
-}
-
-function test_aquery_textproto_v2_skyframe_state() {
+function test_aquery_textproto_skyframe_state() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -1179,14 +1253,14 @@ EOF
 
   bazel clean
 
-  bazel aquery --incompatible_proto_output_v2 --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
   bazel build --nobuild "//$pkg:foo"
 
-  bazel aquery --incompatible_proto_output_v2 --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1196,7 +1270,7 @@ EOF
   assert_contains "mnemonic: \"Genrule\"" output
 }
 
-function test_aquery_json_v2_skyframe_state() {
+function test_aquery_json_skyframe_state() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -1210,21 +1284,21 @@ EOF
 
   bazel clean
 
-  bazel aquery --incompatible_proto_output_v2 --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
   bazel build --nobuild "//$pkg:foo"
 
-  bazel aquery --incompatible_proto_output_v2 --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
   expect_log_once "\"actionKey\":"
 }
 
-function test_aquery_json_v2_skyframe_state_invalid_format() {
+function test_aquery_json_skyframe_state_invalid_format() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -1238,7 +1312,7 @@ EOF
 
   bazel clean
 
-  bazel aquery --incompatible_proto_output_v2 --output=text --skyframe_state &> "$TEST_log" \
+  bazel aquery --output=text --skyframe_state &> "$TEST_log" \
     && fail "Expected failure"
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
 }
@@ -1307,8 +1381,183 @@ EOF
   bazel clean
 
   bazel build --experimental_aquery_dump_after_build_format=text --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
-    &> "$TEST_log" && fail "Expected success"
+    &> "$TEST_log" && fail "Expected failure"
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
+}
+
+function test_summary_output() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["in"],
+    outs = ["out"],
+    cmd = "touch $(OUTS)",
+)
+EOF
+  touch "$pkg/in"
+
+  bazel aquery --output=summary "//$pkg:all" \
+    &> "$TEST_log" || fail "Expected success"
+  expect_log "1 total action"
+  expect_log "Genrule: 1"
+  # Not matching the full string here since it's OS dependent.
+  expect_log "-fastbuild: 1"
+}
+
+function test_aquery_include_template_substitution_for_template_expand_of_py_binary() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+py_binary(
+    name='foo',
+    srcs=['foo.py']
+)
+EOF
+
+  # aquery returns template content and substitutions in TemplateExpand actions
+  # of py_binary targets.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "PYTHON_BINARY = '%python_binary%'" output
+  assert_contains "{%python_binary%:" output
+
+  bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "\"templateContent\":" output
+  assert_contains "\"key\": \"%python_binary%\"" output
+}
+
+function test_aquery_include_template_substitution_for_template_expand_action() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  cat > "$pkg/template.txt" <<'EOF'
+The token should be substituted: {TOKEN1}
+EOF
+
+  cat > "$pkg/test.bzl" <<'EOF'
+def test_template(**kwargs):
+    _test_template(
+        **kwargs
+    )
+def _test_template_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.template,
+        output = ctx.outputs.output,
+        substitutions = {
+            "{TOKEN1}": "123456",
+        },
+    )
+_test_template = rule(
+    implementation = _test_template_impl,
+    attrs = {
+        "template": attr.label(
+            allow_single_file = True,
+        ),
+        "output": attr.output(mandatory = True),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load('test.bzl', 'test_template')
+test_template(name='foo', template='template.txt', output='output.txt')
+EOF
+
+  # aquery returns template content and substitutions of TemplateExpand actions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Template: ARTIFACT: $pkg/template.txt" output
+  assert_contains "{{TOKEN1}: 123456}" output
+
+  bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "\"templateContent\": \"ARTIFACT: $pkg/template.txt\"" output
+  assert_contains "\"key\": \"{TOKEN1}\"" output
+  assert_contains "\"value\": \"123456\"" output
+}
+
+# Regression test for b/205753626.
+# This test case isn't testing aquery for correctness, just using aquery as a
+# vehicle for testing lower-level logic.
+# TODO(b/205978333): Find a better home for this test case.
+function test_starlark_action_with_reqs_has_deterministic_action_key() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  cat >$pkg/BUILD <<'EOF'
+load(":defs.bzl", "lots_of_reqs")
+lots_of_reqs(name = "reqs")
+EOF
+  cat >$pkg/defs.bzl <<'EOF'
+def _lots_of_reqs_impl(ctx):
+    f = ctx.actions.declare_file(ctx.attr.name + ".txt")
+    ctx.actions.run_shell(
+      outputs = [f],
+      command = "touch " + f.path,
+      execution_requirements = {"requires-" + str(i): "1" for i in range(100)},
+    )
+    return DefaultInfo(files = depset([f]))
+
+lots_of_reqs = rule(implementation = _lots_of_reqs_impl)
+EOF
+
+  bazel aquery $pkg:reqs > output1 2> "$TEST_log" || fail "Expected success"
+  bazel shutdown || fail "Couldn't shutdown"
+  bazel aquery $pkg:reqs > output2 2> "$TEST_log" || fail "Expected success"
+
+  diff <(grep ActionKey output1) <(grep ActionKey output2) \
+    || fail "Nondeterministic action key"
+}
+
+function test_execution_info() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+platform(
+    name = "exec",
+    exec_properties = {
+        "prop1": "foo",
+        "prop2": "bar",
+    },
+)
+
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/dummy.txt"
+
+  bazel aquery \
+    --extra_execution_platforms="//${pkg}:exec" \
+    --output=text \
+    "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Execution platform: //${pkg}:exec" output
+
+  # Verify the execution platform's exec_properties end up as execution requirements.
+  assert_contains "ExecutionInfo: {prop1: foo, prop2: bar}" output
+}
+
+# Usage: assert_matches expected_pattern actual
+function assert_matches() {
+  [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

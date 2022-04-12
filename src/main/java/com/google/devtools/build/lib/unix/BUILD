@@ -12,7 +12,10 @@ filegroup(
 
 java_library(
     name = "unix",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = ["ProcMeminfoParser.java"],
+    ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/jni",
@@ -23,4 +26,10 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "procmeminfo_parser",
+    srcs = ["ProcMeminfoParser.java"],
+    deps = ["//third_party:guava"],
 )

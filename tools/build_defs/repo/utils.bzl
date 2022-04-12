@@ -15,7 +15,7 @@
 
 ### Setup
 
-These utility are intended to be used by other repository rules. They
+These utilities are intended to be used by other repository rules. They
 can be loaded as follows.
 
 ```python
@@ -28,14 +28,17 @@ load(
 ```
 """
 
+# Temporary directory for downloading remote patch files.
+_REMOTE_PATCH_DIR = ".tmp_remote_patches"
+
 def workspace_and_buildfile(ctx):
     """Utility function for writing WORKSPACE and, if requested, a BUILD file.
 
-    This rule is inteded to be used in the implementation function of a
+    This rule is intended to be used in the implementation function of a
     repository rule.
     It assumes the parameters `name`, `build_file`, `build_file_content`,
     `workspace_file`, and `workspace_file_content` to be
-    present in `ctx.attr`, the latter four possibly with value None.
+    present in `ctx.attr`; the latter four possibly with value None.
 
     Args:
       ctx: The repository context of the repository rule calling this utility
@@ -69,11 +72,23 @@ def _use_native_patch(patch_args):
             return False
     return True
 
-def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None):
+def _download_patch(ctx, patch_url, integrity, auth):
+    name = patch_url.split("/")[-1]
+    patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
+    ctx.download(
+        patch_url,
+        patch_path,
+        canonical_id = ctx.attr.canonical_id,
+        auth = auth,
+        integrity = integrity,
+    )
+    return patch_path
+
+def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
     """Implementation of patching an already extracted repository.
 
-    This rule is inteded to be used in the implementation function of
-    a repository rule. Ifthe parameters `patches`, `patch_tool`,
+    This rule is intended to be used in the implementation function of
+    a repository rule. If the parameters `patches`, `patch_tool`,
     `patch_args`, `patch_cmds` and `patch_cmds_win` are not specified
     then they are taken from `ctx.attr`.
 
@@ -90,15 +105,23 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
       patch_tool: Path of the patch tool to execute for applying
         patches. String.
       patch_args: Arguments to pass to the patch tool. List of strings.
+      auth: An optional dict specifying authentication information for some of the URLs.
 
     """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     powershell_exe = ctx.os.environ["BAZEL_POWERSHELL"] if "BAZEL_POWERSHELL" in ctx.os.environ else "powershell.exe"
 
-    if patches == None and hasattr(ctx.attr, "patches"):
-        patches = ctx.attr.patches
     if patches == None:
         patches = []
+    if hasattr(ctx.attr, "patches") and ctx.attr.patches:
+        patches += ctx.attr.patches
+
+    remote_patches = {}
+    remote_patch_strip = 0
+    if hasattr(ctx.attr, "remote_patches") and ctx.attr.remote_patches:
+        if hasattr(ctx.attr, "remote_patch_strip"):
+            remote_patch_strip = ctx.attr.remote_patch_strip
+        remote_patches = ctx.attr.remote_patches
 
     if patch_cmds == None and hasattr(ctx.attr, "patch_cmds"):
         patch_cmds = ctx.attr.patch_cmds
@@ -123,9 +146,18 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
     if patch_args == None:
         patch_args = []
 
-    if len(patches) > 0 or len(patch_cmds) > 0:
+    if len(remote_patches) > 0 or len(patches) > 0 or len(patch_cmds) > 0:
         ctx.report_progress("Patching repository")
 
+    # Apply remote patches
+    for patch_url in remote_patches:
+        integrity = remote_patches[patch_url]
+        patchfile = _download_patch(ctx, patch_url, integrity, auth)
+        ctx.patch(patchfile, remote_patch_strip)
+        ctx.delete(patchfile)
+    ctx.delete(ctx.path(_REMOTE_PATCH_DIR))
+
+    # Apply local patches
     if native_patch and _use_native_patch(patch_args):
         if patch_args:
             strip = int(patch_args[-1][2:])
@@ -187,7 +219,7 @@ def maybe(repo_rule, name, **kwargs):
     """Utility function for only adding a repository if it's not already present.
 
     This is to implement safe repositories.bzl macro documented in
-    https://docs.bazel.build/versions/master/skylark/deploying.html#dependencies.
+    https://docs.bazel.build/versions/main/skylark/deploying.html#dependencies.
 
     Args:
         repo_rule: repository rule function.
@@ -213,6 +245,19 @@ def read_netrc(ctx, filename):
       about them
     """
     contents = ctx.read(filename)
+    return parse_netrc(contents, filename)
+
+def parse_netrc(contents, filename = None):
+    """Utility function to parse at least a basic .netrc file.
+
+    Args:
+      contents: input for the parser.
+      filename: filename to use in error messages, if any.
+
+    Returns:
+      dict mapping a machine names to a dict with the information provided
+      about them
+    """
 
     # Parse the file. This is mainly a token-based update of a simple state
     # machine, but we need to keep the line structure to correctly determine
@@ -283,6 +328,8 @@ def read_netrc(ctx, filename):
                     currentmachinename = ""
                     currentmachine = {}
                 else:
+                    if filename == None:
+                        filename = "a .netrc file"
                     fail("Unexpected token '%s' while reading %s" %
                          (token, filename))
     if not currentmachinename == None:
@@ -290,7 +337,7 @@ def read_netrc(ctx, filename):
     return netrc
 
 def use_netrc(netrc, urls, patterns):
-    """compute an auth dict from a parsed netrc file and a list of URLs
+    """Compute an auth dict from a parsed netrc file and a list of URLs.
 
     Args:
       netrc: a netrc file already parsed to a dict, e.g., as obtained from
@@ -338,3 +385,25 @@ def use_netrc(netrc, urls, patterns):
             }
 
     return auth
+
+def read_user_netrc(ctx):
+    """Read user's default netrc file.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility function.
+
+    Returns:
+      dict mapping a machine names to a dict with the information provided about them.
+    """
+    if ctx.os.name.startswith("windows"):
+        home_dir = ctx.os.environ.get("USERPROFILE", "")
+    else:
+        home_dir = ctx.os.environ.get("HOME", "")
+
+    if not home_dir:
+        return {}
+
+    netrcfile = "{}/.netrc".format(home_dir)
+    if not ctx.path(netrcfile).exists:
+        return {}
+    return read_netrc(ctx, netrcfile)

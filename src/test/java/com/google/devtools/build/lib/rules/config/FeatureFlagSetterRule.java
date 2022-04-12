@@ -62,7 +62,7 @@ public final class FeatureFlagSetterRule implements RuleDefinition, RuleConfigur
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("feature_flag_setter")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(FeatureFlagSetterRule.class)
         .build();
   }

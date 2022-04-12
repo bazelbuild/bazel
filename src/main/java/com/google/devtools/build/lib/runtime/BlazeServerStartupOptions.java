@@ -54,7 +54,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     public Map<String, String> convert(String input) {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       if (input.isEmpty()) {
-        return builder.build();
+        return builder.buildOrThrow();
       }
 
       String[] elements = input.split(":");
@@ -66,7 +66,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         }
         builder.put(unescape(name), unescape(value));
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
@@ -240,16 +240,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batch;
 
   @Option(
-      name = "deep_execroot",
-      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
-      help =
-          "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
-              + "$OUTPUT_BASE.")
-  public boolean deepExecRoot;
-
-  @Option(
       name = "block_for_lock",
       defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -300,7 +290,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       deprecationWarning = "Will be enabled by default and removed soon",
-      help = "No-op: please use --fatal_event_bus_exceptions_exclusions instead")
+      help =
+          "Whether or not to exit if an exception is thrown by an internal EventBus handler. No-op"
+              + " if --fatal_async_exceptions_exclusions is available; that flag's behavior is"
+              + " preferentially used.")
   public boolean fatalEventBusExceptions;
 
   @Option(
@@ -386,12 +379,28 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean clientDebug;
 
   @Option(
+      name = "preemptible",
+      defaultValue = "false", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help = "If true, the command can be preempted if another command is started.")
+  public boolean preemptible;
+
+  @Option(
       name = "connect_timeout_secs",
       defaultValue = "30", // NOTE: only for documentation, value is set and used by the client.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The amount of time the client waits for each attempt to connect to the server")
   public int connectTimeoutSecs;
+
+  @Option(
+      name = "local_startup_timeout_secs",
+      defaultValue = "120", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum amount of time the client waits to connect to the server")
+  public int localStartupTimeoutSecs;
 
   // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
   // experimental tag once this has been tested and is ready for use.
@@ -461,18 +470,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public String macosQosClass;
 
   @Option(
-      name = "incompatible_enable_execution_transition",
-      defaultValue = "false", // Only for documentation; value is set by the client.
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If false, the execution transition behaves like the host transition.")
-  public boolean enableExecutionTransition;
-
-  @Option(
       name = "windows_enable_symlinks",
       defaultValue = "false", // Only for documentation; value is set by the client.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -495,4 +492,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "extended attribute is checked on all source files and output files, meaning "
               + "that it causes a significant number of invocations of the getxattr() system call.")
   public String unixDigestHashAttributeName;
+
+  @Option(
+      name = "autodetect_server_javabase",
+      defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "When --noautodetect_server_javabase is passed, Bazel does not fall back to the local "
+              + "JDK for running the bazel server and instead exits.")
+  public boolean autodetectServerJavabase;
 }

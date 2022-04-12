@@ -43,11 +43,9 @@ public enum BuildFileName {
     }
   };
 
-  private static final BuildFileName[] VALUES = BuildFileName.values();
-
   private final PathFragment filenameFragment;
 
-  private BuildFileName(String filename) {
+  BuildFileName(String filename) {
     this.filenameFragment = PathFragment.create(filename);
   }
 
@@ -61,8 +59,4 @@ public enum BuildFileName {
    * @param packageIdentifier the identifier for this package
    */
   public abstract PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier);
-
-  public static BuildFileName lookupByOrdinal(int ordinal) {
-    return VALUES[ordinal];
-  }
 }

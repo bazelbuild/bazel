@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.when;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.BaseEncoding;
@@ -27,19 +28,20 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /**
  * Tests for @{link RepositoryFunction}
@@ -61,7 +63,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         SkyFunction.Environment env,
         Map<String, String> markerData,
         SkyKey key)
-        throws SkyFunctionException, InterruptedException {
+        throws InterruptedException {
       return null;
     }
 
@@ -142,7 +144,10 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo("01020304");
 
     // Digest should also be returned if the FileStateValue doesn't have it.
-    fsv = new RegularFileStateValue(3, null, new FileContentsProxy(100, 200));
+    FileStatus status = Mockito.mock(FileStatus.class);
+    when(status.getLastChangeTime()).thenReturn(100L);
+    when(status.getNodeId()).thenReturn(200L);
+    fsv = new RegularFileStateValue(3, null, FileContentsProxy.create(status));
     fv = new RegularFileValue(path, fsv);
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
     assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo(expectedDigest);

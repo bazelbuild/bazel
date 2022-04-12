@@ -13,13 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -31,7 +35,8 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
@@ -39,7 +44,9 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Proto output formatter for cquery results. */
 class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -61,37 +68,68 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
+  private static class ConfigurationCache {
+    private final Map<BuildConfigurationEvent, Integer> cache = new HashMap<>();
+
+    public int getId(BuildConfigurationEvent buildConfigurationEvent) {
+      return cache.computeIfAbsent(buildConfigurationEvent, event -> cache.size() + 1);
+    }
+
+    public ImmutableList<Configuration> getConfigurations() {
+      return cache.entrySet().stream()
+          .map(
+              entry -> {
+                BuildConfigurationEvent event = entry.getKey();
+                String checksum = event.getEventId().getConfiguration().getId();
+                BuildEventStreamProtos.Configuration configProto =
+                    event.asStreamProto(/* unusedConverters= */ null).getConfiguration();
+
+                return AnalysisProtosV2.Configuration.newBuilder()
+                    .setChecksum(checksum)
+                    .setMnemonic(configProto.getMnemonic())
+                    .setPlatformName(configProto.getPlatformName())
+                    .setId(entry.getValue())
+                    .setIsTool(configProto.getIsTool())
+                    .build();
+              })
+          .collect(toImmutableList());
+    }
+  }
+
   private final OutputType outputType;
   private final AspectResolver resolver;
+  private final SkyframeExecutor skyframeExecutor;
+  private final ConfigurationCache configurationCache = new ConfigurationCache();
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
-  private AnalysisProtos.CqueryResult.Builder protoResult;
+  private AnalysisProtosV2.CqueryResult.Builder protoResult;
 
-  private ConfiguredTarget currentTarget;
+  private KeyedConfiguredTarget currentTarget;
 
   ProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<KeyedConfiguredTarget> accessor,
       AspectResolver resolver,
       OutputType outputType) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
+    this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
   }
 
   @Override
   public void start() {
-    protoResult = AnalysisProtos.CqueryResult.newBuilder();
+    protoResult = AnalysisProtosV2.CqueryResult.newBuilder();
   }
 
   @Override
   public void close(boolean failFast) throws IOException {
     if (!failFast && printStream != null) {
       if (options.protoIncludeConfigurations) {
-        writeData(protoResult.build());
+        writeData(getProtoResult());
       } else {
         // Documentation promises that setting this flag to false means we convert directly
         // to the build.proto format. This is hard to test in integration testing due to the way
@@ -110,7 +148,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         message.writeTo(outputStream);
         break;
       case TEXT:
-        TextFormat.print(message, printStream);
+        TextFormat.printer().print(message, printStream);
         break;
       case JSON:
         jsonPrinter.appendTo(message, printStream);
@@ -127,30 +165,43 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @VisibleForTesting
-  public AnalysisProtos.CqueryResult getProtoResult() {
+  public AnalysisProtosV2.CqueryResult getProtoResult() {
+    protoResult.addAllConfigurations(configurationCache.getConfigurations());
     return protoResult.build();
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+      throws InterruptedException {
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
-    formatter.setOptions(options, resolver, skyframeExecutor.getHashFunction());
-    for (ConfiguredTarget configuredTarget : partialResult) {
-      AnalysisProtos.ConfiguredTarget.Builder builder =
-          AnalysisProtos.ConfiguredTarget.newBuilder();
+    formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
+    for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
+      AnalysisProtosV2.ConfiguredTarget.Builder builder =
+          AnalysisProtosV2.ConfiguredTarget.newBuilder();
 
       // Re: testing. Since this formatter relies on the heavily tested ProtoOutputFormatter class
       // for all its work with targets, ProtoOuputFormatterCallbackTest doesn't test any of the
       // logic in this next line. If this were to change (i.e. we manipulate targets any further),
       // we will want to add relevant tests.
-      currentTarget = configuredTarget;
-      builder.setTarget(
-          formatter.toTargetProtoBuffer(accessor.getTargetFromConfiguredTarget(configuredTarget)));
+      currentTarget = keyedConfiguredTarget;
+      builder.setTarget(formatter.toTargetProtoBuffer(accessor.getTarget(keyedConfiguredTarget)));
 
       if (options.protoIncludeConfigurations) {
-        String checksum = configuredTarget.getConfigurationChecksum();
+        String checksum = keyedConfiguredTarget.getConfigurationChecksum();
         builder.setConfiguration(
-            AnalysisProtos.Configuration.newBuilder().setChecksum(String.valueOf(checksum)));
+            AnalysisProtosV2.Configuration.newBuilder().setChecksum(String.valueOf(checksum)));
+
+        ConfiguredTargetKey configuredTargetKey = keyedConfiguredTarget.getConfiguredTargetKey();
+        // Some targets don't have a configuration, e.g. InputFileConfiguredTarget
+        if (configuredTargetKey != null) {
+          BuildConfigurationKey configurationKey = configuredTargetKey.getConfigurationKey();
+          if (configurationKey != null) {
+            BuildConfigurationEvent buildConfigurationEvent =
+                getConfiguration(configurationKey).toBuildEvent();
+            int id = configurationCache.getId(buildConfigurationEvent);
+            builder.setConfigurationId(id);
+          }
+        }
       }
 
       protoResult.addResults(builder.build());
@@ -161,20 +212,18 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     @Override
     protected void addAttributes(
         Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
-      // We know <code>currentTarget</code> will be one of these two types of configured targets
+      // We know <code>currentTarget</code> will be either an AliasConfiguredTarget or
+      // RuleConfiguredTarget,
       // because this method is only triggered in ProtoOutputFormatter.toTargetProtoBuffer when
       // the target in currentTarget is an instanceof Rule.
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions;
-      if (currentTarget instanceof AliasConfiguredTarget) {
-        configConditions = ((AliasConfiguredTarget) currentTarget).getConfigConditions();
-      } else if (currentTarget instanceof RuleConfiguredTarget) {
-        configConditions = ((RuleConfiguredTarget) currentTarget).getConfigConditions();
-      } else {
-        // Other subclasses of ConfiguredTarget don't have attribute information.
-        return;
-      }
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+          currentTarget.getConfiguredTarget().getConfigConditions();
       ConfiguredAttributeMapper attributeMapper =
-          ConfiguredAttributeMapper.of(rule, configConditions);
+          ConfiguredAttributeMapper.of(
+              rule,
+              configConditions,
+              currentTarget.getConfigurationChecksum(),
+              /*alwaysSucceed=*/ false);
       for (Attribute attr : sortAttributes(rule.getAttributes())) {
         if (!shouldIncludeAttribute(rule, attr)) {
           continue;

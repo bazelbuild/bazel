@@ -48,6 +48,7 @@ public abstract class AssignmentConverterTest {
     assertThat(convert("A=1")).isEqualTo(Maps.immutableEntry("A", "1"));
     assertThat(convert("A=ABC")).isEqualTo(Maps.immutableEntry("A", "ABC"));
     assertThat(convert("A=")).isEqualTo(Maps.immutableEntry("A", ""));
+    assertThat(convert("A=B,C=D")).isEqualTo(Maps.immutableEntry("A", "B,C=D"));
   }
 
   @Test

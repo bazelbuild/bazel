@@ -97,13 +97,11 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "batch_cpu_scheduling");
   ExpectValidNullaryOption(options, "block_for_lock");
   ExpectValidNullaryOption(options, "client_debug");
-  ExpectValidNullaryOption(options, "deep_execroot");
   ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectValidNullaryOption(options, "home_rc");
   ExpectValidNullaryOption(options, "host_jvm_debug");
+  ExpectValidNullaryOption(options, "autodetect_server_javabase");
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
-  ExpectValidNullaryOption(options, "incompatible_enable_execution_transition");
-  ExpectValidNullaryOption(options, "master_bazelrc");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectValidNullaryOption(options, "system_rc");
   ExpectValidNullaryOption(options, "watchfs");
@@ -118,6 +116,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "invocation_policy");
   ExpectIsUnaryOption(options, "io_nice_level");
+  ExpectIsUnaryOption(options, "local_startup_timeout_secs");
   ExpectIsUnaryOption(options, "macos_qos_class");
   ExpectIsUnaryOption(options, "max_idle_secs");
   ExpectIsUnaryOption(options, "output_base");
@@ -190,7 +189,7 @@ TEST_F(BazelStartupOptionsTest, IgnoredNoMasterBazelrcDoesNotWarn) {
   // Warning for nomaster would feel pretty spammy - it's redundant, but the
   // behavior is as one would expect, so warning is unnecessary.
   ParseStartupOptionsAndExpectWarning(
-      startup_options_.get(), {"--ignore_all_rc_files", "--nomaster_bazelrc"},
+      startup_options_.get(), {"--ignore_all_rc_files"},
       "");
 }
 
@@ -207,7 +206,7 @@ TEST_F(BazelStartupOptionsTest, NonIgnoredOptionDoesNotWarn) {
 TEST_F(BazelStartupOptionsTest, FinalValueOfIgnoreIsUsedForWarning) {
   ParseStartupOptionsAndExpectWarning(
       startup_options_.get(),
-      {"--ignore_all_rc_files", "--master_bazelrc", "--noignore_all_rc_files"},
+      {"--ignore_all_rc_files", "--noignore_all_rc_files"},
       "");
 }
 

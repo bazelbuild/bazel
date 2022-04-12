@@ -19,7 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -37,7 +38,7 @@ import com.google.devtools.build.lib.runtime.commands.info.BlazeTestlogsInfoItem
 import com.google.devtools.build.lib.runtime.commands.info.BuildLanguageInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.CharacterEncodingInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ClientEnv;
-import com.google.devtools.build.lib.runtime.commands.info.CommitedHeapSizeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.CommittedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.DefaultPackagePathInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.DefaultsPackageInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ExecutionRootInfoItem;
@@ -61,7 +62,6 @@ import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -149,23 +149,24 @@ public class InfoCommand implements BlazeCommand {
     env.getReporter().switchToAnsiAllowingHandler();
     Options infoOptions = optionsParsingResult.getOptions(Options.class);
     OutErr outErr = env.getReporter().getOutErr();
-    // Creating a BuildConfiguration is expensive and often unnecessary. Delay the creation until
+    // Creating a BuildConfigurationValue is expensive and often unnecessary. Delay the creation
+    // until
     // it is needed. We memoize so that it's cached intra-command (it's still created freshly on
     // every command since the configuration can change across commands).
-    Supplier<BuildConfiguration> configurationSupplier =
+    Supplier<BuildConfigurationValue> configurationSupplier =
         Suppliers.memoize(
             () -> {
-              try (SilentCloseable c = Profiler.instance().profile("Creating BuildConfiguration")) {
+              try (SilentCloseable c =
+                  Profiler.instance().profile("Creating BuildConfigurationValue")) {
                 // In order to be able to answer configuration-specific queries, we need to set up
                 // the package path. Since info inherits all the build options, all the necessary
                 // information is available here.
                 env.syncPackageLoading(optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
+                BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
+                env.getSkyframeExecutor().setBaselineConfiguration(buildOptions);
                 return env.getSkyframeExecutor()
-                    .getConfiguration(
-                        env.getReporter(),
-                        runtime.createBuildOptions(optionsParsingResult),
-                        /*keepGoing=*/ true);
+                    .getConfiguration(env.getReporter(), buildOptions, /*keepGoing=*/ true);
               } catch (InvalidConfigurationException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
                 throw new AbruptExitRuntimeException(e.getDetailedExitCode());
@@ -175,8 +176,7 @@ public class InfoCommand implements BlazeCommand {
                 env.getReporter().handle(Event.error("interrupted"));
                 throw new AbruptExitRuntimeException(
                     InterruptedFailureDetails.detailedExitCode(
-                        "command interrupted while syncing package loading",
-                        Interrupted.Code.PACKAGE_LOADING_SYNC));
+                        "command interrupted while syncing package loading"));
               }
             });
 
@@ -258,8 +258,7 @@ public class InfoCommand implements BlazeCommand {
           FailureDetails.InfoCommand.Code.ALL_INFO_WRITE_FAILURE);
     } catch (InterruptedException e) {
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              "info interrupted", Interrupted.Code.INFO_ITEM));
+          InterruptedFailureDetails.detailedExitCode("info interrupted"));
     }
     return BlazeCommandResult.success();
   }
@@ -294,7 +293,7 @@ public class InfoCommand implements BlazeCommand {
             new PackagePathInfoItem(commandOptions),
             new UsedHeapSizeInfoItem(),
             new UsedHeapSizeAfterGcInfoItem(),
-            new CommitedHeapSizeInfoItem(),
+            new CommittedHeapSizeInfoItem(),
             new MaxHeapSizeInfoItem(),
             new GcTimeInfoItem(),
             new GcCountInfoItem(),
@@ -310,7 +309,7 @@ public class InfoCommand implements BlazeCommand {
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   public static List<String> getHardwiredInfoItemNames(String productName) {

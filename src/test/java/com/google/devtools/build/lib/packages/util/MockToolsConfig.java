@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
@@ -126,12 +125,6 @@ public final class MockToolsConfig {
     linkTool(relativePath, relativePath);
   }
 
-  public void copyTool(String relativePath) throws IOException {
-    Path runfiles = FileSystems.getNativeFileSystem().getPath(BlazeTestUtils.runfilesDir());
-    Path source = runfiles.getRelative(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
-    create(relativePath, FileSystemUtils.readContent(source, StandardCharsets.ISO_8859_1));
-  }
-
   /**
    * Links a tool into the workspace by creating a symbolic link to a real file.
    *
@@ -154,9 +147,19 @@ public final class MockToolsConfig {
       }
     }
     Path path = getPath(dest);
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     path.delete();
     path.createSymbolicLink(target);
+  }
+
+  public void copyTool(String relativePath) throws IOException {
+    copyTool(relativePath, relativePath);
+  }
+
+  public void copyTool(String relativePath, String dest) throws IOException {
+    Path runfiles = FileSystems.getNativeFileSystem().getPath(BlazeTestUtils.runfilesDir());
+    Path source = runfiles.getRelative(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    create(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
   }
 
   /**

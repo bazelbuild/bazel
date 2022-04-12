@@ -58,18 +58,6 @@ public abstract class KeyToConsolidate {
     REMOVE_OLD
   }
 
-  /** The operation {@link ReverseDepsUtility} should store bare in pending reverse dep ops. */
-  public enum OpToStoreBare {
-    ADD(Op.ADD),
-    CHECK(Op.CHECK);
-
-    private final Op op;
-
-    OpToStoreBare(Op op) {
-      this.op = op;
-    }
-  }
-
   private static final Interner<KeyToConsolidate> consolidateInterner =
       BlazeInterners.newWeakInterner();
 
@@ -89,9 +77,9 @@ public abstract class KeyToConsolidate {
    * Gets which operation was delayed for the given object, created using {@link #create}. The same
    * {@code opToStoreBare} passed in to {@link #create} should be passed in here.
    */
-  static Op op(Object obj, OpToStoreBare opToStoreBare) {
+  static Op op(Object obj, Op opToStoreBare) {
     if (obj instanceof SkyKey) {
-      return opToStoreBare.op;
+      return opToStoreBare;
     }
     if (obj instanceof KeyToAdd) {
       return Op.ADD;
@@ -125,8 +113,8 @@ public abstract class KeyToConsolidate {
    * object wrapper. Whatever {@code opToStoreBare} is set to here, the same value must be passed in
    * to {@link #op} when decoding an operation emitted by this method.
    */
-  static Object create(SkyKey key, Op op, OpToStoreBare opToStoreBare) {
-    if (op == opToStoreBare.op) {
+  static Object create(SkyKey key, Op op, InMemoryNodeEntry entry) {
+    if (op == ReverseDepsUtility.getOpToStoreBare(entry)) {
       return key;
     }
     switch (op) {

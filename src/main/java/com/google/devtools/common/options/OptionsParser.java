@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
-import com.google.devtools.common.options.OptionsParserImpl.ResidueAndPriority;
+import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * A parser for options. Typical use case in a main method:
@@ -92,14 +93,17 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * A cache for the parsed options data. Both keys and values are immutable, so
-   * this is always safe. Only access this field through the {@link
-   * #getOptionsData} method for thread-safety! The cache is very unlikely to
-   * grow to a significant amount of memory, because there's only a fixed set of
-   * options classes on the classpath.
+   * A cache for the parsed options data. Both keys and values are immutable, so this is always
+   * safe. Only access this field through the {@link #getOptionsData} method for thread-safety! The
+   * cache is very unlikely to grow to a significant amount of memory, because there's only a fixed
+   * set of options classes on the classpath.
    */
   private static final Map<ImmutableList<Class<? extends OptionsBase>>, OptionsData> optionsData =
       new HashMap<>();
+
+  /** Skipped prefixes for starlark options. */
+  public static final ImmutableList<String> STARLARK_SKIPPED_PREFIXES =
+      ImmutableList.of("--//", "--no//", "--@", "--no@");
 
   /**
    * Returns {@link OpaqueOptionsData} suitable for passing along to {@link
@@ -114,11 +118,9 @@ public class OptionsParser implements OptionsParsingResult {
     return getOptionsDataInternal(optionsClasses);
   }
 
-  /**
-   * Returns the {@link OptionsData} associated with the given list of options classes.
-   */
+  /** Returns the {@link OptionsData} associated with the given list of options classes. */
   static synchronized OptionsData getOptionsDataInternal(
-      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+      List<Class<? extends OptionsBase>> optionsClasses) {
     ImmutableList<Class<? extends OptionsBase>> immutableOptionsClasses =
         ImmutableList.copyOf(optionsClasses);
     OptionsData result = optionsData.get(immutableOptionsClasses);
@@ -134,11 +136,8 @@ public class OptionsParser implements OptionsParsingResult {
     return result;
   }
 
-  /**
-   * Returns the {@link OptionsData} associated with the given options class.
-   */
-  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
-      throws ConstructionException {
+  /** Returns the {@link OptionsData} associated with the given options class. */
+  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass) {
     return getOptionsDataInternal(ImmutableList.of(optionsClass));
   }
 
@@ -191,11 +190,10 @@ public class OptionsParser implements OptionsParsingResult {
 
     /** Skip all the prefixes associated with Starlark options */
     public Builder skipStarlarkOptionPrefixes() {
-      this.implBuilder
-          .skippedPrefix("--//")
-          .skippedPrefix("--no//")
-          .skippedPrefix("--@")
-          .skippedPrefix("--no@");
+      for (String prefix : STARLARK_SKIPPED_PREFIXES) {
+        this.implBuilder.skippedPrefix(prefix);
+      }
+
       return this;
     }
 
@@ -215,6 +213,21 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    /** Sets the string the parser should look for as an identifier for flag aliases. */
+    public Builder withAliasFlag(@Nullable String aliasFlag) {
+      this.implBuilder.withAliasFlag(aliasFlag);
+      return this;
+    }
+
+    /**
+     * Adds a map of flag aliases for the OptionsParser to reference. The keys are the aliases and
+     * the values are the actual options.
+     */
+    public Builder withAliases(Map<String, String> aliases) {
+      this.implBuilder.withAliases(aliases);
+      return this;
+    }
+
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
       return new OptionsParser(implBuilder.build(), allowResidue);
@@ -231,6 +244,7 @@ public class OptionsParser implements OptionsParsingResult {
   private final List<String> postDoubleDashResidue = new ArrayList<>();
   private final boolean allowResidue;
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
+  private final Map<String, String> aliases = new HashMap<>();
 
   private OptionsParser(OptionsParserImpl impl, boolean allowResidue) {
     this.impl = impl;
@@ -315,11 +329,14 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * The verbosity with which option help messages are displayed: short (just
-   * the name), medium (name, type, default, abbreviation), and long (full
-   * description).
+   * The verbosity with which option help messages are displayed: short (just the name), medium
+   * (name, type, default, abbreviation), and long (full description).
    */
-  public enum HelpVerbosity { LONG, MEDIUM, SHORT }
+  public enum HelpVerbosity {
+    LONG,
+    MEDIUM,
+    SHORT
+  }
 
   /**
    * Returns a description of all the options this parser can digest. In addition to {@link Option}
@@ -543,7 +560,8 @@ public class OptionsParser implements OptionsParsingResult {
     Preconditions.checkNotNull(visitor, "Missing visitor.");
 
     OptionsData data = impl.getOptionsData();
-    data.getOptionsClasses()
+    data
+        .getOptionsClasses()
         // List all options
         .stream()
         .flatMap(optionsClass -> OptionsData.getAllOptionDefinitionsForClass(optionsClass).stream())
@@ -650,13 +668,14 @@ public class OptionsParser implements OptionsParsingResult {
       throws OptionsParsingException {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
-    ResidueAndPriority residueAndPriority = impl.parse(priority, sourceFunction, args);
-    residue.addAll(residueAndPriority.getResidue());
-    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
+    OptionsParserImplResult optionsParserImplResult = impl.parse(priority, sourceFunction, args);
+    residue.addAll(optionsParserImplResult.getResidue());
+    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
     }
+    aliases.putAll(optionsParserImplResult.aliases);
   }
 
   /**
@@ -673,15 +692,16 @@ public class OptionsParser implements OptionsParsingResult {
       ParsedOptionDescription optionToExpand, String source, List<String> args)
       throws OptionsParsingException {
     Preconditions.checkNotNull(
-        optionToExpand, "Option for expansion not specified for arglist " + args);
+        optionToExpand, "Option for expansion not specified for arglist %s", args);
     Preconditions.checkArgument(
         optionToExpand.getPriority().getPriorityCategory()
             != OptionPriority.PriorityCategory.DEFAULT,
-        "Priority cannot be default, which was specified for arglist " + args);
-    ResidueAndPriority residueAndPriority =
+        "Priority cannot be default, which was specified for arglist %s",
+        args);
+    OptionsParserImplResult optionsParserImplResult =
         impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
-    residue.addAll(residueAndPriority.getResidue());
-    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
+    residue.addAll(optionsParserImplResult.getResidue());
+    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
@@ -689,6 +709,9 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
+   * Sets provided value for a flag with a particular priority. This only sets the value of the flag
+   * itself and does not affect any of its implicit requirements or expansions.
+   *
    * @param origin the origin of this option instance, it includes the priority of the value. If
    *     other values have already been or will be parsed at a higher priority, they might override
    *     the provided value. If this option already has a value at this priority, this value will
@@ -696,10 +719,10 @@ public class OptionsParser implements OptionsParsingResult {
    * @param option the option to add the value for.
    * @param value the value to add at the given priority.
    */
-  void addOptionValueAtSpecificPriority(
+  void setOptionValueAtSpecificPriorityWithoutExpansion(
       OptionInstanceOrigin origin, OptionDefinition option, String value)
       throws OptionsParsingException {
-    impl.addOptionValueAtSpecificPriority(origin, option, value);
+    impl.setOptionValueAtSpecificPriorityWithoutExpansion(origin, option, value);
   }
 
   /**
@@ -714,6 +737,11 @@ public class OptionsParser implements OptionsParsingResult {
    */
   public OptionValueDescription clearValue(OptionDefinition option) throws OptionsParsingException {
     return impl.clearValue(option);
+  }
+
+  @Override
+  public Map<String, String> getAliases() {
+    return ImmutableMap.copyOf(aliases);
   }
 
   @Override
@@ -746,8 +774,8 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /** Returns a list of warnings about problems encountered by previous parse calls. */
-  public List<String> getWarnings() {
-    return ImmutableList.copyOf(impl.getWarnings());
+  public ImmutableList<String> getWarnings() {
+    return impl.getWarnings();
   }
 
   @Override
@@ -817,4 +845,3 @@ public class OptionsParser implements OptionsParsingResult {
     return data.getUsesOnlyCoreTypes(optionsClass);
   }
 }
-

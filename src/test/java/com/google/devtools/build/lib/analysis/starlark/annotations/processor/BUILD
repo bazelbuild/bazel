@@ -19,7 +19,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:annotation_preprocessor",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:annotation_preprocessor_lib",
         "//third_party:compile_testing",
         "//third_party:guava",
         "//third_party:junit4",
@@ -30,19 +30,4 @@ java_test(
 filegroup(
     name = "ProcessorTestFiles",
     srcs = glob(["optiontestsources/*.java"]),
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
 )

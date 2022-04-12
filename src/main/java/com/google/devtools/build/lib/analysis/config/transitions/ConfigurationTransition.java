@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.ClassName;
 import java.util.Map;
 
 /**
@@ -45,21 +44,18 @@ public interface ConfigurationTransition {
   }
 
   /**
-   * {@link #requiresOptionFragments()} variation for Starlark transitions, which need a {@link
-   * BuildOptions} instance to map required options to their {@link FragmentOptions}.
+   * Adds required configuration fragments to the given {@link
+   * RequiredConfigFragmentsProvider.Builder}.
    *
-   * <p>This version pre-translates the fragments to their final string representations. This is
-   * because Starlark transitions can depend on both native fragments and Starlark flags. The latter
-   * are reported directly, not as part of a larger fragment.
+   * <p>A {@link BuildOptionDetails} instance is provided for Starlark transitions, which need to
+   * map required options to their {@link FragmentOptions}.
    *
-   * <p>Non-Starlark transitions should override {@link #requiresOptionFragments()} and ignore this.
-   *
-   * <p>Callers may ignore this method if they know they're not calling into a Starlark transition.
+   * <p>Non-Starlark transitions should override {@link #requiresOptionFragments} and keep the
+   * default implementation of this method.
    */
-  default ImmutableSet<String> requiresOptionFragments(BuildOptions options) {
-    return requiresOptionFragments().stream()
-        .map(ClassName::getSimpleNameWithOuter)
-        .collect(toImmutableSet());
+  default void addRequiredFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptionDetails optionDetails) {
+    requiredFragments.addOptionsClasses(requiresOptionFragments());
   }
 
   /**

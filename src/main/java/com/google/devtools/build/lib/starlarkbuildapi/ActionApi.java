@@ -31,16 +31,15 @@ import net.starlark.java.eval.StarlarkValue;
     name = "Action",
     category = DocCategory.BUILTIN,
     doc =
-        "An action created during rule analysis."
-            + "<p>This object is visible for the purpose of testing, and may be obtained from an "
-            + "<a href=\"globals.html#Actions\">Actions</a> provider. It is normally not necessary "
-            + "to access <code>Action</code> objects or their fields within a rule's "
-            + "implementation function. You may instead want to see the "
-            + "<a href='../rules.$DOC_EXT#actions'>Rules page</a> for a general discussion of how "
-            + "to use actions when defining custom rules, or the <a href='actions.html'>API "
-            + "reference</a> for creating actions."
-            + "<p>Some fields of this object are only applicable for certain kinds of actions. "
-            + "Fields that are inapplicable are set to <code>None</code>.")
+        "An action created during rule analysis.<p>This object is visible for the purpose of"
+            + " testing, and may be obtained from an <a href=\"globals.html#Actions\">Actions</a>"
+            + " provider. It is normally not necessary to access <code>Action</code> objects or"
+            + " their fields within a rule's implementation function. You may instead want to see"
+            + " the <a href='$STARLARK_DOCS_ROOT/rules.html#actions'>Rules page</a> for a general"
+            + " discussion of how to use actions when defining custom rules, or the <a"
+            + " href='actions.html'>API reference</a> for creating actions.<p>Some fields of this"
+            + " object are only applicable for certain kinds of actions. Fields that are"
+            + " inapplicable are set to <code>None</code>.")
 public interface ActionApi extends StarlarkValue {
 
   @StarlarkMethod(name = "mnemonic", structField = true, doc = "The mnemonic for this action.")
@@ -68,7 +67,8 @@ public interface ActionApi extends StarlarkValue {
               + "and <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
-  Sequence<String> getStarlarkArgv() throws EvalException;
+  @Nullable
+  Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "args",
@@ -83,7 +83,8 @@ public interface ActionApi extends StarlarkValue {
               + " For such action types, this is <code>None</code>.",
       structField = true,
       allowReturnNones = true)
-  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
+  @Nullable
+  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException, InterruptedException;
 
   /**
    * If the action writes a file whose content is known at analysis time, returns that content;
@@ -103,12 +104,12 @@ public interface ActionApi extends StarlarkValue {
               + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
               + " the contents of the file to be written, if those contents can be computed during "
               + " the analysis phase. The value is <code>None</code> if the contents cannot be "
-              + "determined until the execution phase, such as when a directory in an {@code Args} "
-              + "object needs to be expanded.",
+              + "determined until the execution phase, such as when a directory in an "
+              + "<a href=\"Args.html\">Args</a> object needs to be expanded.",
       structField = true,
       allowReturnNones = true)
   @Nullable
-  String getStarlarkContent() throws IOException, EvalException;
+  String getStarlarkContent() throws IOException, EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "substitutions",
@@ -118,6 +119,7 @@ public interface ActionApi extends StarlarkValue {
               + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
+  @Nullable
   Dict<String, String> getStarlarkSubstitutions();
 
   @StarlarkMethod(

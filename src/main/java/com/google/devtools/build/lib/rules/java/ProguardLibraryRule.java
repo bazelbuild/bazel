@@ -15,16 +15,13 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 
 /** A base rule for libraries which can provide proguard specs. */
 public final class ProguardLibraryRule implements RuleDefinition {
@@ -42,19 +39,6 @@ public final class ProguardLibraryRule implements RuleDefinition {
         <code>android_binary</code>'s proguard_specs, to ensure non-tautological merges.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
-        .add(
-            attr("$proguard_whitelister", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .exec()
-                .value(
-                    new Attribute.ComputedDefault() {
-                      @Override
-                      public Object getDefault(AttributeMap rule) {
-                        return rule.isAttributeValueExplicitlySpecified("proguard_specs")
-                            ? environment.getToolsLabel("//tools/jdk:proguard_whitelister")
-                            : null;
-                      }
-                    }))
         .build();
   }
 
@@ -62,6 +46,7 @@ public final class ProguardLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("$proguard_library")
+        .ancestors(JavaToolchainBaseRule.class)
         .type(RuleClassType.ABSTRACT)
         .build();
   }

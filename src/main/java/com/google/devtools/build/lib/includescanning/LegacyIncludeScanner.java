@@ -14,14 +14,10 @@
 package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -29,8 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MissingDepException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.actions.MissingDepExecException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -38,6 +33,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Hints;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -50,7 +47,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
@@ -58,6 +54,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -72,7 +70,6 @@ import java.util.concurrent.ExecutorService;
  * </pre>
  */
 public class LegacyIncludeScanner implements IncludeScanner {
-
   private static final class ArtifactWithInclusionContext {
     private final Artifact artifact;
     private final Kind contextKind;
@@ -109,20 +106,22 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * headers / source files.
    */
   @ThreadSafety.ThreadSafe
-  private abstract class InclusionCache {
+  private class InclusionCache {
+    private final ConcurrentMap<InclusionWithContext, LocateOnPathResult> cache =
+        new ConcurrentHashMap<>();
+
     /**
      * Locates an included file along the search paths. The result is cacheable.
      *
      * @param inclusion the inclusion to locate
-     * @param pathToLegalOutputArtifact generated files which may be reached during scanning
      * @param onlyCheckGenerated if true, only search for generated output files
      * @return a tuple of the found file, the position of the respective include path entry on the
      *     search path (or null if no matching file was found), and whether the scan touched illegal
      *     output files
      */
-    protected LocateOnPathResult locateOnPaths(
+    LocateOnPathResult locateOnPaths(
         InclusionWithContext inclusion,
-        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        IncludeScanningHeaderData headerData,
         boolean onlyCheckGenerated) {
       PathFragment name = inclusion.getInclusion().pathFragment;
 
@@ -154,7 +153,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
               locateOnFrameworkPaths(
                   frameworkName,
                   relHeaderPath,
-                  pathToLegalOutputArtifact,
+                  headerData,
                   onlyCheckGenerated,
                   viewedIllegalOutput);
           if (result.path != null) {
@@ -182,20 +181,18 @@ public class LegacyIncludeScanner implements IncludeScanner {
             continue;
           }
         }
-        if (onlyCheckGenerated && !isRealOutputFile(fileFragment)) {
+        if (onlyCheckGenerated && !isOutputFile(fileFragment)) {
           continue;
         }
-        viewedIllegalOutput =
-            viewedIllegalOutput
-                || isIllegalOutputFile(fileFragment, pathToLegalOutputArtifact.keySet());
+        viewedIllegalOutput = viewedIllegalOutput || isIllegalOutputFile(fileFragment, headerData);
         boolean isOutputDirectory = fileFragment.startsWith(outputPathFragment);
-        if (!isFile(fileFragment, name, !isOutputDirectory, pathToLegalOutputArtifact.keySet())) {
+        if (!isFile(fileFragment, name, !isOutputDirectory, headerData)) {
           continue;
         }
         Artifact artifact;
         if (isOutputDirectory) {
           // May be a normal output file or an inc_library header.
-          artifact = pathToLegalOutputArtifact.get(fileFragment);
+          artifact = headerData.getHeaderArtifact(fileFragment);
           if (artifact == null) {
             // This happens if an included file exists in a cc_inc_library's output directory,
             // but is not an output of the cc_inc_library. This can happen if, for instance, the
@@ -236,7 +233,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *
      * @param frameworkName the name of the framework, including the ".framework" suffix
      * @param relHeaderPath the path of the framework header, relative to the framework
-     * @param pathToLegalOutputArtifact generated files which may be reached during scanning
      * @param onlyCheckGenerated if true, only search for generated output files
      * @param viewedIllegalOutput whether the scanner has viewed an illegal output file.
      * @return a tuple of the found file, the context path position of the input inclusion, and
@@ -245,37 +241,36 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private LocateOnPathResult locateOnFrameworkPaths(
         String frameworkName,
         PathFragment relHeaderPath,
-        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        IncludeScanningHeaderData headerData,
         boolean onlyCheckGenerated,
         boolean viewedIllegalOutput) {
-      Set<PathFragment> outputArtifactPaths = pathToLegalOutputArtifact.keySet();
       for (int i = 0; i < frameworkIncludePaths.size(); ++i) {
         PathFragment includePath = frameworkIncludePaths.get(i);
 
         // Construct the full framework path path/to/foo.framework.
         PathFragment fullFrameworkPath = includePath.getRelative(frameworkName);
 
-        if (onlyCheckGenerated && !isRealOutputFile(fullFrameworkPath)) {
+        if (onlyCheckGenerated && !isOutputFile(fullFrameworkPath)) {
           return LocateOnPathResult.createNotFound(viewedIllegalOutput);
         }
 
         // Look for header in path/to/foo.framework/Headers/
-        PathFragment foundHeaderPath = null;
+        PathFragment foundHeaderPath;
         PathFragment fullHeaderPath =
             fullFrameworkPath.getRelative("Headers").getRelative(relHeaderPath);
 
         viewedIllegalOutput =
-            viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, outputArtifactPaths);
+            viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
         boolean isOutputDirectory = fullHeaderPath.startsWith(outputPathFragment);
-        if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, outputArtifactPaths)) {
+        if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, headerData)) {
           foundHeaderPath = fullHeaderPath;
         } else {
           // Look for header in path/to/foo.framework/PrivateHeaders/
           fullHeaderPath =
               fullFrameworkPath.getRelative("PrivateHeaders").getRelative(relHeaderPath);
           viewedIllegalOutput =
-              viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, outputArtifactPaths);
-          if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, outputArtifactPaths)) {
+              viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
+          if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, headerData)) {
             foundHeaderPath = fullHeaderPath;
           } else {
             continue;
@@ -284,7 +279,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
         Artifact artifact;
         if (isOutputDirectory) {
-          artifact = pathToLegalOutputArtifact.get(foundHeaderPath);
+          artifact = headerData.getHeaderArtifact(foundHeaderPath);
           if (artifact == null) {
             // This happens if an included file exists in a framework directory but is not but is
             // not an output of the framework rule.
@@ -326,39 +321,21 @@ public class LegacyIncludeScanner implements IncludeScanner {
      * Locates an included file along the search paths.
      *
      * @param inclusion the inclusion to locate
-     * @param pathToLegalOutputArtifact generated files which may be reached during scanning
      * @return a LocateOnPathResult
      */
-    protected abstract LocateOnPathResult lookup(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact);
-
-    /**
-     * Locates an included file along the search paths.
-     *
-     * @param inclusion the inclusion to locate
-     * @param pathToLegalOutputArtifact generated files which may be reached during scanning
-     * @return a LocateOnPathResult
-     */
-    protected abstract ListenableFuture<LocateOnPathResult> lookupAsync(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact);
-  }
-
-  /**
-   * A cache of inclusion lookups, taking care to avoid spurious caching related to generated
-   * headers / source files.
-   */
-  @ThreadSafety.ThreadSafe
-  private class LegacyInclusionCache extends InclusionCache {
-    private final ConcurrentMap<InclusionWithContext, LocateOnPathResult> cache =
-        new ConcurrentHashMap<>();
-
-    @Override
-    public LocateOnPathResult lookup(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
-      LocateOnPathResult result =
-          cache.computeIfAbsent(
-              inclusion, key -> locateOnPaths(key, pathToLegalOutputArtifact, false));
-      // If the previous computation for this inclusion had a different pathToLegalOutputArtifact
+    LocateOnPathResult lookup(
+        InclusionWithContext inclusion, IncludeScanningHeaderData headerData) {
+      LocateOnPathResult result = cache.get(inclusion);
+      if (result == null) {
+        // Do not use computeIfAbsent() as the implementation of locateOnPaths might do multiple
+        // file stats and this creates substantial contention given CompactHashMap's locking.
+        // Do not use futures as the few duplicate executions are cheaper than the additional memory
+        // that would be required.
+        result = locateOnPaths(inclusion, headerData, false);
+        cache.put(inclusion, result);
+        return result;
+      }
+      // If the previous computation for this inclusion had a different pathToDeclaredHeader
       // map, result may not be valid for this lookup. Because this is a hot spot, we tolerate a
       // known correctness bug but try to catch most issues.
       // (1) [correct]: The prior computation found an output file, but that file is not in the
@@ -371,14 +348,14 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // is very rare. b/150307245.
       if (result.path != null) {
         if (result.path.isSourceArtifact()
-            || result.path.equals(pathToLegalOutputArtifact.get(result.path.getExecPath()))) {
+            || result.path.equals(headerData.getHeaderArtifact(result.path.getExecPath()))) {
           return result;
         }
       } else if (!result.viewedIllegalOutputFile) {
         return result;
       }
 
-      result = locateOnPaths(inclusion, pathToLegalOutputArtifact, true);
+      result = locateOnPaths(inclusion, headerData, true);
       if (result.path != null || !result.viewedIllegalOutputFile) {
         // In this case, the result is now cachable either because a file has been found or
         // because there are no more illegal output files. This is rare in practice. Avoid
@@ -386,70 +363,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
         cache.put(inclusion, result);
       }
       return result;
-    }
-
-    @Override
-    protected ListenableFuture<LocateOnPathResult> lookupAsync(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
-      throw new UnsupportedOperationException();
-    }
-  }
-
-  /**
-   * A cache of inclusion lookups, taking care to avoid spurious caching related to generated
-   * headers / source files.
-   */
-  @ThreadSafety.ThreadSafe
-  private class AsyncInclusionCache extends InclusionCache {
-    private final ConcurrentMap<InclusionWithContext, ListenableFuture<LocateOnPathResult>> cache =
-        new ConcurrentHashMap<>();
-
-    @Override
-    protected LocateOnPathResult lookup(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ListenableFuture<LocateOnPathResult> lookupAsync(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
-      SettableFuture<LocateOnPathResult> future = SettableFuture.create();
-      ListenableFuture<LocateOnPathResult> previous = cache.putIfAbsent(inclusion, future);
-      ListenableFuture<LocateOnPathResult> actualFuture;
-      if (previous == null) {
-        includePool.execute(
-            () -> {
-              LocateOnPathResult result =
-                  locateOnPaths(inclusion, pathToLegalOutputArtifact, false);
-              future.set(result);
-            });
-        actualFuture = future;
-      } else {
-        actualFuture = previous;
-      }
-      // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
-      // not imply nonexistence for actions using the same include scanner, but executed later on.
-      // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
-      // the path lookup result from locateOnPaths() is empty.
-      return Futures.transformAsync(
-          actualFuture,
-          (result) -> {
-            if (result.path != null || !result.viewedIllegalOutputFile) {
-              return Futures.immediateFuture(result);
-            }
-
-            result = locateOnPaths(inclusion, pathToLegalOutputArtifact, true);
-            if (result.path != null || !result.viewedIllegalOutputFile) {
-              // In this case, the result is now cachable either because a file has been found or
-              // because there are no more illegal output files. This is rare in practice. Avoid
-              // creating a future and modifying the cache in the common case.
-              ListenableFuture<LocateOnPathResult> replacement = Futures.immediateFuture(result);
-              cache.put(inclusion, replacement);
-              return replacement;
-            }
-            return Futures.immediateFuture(result);
-          },
-          MoreExecutors.directExecutor());
     }
   }
 
@@ -513,7 +426,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
   /** Search path for searching for all includes from frameworks. */
   private final ImmutableList<PathFragment> frameworkIncludePaths;
 
-  private final PathFragment includeRootFragment;
   private final PathFragment outputPathFragment;
   private final Root absoluteRoot;
 
@@ -530,8 +442,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
   private final PathExistenceCache pathCache;
 
   private final ExecutorService includePool;
-
-  private final boolean useAsyncIncludeScanner;
 
   // We are using this Random just for shuffling, so keep the order deterministic by hardcoding
   // the seed.
@@ -557,29 +467,25 @@ public class LegacyIncludeScanner implements IncludeScanner {
       Path outputPath,
       Path execRoot,
       ArtifactFactory artifactFactory,
-      Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
-      boolean useAsyncIncludeScanner) {
+      Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier) {
     this.parser = parser;
     this.includePool = includePool;
     this.fileParseCache = cache;
     this.pathCache = pathCache;
     this.artifactFactory = Preconditions.checkNotNull(artifactFactory);
     this.spawnIncludeScannerSupplier = spawnIncludeScannerSupplier;
-    this.quoteIncludePaths = ImmutableList.<PathFragment>builder()
-        .addAll(quoteIncludePaths)
-        .addAll(includePaths)
-        .build();
+    this.quoteIncludePaths =
+        ImmutableList.<PathFragment>builder()
+            .addAll(quoteIncludePaths)
+            .addAll(includePaths)
+            .build();
     this.quoteIncludePathsFrameworkIndex = quoteIncludePaths.size();
     this.includePaths = ImmutableList.copyOf(includePaths);
     this.frameworkIncludePaths = ImmutableList.copyOf(frameworkIncludePaths);
-    this.inclusionCache =
-        useAsyncIncludeScanner ? new AsyncInclusionCache() : new LegacyInclusionCache();
+    this.inclusionCache = new InclusionCache();
     this.execRoot = execRoot;
     this.outputPathFragment = outputPath.relativeTo(execRoot);
-    this.includeRootFragment =
-        outputPathFragment.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR);
     this.absoluteRoot = Root.absoluteRoot(execRoot.getFileSystem());
-    this.useAsyncIncludeScanner = useAsyncIncludeScanner;
   }
 
   /**
@@ -590,13 +496,28 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * @return the resolved Path, or null if no file could be found
    */
   private Artifact locateRelative(
-      Inclusion inclusion, Map<PathFragment, Artifact> legalOutputFiles, Artifact includer) {
+      Inclusion inclusion,
+      IncludeScanningHeaderData headerData,
+      Artifact includer,
+      PathFragment parent) {
     if (inclusion.kind != Kind.QUOTE) {
       return null;
     }
     PathFragment name = inclusion.pathFragment;
-    PathFragment execPath = includer.getExecPath().getParentDirectory().getRelative(name);
-    if (!isFile(execPath, name, includer.isSourceArtifact(), legalOutputFiles.keySet())) {
+
+    // The most effective way to see that something is not a relative inclusion is to see whether
+    // the include statement starts with a directory (has a '/') and whether that directory exists.
+    // We only do this for source files as we never match generated files against the file system.
+    if (includer.isSourceArtifact() && !name.containsUplevelReferences()) {
+      String firstSegment = name.getSegment(0);
+      // Specifically avoiding a call to segmentCount() here as that would scan the entire path.
+      if (firstSegment.length() < name.getPathString().length()
+          && !pathCache.directoryExists(parent.getRelative(firstSegment))) {
+        return null;
+      }
+    }
+    PathFragment execPath = parent.getRelative(name);
+    if (!isFile(execPath, name, includer.isSourceArtifact(), headerData)) {
       return null;
     }
     PathFragment parentDirectory = includer.getRootRelativePath().getParentDirectory();
@@ -607,34 +528,31 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // directory names there are in it.
       return null;
     }
-    if (legalOutputFiles.containsKey(execPath)) {
-      return legalOutputFiles.get(execPath);
+    Artifact header = headerData.getHeaderArtifact(execPath);
+    if (header != null) {
+      return header;
     }
     ArtifactRoot root = includer.getRoot();
     Artifact sourceArtifact =
-        artifactFactory.resolveSourceArtifactWithAncestor(
-            name, parentDirectory, root, RepositoryName.MAIN);
+        artifactFactory.resolveSourceArtifactWithAncestor(name, parent, root, RepositoryName.MAIN);
     if (sourceArtifact == null) {
       // If the name had up-level references, this path may not be under any package. Otherwise,
       // we must have gotten an artifact, since it should be under the same package as the
       // including artifact.
       Preconditions.checkState(
-          name.containsUplevelReferences(),
-          "%s %s %s %s",
-          name,
-          parentDirectory,
-          rootRelativePath,
-          root);
+          name.containsUplevelReferences(), "%s %s %s %s", name, parent, rootRelativePath, root);
     }
     return sourceArtifact;
   }
 
   /** Returns whether the given path exists in the filesystem. */
   private boolean isFile(
-      PathFragment execPath, PathFragment includeAsWritten, boolean isSource,
-      Collection<PathFragment> legalOutputFiles) {
-    if (isRealOutputFile(execPath)) {
-      return legalOutputFiles.contains(execPath);
+      PathFragment execPath,
+      PathFragment includeAsWritten,
+      boolean isSource,
+      IncludeScanningHeaderData headerData) {
+    if (isOutputFile(execPath)) {
+      return headerData.isDeclaredHeader(execPath);
     }
     // TODO(djasper): This code path cannot be hit with isSource being false. Verify and add
     // Preconditions check.
@@ -651,11 +569,15 @@ public class LegacyIncludeScanner implements IncludeScanner {
         }
       }
     }
+    // Shortcut: If this is a declared header, it's bound to exist.
+    if (headerData.isDeclaredHeader(execPath)) {
+      return true;
+    }
     return pathCache.fileExists(execPath, isSource);
   }
 
   @Override
-  public ListenableFuture<?> processAsync(
+  public final void processAsync(
       Artifact mainSource,
       Collection<Artifact> sources,
       IncludeScanningHeaderData includeScanningHeaderData,
@@ -664,45 +586,35 @@ public class LegacyIncludeScanner implements IncludeScanner {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
-      throws IOException, ExecException, InterruptedException {
-    ImmutableSet<Artifact> pathHints =
-        prepare(actionExecutionContext.getEnvironmentForDiscoveringInputs());
-    IncludeVisitor visitor;
-    visitor =
-        useAsyncIncludeScanner
-            ? new AsyncIncludeVisitor(
-                actionExecutionMetadata,
-                actionExecutionContext,
-                grepIncludes,
-                includeScanningHeaderData.getPathToLegalOutputArtifact(),
-                includeScanningHeaderData.getModularHeaders())
-            : new LegacyIncludeVisitor(
-                actionExecutionMetadata,
-                actionExecutionContext,
-                grepIncludes,
-                includeScanningHeaderData.getPathToLegalOutputArtifact(),
-                includeScanningHeaderData.getModularHeaders());
-    return visitor.processInternal(
-        mainSource,
-        sources,
-        cmdlineIncludes,
-        includes,
-        pathHints);
-  }
-
-  private ImmutableSet<Artifact> prepare(SkyFunction.Environment env) throws InterruptedException {
-    if (parser.getHints() != null) {
-      Collection<Artifact> artifacts =
-          parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
+      throws IOException, NoSuchPackageException, ExecException, InterruptedException {
+    SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
+    ImmutableSet<Artifact> pathHints;
+    if (parser.getHints() == null) {
+      pathHints = ImmutableSet.of();
+    } else {
+      pathHints = parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
       if (env.valuesMissing()) {
-        throw new MissingDepException();
+        return;
       }
-      ImmutableSet.Builder<Artifact> pathHints;
-      pathHints = ImmutableSet.builderWithExpectedSize(quoteIncludePaths.size());
-      pathHints.addAll(Preconditions.checkNotNull(artifacts, quoteIncludePaths));
-      return pathHints.build();
+      Preconditions.checkNotNull(pathHints, "Null path hints for %s", quoteIncludePaths);
     }
-    return ImmutableSet.of();
+
+    IncludeVisitor visitor =
+        new IncludeVisitor(
+            actionExecutionMetadata,
+            actionExecutionContext,
+            grepIncludes,
+            includeScanningHeaderData);
+
+    try {
+      visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
+    } catch (MissingDepExecException e) {
+      // This happens when a skyframe restart is necessary. Callers are responsible for checking
+      // env.valuesMissing() as per this method's contract, so we can just ignore the exception.
+      if (!env.valuesMissing()) {
+        throw new IllegalStateException("Missing dep without skyframe request", e);
+      }
+    }
   }
 
   private static void checkForInterrupt(String operation, Object source)
@@ -717,51 +629,32 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   private boolean isIllegalOutputFile(
-      PathFragment includeFile, Collection<PathFragment> legalOutputFiles) {
-    return isRealOutputFile(includeFile) && !legalOutputFiles.contains(includeFile);
+      PathFragment includeFile, IncludeScanningHeaderData headerData) {
+    return isOutputFile(includeFile) && !headerData.isDeclaredHeader(includeFile);
   }
 
-  private boolean isRealOutputFile(PathFragment path) {
-    return path.startsWith(outputPathFragment) && !isIncPath(path);
-  }
-
-  private boolean isIncPath(PathFragment path) {
-    // See CreateIncSymlinkAction and where it's used: The symlink trees
-    // are always rooted at locations that fit the logic here.
-    return path.startsWith(includeRootFragment) && !path.equals(includeRootFragment);
-  }
-
-  private interface IncludeVisitor {
-    ListenableFuture<?> processInternal(
-        Artifact mainSource,
-        Collection<Artifact> sources,
-        List<String> cmdlineIncludes,
-        Set<Artifact> includes,
-        ImmutableSet<Artifact> pathHints)
-        throws InterruptedException, IOException, ExecException;
+  private boolean isOutputFile(PathFragment path) {
+    return path.startsWith(outputPathFragment);
   }
 
   /**
    * Implements a potentially parallel traversal over source files using a thread pool shared across
    * different IncludeScanner instances.
    */
-  private class LegacyIncludeVisitor extends AbstractQueueVisitor implements IncludeVisitor {
+  private class IncludeVisitor extends AbstractQueueVisitor {
     private final ActionExecutionMetadata actionExecutionMetadata;
     private final ActionExecutionContext actionExecutionContext;
     private final Artifact grepIncludes;
-    private final Map<PathFragment, Artifact> pathToLegalOutputArtifact;
-    /** The set of headers known to be part of a C++ module. Scanning can stop here. */
-    private final Set<Artifact> modularHeaders;
+    private final IncludeScanningHeaderData headerData;
 
     /** The set of all processed inclusions, to avoid processing duplicate inclusions. */
     private final Set<ArtifactWithInclusionContext> visitedInclusions = Sets.newConcurrentHashSet();
 
-    LegacyIncludeVisitor(
+    IncludeVisitor(
         ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
         Artifact grepIncludes,
-        final Map<PathFragment, Artifact> pathToLegalOutputArtifact,
-        Set<Artifact> modularHeaders) {
+        IncludeScanningHeaderData headerData) {
       super(
           includePool,
           /*shutdownOnCompletion=*/ false,
@@ -770,12 +663,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
       this.actionExecutionMetadata = actionExecutionMetadata;
       this.actionExecutionContext = actionExecutionContext;
       this.grepIncludes = grepIncludes;
-      this.pathToLegalOutputArtifact = pathToLegalOutputArtifact;
-      this.modularHeaders = modularHeaders;
+      this.headerData = headerData;
     }
 
-    @Override
-    public ListenableFuture<?> processInternal(
+    void processInternal(
         Artifact mainSource,
         Collection<Artifact> sources,
         List<String> cmdlineIncludes,
@@ -821,12 +712,11 @@ public class LegacyIncludeScanner implements IncludeScanner {
             frontier = adjacent;
           }
         }
-      } catch (IOException | InterruptedException | ExecException | MissingDepException e) {
+      } catch (IOException | InterruptedException | ExecException e) {
         // Careful: Do not leak visitation threads if we have an exception in the initial thread.
         sync();
         throw e;
       }
-      return Futures.immediateFuture(null);
     }
 
     /** Block for the completion of all outstanding visitations. */
@@ -859,44 +749,37 @@ public class LegacyIncludeScanner implements IncludeScanner {
         throws IOException, ExecException, InterruptedException {
       checkForInterrupt("processing", source);
 
-      Collection<Inclusion> inclusions;
-      try {
-        inclusions =
-            fileParseCache
-                .computeIfAbsent(
+      Collection<Inclusion> inclusions = null;
+      while (inclusions == null) {
+        SettableFuture<Collection<Inclusion>> future = SettableFuture.create();
+        Future<Collection<Inclusion>> previous = fileParseCache.putIfAbsent(source, future);
+        if (previous == null) {
+          previous = future;
+          try {
+            future.set(
+                parser.extractInclusions(
                     source,
-                    file -> {
-                      try {
-                        return Futures.immediateFuture(
-                            parser.extractInclusions(
-                                file,
-                                actionExecutionMetadata,
-                                actionExecutionContext,
-                                grepIncludes,
-                                spawnIncludeScannerSupplier.get(),
-                                isRealOutputFile(source.getExecPath())));
-                      } catch (IOException e) {
-                        throw new IORuntimeException(e);
-                      } catch (ExecException e) {
-                        throw new ExecRuntimeException(e);
-                      } catch (InterruptedException e) {
-                        throw new InterruptedRuntimeException(e);
-                      }
-                    })
-                .get();
-      } catch (ExecutionException ee) {
+                    actionExecutionMetadata,
+                    actionExecutionContext,
+                    grepIncludes,
+                    spawnIncludeScannerSupplier.get(),
+                    isOutputFile(source.getExecPath())));
+          } catch (Throwable t) {
+            fileParseCache.remove(source);
+            future.setException(t);
+            throw t;
+          }
+        }
         try {
-          Throwables.throwIfInstanceOf(ee.getCause(), RuntimeException.class);
-          throw new IllegalStateException(ee.getCause());
-        } catch (IORuntimeException e) {
-          throw e.getCauseIOException();
-        } catch (ExecRuntimeException e) {
-          throw e.getRealCause();
-        } catch (InterruptedRuntimeException e) {
-          throw e.getRealCause();
+          inclusions = Preconditions.checkNotNull(previous.get(), source);
+        } catch (ExecutionException e) {
+          // An exception occured when some other thread tried to load the same file that we are
+          // waiting for. If this is a MissingDepExecException, we have to simply retry as otherwise
+          // we'd end up in an unexpected state (not requesting any deps, but claiming that there
+          // are missing ones). For other exceptions, this might not be necessary but is safe to do
+          // and reduces complexity.
         }
       }
-      Preconditions.checkNotNull(inclusions, source);
 
       // Shuffle the inclusions to get better parallelism. See b/62200470.
       List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
@@ -905,10 +788,12 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // For each inclusion: get or locate its target file & recursively process
       IncludeScannerHelper helper =
           new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
+      PathFragment parent = source.getExecPath().getParentDirectory();
       for (Inclusion inclusion : shuffledInclusions) {
         findAndProcess(
             helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
             source,
+            parent,
             visited);
       }
     }
@@ -929,7 +814,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       } else {
         super.execute(
             () -> {
-              try {
+              try (SilentCloseable ignored =
+                  actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
                 process(source, contextPathPos, contextKind, visited);
               } catch (IOException e) {
                 throw new IORuntimeException(e);
@@ -944,12 +830,11 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
     /** Visits an inclusion starting from a source file. */
     private void findAndProcess(
-        InclusionWithContext inclusion, Artifact source, Set<Artifact> visited)
+        InclusionWithContext inclusion, Artifact source, PathFragment parent, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
       // Try to find the included file relative to the file that contains the inclusion. Relative
       // inclusions are handled like the first entry on the quote include path
-      Artifact includeFile =
-          locateRelative(inclusion.getInclusion(), pathToLegalOutputArtifact, source);
+      Artifact includeFile = locateRelative(inclusion.getInclusion(), headerData, source, parent);
       int contextPathPos = 0;
       Kind contextKind = null;
 
@@ -958,7 +843,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // If nothing has been found, get an inclusion from the cache. This will automatically search
       // on the include paths and populate the cache if necessary.
       if (includeFile == null) {
-        LocateOnPathResult result = inclusionCache.lookup(inclusion, pathToLegalOutputArtifact);
+        LocateOnPathResult result = inclusionCache.lookup(inclusion, headerData);
         includeFile = result.path;
         contextPathPos = result.includePosition;
         contextKind = inclusion.getContextKind();
@@ -966,11 +851,12 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
       // Recursively process the found file (if not yet done).
       if (includeFile != null
-          && !isIllegalOutputFile(includeFile.getExecPath(), pathToLegalOutputArtifact.keySet())
+          && !isIllegalOutputFile(includeFile.getExecPath(), headerData)
+          && headerData.isLegalHeader(includeFile)
           && visitedInclusions.add(
               new ArtifactWithInclusionContext(includeFile, contextKind, contextPathPos))) {
         visited.add(includeFile);
-        if (modularHeaders.contains(includeFile)) {
+        if (headerData.isModularHeader(includeFile)) {
           return;
         }
         processAsyncIfNotExtracted(includeFile, contextPathPos, contextKind, visited);
@@ -989,9 +875,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private void processCmdlineIncludes(
         Artifact source, List<String> includes, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
+      PathFragment parent = source.getExecPath().getParentDirectory();
       for (String incl : includes) {
         InclusionWithContext inclusion = new InclusionWithContext(incl, Kind.QUOTE);
-        findAndProcess(inclusion, source, visited);
+        findAndProcess(inclusion, source, parent, visited);
       }
     }
 
@@ -1023,7 +910,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       }
       super.execute(
           () -> {
-            try {
+            try (SilentCloseable ignored =
+                actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
               processBulkAsync(sources, alsoVisited);
             } catch (IOException e) {
               throw new IORuntimeException(e);
@@ -1036,321 +924,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  /**
-   * Implements a potentially parallel traversal over source files using a thread pool shared across
-   * different IncludeScanner instances.
-   */
-  private class AsyncIncludeVisitor implements IncludeVisitor {
-    private final ActionExecutionMetadata actionExecutionMetadata;
-    private final ActionExecutionContext actionExecutionContext;
-    private final Artifact grepIncludes;
-    private final Map<PathFragment, Artifact> pathToLegalOutputArtifact;
-    /** The set of headers known to be part of a C++ module. Scanning can stop here. */
-    private final Set<Artifact> modularHeaders;
-
-    /** The set of all processed inclusions, to avoid processing duplicate inclusions. */
-    private final Set<ArtifactWithInclusionContext> visitedInclusions = Sets.newConcurrentHashSet();
-
-    public AsyncIncludeVisitor(
-        ActionExecutionMetadata actionExecutionMetadata,
-        ActionExecutionContext actionExecutionContext,
-        Artifact grepIncludes,
-        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
-        Set<Artifact> modularHeaders) {
-      this.actionExecutionMetadata = actionExecutionMetadata;
-      this.actionExecutionContext = actionExecutionContext;
-      this.grepIncludes = grepIncludes;
-      this.pathToLegalOutputArtifact = pathToLegalOutputArtifact;
-      this.modularHeaders = modularHeaders;
-    }
-
-    @Override
-    public ListenableFuture<?> processInternal(
-        Artifact mainSource,
-        Collection<Artifact> sources,
-        List<String> cmdlineIncludes,
-        Set<Artifact> includes,
-        ImmutableSet<Artifact> pathHints)
-        throws InterruptedException, IOException, ExecException {
-      try {
-        ListenableFuture<?> result = Futures.immediateFuture(null);
-        // Process cmd line includes, if specified.
-        if (mainSource != null && !cmdlineIncludes.isEmpty()) {
-          result = processCmdlineIncludesAsync(mainSource, cmdlineIncludes, includes);
-        }
-
-        result =
-            Futures.transformAsync(result, (v) -> processBulkAsync(sources, includes), includePool);
-
-        // Process include hints
-        // TODO(ulfjack): Make this code go away. Use the new hinted inclusions instead.
-        Hints hints = parser.getHints();
-        if (hints != null) {
-          // Follow "path" hints.
-          if (!pathHints.isEmpty()) {
-            result =
-                Futures.transformAsync(
-                    result, (v) -> processBulkAsync(pathHints, includes), includePool);
-          }
-
-          Collection<Artifact> allHintedIncludes = allHintedIncludes(hints, sources);
-          if (!allHintedIncludes.isEmpty()) {
-            result =
-                Futures.transformAsync(
-                    result, (v) -> processBulkAsync(allHintedIncludes, includes), includePool);
-          }
-          // Follow "file" hints for all included headers, transitively.
-          result =
-              Futures.transformAsync(
-                  result, (v) -> processOnePass(hints, includes, includes), includePool);
-        }
-        return result;
-      } catch (IOException | InterruptedException | ExecException | MissingDepException e) {
-        // Careful: Do not leak visitation threads if we have an exception in the initial thread.
-        throw e;
-      }
-    }
-
-    private ListenableFuture<Collection<Artifact>> processOnePass(
-        Hints hints, Collection<Artifact> before, Set<Artifact> includes)
-        throws InterruptedException, IOException, ExecException {
-      Set<Artifact> adjacent = Sets.newConcurrentHashSet();
-      ListenableFuture<?> future = processAllFileLevelHintsAsync(hints, before, adjacent);
-      return Futures.transformAsync(
-          future,
-          (v) -> {
-            // Keep novel nodes as the next frontier.
-            for (Iterator<Artifact> iter = adjacent.iterator(); iter.hasNext(); ) {
-              if (!includes.add(iter.next())) {
-                iter.remove();
-              }
-            }
-            if (adjacent.isEmpty()) {
-              return Futures.immediateFuture(null);
-            }
-            return processOnePass(hints, adjacent, includes);
-          },
-          includePool);
-    }
-
-    /**
-     * Processes a given file for includes and populates the provided set with the visited includes.
-     *
-     * @param source the file to process
-     * @param contextPathPos the position on the include path where the containing file was found,
-     *     or <code>-1</code> for top-level inclusions
-     * @param contextKind the kind how the containing file was included, or null for top-level
-     *     inclusions
-     * @param visited the set to receive the files that are transitively included by {@code source}
-     */
-    private ListenableFuture<?> process(
-        final Artifact source, int contextPathPos, Kind contextKind, Set<Artifact> visited)
-        throws IOException, InterruptedException {
-      checkForInterrupt("processing", source);
-
-      ListenableFuture<Collection<Inclusion>> actualFuture;
-      SettableFuture<Collection<Inclusion>> future = SettableFuture.create();
-      ListenableFuture<Collection<Inclusion>> previous = fileParseCache.putIfAbsent(source, future);
-      if (previous == null) {
-        actualFuture = future;
-        future.setFuture(
-            parser.extractInclusionsAsync(
-                includePool,
-                source,
-                actionExecutionMetadata,
-                actionExecutionContext,
-                grepIncludes,
-                spawnIncludeScannerSupplier.get(),
-                isRealOutputFile(source.getExecPath())));
-        // When rewinding, we may need to rerun a spawn that previously failed rather than cache the
-        // failure here, so we remove the cache entry if the future throws. Unfortunately, we can
-        // only detect that case by actually calling get().
-        future.addListener(
-            () -> {
-              try {
-                future.get();
-              } catch (ExecutionException | InterruptedException e) {
-                fileParseCache.remove(source);
-              }
-            },
-            MoreExecutors.directExecutor());
-      } else {
-        actualFuture = previous;
-      }
-
-      if (actualFuture.isDone()) {
-        Collection<Inclusion> inclusions;
-        try {
-          inclusions = actualFuture.get();
-        } catch (ExecutionException e) {
-          return actualFuture;
-        }
-        return processInclusions(inclusions, source, contextPathPos, contextKind, visited);
-      } else {
-        return Futures.transformAsync(
-            actualFuture,
-            (inclusions) ->
-                processInclusions(inclusions, source, contextPathPos, contextKind, visited),
-            MoreExecutors.directExecutor());
-      }
-    }
-
-    private ListenableFuture<?> processInclusions(
-        Collection<Inclusion> inclusions,
-        Artifact source,
-        int contextPathPos,
-        Kind contextKind,
-        Set<Artifact> visited)
-        throws IOException, InterruptedException {
-      Preconditions.checkNotNull(inclusions, source);
-      // Shuffle the inclusions to get better parallelism. See b/62200470.
-      // Be careful not to modify the original collection! It's shared between any number of
-      // threads.
-      // TODO: Maybe we should shuffle before returning it to avoid the copy?
-      List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
-      Collections.shuffle(shuffledInclusions, CONSTANT_SEED_RANDOM);
-
-      // For each inclusion: get or locate its target file & recursively process
-      IncludeScannerHelper helper =
-          new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
-      List<ListenableFuture<?>> allFutures = new ArrayList<>(shuffledInclusions.size());
-      for (Inclusion inclusion : shuffledInclusions) {
-        allFutures.add(
-            findAndProcess(
-                helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
-                source,
-                visited));
-      }
-      return Futures.allAsList(allFutures);
-    }
-
-    /** Visits an inclusion starting from a source file. */
-    private ListenableFuture<?> findAndProcess(
-        InclusionWithContext inclusion, Artifact source, Set<Artifact> visited)
-        throws IOException, InterruptedException {
-      // Try to find the included file relative to the file that contains the inclusion. Relative
-      // inclusions are handled like the first entry on the quote include path
-      Artifact includeFile =
-          locateRelative(inclusion.getInclusion(), pathToLegalOutputArtifact, source);
-
-      checkForInterrupt("visiting", source);
-
-      // If nothing has been found, get an inclusion from the cache. This will automatically search
-      // on the include paths and populate the cache if necessary.
-      if (includeFile == null) {
-        ListenableFuture<LocateOnPathResult> lookupFuture =
-            inclusionCache.lookupAsync(inclusion, pathToLegalOutputArtifact);
-        return Futures.transformAsync(
-            lookupFuture,
-            (locateOnPathResult) ->
-                processFound(
-                    locateOnPathResult,
-                    inclusion.getContextKind(),
-                    visited,
-                    pathToLegalOutputArtifact,
-                    visitedInclusions),
-            MoreExecutors.directExecutor());
-      } else {
-        LocateOnPathResult locateOnPathResult = new LocateOnPathResult(includeFile, 0, false);
-        Kind contextKind = null;
-        // Recursively process the found file (if not yet done).
-        return processFound(
-            locateOnPathResult, contextKind, visited, pathToLegalOutputArtifact, visitedInclusions);
-      }
-    }
-
-    /** Visits an inclusion starting from a source file. */
-    private ListenableFuture<?> processFound(
-        LocateOnPathResult locateOnPathResult,
-        Kind contextKind,
-        Set<Artifact> visited,
-        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
-        Set<ArtifactWithInclusionContext> visitedInclusions)
-        throws IOException, InterruptedException {
-      // Try to find the included file relative to the file that contains the inclusion. Relative
-      // inclusions are handled like the first entry on the quote include path
-      Artifact includeFile = locateOnPathResult.path;
-      int contextPathPos = locateOnPathResult.includePosition;
-
-      // Recursively process the found file (if not yet done).
-      if (includeFile != null
-          && !isIllegalOutputFile(includeFile.getExecPath(), pathToLegalOutputArtifact.keySet())
-          && visitedInclusions.add(
-              new ArtifactWithInclusionContext(includeFile, contextKind, contextPathPos))) {
-        visited.add(includeFile);
-        if (modularHeaders.contains(includeFile)) {
-          return Futures.immediateFuture(null);
-        }
-        return process(includeFile, contextPathPos, contextKind, visited);
-      }
-      return Futures.immediateFuture(null);
-    }
-
-    /**
-     * Processes a given list of includes for a given base file and populates the provided set with
-     * the visited includes
-     *
-     * @param source the source file used as a reference for finding includes
-     * @param includes the list of -include option strings to locate and process
-     * @param visited the set of files that are transitively included by {@code includes} to
-     *     populate
-     */
-    private ListenableFuture<?> processCmdlineIncludesAsync(
-        Artifact source, List<String> includes, Set<Artifact> visited)
-        throws IOException, ExecException, InterruptedException {
-      List<ListenableFuture<?>> allFutures = new ArrayList<>(includes.size());
-      for (String incl : includes) {
-        InclusionWithContext inclusion = new InclusionWithContext(incl, Kind.QUOTE);
-        allFutures.add(findAndProcess(inclusion, source, visited));
-      }
-      return Futures.allAsList(allFutures);
-    }
-
-    /**
-     * Processes a bunch sources asynchronously and adds them and their included files to the
-     * provided set.
-     *
-     * @param sources the files to process and add to the set
-     * @param visited the set to receive the files that are transitively included by {@code sources}
-     */
-    private ListenableFuture<?> processBulkAsync(
-        Collection<Artifact> sources, Set<Artifact> visited)
-        throws IOException, InterruptedException {
-      if (sources.isEmpty()) {
-        // Early-out if there's nothing to do.
-        return Futures.immediateFuture(null);
-      }
-      List<ListenableFuture<?>> allFutures = new ArrayList<>(sources.size());
-      for (final Artifact source : sources) {
-        // TODO(djasper): This looks suspicious. We should only stop based on visitedInclusions.
-        if (!visited.add(source)) {
-          continue;
-        }
-
-        allFutures.add(process(source, /*contextPathPos=*/ -1, /*contextKind=*/ null, visited));
-      }
-      return Futures.allAsList(allFutures);
-    }
-
-    private ListenableFuture<?> processAllFileLevelHintsAsync(
-        Hints hints, Collection<Artifact> sources, Set<Artifact> alsoVisited)
-        throws InterruptedException, IOException, ExecException {
-      return processBulkAsync(allHintedIncludes(hints, sources), alsoVisited);
-    }
-
-    private Collection<Artifact> allHintedIncludes(Hints hints, Collection<Artifact> sources) {
-      List<Artifact> result = new ArrayList<>();
-      for (Artifact source : sources) {
-        result.addAll(hints.getFileLevelHintedInclusionsLegacy(source));
-      }
-      return result;
-    }
-  }
-
-  private static class ExecRuntimeException extends RuntimeException {
+  private static final class ExecRuntimeException extends RuntimeException {
     private final ExecException cause;
 
-    public ExecRuntimeException(ExecException e) {
+    ExecRuntimeException(ExecException e) {
       super(e);
       this.cause = e;
     }
@@ -1360,10 +937,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  private static class InterruptedRuntimeException extends RuntimeException {
+  private static final class InterruptedRuntimeException extends RuntimeException {
     private final InterruptedException cause;
 
-    public InterruptedRuntimeException(InterruptedException e) {
+    InterruptedRuntimeException(InterruptedException e) {
       super(e);
       this.cause = e;
     }

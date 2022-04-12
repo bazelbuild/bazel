@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -48,14 +47,6 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   private final Artifact umbrellaHeader;
   private final ImmutableList<Artifact> publicHeaders;
   private final ImmutableList<PathFragment> additionalExportedHeaders;
-
-  public UmbrellaHeaderAction(
-      ActionOwner owner,
-      Artifact umbrellaHeader,
-      NestedSet<Artifact> publicHeaders,
-      Iterable<PathFragment> additionalExportedHeaders) {
-    this(owner, umbrellaHeader, publicHeaders.toList(), additionalExportedHeaders);
-  }
 
   public UmbrellaHeaderAction(
       ActionOwner owner,

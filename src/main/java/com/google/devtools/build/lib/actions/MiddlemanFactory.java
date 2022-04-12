@@ -130,34 +130,6 @@ public final class MiddlemanFactory {
     return Pair.of(stampFile, action);
   }
 
-  /**
-   * Creates a normal middleman.
-   *
-   * <p>If called multiple times, it always returns the same object depending on the {@code
-   * purpose}. It does not check that the list of inputs is identical. In contrast to other
-   * middleman methods, this one also returns an object if the list of inputs is empty.
-   *
-   * <p>Note: there's no need to synchronize this method; the only use of a field is via a call to
-   * another synchronized method (getArtifact()).
-   */
-  public Artifact.DerivedArtifact createMiddlemanAllowMultiple(
-      ActionRegistry registry,
-      ActionOwner owner,
-      PathFragment packageDirectory,
-      String purpose,
-      NestedSet<Artifact> inputs,
-      ArtifactRoot middlemanDir) {
-    String escapedPackageDirectory = Actions.escapedPath(packageDirectory.getPathString());
-    PathFragment stampName =
-        PathFragment.create("_middlemen/" + (purpose.startsWith(escapedPackageDirectory)
-                             ? purpose : (escapedPackageDirectory + purpose)));
-    Artifact.DerivedArtifact stampFile =
-        artifactFactory.getDerivedArtifact(stampName, middlemanDir, actionRegistry.getOwner());
-    MiddlemanAction.create(
-        registry, owner, inputs, stampFile, purpose, MiddlemanType.AGGREGATING_MIDDLEMAN);
-    return stampFile;
-  }
-
   private Artifact.DerivedArtifact getStampFileArtifact(
       String middlemanName, String purpose, ArtifactRoot middlemanDir) {
     String escapedFilename = Actions.escapedPath(middlemanName);

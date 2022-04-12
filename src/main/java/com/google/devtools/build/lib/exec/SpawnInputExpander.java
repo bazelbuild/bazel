@@ -25,17 +25,21 @@ import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
+import com.google.devtools.build.lib.actions.FilesetManifest.ForbiddenRelativeSymlinkException;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +52,6 @@ import java.util.TreeMap;
  * laid out.
  */
 public class SpawnInputExpander {
-  public static final ActionInput EMPTY_FILE = new EmptyActionInput("/dev/null");
-
   private final Path execRoot;
   private final boolean strict;
   private final RelativeSymlinkBehavior relSymlinkBehavior;
@@ -95,12 +97,13 @@ public class SpawnInputExpander {
     this.relSymlinkBehavior = relSymlinkBehavior;
   }
 
-  private void addMapping(
+  private static void addMapping(
       Map<PathFragment, ActionInput> inputMappings,
       PathFragment targetLocation,
-      ActionInput input) {
+      ActionInput input,
+      PathFragment baseDirectory) {
     Preconditions.checkArgument(!targetLocation.isAbsolute(), targetLocation);
-    inputMappings.put(targetLocation, input);
+    inputMappings.put(baseDirectory.getRelative(targetLocation), input);
   }
 
   /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
@@ -109,8 +112,9 @@ public class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMap,
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander)
-      throws IOException {
+      ArtifactExpander artifactExpander,
+      PathFragment baseDirectory)
+      throws IOException, ForbiddenActionInputException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
         runfilesSupplier.getMappings();
 
@@ -131,7 +135,8 @@ public class SpawnInputExpander {
               addMapping(
                   inputMap,
                   location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
-                  input);
+                  input,
+                  baseDirectory);
             }
           } else if (localArtifact.isFileset()) {
             ImmutableList<FilesetOutputSymlink> filesetLinks;
@@ -140,15 +145,15 @@ public class SpawnInputExpander {
             } catch (MissingExpansionException e) {
               throw new IllegalStateException(e);
             }
-            addFilesetManifest(location, localArtifact, filesetLinks, inputMap);
+            addFilesetManifest(location, localArtifact, filesetLinks, inputMap, baseDirectory);
           } else {
             if (strict) {
               failIfDirectory(actionFileCache, localArtifact);
             }
-            addMapping(inputMap, location, localArtifact);
+            addMapping(inputMap, location, localArtifact, baseDirectory);
           }
         } else {
-          addMapping(inputMap, location, EMPTY_FILE);
+          addMapping(inputMap, location, VirtualActionInput.EMPTY_MARKER, baseDirectory);
         }
       }
     }
@@ -158,29 +163,36 @@ public class SpawnInputExpander {
   public Map<PathFragment, ActionInput> addRunfilesToInputs(
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander)
-      throws IOException {
+      ArtifactExpander artifactExpander,
+      PathFragment baseDirectory)
+      throws IOException, ForbiddenActionInputException {
     Map<PathFragment, ActionInput> inputMap = new HashMap<>();
-    addRunfilesToInputs(inputMap, runfilesSupplier, actionFileCache, artifactExpander);
+    addRunfilesToInputs(
+        inputMap, runfilesSupplier, actionFileCache, artifactExpander, baseDirectory);
     return inputMap;
   }
 
   private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
-      throws IOException {
+      throws IOException, ForbiddenActionInputException {
     FileArtifactValue metadata = actionFileCache.getMetadata(input);
     if (metadata != null && !metadata.getType().isFile()) {
-      throw new IOException("Not a file: " + input.getExecPathString());
+      throw new ForbiddenNonFileException(input);
     }
   }
 
   @VisibleForTesting
   void addFilesetManifests(
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
-      Map<PathFragment, ActionInput> inputMappings)
-      throws IOException {
+      Map<PathFragment, ActionInput> inputMappings,
+      PathFragment baseDirectory)
+      throws ForbiddenRelativeSymlinkException {
     for (Artifact fileset : filesetMappings.keySet()) {
       addFilesetManifest(
-          fileset.getExecPath(), fileset, filesetMappings.get(fileset), inputMappings);
+          fileset.getExecPath(),
+          fileset,
+          filesetMappings.get(fileset),
+          inputMappings,
+          baseDirectory);
     }
   }
 
@@ -188,28 +200,31 @@ public class SpawnInputExpander {
       PathFragment location,
       Artifact filesetArtifact,
       ImmutableList<FilesetOutputSymlink> filesetLinks,
-      Map<PathFragment, ActionInput> inputMappings)
-      throws IOException {
+      Map<PathFragment, ActionInput> inputMappings,
+      PathFragment baseDirectory)
+      throws ForbiddenRelativeSymlinkException {
     Preconditions.checkState(filesetArtifact.isFileset(), filesetArtifact);
     FilesetManifest filesetManifest =
         FilesetManifest.constructFilesetManifest(filesetLinks, location, relSymlinkBehavior);
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();
-        ActionInput artifact =
-            value == null
-                ? EMPTY_FILE
-                : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
-        addMapping(inputMappings, mapping.getKey(), artifact);
+      ActionInput artifact =
+          value == null
+              ? VirtualActionInput.EMPTY_MARKER
+              : ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
+      addMapping(inputMappings, mapping.getKey(), artifact, baseDirectory);
       }
   }
 
-  private void addInputs(
-      Map<PathFragment, ActionInput> inputMap, Spawn spawn, ArtifactExpander artifactExpander) {
-    List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(spawn.getInputFiles(), artifactExpander);
+  private static void addInputs(
+      Map<PathFragment, ActionInput> inputMap,
+      NestedSet<? extends ActionInput> inputFiles,
+      ArtifactExpander artifactExpander,
+      PathFragment baseDirectory) {
+    List<ActionInput> inputs = ActionInputHelper.expandArtifacts(inputFiles, artifactExpander);
     for (ActionInput input : inputs) {
-      addMapping(inputMap, input.getExecPath(), input);
+      addMapping(inputMap, input.getExecPath(), input, baseDirectory);
     }
   }
 
@@ -218,21 +233,155 @@ public class SpawnInputExpander {
    * {@link ActionInput}s. The returned map does not contain tree artifacts as they are expanded to
    * file artifacts.
    *
-   * <p>The returned map never contains {@code null} values; it uses {@link #EMPTY_FILE} for empty
-   * files, which is an instance of {@link
-   * com.google.devtools.build.lib.actions.cache.VirtualActionInput}.
+   * <p>The returned map never contains {@code null} values.
    *
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
-      throws IOException {
-
+      Spawn spawn,
+      ArtifactExpander artifactExpander,
+      PathFragment baseDirectory,
+      MetadataProvider actionInputFileCache)
+      throws IOException, ForbiddenActionInputException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-    addInputs(inputMap, spawn, artifactExpander);
+    addInputs(inputMap, spawn.getInputFiles(), artifactExpander, baseDirectory);
     addRunfilesToInputs(
-        inputMap, spawn.getRunfilesSupplier(), actionInputFileCache, artifactExpander);
-    addFilesetManifests(spawn.getFilesetMappings(), inputMap);
+        inputMap,
+        spawn.getRunfilesSupplier(),
+        actionInputFileCache,
+        artifactExpander,
+        baseDirectory);
+    addFilesetManifests(spawn.getFilesetMappings(), inputMap, baseDirectory);
     return inputMap;
+  }
+
+  /** The interface for accessing part of the input hierarchy. */
+  public interface InputWalker {
+    SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
+        throws IOException, ForbiddenActionInputException;
+
+    void visitNonLeaves(InputVisitor visitor) throws IOException, ForbiddenActionInputException;
+  }
+
+  /** The interface for visiting part of the input hierarchy. */
+  public interface InputVisitor {
+    /**
+     * Visits a part of the input hierarchy.
+     *
+     * <p>{@code nodeKey} can be used as key when memoizing visited parts of the hierarchy.
+     */
+    void visit(Object nodeKey, InputWalker walker)
+        throws IOException, ForbiddenActionInputException;
+  }
+
+  /**
+   * Visits the input files hierarchy in a depth first manner.
+   *
+   * <p>Similar to {@link #getInputMapping} but allows for early exit, by not visiting children,
+   * when walking through the input hierarchy. By applying memoization, the retrieval process of the
+   * inputs can be speeded up.
+   *
+   * <p>{@code baseDirectory} is prepended to every path in the input key. This is useful if the
+   * mapping is used in a context where the directory relative to which the keys are interpreted is
+   * not the same as the execroot.
+   */
+  public void walkInputs(
+      Spawn spawn,
+      ArtifactExpander artifactExpander,
+      PathFragment baseDirectory,
+      MetadataProvider actionInputFileCache,
+      InputVisitor visitor)
+      throws IOException, ForbiddenActionInputException {
+    walkNestedSetInputs(baseDirectory, spawn.getInputFiles(), artifactExpander, visitor);
+
+    RunfilesSupplier runfilesSupplier = spawn.getRunfilesSupplier();
+    visitor.visit(
+        // The list of variables affecting the functional expressions below.
+        Arrays.asList(
+            // Assuming that artifactExpander and actionInputFileCache, different for each spawn,
+            // always expand the same way.
+            this, // For accessing addRunfilesToInputs.
+            runfilesSupplier,
+            baseDirectory),
+        new InputWalker() {
+          @Override
+          public SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
+              throws IOException, ForbiddenActionInputException {
+            TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
+            addRunfilesToInputs(
+                inputMap, runfilesSupplier, actionInputFileCache, artifactExpander, baseDirectory);
+            return inputMap;
+          }
+
+          @Override
+          public void visitNonLeaves(InputVisitor childVisitor) {}
+        });
+
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = spawn.getFilesetMappings();
+    // filesetMappings is assumed to be very small, so no need to implement visitNonLeaves() for
+    // improved runtime.
+    visitor.visit(
+        // The list of variables affecting the functional expressions below.
+        Arrays.asList(
+            this, // For accessing addFilesetManifests.
+            filesetMappings,
+            baseDirectory),
+        new InputWalker() {
+          @Override
+          public SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
+              throws ForbiddenRelativeSymlinkException {
+            TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
+            addFilesetManifests(filesetMappings, inputMap, baseDirectory);
+            return inputMap;
+          }
+
+          @Override
+          public void visitNonLeaves(InputVisitor childVisitor) {}
+        });
+  }
+
+  /** Walks through one level of a {@link NestedSet} of {@link ActionInput}s. */
+  private void walkNestedSetInputs(
+      PathFragment baseDirectory,
+      NestedSet<? extends ActionInput> someInputFiles,
+      ArtifactExpander artifactExpander,
+      InputVisitor visitor)
+      throws IOException, ForbiddenActionInputException {
+    visitor.visit(
+        // addInputs is static so no need to add 'this' as dependent key.
+        Arrays.asList(
+            // Assuming that artifactExpander, different for each spawn, always expands the same
+            // way.
+            someInputFiles.toNode(), baseDirectory),
+        new InputWalker() {
+          @Override
+          public SortedMap<PathFragment, ActionInput> getLeavesInputMapping() {
+            TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
+            addInputs(
+                inputMap,
+                NestedSetBuilder.wrap(someInputFiles.getOrder(), someInputFiles.getLeaves()),
+                artifactExpander,
+                baseDirectory);
+            return inputMap;
+          }
+
+          @Override
+          public void visitNonLeaves(InputVisitor childVisitor)
+              throws IOException, ForbiddenActionInputException {
+            for (NestedSet<? extends ActionInput> subInputs : someInputFiles.getNonLeaves()) {
+              walkNestedSetInputs(baseDirectory, subInputs, artifactExpander, childVisitor);
+            }
+          }
+        });
+  }
+
+  /**
+   * Exception signaling that an input was not a regular file: most likely a directory. This
+   * exception is currently never thrown in practice since we do not enforce "strict" mode.
+   */
+  private static final class ForbiddenNonFileException extends ForbiddenActionInputException {
+    ForbiddenNonFileException(ActionInput input) {
+      super("Not a file: " + input.getExecPathString());
+    }
   }
 }

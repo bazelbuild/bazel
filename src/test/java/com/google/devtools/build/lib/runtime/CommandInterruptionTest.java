@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -96,11 +95,10 @@ public final class CommandInterruptionTest {
     public WaitOptions() {}
 
     @Option(
-      name = "expect_interruption",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
+        name = "expect_interruption",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
     public boolean expectInterruption;
   }
 
@@ -109,11 +107,10 @@ public final class CommandInterruptionTest {
    * interrupted more than --expect_interruptions times while waiting.
    */
   @Command(
-    name = "snooze",
-    shortDescription = "",
-    help = "",
-    options = {WaitOptions.class}
-  )
+      name = "snooze",
+      shortDescription = "",
+      help = "",
+      options = {WaitOptions.class})
   private static final class WaitForCompletionCommand implements BlazeCommand {
     private final AtomicBoolean isTestShuttingDown;
     private final AtomicReference<SettableFuture<CommandState>> commandStateHandoff;
@@ -125,14 +122,12 @@ public final class CommandInterruptionTest {
 
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-      CommandState commandState = new CommandState(
-          env, options.getOptions(WaitOptions.class).expectInterruption, isTestShuttingDown);
+      CommandState commandState =
+          new CommandState(
+              env, options.getOptions(WaitOptions.class).expectInterruption, isTestShuttingDown);
       commandStateHandoff.getAndSet(null).set(commandState);
       return BlazeCommandResult.detailedExitCode(commandState.waitForDetailedCodeFromTest());
     }
-
-    @Override
-    public void editOptions(OptionsParser optionsParser) {}
 
     /**
      * Runs an instance of this command on the given executor, waits for it to start and returns a
@@ -206,9 +201,7 @@ public final class CommandInterruptionTest {
     }
   }
 
-  /**
-   * A remote control allowing the test to control and assert on the WaitForCompletionCommand.
-   */
+  /** A remote control allowing the test to control and assert on the WaitForCompletionCommand. */
   private static final class CommandState {
     private final SettableFuture<DetailedExitCode> result;
     private final CommandEnvironment commandEnvironment;
@@ -353,7 +346,8 @@ public final class CommandInterruptionTest {
         throws InterruptedException, ExecutionException, BrokenBarrierException {
       synchronizeWithCommand();
       assertWithMessage("The command should have been finished, but it was not.")
-          .that(result.isDone()).isTrue();
+          .that(result.isDone())
+          .isTrue();
       assertThat(Futures.getDone(result)).isEqualTo(detailedExitCode);
     }
 
@@ -364,7 +358,7 @@ public final class CommandInterruptionTest {
         try {
           throw new AssertionError(
               "The command should not have been finished, but it finished with exit code "
-              + result.get());
+                  + result.get());
         } catch (Throwable ex) {
           throw new AssertionError("The command should not have been finished, but it threw", ex);
         }
@@ -407,14 +401,6 @@ public final class CommandInterruptionTest {
                     // Can't create a defaults package without the base options in there!
                     builder.addConfigurationOptions(CoreOptions.class);
                     builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
-                  }
-                })
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.getDefaultBuildOptionsForFragments(
-                        runtime.getRuleClassProvider().getConfigurationOptions());
                   }
                 })
             .build();

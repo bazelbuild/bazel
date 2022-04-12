@@ -79,7 +79,6 @@ public class AndroidResourcesInfo extends NativeInfo
       NestedSet<Artifact> transitiveCompiledSymbols,
       NestedSet<Artifact> transitiveStaticLib,
       NestedSet<Artifact> transitiveRTxt) {
-    super(PROVIDER);
     this.label = label;
     this.manifest = manifest;
     this.rTxt = rTxt;
@@ -93,6 +92,11 @@ public class AndroidResourcesInfo extends NativeInfo
     this.transitiveCompiledSymbols = transitiveCompiledSymbols;
     this.transitiveStaticLib = transitiveStaticLib;
     this.transitiveRTxt = transitiveRTxt;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

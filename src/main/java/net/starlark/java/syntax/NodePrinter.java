@@ -362,6 +362,27 @@ final class NodePrinter {
           break;
         }
 
+      case FLOAT_LITERAL:
+        {
+          buf.append(((FloatLiteral) expr).getValue());
+          break;
+        }
+
+      case LAMBDA:
+        {
+          LambdaExpression lambda = (LambdaExpression) expr;
+          buf.append("lambda");
+          String sep = " ";
+          for (Parameter param : lambda.getParameters()) {
+            buf.append(sep);
+            sep = ", ";
+            printParameter(param);
+          }
+          buf.append(": ");
+          printExpr(lambda.getBody());
+          break;
+        }
+
       case LIST_EXPR:
         {
           ListExpression list = (ListExpression) expr;

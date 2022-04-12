@@ -13,30 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.CharStreams;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -45,17 +48,15 @@ import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
 import com.google.devtools.build.lib.skyframe.GlobValue;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
-import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -63,10 +64,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -76,6 +74,9 @@ import javax.annotation.Nullable;
  * Scans a source file and extracts the literal inclusions it specifies. Does not store results --
  * repeated requests to the same file will result in repeated scans. Clients should implement a
  * caching layer in order to avoid unnecessary disk access when requesting an already scanned file.
+ *
+ * <p>Both this class and the static inner class {@link Hints} have lifetime of a single build (or a
+ * single include scanning operation in the case of the {@link SwigIncludeParser}).
  */
 @VisibleForTesting
 class IncludeParser {
@@ -102,11 +103,17 @@ class IncludeParser {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * Immutable object representation of the four columns making up a single Rule
-   * in a Hints set. See {@link Hints} for more details.
+   * Immutable object representation of the four columns making up a single Rule in a Hints set. See
+   * {@link Hints} for more details.
    */
   private static class Rule {
-    private enum Type { PATH, FILE, INCLUDE_QUOTE, INCLUDE_ANGLE }
+    private enum Type {
+      PATH,
+      FILE,
+      INCLUDE_QUOTE,
+      INCLUDE_ANGLE
+    }
+
     final Type type;
     final Pattern pattern;
     final String findRoot;
@@ -121,17 +128,19 @@ class IncludeParser {
 
     Rule(String type, String pattern, String findRoot) {
       this(type, pattern, findRoot, null);
-      Preconditions.checkArgument((this.type == Type.INCLUDE_QUOTE)
-          || (this.type == Type.INCLUDE_ANGLE), this);
+      Preconditions.checkArgument(
+          (this.type == Type.INCLUDE_QUOTE) || (this.type == Type.INCLUDE_ANGLE), this);
     }
 
-    @Override public String toString() {
-      return "" + type + " " + pattern + " " + findRoot + " " + findFilter;
+    @Override
+    public String toString() {
+      return type + " " + pattern + " " + findRoot + " " + findFilter;
     }
   }
 
   /** {@link SkyValue} encapsulating the source-state-dependent part of {@link Hints}. */
-  public static class HintsRules implements SkyValue {
+  public static final class HintsRules implements SkyValue {
+    static final HintsRules EMPTY = new HintsRules(ImmutableList.of());
     private final ImmutableList<Rule> rules;
 
     private HintsRules(ImmutableList<Rule> rules) {
@@ -170,8 +179,7 @@ class IncludeParser {
    */
   public static class Hints {
     private static final Pattern WS_PAT = Pattern.compile("\\s+");
-    @VisibleForTesting
-    static final String ALLOWED_PREFIX = "third_party/";
+    @VisibleForTesting static final String ALLOWED_PREFIX = "third_party/";
     // Match regular expressions that can only match paths under ALLOWED_PREFIX .
     private static final Pattern ALLOWED_PATTERN = Pattern.compile("^\\(*" + ALLOWED_PREFIX + ".*");
 
@@ -180,35 +188,30 @@ class IncludeParser {
     private final ImmutableList<Rule> rules;
     private final ArtifactFactory artifactFactory;
 
-    private final AtomicReference<FilesystemCalls> syscallCache = new AtomicReference<>();
+    private final SyscallCache syscallCache;
 
-    private final LoadingCache<Artifact, Collection<Artifact>> fileLevelHintsCache =
-        CacheBuilder.newBuilder().concurrencyLevel(HINTS_CACHE_CONCURRENCY).build(
-            new CacheLoader<Artifact, Collection<Artifact>>() {
-              @Override
-              public Collection<Artifact> load(Artifact path) {
-                return getHintedInclusionsLegacy(Rule.Type.FILE,
-                    path.getExecPath(), path.getRoot());
-              }
-            });
+    private final LoadingCache<Artifact, ImmutableList<Artifact>> fileLevelHintsCache =
+        Caffeine.newBuilder()
+            .initialCapacity(HINTS_CACHE_CONCURRENCY)
+            .build(this::getHintedInclusionsLegacy);
 
     /**
      * Constructs a hint set for a given INCLUDE_HINTS file to read.
      *
      * @param hintsRules the {@link HintsRules} parsed from INCLUDE_HINTS
      */
-    public Hints(HintsRules hintsRules, ArtifactFactory artifactFactory) {
+    Hints(HintsRules hintsRules, SyscallCache syscallCache, ArtifactFactory artifactFactory) {
+      this.syscallCache = syscallCache;
       this.artifactFactory = artifactFactory;
       this.rules = hintsRules.rules;
-      clearCachedLegacyHints();
     }
 
     static HintsRules getRules(Path hintsFile) throws IOException {
       ImmutableList.Builder<Rule> rules = ImmutableList.builder();
       try (InputStream is = hintsFile.getInputStream()) {
-        for (String line : CharStreams.readLines(new InputStreamReader(is, "UTF-8"))) {
+        for (String line : CharStreams.readLines(new InputStreamReader(is, UTF_8))) {
           line = line.trim();
-          if (line.length() == 0 || line.startsWith("#")) {
+          if (line.isEmpty() || line.startsWith("#")) {
             continue;
           }
           String[] tokens = WS_PAT.split(line);
@@ -217,8 +220,13 @@ class IncludeParser {
               rules.add(new Rule(tokens[0], tokens[1], tokens[2]));
             } else if (tokens.length == 4) {
               if (!ALLOWED_PATTERN.matcher(tokens[1]).matches()) {
-                throw new IOException("Illegal hint regex on: " + line + "\n"
-                    + tokens[1] + " does not match only paths in " + ALLOWED_PREFIX);
+                throw new IOException(
+                    "Illegal hint regex on: "
+                        + line
+                        + "\n"
+                        + tokens[1]
+                        + " does not match only paths in "
+                        + ALLOWED_PREFIX);
               }
               rules.add(new Rule(tokens[0], tokens[1], tokens[2], tokens[3]));
             } else {
@@ -234,56 +242,39 @@ class IncludeParser {
       return new HintsRules(rules.build());
     }
 
-    /**
-     * Clears legacy inclusions cache to maintain inter-build correctness, since filesystem changes
-     * are not tracked by cache.
-     */
-    void clearCachedLegacyHints() {
-      fileLevelHintsCache.invalidateAll();
-      syscallCache.set(
-          PerBuildSyscallCache.newBuilder().setConcurrencyLevel(HINTS_CACHE_CONCURRENCY).build());
-    }
-
     /** Returns the "file" type hinted inclusions for a given path, caching results by path. */
-    Collection<Artifact> getFileLevelHintedInclusionsLegacy(Artifact path) {
+    ImmutableList<Artifact> getFileLevelHintedInclusionsLegacy(Artifact path) {
       if (!path.getExecPathString().startsWith(ALLOWED_PREFIX)) {
         return ImmutableList.of();
       }
-      return fileLevelHintsCache.getUnchecked(path);
+      return fileLevelHintsCache.get(path);
     }
 
     /**
      * Returns the "path" type hinted inclusions for the given paths. Callers are responsible for
      * caching.
+     *
+     * <p>Returns {@code null} when a skyframe restart is necessary.
      */
-    Collection<Artifact> getPathLevelHintedInclusions(
-        ImmutableList<PathFragment> paths, Environment env) throws InterruptedException {
-      return getHintedInclusionsWithSkyframe(Rule.Type.PATH, paths, env);
-    }
-
-    /**
-     * Performs the work of matching the given paths against the hints and returns the matching
-     * files. This is semantically different from {@link #getHintedInclusionsLegacy} in that it will
-     * not cross package boundaries.
-     */
-    private Collection<Artifact> getHintedInclusionsWithSkyframe(
-        Rule.Type type, ImmutableList<PathFragment> paths, Environment env)
-        throws InterruptedException {
+    @Nullable
+    ImmutableSet<Artifact> getPathLevelHintedInclusions(
+        ImmutableList<PathFragment> paths, Environment env)
+        throws InterruptedException, IOException, NoSuchPackageException {
       ImmutableList<String> pathStrings =
           paths.stream()
               .map(PathFragment::getPathString)
-              .filter((p) -> p.startsWith(ALLOWED_PREFIX))
-              .collect(ImmutableList.toImmutableList());
+              .filter(p -> p.startsWith(ALLOWED_PREFIX))
+              .collect(toImmutableList());
       if (pathStrings.isEmpty()) {
-        return ImmutableList.of();
+        return ImmutableSet.of();
       }
-      // Delay creation until we know we need one. Use a TreeSet to make sure that the results are
-      // sorted with a stable order and unique.
-      Set<Artifact> hints = null;
+      // Delay creation until we know we need one. Use a sorted set to make sure that the results
+      // have a stable order and are unique.
+      ImmutableSortedSet.Builder<Artifact> hints = null;
       List<ContainingPackageLookupValue.Key> rulePaths = new ArrayList<>(rules.size());
       List<String> findFilters = new ArrayList<>(rules.size());
       for (Rule rule : rules) {
-        if (type != rule.type) {
+        if (rule.type != Rule.Type.PATH) {
           continue;
         }
         String firstMatchPathString = null;
@@ -299,7 +290,7 @@ class IncludeParser {
           continue;
         }
         if (hints == null) {
-          hints = Sets.newTreeSet(Artifact.EXEC_PATH_COMPARATOR);
+          hints = ImmutableSortedSet.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
         }
         PathFragment relativePath = PathFragment.create(m.replaceFirst(rule.findRoot));
         logger.atFine().log(
@@ -314,9 +305,10 @@ class IncludeParser {
             ContainingPackageLookupValue.key(PackageIdentifier.createInMainRepo(relativePath)));
         findFilters.add(rule.findFilter);
       }
-      Map<SkyKey, ValueOrException<NoSuchPackageException>> containingPackageLookupValues =
-          env.getValuesOrThrow(rulePaths, NoSuchPackageException.class);
-      if (env.valuesMissing()) {
+      SkyframeIterableResult containingPackageLookupValues =
+          env.getOrderedValuesAndExceptions(rulePaths);
+      if (env.valuesMissing()
+          && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
         return null;
       }
       List<GlobDescriptor> globKeys = new ArrayList<>(rulePaths.size());
@@ -327,8 +319,11 @@ class IncludeParser {
         try {
           containingPackageLookupValue =
               (ContainingPackageLookupValue)
-                  containingPackageLookupValues.get(relativePathKey).get();
+                  containingPackageLookupValues.nextOrThrow(NoSuchPackageException.class);
         } catch (NoSuchPackageException e) {
+          if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+            throw e;
+          }
           logger.atWarning().withCause(e).log(
               "Unexpected exception when looking up containing package for %s"
                   + " (prodaccess expired?)",
@@ -348,27 +343,37 @@ class IncludeParser {
                   containingPackageLookupValue.getContainingPackageName(),
                   containingPackageLookupValue.getContainingPackageRoot(),
                   pattern,
-                  /* excludeDirs= */ true,
+                  Globber.Operation.FILES,
                   relativePath.relativeTo(packageFragment)));
         } catch (InvalidGlobPatternException e) {
           env.getListener()
               .handle(Event.warn("Error parsing pattern " + pattern + " for " + relativePath));
-          continue;
         }
       }
-      Map<SkyKey, ValueOrException<IOException>> globResults =
-          env.getValuesOrThrow(globKeys, IOException.class);
       if (env.valuesMissing()) {
         return null;
       }
-      for (Map.Entry<SkyKey, ValueOrException<IOException>> globEntry : globResults.entrySet()) {
-        GlobValue globValue;
-        GlobDescriptor globKey = (GlobDescriptor) globEntry.getKey();
+      SkyframeIterableResult globResults = env.getOrderedValuesAndExceptions(globKeys);
+      if (env.valuesMissing()
+          && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+        return null;
+      }
+      int i = 0;
+      while (globResults.hasNext()) {
+        GlobDescriptor globKey = globKeys.get(i++);
         PathFragment packageFragment = globKey.getPackageId().getPackageFragment();
+        GlobValue globValue;
         try {
-          globValue = (GlobValue) globEntry.getValue().get();
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Error getting hints for %s", packageFragment);
+          globValue =
+              (GlobValue)
+                  globResults.nextOrThrow(IOException.class, BuildFileNotFoundException.class);
+        } catch (IOException | BuildFileNotFoundException e) {
+          if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+            throw e;
+          }
+          logger.atWarning().withCause(e).log(
+              "Unexpected exception when computing glob for %s" + " (prodaccess expired?)",
+              globKey);
           continue;
         }
         for (PathFragment file : globValue.getMatches().toList()) {
@@ -377,29 +382,34 @@ class IncludeParser {
                   packageFragment.getRelative(file), globKey.getPackageRoot()));
         }
       }
-      return hints == null || hints.isEmpty() ? ImmutableList.<Artifact>of() : hints;
+      if (env.valuesMissing()) {
+        return null;
+      }
+      return hints == null ? ImmutableSet.of() : hints.build();
     }
 
     /**
      * Performs the work of matching a given path against the hints and returns the expanded paths.
-     * The above {@link #getHintedInclusionsWithSkyframe} should be used in preference, but if the
-     * performance impact of Skyframe restarts is untenable, this can be used as a fallback.
+     * The above {@link #getHintedInclusions} should be used in preference, but if the performance
+     * impact of Skyframe restarts is untenable, this can be used as a fallback.
      */
-    private Collection<Artifact> getHintedInclusionsLegacy(
-        Rule.Type type, PathFragment path, ArtifactRoot sourceRoot) {
-      String pathString = path.getPathString();
+    private ImmutableList<Artifact> getHintedInclusionsLegacy(Artifact artifact) {
+      String pathString = artifact.getExecPath().getPathString();
+      Root sourceRoot = artifact.getRoot().getRoot();
       // Delay creation until we know we need one. Use a TreeSet to make sure that the results are
       // sorted with a stable order and unique.
       Set<Path> hints = null;
-      for (final Rule rule : rules) {
-        if (type != rule.type) {
+      for (Rule rule : rules) {
+        if (rule.type != Rule.Type.FILE) {
           continue;
         }
         Matcher m = rule.pattern.matcher(pathString);
         if (!m.matches()) {
           continue;
         }
-        if (hints == null) { hints = Sets.newTreeSet(); }
+        if (hints == null) {
+          hints = Sets.newTreeSet();
+        }
         String relativePath = m.replaceFirst(rule.findRoot);
         if (!relativePath.startsWith(ALLOWED_PREFIX)) {
           logger.atWarning().log(
@@ -407,7 +417,7 @@ class IncludeParser {
               relativePath, ALLOWED_PREFIX);
           continue;
         }
-        Path root = sourceRoot.getRoot().getRelative(relativePath);
+        Path root = sourceRoot.getRelative(relativePath);
 
         logger.atFine().log("hint for %s %s root: %s", rule.type, pathString, root);
         try {
@@ -419,31 +429,26 @@ class IncludeParser {
           // foo/bar/**/*.h. No examples of this currently exist in the INCLUDE_HINTS
           // file.
           logger.atFine().log("Globbing: %s %s", root, rule.findFilter);
-          hints.addAll(new UnixGlob.Builder(root)
-              .setFilesystemCalls(syscallCache)
-              .addPattern(rule.findFilter)
-              .glob());
+          hints.addAll(new UnixGlob.Builder(root, syscallCache).addPattern(rule.findFilter).glob());
         } catch (UnixGlob.BadPattern | IOException e) {
           logger.atWarning().withCause(e).log("Error in hint expansion");
         }
       }
-      if (hints != null && !hints.isEmpty()) {
-        // Transform paths into source artifacts (all hints must be to source artifacts).
-        List<Artifact> result = new ArrayList<>(hints.size());
-        for (Path hint : hints) {
-          Root sourcePath = sourceRoot.getRoot();
-          result.add(
-              Preconditions.checkNotNull(
-                  artifactFactory.getSourceArtifact(sourcePath.relativize(hint), sourcePath),
-                  "%s %s %s %s",
-                  hint,
-                  sourcePath,
-                  path));
-        }
-        return result;
-      } else {
+      if (hints == null || hints.isEmpty()) {
         return ImmutableList.of();
       }
+      // Transform paths into source artifacts (all hints must be to source artifacts).
+      ImmutableList.Builder<Artifact> result = ImmutableList.builderWithExpectedSize(hints.size());
+      for (Path hint : hints) {
+        result.add(
+            Preconditions.checkNotNull(
+                artifactFactory.getSourceArtifact(sourceRoot.relativize(hint), sourceRoot),
+                "Missing source artifact, hint=%s, sourceRoot=%s, pathString=%s",
+                hint,
+                sourceRoot,
+                pathString));
+      }
+      return result.build();
     }
 
     private Collection<Inclusion> getHintedInclusions(Artifact path) {
@@ -459,9 +464,12 @@ class IncludeParser {
         if (!m.matches()) {
           continue;
         }
-        if (hints == null) { hints = Sets.newLinkedHashSet(); }
-        Inclusion inclusion = new Inclusion(rule.findRoot, rule.type == Rule.Type.INCLUDE_QUOTE
-            ? Kind.QUOTE : Kind.ANGLE);
+        if (hints == null) {
+          hints = Sets.newLinkedHashSet();
+        }
+        Inclusion inclusion =
+            Inclusion.create(
+                rule.findRoot, rule.type == Rule.Type.INCLUDE_QUOTE ? Kind.QUOTE : Kind.ANGLE);
         hints.add(inclusion);
         logger.atFine().log("hint for %s %s root: %s", rule.type, pathString, inclusion);
       }
@@ -478,11 +486,12 @@ class IncludeParser {
   }
 
   /**
-   * An immutable inclusion tuple. This models an {@code #include} or {@code
-   * #include_next} line in a file without the context how this file got
-   * included.
+   * An immutable inclusion tuple. This models an {@code #include} or {@code #include_next} line in
+   * a file without the context how this file got included.
    */
   public static class Inclusion {
+    private static final Interner<Inclusion> INCLUSIONS = BlazeInterners.newWeakInterner();
+
     /** The format of the #include in the source file -- quoted, angle bracket, etc. */
     enum Kind {
       /** Quote includes: {@code #include "name"}. */
@@ -497,9 +506,7 @@ class IncludeParser {
       /** Angle next includes: {@code #include_next <name>}. */
       NEXT_ANGLE;
 
-      /**
-       * Returns true if this is an {@code #include_next} inclusion,
-       */
+      /** Returns true if this is an {@code #include_next} inclusion, */
       boolean isNext() {
         return this == NEXT_ANGLE || this == NEXT_QUOTE;
       }
@@ -510,14 +517,17 @@ class IncludeParser {
     /** The relative path of the inclusion. */
     final PathFragment pathFragment;
 
-    Inclusion(String includeTarget, Kind kind) {
-      this.kind = kind;
-      this.pathFragment = PathFragment.create(includeTarget);
-    }
-
-    Inclusion(PathFragment pathFragment, Kind kind) {
+    private Inclusion(PathFragment pathFragment, Kind kind) {
       this.kind = kind;
       this.pathFragment = Preconditions.checkNotNull(pathFragment);
+    }
+
+    static Inclusion create(String includeTarget, Kind kind) {
+      return INCLUSIONS.intern(new Inclusion(PathFragment.create(includeTarget), kind));
+    }
+
+    static Inclusion create(PathFragment pathFragment, Kind kind) {
+      return INCLUSIONS.intern(new Inclusion(Preconditions.checkNotNull(pathFragment), kind));
     }
 
     String getPathString() {
@@ -567,7 +577,7 @@ class IncludeParser {
    * @param pos the starting position
    * @return the resulting position after skipping whitespace and comments.
    */
-  protected static int skipWhitespace(byte[] chars, int pos, int end) {
+  static int skipWhitespace(byte[] chars, int pos, int end) {
     while (pos < end) {
       if (Character.isWhitespace(chars[pos] & 0xff)) {
         pos++;
@@ -579,15 +589,15 @@ class IncludeParser {
           if (chars[pos++] == '*') {
             if (chars[pos] == '/') {
               pos++;
-              break;  // proper comment end
+              break; // proper comment end
             }
           }
         }
-      } else {  // not whitespace
+      } else { // not whitespace
         return pos;
       }
     }
-    return pos;  // pos == len, meaning we fell off the end.
+    return pos; // pos == len, meaning we fell off the end.
   }
 
   private static final String HAS_INCLUDE = "__has_include";
@@ -664,11 +674,12 @@ class IncludeParser {
   private static final Pattern BS_NL_PAT = Pattern.compile("\\\\" + "\n");
 
   // Keep this in sync with the grep-includes binary's scanning output format.
-  private static final ImmutableMap<Character, Kind> KIND_MAP = ImmutableMap.of(
-      '"', Kind.QUOTE,
-      '<', Kind.ANGLE,
-      'q', Kind.NEXT_QUOTE,
-      'a', Kind.NEXT_ANGLE);
+  private static final ImmutableMap<Character, Kind> KIND_MAP =
+      ImmutableMap.of(
+          '"', Kind.QUOTE,
+          '<', Kind.ANGLE,
+          'q', Kind.NEXT_QUOTE,
+          'a', Kind.NEXT_ANGLE);
 
   /**
    * Processes the output generated by an auxiliary include-scanning binary.
@@ -701,13 +712,13 @@ class IncludeParser {
       if (kind == null) {
         throw new IOException("Illegal inclusion kind '" + qchar + "'");
       }
-      inclusions.add(new Inclusion(name, kind));
+      inclusions.add(Inclusion.create(name, kind));
     }
     return inclusions;
   }
 
   /** Processes the output generated by an auxiliary include-scanning binary stored in a file. */
-  public static List<Inclusion> processIncludes(Path file) throws IOException {
+  static List<Inclusion> processIncludes(Path file) throws IOException {
     try {
       byte[] data = FileSystemUtils.readContent(file);
       return IncludeParser.processIncludes(Arrays.asList(new String(data, ISO_8859_1).split("\n")));
@@ -720,15 +731,13 @@ class IncludeParser {
    * Processes the output generated by an auxiliary include-scanning binary read from a stream.
    * Closes the stream upon completion.
    */
-  public static List<Inclusion> processIncludes(Object streamName, InputStream is)
-      throws IOException {
+  static List<Inclusion> processIncludes(Object streamName, InputStream is) throws IOException {
     try (InputStreamReader reader = new InputStreamReader(is, ISO_8859_1)) {
       return processIncludes(CharStreams.readLines(reader));
     } catch (IOException e) {
       throw new IOException("Error reading include file " + streamName + ": " + e.getMessage());
     }
   }
-
 
   @VisibleForTesting
   Inclusion extractInclusion(String line) {
@@ -778,16 +787,16 @@ class IncludeParser {
         return null;
       }
       if (chars[spos] == '/') {
-        return null;  // disallow absolute paths
+        return null; // disallow absolute paths
       }
       String name = new String(chars, spos, pos - spos);
-      if (name.contains("\n")) {  // strip any \+NL pairs within name
+      if (name.contains("\n")) { // strip any \+NL pairs within name
         name = BS_NL_PAT.matcher(name).replaceAll("");
       }
       if (isNext) {
-        return new Inclusion(name, qchar == '"' ? Kind.NEXT_QUOTE : Kind.NEXT_ANGLE);
+        return Inclusion.create(name, qchar == '"' ? Kind.NEXT_QUOTE : Kind.NEXT_ANGLE);
       } else {
-        return new Inclusion(name, qchar == '"' ? Kind.QUOTE : Kind.ANGLE);
+        return Inclusion.create(name, qchar == '"' ? Kind.QUOTE : Kind.ANGLE);
       }
     } else {
       return createOtherInclusion(new String(chars, pos, lineEnd - pos));
@@ -803,10 +812,10 @@ class IncludeParser {
   @VisibleForTesting
   List<Inclusion> extractInclusions(byte[] chars) {
     List<Inclusion> inclusions = new ArrayList<>();
-    int lineBegin = 0;  // the first char of each line
-    int end = chars.length;  // the file end
+    int lineBegin = 0; // the first char of each line
+    int end = chars.length; // the file end
     while (lineBegin < end) {
-      int lineEnd = lineBegin;   // the char after the last non-\n in each line
+      int lineEnd = lineBegin; // the char after the last non-\n in each line
       // skip to the next \n or after end of buffer, ignoring continuations
       while (lineEnd < end) {
         if (chars[lineEnd] == '\n') {
@@ -836,7 +845,7 @@ class IncludeParser {
           inclusions.add(inclusion);
         }
       }
-      lineBegin = lineEnd + 1;  // next line starts after the previous line
+      lineBegin = lineEnd + 1; // next line starts after the previous line
     }
     return inclusions;
   }
@@ -863,7 +872,7 @@ class IncludeParser {
     //  (see CppHelper.getGrepIncludes) or misspelled. It would be better to disallow this case.
     if (remoteIncludeScanner != null
         && grepIncludes != null
-        && remoteIncludeScanner.shouldParseRemotely(file, actionExecutionContext)) {
+        && remoteIncludeScanner.shouldParseRemotely(file)) {
       inclusions =
           remoteIncludeScanner.extractInclusions(
               file,
@@ -902,73 +911,6 @@ class IncludeParser {
   }
 
   /**
-   * Extracts all inclusions from a given source file.
-   *
-   * @param file the file to parse & extract inclusions from
-   * @param actionExecutionContext Services in the scope of the action, like the stream to which
-   *     scanning messages are printed
-   * @return a new set of inclusions, normalized to the cache
-   */
-  ListenableFuture<Collection<Inclusion>> extractInclusionsAsync(
-      Executor executor,
-      Artifact file,
-      ActionExecutionMetadata actionExecutionMetadata,
-      ActionExecutionContext actionExecutionContext,
-      Artifact grepIncludes,
-      @Nullable SpawnIncludeScanner remoteIncludeScanner,
-      boolean isOutputFile)
-      throws IOException {
-    ListenableFuture<Collection<Inclusion>> inclusions;
-    if (remoteIncludeScanner != null
-        && remoteIncludeScanner.shouldParseRemotely(file, actionExecutionContext)) {
-      inclusions =
-          remoteIncludeScanner.extractInclusionsAsync(
-              executor,
-              file,
-              actionExecutionMetadata,
-              actionExecutionContext,
-              grepIncludes,
-              getFileType(),
-              isOutputFile);
-    } else {
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
-        inclusions =
-            Futures.immediateFuture(
-                extractInclusions(
-                    FileSystemUtils.readContent(actionExecutionContext.getInputPath(file))));
-      } catch (IOException e) {
-        if (remoteIncludeScanner != null) {
-          logger.atWarning().withCause(e).log(
-              "Falling back on remote parsing of %s", actionExecutionContext.getInputPath(file));
-          inclusions =
-              remoteIncludeScanner.extractInclusionsAsync(
-                  executor,
-                  file,
-                  actionExecutionMetadata,
-                  actionExecutionContext,
-                  grepIncludes,
-                  getFileType(),
-                  isOutputFile);
-        } else {
-          throw e;
-        }
-      }
-    }
-    if (hints != null) {
-      return Futures.transform(
-          inclusions,
-          (c) -> {
-            // Ugly, but saves doing another copy.
-            c.addAll(hints.getHintedInclusions(file));
-            return c;
-          },
-          MoreExecutors.directExecutor());
-    }
-    return inclusions;
-  }
-
-  /**
    * Returns type of the scanned file.
    *
    * <p>Supported values are "c++" for standard c/c++ headers and sources, and "swig" for .swig
@@ -998,11 +940,11 @@ class IncludeParser {
       return new IncludesKeywordData(pos, true, false);
     }
 
-    protected static IncludesKeywordData importOrSwig(int pos) {
+    static IncludesKeywordData importOrSwig(int pos) {
       return new IncludesKeywordData(pos, false, false);
     }
 
-    protected static IncludesKeywordData hasInclude(int pos) {
+    static IncludesKeywordData hasInclude(int pos) {
       return new IncludesKeywordData(pos, true, true);
     }
   }
@@ -1029,8 +971,6 @@ class IncludeParser {
 
   /**
    * Returns true if we interested in the given inclusion kind. Can be overridden by the subclass.
-   *
-   * @param kind
    */
   protected boolean isValidInclusionKind(Kind kind) {
     return true;
@@ -1039,8 +979,6 @@ class IncludeParser {
   /**
    * Returns inclusion object for non-standard inclusion cases or null if inclusion should be
    * ignored.
-   *
-   * @param inclusionContent
    */
   @Nullable
   protected Inclusion createOtherInclusion(String inclusionContent) {

@@ -109,6 +109,7 @@ public class AndroidDataBindingProcessingAction {
             .build();
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
+    AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
 
     if (options.dataBindingInfoOut == null) {
       throw new IllegalArgumentException("--dataBindingInfoOut is required");
@@ -137,7 +138,8 @@ public class AndroidDataBindingProcessingAction {
             resourceRoot,
             dataBindingInfoOutDir.getPath(),
             options.appId,
-            /* shouldZipDataBindingInfo= */ false);
+            /* shouldZipDataBindingInfo= */ false,
+            aaptConfigOptions.useDataBindingAndroidX);
       }
 
       // 2. Zip all the layout info files into one zip file.

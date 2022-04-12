@@ -18,6 +18,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
@@ -27,13 +29,6 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
     extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "ios_cpu",
-      doc =
-          "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
-              + "The value of ios_cpu for this configuration.")
-  String getIosCpu();
 
   @StarlarkMethod(
       name = "single_arch_cpu",
@@ -65,18 +60,9 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type.")
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
-      name = "ios_cpu_platform",
-      doc =
-          "<b>Deprecated. Use <a href='#single_arch_platform'>single_arch_platform</a> or "
-              + "<a href='#multi_arch_platform'>multi_arch_platform</a> instead.</b> "
-              + "The platform given by the ios_cpu flag.")
-  ApplePlatformApi getIosCpuPlatform();
 
   @StarlarkMethod(
       name = "bitcode_mode",
@@ -85,4 +71,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
               + " device builds; for simulator builds, it always returns <code>'none'</code>.",
       structField = true)
   AppleBitcodeModeApi getBitcodeMode();
+
+  @StarlarkMethod(name = "mandatory_minimum_version", documented = false, useStarlarkThread = true)
+  boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException;
 }

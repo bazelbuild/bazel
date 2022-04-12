@@ -1,5 +1,7 @@
 licenses(["restricted"])  # GNU GPL v2
 
+load("//src:release_archive.bzl", "release_archive")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -13,20 +15,18 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "proguard5.3.3/docs/GPL.html",
-        "proguard5.3.3/lib/proguard.jar",
+        "proguard6.2.2/docs/GPL.md",
+        "proguard6.2.2/lib/proguard.jar",
     ],
     visibility = ["//src:__pkg__"],
 )
 
-genrule(
+release_archive(
     name = "proguard_zip",
     srcs = [
-        "proguard5.3.3/docs/GPL.html",
-        "proguard5.3.3/lib/proguard.jar",
+        "proguard6.2.2/docs/GPL.md",
+        "proguard6.2.2/lib/proguard.jar",
     ],
-    outs = ["proguard.zip"],
-    cmd = "$(location //src:zip_files) third_party/java/proguard $@ $(SRCS)",
-    tools = ["//src:zip_files"],
+    package_dir = "java_tools/third_party/java/proguard",
     visibility = ["//src:__pkg__"],
 )

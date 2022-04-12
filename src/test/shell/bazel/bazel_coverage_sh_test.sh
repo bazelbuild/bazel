@@ -196,17 +196,17 @@ function test_sh_test_coverage_cc_binary() {
   ########### Setup source files and BUILD file ###########
   cat <<EOF > BUILD
 sh_test(
-    name = "hello-sh",
-    srcs = ["hello-test.sh"],
-    data = ["//examples/cpp:hello-world"]
+    name = "num-sh",
+    srcs = ["num-test.sh"],
+    data = ["//examples/cpp:num-world"]
 )
 EOF
-  cat <<EOF > hello-test.sh
+  cat <<EOF > num-test.sh
 #!/bin/bash
 
-examples/cpp/hello-world
+examples/cpp/num-world
 EOF
-  chmod +x hello-test.sh
+  chmod +x num-test.sh
 
   mkdir -p examples/cpp
 
@@ -214,125 +214,107 @@ EOF
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
-    name = "hello-world",
-    srcs = ["hello-world.cc"],
-    deps = [":hello-lib"],
+    name = "num-world",
+    srcs = ["num-world.cc"],
+    deps = [":num-lib"],
 )
 
 cc_library(
-    name = "hello-lib",
-    srcs = ["hello-lib.cc"],
-    hdrs = ["hello-lib.h"]
+    name = "num-lib",
+    srcs = ["num-lib.cc"],
+    hdrs = ["num-lib.h"]
 )
 EOF
 
-  cat <<EOF > examples/cpp/hello-world.cc
-#include "examples/cpp/hello-lib.h"
+  cat <<EOF > examples/cpp/num-world.cc
+#include "examples/cpp/num-lib.h"
 
-#include <string>
-
-using hello::HelloLib;
-using std::string;
+using num::NumLib;
 
 int main(int argc, char** argv) {
-  HelloLib lib("Hello");
-  string thing = "world";
+  NumLib lib(30);
+  int value = 42;
   if (argc > 1) {
-    thing = argv[1];
+    value = 43;
   }
-  lib.greet(thing);
+  lib.add_number(value);
   return 0;
 }
 EOF
 
-  cat <<EOF > examples/cpp/hello-lib.h
-#ifndef EXAMPLES_CPP_HELLO_LIB_H_
-#define EXAMPLES_CPP_HELLO_LIB_H_
+  cat <<EOF > examples/cpp/num-lib.h
+#ifndef EXAMPLES_CPP_NUM_LIB_H_
+#define EXAMPLES_CPP_NUM_LIB_H_
 
-#include <string>
-#include <memory>
+namespace num {
 
-namespace hello {
-
-class HelloLib {
+class NumLib {
  public:
-  explicit HelloLib(const std::string &greeting);
+  explicit NumLib(int number);
 
-  void greet(const std::string &thing);
+  int add_number(int value);
 
  private:
-  std::auto_ptr<const std::string> greeting_;
+  int number_;
 };
 
-}  // namespace hello
+}  // namespace num
 
-#endif  // EXAMPLES_CPP_HELLO_LIB_H_
+#endif  // EXAMPLES_CPP_NUM_LIB_H_
 EOF
 
-  cat <<EOF > examples/cpp/hello-lib.cc
-#include "examples/cpp/hello-lib.h"
+  cat <<EOF > examples/cpp/num-lib.cc
+#include "examples/cpp/num-lib.h"
 
-#include <iostream>
+namespace num {
 
-using std::cout;
-using std::endl;
-using std::string;
-
-namespace hello {
-
-HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+NumLib::NumLib(int number) : number_(number) {
 }
 
-void HelloLib::greet(const string& thing) {
-  cout << *greeting_ << " " << thing << endl;
+int NumLib::add_number(int value) {
+  return number_ + value;
 }
 
-}  // namespace hello
+}  // namespace num
 EOF
 
   ########### Run bazel coverage ###########
   bazel coverage  --test_output=all \
-      //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+      //:num-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
 
   ########### Assert coverage results. ###########
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
-FN:18,_GLOBAL__sub_I_hello_lib.cc
-FN:18,_Z41__static_initialization_and_destruction_0ii
-FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FN:11,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNDA:1,_GLOBAL__sub_I_hello_lib.cc
-FNDA:1,_Z41__static_initialization_and_destruction_0ii
-FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNF:4
-FNH:4
-DA:11,1
-DA:12,1
-DA:14,1
-DA:15,1
-DA:16,1
-DA:18,3
-LH:6
-LF:6
+  local expected_result_num_lib="SF:examples/cpp/num-lib.cc
+FN:8,_ZN3num6NumLib10add_numberEi
+FN:5,_ZN3num6NumLibC2Ei
+FNDA:1,_ZN3num6NumLib10add_numberEi
+FNDA:1,_ZN3num6NumLibC2Ei
+FNF:2
+FNH:2
+DA:5,1
+DA:6,1
+DA:8,1
+DA:9,1
+LH:4
+LF:4
 end_of_record"
-  assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
-  local coverage_result_hello_lib_header="SF:examples/cpp/hello-world.cc
-FN:8,main
+  assert_coverage_result "$expected_result_num_lib" "$coverage_file_path"
+  local coverage_result_num_lib_header="SF:examples/cpp/num-world.cc
+FN:5,main
 FNDA:1,main
 FNF:1
 FNH:1
+DA:5,1
+DA:6,1
+DA:7,1
 DA:8,1
-DA:9,2
-DA:10,2
+DA:9,0
 DA:11,1
-DA:12,0
-DA:14,1
-DA:15,1
+DA:12,1
 LH:6
 LF:7
 end_of_record"
-  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
+  assert_coverage_result "$coverage_result_num_lib_header" "$coverage_file_path"
 }
 
 function test_sh_test_coverage_cc_binary_and_java_binary() {
@@ -343,21 +325,21 @@ function test_sh_test_coverage_cc_binary_and_java_binary() {
   ########### Setup source files and BUILD file ###########
   cat <<EOF > BUILD
 sh_test(
-    name = "hello-sh",
-    srcs = ["hello-test.sh"],
+    name = "num-sh",
+    srcs = ["num-test.sh"],
     data = [
-      "//examples/cpp:hello-world",
+      "//examples/cpp:num-world",
       "//java/com/google/orange:orange-bin"
     ]
 )
 EOF
-  cat <<EOF > hello-test.sh
+  cat <<EOF > num-test.sh
 #!/bin/bash
 
-examples/cpp/hello-world
+examples/cpp/num-world
 java/com/google/orange/orange-bin
 EOF
-  chmod +x hello-test.sh
+  chmod +x num-test.sh
 
   mkdir -p examples/cpp
 
@@ -365,80 +347,68 @@ EOF
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
-    name = "hello-world",
-    srcs = ["hello-world.cc"],
-    deps = [":hello-lib"],
+    name = "num-world",
+    srcs = ["num-world.cc"],
+    deps = [":num-lib"],
 )
 
 cc_library(
-    name = "hello-lib",
-    srcs = ["hello-lib.cc"],
-    hdrs = ["hello-lib.h"]
+    name = "num-lib",
+    srcs = ["num-lib.cc"],
+    hdrs = ["num-lib.h"]
 )
 EOF
 
-  cat <<EOF > examples/cpp/hello-world.cc
-#include "examples/cpp/hello-lib.h"
+  cat <<EOF > examples/cpp/num-world.cc
+#include "examples/cpp/num-lib.h"
 
-#include <string>
-
-using hello::HelloLib;
-using std::string;
+using num::NumLib;
 
 int main(int argc, char** argv) {
-  HelloLib lib("Hello");
-  string thing = "world";
+  NumLib lib(30);
+  int value = 42;
   if (argc > 1) {
-    thing = argv[1];
+    value = 43;
   }
-  lib.greet(thing);
+  lib.add_number(value);
   return 0;
 }
 EOF
 
-  cat <<EOF > examples/cpp/hello-lib.h
-#ifndef EXAMPLES_CPP_HELLO_LIB_H_
-#define EXAMPLES_CPP_HELLO_LIB_H_
+  cat <<EOF > examples/cpp/num-lib.h
+#ifndef EXAMPLES_CPP_NUM_LIB_H_
+#define EXAMPLES_CPP_NUM_LIB_H_
 
-#include <string>
-#include <memory>
+namespace num {
 
-namespace hello {
-
-class HelloLib {
+class NumLib {
  public:
-  explicit HelloLib(const std::string &greeting);
+  explicit NumLib(int value);
 
-  void greet(const std::string &thing);
+  int add_number(int value);
 
  private:
-  std::auto_ptr<const std::string> greeting_;
+  int number_;
 };
 
-}  // namespace hello
+}  // namespace num
 
-#endif  // EXAMPLES_CPP_HELLO_LIB_H_
+#endif  // EXAMPLES_CPP_NUM_LIB_H_
 EOF
 
-  cat <<EOF > examples/cpp/hello-lib.cc
-#include "examples/cpp/hello-lib.h"
+  cat <<EOF > examples/cpp/num-lib.cc
+#include "examples/cpp/num-lib.h"
 
-#include <iostream>
+namespace num {
 
-using std::cout;
-using std::endl;
-using std::string;
-
-namespace hello {
-
-HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+NumLib::NumLib(int number) : number_(number) {
 }
 
-void HelloLib::greet(const string& thing) {
-  cout << *greeting_ << " " << thing << endl;
+int NumLib::add_number(int value) {
+  return number_ + value;
 }
 
-}  // namespace hello
+}  // namespace num
 EOF
 
   ########### Setup Java sources ###########
@@ -479,48 +449,42 @@ EOF
 
   ########### Run bazel coverage ###########
   bazel coverage  --test_output=all \
-      //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+      //:num-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
 
   ########### Assert coverage results. ###########
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
-FN:18,_GLOBAL__sub_I_hello_lib.cc
-FN:18,_Z41__static_initialization_and_destruction_0ii
-FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FN:11,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNDA:1,_GLOBAL__sub_I_hello_lib.cc
-FNDA:1,_Z41__static_initialization_and_destruction_0ii
-FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
-FNF:4
-FNH:4
-DA:11,1
-DA:12,1
-DA:14,1
-DA:15,1
-DA:16,1
-DA:18,3
-LH:6
-LF:6
+  local expected_result_num_lib="SF:examples/cpp/num-lib.cc
+FN:8,_ZN3num6NumLib10add_numberEi
+FN:5,_ZN3num6NumLibC2Ei
+FNDA:1,_ZN3num6NumLib10add_numberEi
+FNDA:1,_ZN3num6NumLibC2Ei
+FNF:2
+FNH:2
+DA:5,1
+DA:6,1
+DA:8,1
+DA:9,1
+LH:4
+LF:4
 end_of_record"
-  assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
+  assert_coverage_result "$expected_result_num_lib" "$coverage_file_path"
 
-  local coverage_result_hello_lib_header="SF:examples/cpp/hello-world.cc
-FN:8,main
+  local coverage_result_num_lib_header="SF:examples/cpp/num-world.cc
+FN:5,main
 FNDA:1,main
 FNF:1
 FNH:1
+DA:5,1
+DA:6,1
+DA:7,1
 DA:8,1
-DA:9,2
-DA:10,2
+DA:9,0
 DA:11,1
-DA:12,0
-DA:14,1
-DA:15,1
+DA:12,1
 LH:6
 LF:7
 end_of_record"
-  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
+  assert_coverage_result "$coverage_result_num_lib_header" "$coverage_file_path"
 
 
   ############# Assert Java code coverage results

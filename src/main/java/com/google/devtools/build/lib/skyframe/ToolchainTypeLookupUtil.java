@@ -14,19 +14,18 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException3;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -36,26 +35,14 @@ public class ToolchainTypeLookupUtil {
 
   @Nullable
   public static ImmutableMap<Label, ToolchainTypeInfo> resolveToolchainTypes(
-      Environment env,
-      Iterable<ConfiguredTargetKey> toolchainTypeKeys,
-      boolean sanityCheckConfiguration)
+      Environment env, Iterable<ConfiguredTargetKey> toolchainTypeKeys)
       throws InterruptedException, InvalidToolchainTypeException {
-    Map<
-            SkyKey,
-            ValueOrException3<
-                ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>>
-        values =
-            env.getValuesOrThrow(
-                toolchainTypeKeys,
-                ConfiguredValueCreationException.class,
-                NoSuchThingException.class,
-                ActionConflictException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(toolchainTypeKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<Label, ToolchainTypeInfo> results = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : toolchainTypeKeys) {
       Label originalLabel = key.getLabel();
-      ToolchainTypeInfo toolchainTypeInfo =
-          findToolchainTypeInfo(key, values.get(key), sanityCheckConfiguration);
+      ToolchainTypeInfo toolchainTypeInfo = findToolchainTypeInfo(key, values);
       if (!valuesMissing && toolchainTypeInfo != null) {
         // These are only different if the toolchain type was aliased.
         results.put(originalLabel, toolchainTypeInfo);
@@ -71,40 +58,20 @@ public class ToolchainTypeLookupUtil {
 
   @Nullable
   private static ToolchainTypeInfo findToolchainTypeInfo(
-      ConfiguredTargetKey key,
-      ValueOrException3<
-              ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>
-          valueOrException,
-      boolean sanityCheckConfiguration)
-      throws InvalidToolchainTypeException {
+      ConfiguredTargetKey key, SkyframeIterableResult values) throws InvalidToolchainTypeException {
 
     try {
-      ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
+      ConfiguredTargetValue ctv =
+          (ConfiguredTargetValue)
+              values.nextOrThrow(
+                  ConfiguredValueCreationException.class,
+                  NoSuchThingException.class,
+                  ActionConflictException.class);
       if (ctv == null) {
         return null;
       }
 
       ConfiguredTarget configuredTarget = ctv.getConfiguredTarget();
-      BuildConfigurationValue.Key configurationKey = configuredTarget.getConfigurationKey();
-      // This check is necessary because trimming for other rules assumes that platform resolution
-      // uses the platform fragment and _only_ the platform fragment. Without this check, it's
-      // possible another fragment could slip in without us realizing, and thus break this
-      // assumption.
-      if (sanityCheckConfiguration && !configurationKey.getFragments().isEmpty()) {
-        // No fragments may be present on a toolchain_type rule in retroactive
-        // trimming mode.
-        String extraFragmentDescription =
-            configurationKey.getFragments().stream()
-                .map(cl -> cl.getSimpleName())
-                .collect(joining(","));
-        throw new InvalidToolchainTypeException(
-            configuredTarget.getLabel(),
-            "has configuration fragments, "
-                + "which is forbidden in retroactive trimming mode: "
-                + "extra fragments are ["
-                + extraFragmentDescription
-                + "]");
-      }
       ToolchainTypeInfo toolchainTypeInfo = PlatformProviderUtils.toolchainType(configuredTarget);
       if (toolchainTypeInfo == null) {
         if (PlatformProviderUtils.declaredToolchainInfo(configuredTarget) != null) {
@@ -119,9 +86,9 @@ public class ToolchainTypeLookupUtil {
 
       return toolchainTypeInfo;
     } catch (ConfiguredValueCreationException e) {
-      throw new InvalidToolchainTypeException(key.getLabel(), e);
+      throw new InvalidToolchainTypeException(e);
     } catch (NoSuchThingException e) {
-      throw new InvalidToolchainTypeException(key.getLabel(), e);
+      throw new InvalidToolchainTypeException(e);
     } catch (ActionConflictException e) {
       throw new InvalidToolchainTypeException(key.getLabel(), e);
     }
@@ -135,11 +102,12 @@ public class ToolchainTypeLookupUtil {
       super(formatError(label, DEFAULT_ERROR));
     }
 
-    InvalidToolchainTypeException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label, DEFAULT_ERROR), e);
+    InvalidToolchainTypeException(ConfiguredValueCreationException e) {
+      // Just propagate the inner exception, because it's directly actionable.
+      super(e);
     }
 
-    public InvalidToolchainTypeException(Label label, NoSuchThingException e) {
+    public InvalidToolchainTypeException(NoSuchThingException e) {
       // Just propagate the inner exception, because it's directly actionable.
       super(e);
     }

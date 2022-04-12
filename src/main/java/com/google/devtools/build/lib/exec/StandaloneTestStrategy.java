@@ -16,23 +16,31 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -46,7 +54,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -64,6 +74,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 
 /** Runs TestRunnerAction actions. */
@@ -93,22 +105,21 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   @Override
   public TestRunnerSpawn createTestRunnerSpawn(
-      TestRunnerAction action, ActionExecutionContext actionExecutionContext) throws ExecException {
+      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
     if (action.getExecutionSettings().getInputManifest() == null) {
+      String errorMessage = "cannot run local tests with --nobuild_runfile_manifests";
       throw new TestExecException(
-          "cannot run local tests with --nobuild_runfile_manifests",
-          TestAction.Code.LOCAL_TEST_PREREQ_UNMET);
+          errorMessage,
+          FailureDetail.newBuilder()
+              .setTestAction(
+                  TestAction.newBuilder().setCode(TestAction.Code.LOCAL_TEST_PREREQ_UNMET))
+              .setMessage(errorMessage)
+              .build());
     }
-    Path execRoot = actionExecutionContext.getExecRoot();
-    ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
-    Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
-    Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
-    Map<String, String> env = setupEnvironment(
-        action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
-    if (executionOptions.splitXmlGeneration) {
-      env.put("EXPERIMENTAL_SPLIT_XML_GENERATION", "1");
-    }
-    Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
+    Map<String, String> testEnvironment =
+        createEnvironment(
+            actionExecutionContext, action, tmpDirRoot, executionOptions.splitXmlGeneration);
 
     Map<String, String> executionInfo =
         new TreeMap<>(action.getTestProperties().getExecutionInfo());
@@ -116,32 +127,49 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
-    if (action.getTestProperties().isPersistentTestRunner()) {
-      executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
-    }
 
-    ResourceSet localResourceUsage =
-        action
-            .getTestProperties()
-            .getLocalResourceUsage(
-                action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
+    SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
+        () ->
+            action
+                .getTestProperties()
+                .getLocalResourceUsage(
+                    action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
 
     Spawn spawn =
         new SimpleSpawn(
             action,
             getArgs(action),
-            ImmutableMap.copyOf(env),
+            ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
             /*inputs=*/ action.getInputs(),
-            action.getTestProperties().isPersistentTestRunner()
-                ? action.getTools()
-                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            ImmutableSet.copyOf(action.getSpawnOutputs()),
-            localResourceUsage);
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            createSpawnOutputs(action),
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            localResourcesSupplier);
+    Path execRoot = actionExecutionContext.getExecRoot();
+    ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
+    Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
+    Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
+    Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
     return new StandaloneTestRunnerSpawn(
         action, actionExecutionContext, spawn, tmpDir, workingDirectory, execRoot);
+  }
+
+  private ImmutableSet<ActionInput> createSpawnOutputs(TestRunnerAction action) {
+    ImmutableSet.Builder<ActionInput> builder = ImmutableSet.builder();
+    for (ActionInput output : action.getSpawnOutputs()) {
+      if (output.getExecPath().equals(action.getXmlOutputPath())) {
+        // HACK: Convert type of test.xml from BasicActionInput to DerivedArtifact. We want to
+        // inject metadata of test.xml if it is generated remotely and it's currently only possible
+        // to inject Artifact.
+        builder.add(createArtifactOutput(action, output.getExecPath()));
+      } else {
+        builder.add(output);
+      }
+    }
+    return builder.build();
   }
 
   private static ImmutableList<Pair<String, Path>> renameOutputs(
@@ -226,7 +254,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       dataBuilder.setStatus(BlazeTestStatus.FLAKY);
     }
     TestResultData data = dataBuilder.build();
-    TestResult result = new TestResult(action, data, false);
+    TestResult result =
+        new TestResult(action, data, false, standaloneTestResult.primarySystemFailure());
     postTestResult(actionExecutionContext, result);
   }
 
@@ -279,8 +308,11 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new StandaloneFailedAttemptResult(data);
   }
 
-  private Map<String, String> setupEnvironment(
-      TestRunnerAction action, Map<String, String> clientEnv, Path execRoot, Path runfilesDir,
+  private static Map<String, String> setupEnvironment(
+      TestRunnerAction action,
+      Map<String, String> clientEnv,
+      Path execRoot,
+      Path runfilesDir,
       Path tmpDir) {
     PathFragment relativeTmpDir;
     if (tmpDir.startsWith(execRoot)) {
@@ -289,11 +321,84 @@ public class StandaloneTestStrategy extends TestStrategy {
       relativeTmpDir = tmpDir.asFragment();
     }
     return DEFAULT_LOCAL_POLICY.computeTestEnvironment(
-        action,
-        clientEnv,
-        getTimeout(action),
-        runfilesDir.relativeTo(execRoot),
-        relativeTmpDir);
+        action, clientEnv, getTimeout(action), runfilesDir.relativeTo(execRoot), relativeTmpDir);
+  }
+
+  static class TestMetadataHandler implements MetadataHandler {
+    private final MetadataHandler metadataHandler;
+    private final ImmutableSet<Artifact> outputs;
+    private final ConcurrentMap<Artifact, FileArtifactValue> fileMetadataMap =
+        new ConcurrentHashMap<>();
+
+    TestMetadataHandler(MetadataHandler metadataHandler, ImmutableSet<Artifact> outputs) {
+      this.metadataHandler = metadataHandler;
+      this.outputs = outputs;
+    }
+
+    @Nullable
+    @Override
+    public ActionInput getInput(String execPath) {
+      return metadataHandler.getInput(execPath);
+    }
+
+    @Nullable
+    @Override
+    public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+      return metadataHandler.getMetadata(input);
+    }
+
+    @Override
+    public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
+      metadataHandler.setDigestForVirtualArtifact(artifact, digest);
+    }
+
+    @Override
+    public FileArtifactValue constructMetadataForDigest(
+        Artifact output, FileStatus statNoFollow, byte[] injectedDigest) throws IOException {
+      return metadataHandler.constructMetadataForDigest(output, statNoFollow, injectedDigest);
+    }
+
+    @Override
+    public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
+      return metadataHandler.getTreeArtifactChildren(treeArtifact);
+    }
+
+    @Override
+    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException {
+      return metadataHandler.getTreeArtifactValue(treeArtifact);
+    }
+
+    @Override
+    public void markOmitted(Artifact output) {
+      metadataHandler.markOmitted(output);
+    }
+
+    @Override
+    public boolean artifactOmitted(Artifact artifact) {
+      return metadataHandler.artifactOmitted(artifact);
+    }
+
+    @Override
+    public void resetOutputs(Iterable<? extends Artifact> outputs) {
+      metadataHandler.resetOutputs(outputs);
+    }
+
+    @Override
+    public void injectFile(Artifact output, FileArtifactValue metadata) {
+      if (outputs.contains(output)) {
+        metadataHandler.injectFile(output, metadata);
+      }
+      fileMetadataMap.put(output, metadata);
+    }
+
+    @Override
+    public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
+      metadataHandler.injectTree(output, tree);
+    }
+
+    public boolean fileInjected(Artifact output) {
+      return fileMetadataMap.containsKey(output);
+    }
   }
 
   private TestAttemptContinuation beginTestAttempt(
@@ -312,12 +417,26 @@ public class StandaloneTestStrategy extends TestStrategy {
           createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
     }
+
+    // We use TestMetadataHandler here mainly because the one provided by actionExecutionContext
+    // doesn't allow to inject undeclared outputs and test.xml is undeclared by the test action.
+    TestMetadataHandler testMetadataHandler = null;
+    if (actionExecutionContext.getMetadataHandler() != null) {
+      testMetadataHandler =
+          new TestMetadataHandler(
+              actionExecutionContext.getMetadataHandler(), testAction.getOutputs());
+    }
+
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
     SpawnStrategyResolver resolver = actionExecutionContext.getContext(SpawnStrategyResolver.class);
     SpawnContinuation spawnContinuation;
     try {
       spawnContinuation =
-          resolver.beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
+          resolver.beginExecution(
+              spawn,
+              actionExecutionContext
+                  .withFileOutErr(testOutErr)
+                  .withMetadataHandler(testMetadataHandler));
     } catch (InterruptedException e) {
       if (streamed != null) {
         streamed.close();
@@ -327,33 +446,39 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     return new BazelTestAttemptContinuation(
         testAction,
+        testMetadataHandler,
         actionExecutionContext,
         spawn,
         resolvedPaths,
         testOutErr,
         streamed,
         startTimeMillis,
-        spawnContinuation);
+        spawnContinuation,
+        /* testResultDataBuilder= */ null,
+        /* spawnResults= */ null);
   }
 
-  /** In rare cases, we might write something to stderr. Append it to the real test.log. */
-  private static void appendStderr(FileOutErr outErr) throws IOException {
-    Path stdErr = outErr.getErrorPath();
-    FileStatus stat = stdErr.statNullable();
+  private static void appendCoverageLog(FileOutErr coverageOutErr, FileOutErr outErr)
+      throws IOException {
+    writeOutFile(coverageOutErr.getErrorPath(), outErr.getOutputPath());
+    writeOutFile(coverageOutErr.getOutputPath(), outErr.getOutputPath());
+  }
+
+  private static void writeOutFile(Path inFilePath, Path outFilePath) throws IOException {
+    FileStatus stat = inFilePath.statNullable();
     if (stat != null) {
       try {
         if (stat.getSize() > 0) {
-          Path stdOut = outErr.getOutputPath();
-          if (stdOut.exists()) {
-            stdOut.setWritable(true);
+          if (outFilePath.exists()) {
+            outFilePath.setWritable(true);
           }
-          try (OutputStream out = stdOut.getOutputStream(true);
-              InputStream in = stdErr.getInputStream()) {
+          try (OutputStream out = outFilePath.getOutputStream(true);
+              InputStream in = inFilePath.getInputStream()) {
             ByteStreams.copy(in, out);
           }
         }
       } finally {
-        stdErr.delete();
+        inFilePath.delete();
       }
     }
   }
@@ -377,11 +502,18 @@ public class StandaloneTestStrategy extends TestStrategy {
     return executionInfo.build();
   }
 
+  private static Artifact.DerivedArtifact createArtifactOutput(
+      TestRunnerAction action, PathFragment outputPath) {
+    Artifact.DerivedArtifact testLog = (Artifact.DerivedArtifact) action.getTestLog();
+    return DerivedArtifact.create(testLog.getRoot(), outputPath, testLog.getArtifactOwner());
+  }
+
   /**
    * A spawn to generate a test.xml file from the test log. This is only used if the test does not
    * generate a test.xml file itself.
    */
-  private static Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
+  private static Spawn createXmlGeneratingSpawn(
+      TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
     ImmutableList<String> args =
         ImmutableList.of(
             action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
@@ -389,34 +521,104 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getXmlOutputPath().getPathString(),
             Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
             Integer.toString(result.exitCode()));
-
-    String testBinaryName =
-        action.getExecutionSettings().getExecutable().getRootRelativePath().getCallablePathString();
+    ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
+    // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
+    Preconditions.checkArgument(testEnv.containsKey("PATH"));
+    Preconditions.checkArgument(testEnv.containsKey("TEST_BINARY"));
+    envBuilder.putAll(testEnv).put("TEST_NAME", action.getTestName());
+    // testEnv only contains TEST_SHARD_INDEX and TEST_TOTAL_SHARDS if the test action is sharded,
+    // we need to set the default value when the action isn't sharded.
+    if (!action.isSharded()) {
+      envBuilder.put("TEST_SHARD_INDEX", "0");
+      envBuilder.put("TEST_TOTAL_SHARDS", "0");
+    }
+    Map<String, String> executionInfo =
+        Maps.newHashMapWithExpectedSize(action.getExecutionInfo().size() + 1);
+    executionInfo.putAll(action.getExecutionInfo());
+    if (result.exitCode() != 0) {
+      // If the test is failed, the spawn shouldn't use remote cache since the test.xml file is
+      // renamed immediately after the spawn execution. If there is another test attempt, the async
+      // upload will fail because it cannot read the file at original position.
+      executionInfo.put(ExecutionRequirements.NO_REMOTE_CACHE, "");
+    }
     return new SimpleSpawn(
         action,
         args,
-        ImmutableMap.of(
-            "PATH", "/usr/bin:/bin",
-            "TEST_SHARD_INDEX", Integer.toString(action.getShardNum()),
-            "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()),
-            "TEST_NAME", action.getTestName(),
-            "TEST_BINARY", testBinaryName),
+        envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
-        ImmutableMap.copyOf(action.getExecutionInfo()),
+        ImmutableMap.copyOf(executionInfo),
         null,
         ImmutableMap.of(),
         /*inputs=*/ NestedSetBuilder.create(
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*outputs=*/ ImmutableSet.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        /*outputs=*/ ImmutableSet.of(createArtifactOutput(action, action.getXmlOutputPath())),
+        /*mandatoryOutputs=*/ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
+  }
+
+  private static Spawn createCoveragePostProcessingSpawn(
+      ActionExecutionContext actionExecutionContext,
+      TestRunnerAction action,
+      List<ActionInput> expandedCoverageDir,
+      Path tmpDirRoot,
+      boolean splitXmlGeneration) {
+    ImmutableList<String> args =
+        ImmutableList.of(action.getCollectCoverageScript().getExecPathString());
+
+    Map<String, String> testEnvironment =
+        createEnvironment(actionExecutionContext, action, tmpDirRoot, splitXmlGeneration);
+
+    testEnvironment.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
+    testEnvironment.put(
+        "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
+    testEnvironment.put("TEST_NAME", action.getTestName());
+    testEnvironment.put("IS_COVERAGE_SPAWN", "1");
+    return new SimpleSpawn(
+        action,
+        args,
+        ImmutableMap.copyOf(testEnvironment),
+        action.getExecutionInfo(),
+        action.getLcovMergerRunfilesSupplier(),
+        /*filesetMappings=*/ ImmutableMap.of(),
+        /*inputs=*/ NestedSetBuilder.<ActionInput>compileOrder()
+            .addTransitive(action.getInputs())
+            .addAll(expandedCoverageDir)
+            .add(action.getCollectCoverageScript())
+            .add(action.getCoverageDirectoryTreeArtifact())
+            .add(action.getCoverageManifest())
+            .addTransitive(action.getLcovMergerFilesToRun().build())
+            .build(),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*outputs=*/ ImmutableSet.of(
+            ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /*mandatoryOutputs=*/ null,
+        SpawnAction.DEFAULT_RESOURCE_SET);
+  }
+
+  private static Map<String, String> createEnvironment(
+      ActionExecutionContext actionExecutionContext,
+      TestRunnerAction action,
+      Path tmpDirRoot,
+      boolean splitXmlGeneration) {
+    Path execRoot = actionExecutionContext.getExecRoot();
+    ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
+    Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
+    Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
+    Map<String, String> testEnvironment =
+        setupEnvironment(
+            action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
+    if (splitXmlGeneration) {
+      testEnvironment.put("EXPERIMENTAL_SPLIT_XML_GENERATION", "1");
+    }
+    return testEnvironment;
   }
 
   @Override
   public TestResult newCachedTestResult(
       Path execRoot, TestRunnerAction action, TestResultData data) {
-    return new TestResult(action, data, /*cached*/ true, execRoot);
+    return new TestResult(action, data, /*cached*/ true, execRoot, /*systemFailure=*/ null);
   }
 
   @VisibleForTesting
@@ -489,7 +691,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     @Override
     public void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException {
       TestResultData.Builder builder =
-          TestResultData.newBuilder().setTestPassed(false).setStatus(BlazeTestStatus.INCOMPLETE);
+          TestResultData.newBuilder()
+              .setCachable(false)
+              .setTestPassed(false)
+              .setStatus(BlazeTestStatus.INCOMPLETE);
       StandaloneTestResult standaloneTestResult =
           StandaloneTestResult.builder()
               .setSpawnResults(ImmutableList.of())
@@ -502,6 +707,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   private final class BazelTestAttemptContinuation extends TestAttemptContinuation {
     private final TestRunnerAction testAction;
+    @Nullable private final TestMetadataHandler testMetadataHandler;
     private final ActionExecutionContext actionExecutionContext;
     private final Spawn spawn;
     private final ResolvedPaths resolvedPaths;
@@ -509,17 +715,23 @@ public class StandaloneTestStrategy extends TestStrategy {
     private final Closeable streamed;
     private final long startTimeMillis;
     private final SpawnContinuation spawnContinuation;
+    private TestResultData.Builder testResultDataBuilder;
+    private ImmutableList<SpawnResult> spawnResults;
 
     BazelTestAttemptContinuation(
         TestRunnerAction testAction,
+        @Nullable TestMetadataHandler testMetadataHandler,
         ActionExecutionContext actionExecutionContext,
         Spawn spawn,
         ResolvedPaths resolvedPaths,
         FileOutErr fileOutErr,
         Closeable streamed,
         long startTimeMillis,
-        SpawnContinuation spawnContinuation) {
+        SpawnContinuation spawnContinuation,
+        TestResultData.Builder testResultDataBuilder,
+        ImmutableList<SpawnResult> spawnResults) {
       this.testAction = testAction;
+      this.testMetadataHandler = testMetadataHandler;
       this.actionExecutionContext = actionExecutionContext;
       this.spawn = spawn;
       this.resolvedPaths = resolvedPaths;
@@ -527,6 +739,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       this.streamed = streamed;
       this.startTimeMillis = startTimeMillis;
       this.spawnContinuation = spawnContinuation;
+      this.testResultDataBuilder = testResultDataBuilder;
+      this.spawnResults = spawnResults;
     }
 
     @Nullable
@@ -536,58 +750,138 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
 
     @Override
-    public TestAttemptContinuation execute() throws InterruptedException, ExecException {
-      // We have two protos to represent test attempts:
-      // 1. com.google.devtools.build.lib.view.test.TestStatus.TestResultData represents both failed
-      //    attempts and finished tests. Bazel stores this to disk to persist cached test result
-      //    information across server restarts.
-      // 2. com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult
-      //    represents only individual attempts (failed or not). Bazel reports this as an event to
-      //    the Build Event Protocol, but never saves it to disk.
-      //
-      // The TestResult proto is always constructed from a TestResultData instance, either one that
-      // is created right here, or one that is read back from disk.
-      TestResultData.Builder builder;
-      ImmutableList<SpawnResult> spawnResults;
-      try {
-        SpawnContinuation nextContinuation = spawnContinuation.execute();
-        if (!nextContinuation.isDone()) {
-          return new BazelTestAttemptContinuation(
+    public TestAttemptContinuation execute()
+        throws InterruptedException, ExecException, IOException {
+
+      if (testResultDataBuilder == null) {
+        // We have two protos to represent test attempts:
+        // 1. com.google.devtools.build.lib.view.test.TestStatus.TestResultData represents both
+        //    failed attempts and finished tests. Bazel stores this to disk to persist cached test
+        //    result information across server restarts.
+        // 2. com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult
+        //    represents only individual attempts (failed or not). Bazel reports this as an event to
+        //    the Build Event Protocol, but never saves it to disk.
+        //
+        // The TestResult proto is always constructed from a TestResultData instance, either one
+        // that is created right here, or one that is read back from disk.
+        TestResultData.Builder builder = null;
+        ImmutableList<SpawnResult> spawnResults;
+        try {
+          SpawnContinuation nextContinuation = spawnContinuation.execute();
+          if (!nextContinuation.isDone()) {
+            return new BazelTestAttemptContinuation(
+                testAction,
+                testMetadataHandler,
+                actionExecutionContext,
+                spawn,
+                resolvedPaths,
+                fileOutErr,
+                streamed,
+                startTimeMillis,
+                nextContinuation,
+                builder,
+                /* spawnResults= */ null);
+          }
+          spawnResults = nextContinuation.get();
+          builder = TestResultData.newBuilder();
+          builder.setCachable(true).setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
+        } catch (SpawnExecException e) {
+          if (e.isCatastrophic()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            throw e;
+          }
+          if (!e.getSpawnResult().setupSuccess()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            // Rethrow as the test could not be run and thus there's no point in retrying.
+            throw e;
+          }
+          spawnResults = ImmutableList.of(e.getSpawnResult());
+          builder = TestResultData.newBuilder();
+          builder
+              .setCachable(e.getSpawnResult().status().isConsideredUserError())
+              .setTestPassed(false)
+              .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+        } catch (InterruptedException e) {
+          closeSuppressed(e, streamed);
+          closeSuppressed(e, fileOutErr);
+          throw e;
+        }
+        long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
+
+        // SpawnActionContext guarantees the first entry to correspond to the spawn passed in (there
+        // may be additional entries due to tree artifact handling).
+        SpawnResult primaryResult = spawnResults.get(0);
+
+        // The SpawnResult of a remotely cached or remotely executed action may not have walltime
+        // set. We fall back to the time measured here for backwards compatibility.
+        long durationMillis = endTimeMillis - startTimeMillis;
+        durationMillis =
+            primaryResult.getWallTime().orElse(Duration.ofMillis(durationMillis)).toMillis();
+
+        builder
+            .setStartTimeMillisEpoch(startTimeMillis)
+            .addTestTimes(durationMillis)
+            .addTestProcessTimes(durationMillis)
+            .setRunDurationMillis(durationMillis)
+            .setHasCoverage(testAction.isCoverageMode());
+
+        if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
+          actionExecutionContext
+              .getMetadataHandler()
+              .getMetadata(testAction.getCoverageDirectoryTreeArtifact());
+          ImmutableSet<? extends ActionInput> expandedCoverageDir =
+              actionExecutionContext
+                  .getMetadataHandler()
+                  .getTreeArtifactChildren(
+                      (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact());
+          Spawn coveragePostProcessingSpawn =
+              createCoveragePostProcessingSpawn(
+                  actionExecutionContext,
+                  testAction,
+                  ImmutableList.copyOf(expandedCoverageDir),
+                  tmpDirRoot,
+                  executionOptions.splitXmlGeneration);
+          SpawnStrategyResolver spawnStrategyResolver =
+              actionExecutionContext.getContext(SpawnStrategyResolver.class);
+
+          Path testRoot =
+              actionExecutionContext.getInputPath(testAction.getTestLog()).getParentDirectory();
+
+          Path out = testRoot.getChild("coverage.log");
+          Path err = testRoot.getChild("coverage.err");
+          FileOutErr coverageOutErr = new FileOutErr(out, err);
+          ActionExecutionContext actionExecutionContextWithCoverageFileOutErr =
+              actionExecutionContext.withFileOutErr(coverageOutErr);
+
+          SpawnContinuation coveragePostProcessingContinuation =
+              spawnStrategyResolver.beginExecution(
+                  coveragePostProcessingSpawn, actionExecutionContextWithCoverageFileOutErr);
+          writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
+          appendCoverageLog(coverageOutErr, fileOutErr);
+          return new BazelCoveragePostProcessingContinuation(
               testAction,
+              testMetadataHandler,
               actionExecutionContext,
               spawn,
               resolvedPaths,
               fileOutErr,
               streamed,
-              startTimeMillis,
-              nextContinuation);
+              builder,
+              spawnResults,
+              coveragePostProcessingContinuation);
+        } else {
+          this.spawnResults = spawnResults;
+          this.testResultDataBuilder = builder;
         }
-        spawnResults = nextContinuation.get();
-        builder = TestResultData.newBuilder();
-        builder.setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
-      } catch (SpawnExecException e) {
-        if (e.isCatastrophic()) {
-          closeSuppressed(e, streamed);
-          closeSuppressed(e, fileOutErr);
-          throw e;
-        }
-        if (!e.getSpawnResult().setupSuccess()) {
-          closeSuppressed(e, streamed);
-          closeSuppressed(e, fileOutErr);
-          // Rethrow as the test could not be run and thus there's no point in retrying.
-          throw e;
-        }
-        spawnResults = ImmutableList.of(e.getSpawnResult());
-        builder = TestResultData.newBuilder();
-        builder
-            .setTestPassed(false)
-            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
-      } catch (InterruptedException e) {
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
       }
-      long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
+
+      Verify.verify(
+          !(testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing())
+              || testAction.getCoverageData().getPath().exists());
+      Verify.verifyNotNull(spawnResults);
+      Verify.verifyNotNull(testResultDataBuilder);
 
       try {
         if (!fileOutErr.hasRecordedOutput()) {
@@ -595,7 +889,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           FileSystemUtils.touchFile(fileOutErr.getOutputPath());
         }
         // Append any error output to the test.log. This is very rare.
-        appendStderr(fileOutErr);
+        writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
         fileOutErr.close();
         if (streamed != null) {
           streamed.close();
@@ -604,33 +898,23 @@ public class StandaloneTestStrategy extends TestStrategy {
         throw new EnvironmentalExecException(e, Code.TEST_OUT_ERR_IO_EXCEPTION);
       }
 
-      // SpawnActionContext guarantees the first entry to correspond to the spawn passed in (there
-      // may be additional entries due to tree artifact handling).
-      SpawnResult primaryResult = spawnResults.get(0);
-
-      // The SpawnResult of a remotely cached or remotely executed action may not have walltime
-      // set. We fall back to the time measured here for backwards compatibility.
-      long durationMillis = endTimeMillis - startTimeMillis;
-      durationMillis =
-          primaryResult.getWallTime().orElse(Duration.ofMillis(durationMillis)).toMillis();
-
-      builder.setStartTimeMillisEpoch(startTimeMillis);
-      builder.addTestTimes(durationMillis);
-      builder.addTestProcessTimes(durationMillis);
-      builder.setRunDurationMillis(durationMillis);
-      if (testAction.isCoverageMode()) {
-        builder.setHasCoverage(true);
+      Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
+      boolean testXmlGenerated = xmlOutputPath.exists();
+      if (!testXmlGenerated && testMetadataHandler != null) {
+        testXmlGenerated =
+            testMetadataHandler.fileInjected(
+                createArtifactOutput(testAction, testAction.getXmlOutputPath()));
       }
 
       // If the test did not create a test.xml, and --experimental_split_xml_generation is enabled,
       // then we run a separate action to create a test.xml from test.log. We do this as a spawn
       // rather than doing it locally in-process, as the test.log file may only exist remotely (when
       // remote execution is enabled), and we do not want to have to download it.
-      Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
       if (executionOptions.splitXmlGeneration
           && fileOutErr.getOutputPath().exists()
-          && !xmlOutputPath.exists()) {
-        Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(testAction, primaryResult);
+          && !testXmlGenerated) {
+        Spawn xmlGeneratingSpawn =
+            createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
         SpawnStrategyResolver spawnStrategyResolver =
             actionExecutionContext.getContext(SpawnStrategyResolver.class);
         // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
@@ -639,9 +923,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         try {
           SpawnContinuation xmlContinuation =
               spawnStrategyResolver.beginExecution(
-                  xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
+                  xmlGeneratingSpawn,
+                  actionExecutionContext
+                      .withFileOutErr(xmlSpawnOutErr)
+                      .withMetadataHandler(testMetadataHandler));
           return new BazelXmlCreationContinuation(
-              resolvedPaths, xmlSpawnOutErr, builder, spawnResults, xmlContinuation);
+              resolvedPaths, xmlSpawnOutErr, testResultDataBuilder, spawnResults, xmlContinuation);
         } catch (InterruptedException e) {
           closeSuppressed(e, xmlSpawnOutErr);
           throw e;
@@ -650,11 +937,11 @@ public class StandaloneTestStrategy extends TestStrategy {
 
       TestCase details = parseTestResult(xmlOutputPath);
       if (details != null) {
-        builder.setTestCase(details);
+        testResultDataBuilder.setTestCase(details);
       }
 
       BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo =
-          extractExecutionInfo(primaryResult, builder);
+          extractExecutionInfo(spawnResults.get(0), testResultDataBuilder);
       StandaloneTestResult standaloneTestResult =
           StandaloneTestResult.builder()
               .setSpawnResults(spawnResults)
@@ -662,7 +949,7 @@ public class StandaloneTestStrategy extends TestStrategy {
               // instance, as we may have to rename the output files in case the test needs to be
               // rerun (if it failed here _and_ is marked flaky _and_ the number of flaky attempts
               // is larger than 1).
-              .setTestResultDataBuilder(builder)
+              .setTestResultDataBuilder(testResultDataBuilder)
               .setExecutionInfo(executionInfo)
               .build();
       return TestAttemptContinuation.of(standaloneTestResult);
@@ -732,6 +1019,105 @@ public class StandaloneTestStrategy extends TestStrategy {
               .setExecutionInfo(executionInfo)
               .build();
       return TestAttemptContinuation.of(standaloneTestResult);
+    }
+  }
+
+  private final class BazelCoveragePostProcessingContinuation extends TestAttemptContinuation {
+    private final ResolvedPaths resolvedPaths;
+    @Nullable private final TestMetadataHandler testMetadataHandler;
+    private final FileOutErr fileOutErr;
+    private final Closeable streamed;
+    private final TestResultData.Builder testResultDataBuilder;
+    private final ImmutableList<SpawnResult> primarySpawnResults;
+    private final SpawnContinuation spawnContinuation;
+    private final TestRunnerAction testAction;
+    private final ActionExecutionContext actionExecutionContext;
+    private final Spawn spawn;
+
+    BazelCoveragePostProcessingContinuation(
+        TestRunnerAction testAction,
+        @Nullable TestMetadataHandler testMetadataHandler,
+        ActionExecutionContext actionExecutionContext,
+        Spawn spawn,
+        ResolvedPaths resolvedPaths,
+        FileOutErr fileOutErr,
+        Closeable streamed,
+        TestResultData.Builder testResultDataBuilder,
+        ImmutableList<SpawnResult> primarySpawnResults,
+        SpawnContinuation spawnContinuation) {
+      this.testAction = testAction;
+      this.testMetadataHandler = testMetadataHandler;
+      this.actionExecutionContext = actionExecutionContext;
+      this.spawn = spawn;
+      this.resolvedPaths = resolvedPaths;
+      this.fileOutErr = fileOutErr;
+      this.streamed = streamed;
+      this.testResultDataBuilder = testResultDataBuilder;
+      this.primarySpawnResults = primarySpawnResults;
+      this.spawnContinuation = spawnContinuation;
+    }
+
+    @Nullable
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public TestAttemptContinuation execute() throws InterruptedException, ExecException {
+      SpawnContinuation nextContinuation = null;
+      try {
+        nextContinuation = spawnContinuation.execute();
+        if (!nextContinuation.isDone()) {
+          return new BazelCoveragePostProcessingContinuation(
+              testAction,
+              testMetadataHandler,
+              actionExecutionContext,
+              spawn,
+              resolvedPaths,
+              fileOutErr,
+              streamed,
+              testResultDataBuilder,
+              ImmutableList.<SpawnResult>builder()
+                  .addAll(primarySpawnResults)
+                  .addAll(nextContinuation.get())
+                  .build(),
+              nextContinuation);
+        }
+      } catch (SpawnExecException e) {
+        if (e.isCatastrophic()) {
+          closeSuppressed(e, streamed);
+          closeSuppressed(e, fileOutErr);
+          throw e;
+        }
+        if (!e.getSpawnResult().setupSuccess()) {
+          closeSuppressed(e, streamed);
+          closeSuppressed(e, fileOutErr);
+          // Rethrow as the test could not be run and thus there's no point in retrying.
+          throw e;
+        }
+        testResultDataBuilder
+            .setCachable(e.getSpawnResult().status().isConsideredUserError())
+            .setTestPassed(false)
+            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+      } catch (ExecException | InterruptedException e) {
+        closeSuppressed(e, fileOutErr);
+        closeSuppressed(e, streamed);
+        throw e;
+      }
+
+      return new BazelTestAttemptContinuation(
+          testAction,
+          testMetadataHandler,
+          actionExecutionContext,
+          spawn,
+          resolvedPaths,
+          fileOutErr,
+          streamed,
+          /* startTimeMillis= */ 0,
+          nextContinuation,
+          testResultDataBuilder,
+          primarySpawnResults);
     }
   }
 }

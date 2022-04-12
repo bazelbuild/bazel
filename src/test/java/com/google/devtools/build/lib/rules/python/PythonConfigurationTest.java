@@ -18,8 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import org.junit.Test;
@@ -30,8 +31,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PythonConfigurationTest extends ConfigurationTestCase {
 
+  // Do not mutate the returned PythonOptions - it will poison skyframe caches.
   private PythonOptions parsePythonOptions(String... cmdline) throws Exception {
-    BuildConfiguration config = create(cmdline);
+    BuildConfigurationValue config = create(cmdline);
     return config.getOptions().get(PythonOptions.class);
   }
 
@@ -82,7 +84,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void setPythonVersion() throws Exception {
-    PythonOptions opts = parsePythonOptions("--python_version=PY2");
+    PythonOptions opts = Options.parse(PythonOptions.class, "--python_version=PY2").getOptions();
     opts.setPythonVersion(PythonVersion.PY3);
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }

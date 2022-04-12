@@ -72,15 +72,24 @@ public class AqueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "incompatible_proto_output_v2",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.DEPRECATED,
       },
-      help =
-          "Whether aquery should print proto/textproto results with proto v2 "
-              + "(with ids in uint64 instead of string).")
+      help = "No-op.")
   public boolean protoV2;
+
+  @Option(
+      name = "deduplicate_depsets",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "De-duplicate non-leaf children of a dep_set_of_files in the final proto/textproto/json"
+              + " output. This does not deduplicate depsets that don't share an immediate parent."
+              + " This does not affect the final effective list of input artifacts of the actions.")
+  public boolean deduplicateDepsets;
 }

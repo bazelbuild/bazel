@@ -20,14 +20,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Map;
 
 /** A {@link RunfilesSupplier} implementation for composing multiple instances. */
-@AutoCodec
-public class CompositeRunfilesSupplier implements RunfilesSupplier {
+public final class CompositeRunfilesSupplier implements RunfilesSupplier {
 
   private final ImmutableList<RunfilesSupplier> suppliers;
 
@@ -59,10 +57,22 @@ public class CompositeRunfilesSupplier implements RunfilesSupplier {
   /**
    * Create an instance combining all of {@code suppliers}, with earlier elements taking precedence.
    */
-  @AutoCodec.Instantiator
-  @AutoCodec.VisibleForSerialization
-  CompositeRunfilesSupplier(ImmutableList<RunfilesSupplier> suppliers) {
+  private CompositeRunfilesSupplier(ImmutableList<RunfilesSupplier> suppliers) {
     this.suppliers = suppliers;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof CompositeRunfilesSupplier)) {
+      return false;
+    }
+    CompositeRunfilesSupplier that = (CompositeRunfilesSupplier) other;
+    return suppliers.equals(that.suppliers);
+  }
+
+  @Override
+  public int hashCode() {
+    return suppliers.hashCode();
   }
 
   @Override

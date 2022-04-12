@@ -16,22 +16,25 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 
@@ -54,9 +57,13 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
 
   private final Optional<ImmutableMap<Label, String>> flags;
 
-  AndroidFeatureFlagSetProvider(Optional<? extends Map<Label, String>> flags) {
-    super(PROVIDER);
-    this.flags = flags.transform(ImmutableMap::copyOf);
+  private AndroidFeatureFlagSetProvider(Optional<ImmutableMap<Label, String>> flags) {
+    this.flags = flags;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   public static AndroidFeatureFlagSetProvider create(Optional<? extends Map<Label, String>> flags) {
@@ -70,6 +77,16 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
   public static Attribute.Builder<Label> getAllowlistAttribute(RuleDefinitionEnvironment env) {
     return ConfigFeatureFlag.getAllowlistAttribute(env, FEATURE_FLAG_ATTR);
   }
+
+  @SerializationConstant
+  public static final AllowlistChecker CHECK_ALLOWLIST_IF_TRIGGERED =
+      AllowlistChecker.builder()
+          .setAllowlistAttr(ConfigFeatureFlag.ALLOWLIST_NAME)
+          .setErrorMessage(
+              "the attribute " + FEATURE_FLAG_ATTR + " is not available in this package")
+          .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE)
+          .setAttributeSetTrigger(FEATURE_FLAG_ATTR)
+          .build();
 
   /**
    * Builds a map which can be used with create, confirming that the desired flag values were
@@ -90,14 +107,6 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
         attrs.get(FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT);
     if (expectedValues.isEmpty()) {
       return Optional.of(ImmutableMap.of());
-    }
-
-    if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
-      throw ruleContext.throwWithAttributeError(
-          FEATURE_FLAG_ATTR,
-          String.format(
-              "the %s attribute is not available in package '%s'",
-              FEATURE_FLAG_ATTR, ruleContext.getLabel().getPackageIdentifier()));
     }
 
     Iterable<? extends TransitiveInfoCollection> actualTargets =
@@ -125,15 +134,11 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     return Optional.of(ImmutableMap.copyOf(expectedValues));
   }
 
-  /** Returns the feature flags this rule sets as user-friendly strings. */
-  public static ImmutableSet<String> getFlagNames(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
+  /** Returns the feature flags set by the rule with the given attributes. */
+  public static Set<Label> getFeatureFlags(AttributeMap attributes) {
+    return attributes
         .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
-        .keySet()
-        .stream()
-        .map(label -> label.toString())
-        .collect(ImmutableSet.toImmutableSet());
+        .keySet();
   }
 
   /**
@@ -163,15 +168,12 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
       super(NAME, AndroidFeatureFlagSetProvider.class);
     }
 
-    public String getName() {
-      return NAME;
-    }
-
     @Override
     public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(Dict.noneableCast(flags, Label.class, String.class, "flags")));
+          Optional.of(
+              ImmutableMap.copyOf(Dict.noneableCast(flags, Label.class, String.class, "flags"))));
     }
   }
 }

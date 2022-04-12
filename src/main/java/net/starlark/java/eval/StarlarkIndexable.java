@@ -30,4 +30,20 @@ public interface StarlarkIndexable extends StarlarkValue {
    * convention.
    */
   boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException;
+
+  /**
+   * A variant of {@link StarlarkIndexable} that also provides a StarlarkThread instance on method
+   * calls.
+   */
+  // TODO(brandjon): Consider replacing this subinterface by changing StarlarkIndexable's methods'
+  // signatures to take StarlarkThread in place of StarlarkSemantics.
+  interface Threaded {
+    /** {@see StarlarkIndexable.getIndex} */
+    Object getIndex(StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key)
+        throws EvalException;
+
+    /** {@see StarlarkIndexable.containsKey} */
+    boolean containsKey(StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key)
+        throws EvalException;
+  }
 }

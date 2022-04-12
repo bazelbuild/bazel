@@ -64,6 +64,18 @@ public class Printer {
     return this;
   }
 
+  /** Appends an integer to the printer's buffer */
+  public final Printer append(int i) {
+    buffer.append(i);
+    return this;
+  }
+
+  /** Appends a long integer to the printer's buffer */
+  public final Printer append(long l) {
+    buffer.append(l);
+    return this;
+  }
+
   /**
    * Appends a list to the printer's buffer. List elements are rendered with {@code repr}.
    *
@@ -286,6 +298,7 @@ public class Printer {
   }
 
   /** Same as {@link #format}, but with a list instead of variadic args. */
+  @SuppressWarnings("FormatString") // see b/178189609
   public static void formatWithList(Printer printer, String pattern, List<?> arguments) {
     // N.B. MissingFormatWidthException is the only kind of IllegalFormatException
     // whose constructor can take and display arbitrary error message, hence its use below.
@@ -309,51 +322,90 @@ public class Printer {
         throw new MissingFormatWidthException(
             "incomplete format pattern ends with %: " + Starlark.repr(pattern));
       }
-      char directive = pattern.charAt(p + 1);
+      char conv = pattern.charAt(p + 1);
       i = p + 2;
-      switch (directive) {
-        case '%':
-          printer.append('%');
-          continue;
+
+      // %%: literal %
+      if (conv == '%') {
+        printer.append('%');
+        continue;
+      }
+
+      // get argument
+      if (a >= argLength) {
+        throw new MissingFormatWidthException(
+            "not enough arguments for format pattern "
+                + Starlark.repr(pattern)
+                + ": "
+                + Starlark.repr(Tuple.copyOf(arguments)));
+      }
+      Object arg = arguments.get(a++);
+
+      switch (conv) {
         case 'd':
-        case 'r':
-        case 's':
-          if (a >= argLength) {
-            throw new MissingFormatWidthException(
-                "not enough arguments for format pattern "
-                    + Starlark.repr(pattern)
-                    + ": "
-                    + Starlark.repr(Tuple.copyOf(arguments)));
-          }
-          Object argument = arguments.get(a++);
-          switch (directive) {
-            case 'd':
-              if (!(argument instanceof StarlarkInt || argument instanceof Integer)) {
-                throw new MissingFormatWidthException(
-                    "invalid argument " + Starlark.repr(argument) + " for format pattern %d");
+        case 'o':
+        case 'x':
+        case 'X':
+          {
+            Number n;
+            if (arg instanceof StarlarkInt) {
+              n = ((StarlarkInt) arg).toNumber();
+            } else if (arg instanceof Integer) {
+              n = (Number) arg;
+            } else if (arg instanceof StarlarkFloat) {
+              double d = ((StarlarkFloat) arg).toDouble();
+              try {
+                n = StarlarkInt.ofFiniteDouble(d).toNumber();
+              } catch (IllegalArgumentException unused) {
+                throw new MissingFormatWidthException("got " + arg + ", want a finite number");
               }
-              printer.repr(argument);
-              continue;
-
-            case 'r':
-              printer.repr(argument);
-              continue;
-
-            case 's':
-              printer.str(argument);
-              continue;
-
-            default:
-              // no-op
+            } else {
+              throw new MissingFormatWidthException(
+                  String.format(
+                      "got %s for '%%%c' format, want int or float", Starlark.type(arg), conv));
+            }
+            printer.str(
+                String.format(
+                    conv == 'd' ? "%d" : conv == 'o' ? "%o" : conv == 'x' ? "%x" : "%X", n));
+            continue;
           }
-          // fall through
+
+        case 'e':
+        case 'f':
+        case 'g':
+        case 'E':
+        case 'F':
+        case 'G':
+          double v;
+          if (arg instanceof Integer) {
+            v = (double) (Integer) arg;
+          } else if (arg instanceof StarlarkInt) {
+            v = ((StarlarkInt) arg).toDouble();
+          } else if (arg instanceof StarlarkFloat) {
+            v = ((StarlarkFloat) arg).toDouble();
+          } else {
+            throw new MissingFormatWidthException(
+                String.format(
+                    "got %s for '%%%c' format, want int or float", Starlark.type(arg), conv));
+          }
+          printer.str(StarlarkFloat.format(v, conv));
+          continue;
+
+        case 'r':
+          printer.repr(arg);
+          continue;
+
+        case 's':
+          printer.str(arg);
+          continue;
+
         default:
+          // The call to Starlark.repr doesn't cause an infinite recursion
+          // because it's only used to format a string properly.
           throw new MissingFormatWidthException(
-              // The call to Starlark.repr doesn't cause an infinite recursion because it's
-              // only used to format a string properly
               String.format(
                   "unsupported format character \"%s\" at index %s in %s",
-                  String.valueOf(directive), p + 1, Starlark.repr(pattern)));
+                  String.valueOf(conv), p + 1, Starlark.repr(pattern)));
       }
     }
     if (a < argLength) {

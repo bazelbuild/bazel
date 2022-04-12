@@ -40,15 +40,12 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
-    return new StarlarkRuleContext(
-        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+    return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
   }
 
   @Before
-  public void useTrimmedConfigurations() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+  public void enforceTransitiveConfigs() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
   }
 
   @Override
@@ -186,8 +183,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     ConfiguredTarget top = getConfiguredTarget("//test:top");
     ConfiguredTarget wrapper =
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
-    StarlarkRuleContext ctx =
-        new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
+    StarlarkRuleContext ctx = new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null);
     ev.update("ruleContext", ctx);
     ev.update("config_common", new ConfigStarlarkCommon());
     String value = (String) ev.eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
@@ -413,7 +409,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:flag")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: the config_feature_flag rule is not available in "
-        + "package 'test'");
+            + "this package");
   }
 
   @Test

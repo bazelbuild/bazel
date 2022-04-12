@@ -58,13 +58,17 @@ public enum ProfilerTask {
   VFS_VMFS_READ("VMFS read", Threshold.TEN_MILLIS),
   WAIT("thread wait", Threshold.TEN_MILLIS),
   THREAD_NAME("thread name"), // Do not use directly!
+  THREAD_SORT_INDEX("thread sort index"),
   SKYFRAME_EVAL("skyframe evaluator"),
   SKYFUNCTION("skyfunction"),
   CRITICAL_PATH("critical path"),
   CRITICAL_PATH_COMPONENT("critical path component"),
   HANDLE_GC_NOTIFICATION("gc notification"),
-  LOCAL_CPU_USAGE("cpu counters"),
-  ACTION_COUNTS("action counters"),
+  ACTION_COUNTS("action count"),
+  LOCAL_CPU_USAGE("CPU usage (Bazel)"),
+  SYSTEM_CPU_USAGE("CPU usage (total)"),
+  LOCAL_MEMORY_USAGE("Memory usage (Bazel)"),
+  SYSTEM_MEMORY_USAGE("Memory usage (total)"),
   STARLARK_PARSER("Starlark Parser", Threshold.FIFTY_MILLIS),
   STARLARK_USER_FN("Starlark user function call", Threshold.FIFTY_MILLIS),
   STARLARK_BUILTIN_FN("Starlark builtin function call", Threshold.FIFTY_MILLIS),
@@ -74,6 +78,12 @@ public enum ProfilerTask {
   REMOTE_CACHE_CHECK("remote action cache check"),
   REMOTE_DOWNLOAD("remote output download"),
   REMOTE_NETWORK("remote network"),
+  FILESYSTEM_TRAVERSAL("filesystem traversal"),
+  WORKER_EXECUTION("local execution in worker"),
+  WORKER_SETUP("setting up inputs for worker"),
+  WORKER_BORROW("borrowing a worker"),
+  WORKER_WORKING("waiting for response from worker"),
+  WORKER_COPYING_OUTPUTS("copying outputs from worker"),
   UNKNOWN("Unknown event");
 
   private static class Threshold {

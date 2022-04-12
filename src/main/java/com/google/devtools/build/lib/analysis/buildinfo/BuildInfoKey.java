@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.analysis.buildinfo;
 /**
  * Build-info key for lookup from the {@link
  * com.google.devtools.build.lib.analysis.AnalysisEnvironment}.
+ *
+ * <p>For more information, see {@link
+ * com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory}.
  */
 public final class BuildInfoKey {
   private final String name;

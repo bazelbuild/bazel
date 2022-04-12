@@ -19,13 +19,11 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "escape_string",
     "resolve_labels",
-    "write_builtin_include_directory_paths",
 )
 load(
     "@bazel_tools//tools/cpp:unix_cc_configure.bzl",
     "configure_unix_toolchain",
     "get_env",
-    "get_escaped_cxx_inc_directories",
 )
 
 def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains):
@@ -39,20 +37,29 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
       include_paths: A list of builtin include paths.
     """
 
-    # TODO(cparsons): Falling back to the default C++ compiler builtin include
-    # paths shouldn't be unnecessary once all actions are using xcrun.
-    include_dirs = get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++")
+    # Assume that everything is managed by Xcode / toolchain installations
+    include_dirs = [
+        "/Applications/",
+        "/Library/",
+    ]
+
+    user = repository_ctx.os.environ.get("USER")
+    if user:
+        include_dirs.append("/Users/{}/Library/".format(user))
+
+    # Include extra Xcode paths in case they're installed on other volumes
     for toolchain in xcode_toolchains:
         include_dirs.append(escape_string(toolchain.developer_dir))
 
-    # Assume that all paths that point to /Applications/ are built in include paths
-    include_dirs.append("/Applications/")
     return include_dirs
 
-def compile_cc_file(repository_ctx, src_name, out_name):
+# TODO: Remove once Xcode 12 is the minimum supported version
+def _compile_cc_file_single_arch(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
         "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
         "xcrun",
         "--sdk",
         "macosx",
@@ -60,6 +67,7 @@ def compile_cc_file(repository_ctx, src_name, out_name):
         "-mmacosx-version-min=10.9",
         "-std=c++11",
         "-lc++",
+        "-O3",
         "-o",
         out_name,
         src_name,
@@ -76,7 +84,58 @@ def compile_cc_file(repository_ctx, src_name, out_name):
              "https://github.com/bazelbuild/bazel/issues with the following:\n" +
              error_msg)
 
-def configure_osx_toolchain(repository_ctx, overriden_tools):
+def _compile_cc_file(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
+    xcrun_result = repository_ctx.execute([
+        "env",
+        "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-mmacosx-version-min=10.9",
+        "-std=c++11",
+        "-lc++",
+        "-arch",
+        "arm64",
+        "-arch",
+        "x86_64",
+        "-Wl,-no_adhoc_codesign",
+        "-Wl,-no_uuid",
+        "-O3",
+        "-o",
+        out_name,
+        src_name,
+    ], 30)
+
+    if xcrun_result.return_code == 0:
+        xcrun_result = repository_ctx.execute([
+            "env",
+            "-i",
+            "codesign",
+            "--identifier",  # Required to be reproducible across archs
+            out_name,
+            "--force",
+            "--sign",
+            "-",
+            out_name,
+        ], 30)
+        if xcrun_result.return_code != 0:
+            error_msg = (
+                "codesign return code {code}, stderr: {err}, stdout: {out}"
+            ).format(
+                code = xcrun_result.return_code,
+                err = xcrun_result.stderr,
+                out = xcrun_result.stdout,
+            )
+            fail(out_name + " failed to generate. Please file an issue at " +
+                 "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+                 error_msg)
+    else:
+        _compile_cc_file_single_arch(repository_ctx, src_name, out_name)
+
+def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on macOS.
 
     Args:
@@ -84,6 +143,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
       overriden_tools: dictionary of overriden tools.
     """
     paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
         "@bazel_tools//tools/objc:libtool.sh",
         "@bazel_tools//tools/objc:libtool_check_unique.cc",
@@ -126,6 +186,10 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             },
         )
         repository_ctx.symlink(
+            paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
+            "armeabi_cc_toolchain_config.bzl",
+        )
+        repository_ctx.symlink(
             paths["@bazel_tools//tools/objc:xcrunwrapper.sh"],
             "xcrunwrapper.sh",
         )
@@ -144,11 +208,11 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         libtool_check_unique_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/objc:libtool_check_unique.cc"],
         ))
-        compile_cc_file(repository_ctx, libtool_check_unique_src_path, "libtool_check_unique")
+        _compile_cc_file(repository_ctx, libtool_check_unique_src_path, "libtool_check_unique")
         wrapped_clang_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/osx/crosstool:wrapped_clang.cc"],
         ))
-        compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang")
+        _compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang")
         repository_ctx.symlink("wrapped_clang", "wrapped_clang_pp")
 
         tool_paths = {}
@@ -159,7 +223,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             tool_paths["gcov"] = gcov_path
 
         escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
-        write_builtin_include_directory_paths(repository_ctx, cc, escaped_include_paths)
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
             escaped_cxx_include_directories.append(("            \"%s\"," % path))
@@ -176,4 +239,4 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             },
         )
     else:
-        configure_unix_toolchain(repository_ctx, cpu_value = "darwin", overriden_tools = overriden_tools)
+        configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools = overriden_tools)

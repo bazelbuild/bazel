@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
@@ -49,7 +50,8 @@ public interface WalkableGraph {
    * computed. Or in other words, it filters out non-existent nodes, pending nodes and nodes that
    * produced an exception.
    */
-  Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys) throws InterruptedException;
+  Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
 
   /**
    * Returns a map giving exceptions associated to the given keys for done keys. Keys not present in
@@ -99,6 +101,10 @@ public interface WalkableGraph {
    */
   Map<SkyKey, Pair<SkyValue, Iterable<SkyKey>>> getValueAndRdeps(Iterable<SkyKey> keys)
       throws InterruptedException;
+
+  default ImmutableSet<SkyKey> getAllKeysForTesting() {
+    throw new UnsupportedOperationException();
+  }
 
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {

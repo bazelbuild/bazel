@@ -48,10 +48,14 @@ public class AndroidLibraryAarInfo extends NativeInfo
       @Nullable Aar aar,
       NestedSet<Aar> transitiveAars,
       NestedSet<Artifact> transitiveAarArtifacts) {
-    super(PROVIDER);
     this.aar = aar;
     this.transitiveAars = transitiveAars;
     this.transitiveAarArtifacts = transitiveAarArtifacts;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   public static AndroidLibraryAarInfo create(

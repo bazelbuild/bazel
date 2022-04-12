@@ -47,10 +47,14 @@ public class AndroidManifestInfo extends NativeInfo implements AndroidManifestIn
   }
 
   private AndroidManifestInfo(Artifact manifest, String pkg, boolean exportsManifest) {
-    super(PROVIDER);
     this.manifest = manifest;
     this.pkg = pkg;
     this.exportsManifest = exportsManifest;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

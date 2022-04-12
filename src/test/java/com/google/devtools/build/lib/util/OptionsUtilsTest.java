@@ -27,14 +27,15 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Test for {@link OptionsUtils}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class OptionsUtilsTest {
 
   public static class IntrospectionExample extends OptionsBase {
@@ -210,5 +211,24 @@ public class OptionsUtilsTest {
   public void relativePathFragment() throws Exception {
     assertThat(new OptionsUtils.EmptyToNullRelativePathFragmentConverter().convert("path/to/me"))
         .isEqualTo(PathFragment.create("path/to/me"));
+  }
+
+  @Test
+  public void absolutePathFragmentConverter_convertsAbsolutePath(
+      @TestParameter({"/", "/dir/file"}) String path) throws Exception {
+    OptionsUtils.AbsolutePathFragmentConverter converter =
+        new OptionsUtils.AbsolutePathFragmentConverter();
+    assertThat(converter.convert(path)).isEqualTo(PathFragment.create(path));
+  }
+
+  @Test
+  public void absolutePathFragmentConverter_failsForRelativePath() {
+    OptionsUtils.AbsolutePathFragmentConverter converter =
+        new OptionsUtils.AbsolutePathFragmentConverter();
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("relative/path"));
+
+    assertThat(e).hasMessageThat().isEqualTo("Not an absolute path: 'relative/path'");
   }
 }

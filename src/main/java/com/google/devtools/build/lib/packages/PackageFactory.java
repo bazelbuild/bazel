@@ -20,13 +20,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
@@ -42,21 +42,18 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
+import java.util.function.Consumer;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -77,6 +74,7 @@ import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IntLiteral;
+import net.starlark.java.syntax.LambdaExpression;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.NodeVisitor;
@@ -93,6 +91,7 @@ import net.starlark.java.syntax.SyntaxError;
  * per client application.
  */
 public final class PackageFactory {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
   // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
@@ -112,10 +111,9 @@ public final class PackageFactory {
   }
 
   private final RuleFactory ruleFactory;
-  private final ImmutableMap<String, BuiltinRuleFunction> ruleFunctions;
   private final RuleClassProvider ruleClassProvider;
 
-  private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
+  private SyscallCache syscallCache;
 
   private ForkJoinPool executor;
 
@@ -126,37 +124,20 @@ public final class PackageFactory {
 
   private final PackageSettings packageSettings;
   private final PackageValidator packageValidator;
+  private final PackageOverheadEstimator packageOverheadEstimator;
   private final PackageLoadingListener packageLoadingListener;
 
-  // PackageFactory is the source of truth for the predeclared environments of the various flavors
-  // of BUILD and bzl files, including the available fields on the "native" object. For BUILD files
-  // and BUILD-loaded .bzl files, these bindings may be modified by builtins injection; see also
-  // StarlarkBuiltinsFunction.
-  //
-  // We cache in PackageFactory all the predeclared environment information that can be known before
-  // builtins injection (i.e., before Skyframe evaluation). The singular StarlarkBuiltinsValue
-  // caches the result of performing builtins injection.
-  //
-  // TODO(#11954): Eventually the BUILD and WORKSPACE bzl dialects should converge. Right now they
-  // only differ on the "native" object.
-
-  /** The "native" module fields for a BUILD-loaded bzl module, before builtins injection. */
-  private final ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings;
-  /** The "native" module fields for a WORKSPACE-loaded bzl module. */
-  private final ImmutableMap<String, Object> workspaceBzlNativeBindings;
-  /** The top-level predeclared symbols for a BUILD-loaded bzl module, before builtins injection. */
-  private final ImmutableMap<String, Object> uninjectedBuildBzlEnv;
-  /** The top-level predeclared symbols for a WORKSPACE-loaded bzl module. */
-  private final ImmutableMap<String, Object> workspaceBzlEnv;
-  /** The top-level predeclared symbols for a bzl module in the {@code @builtins} pseudo-repo. */
-  private final ImmutableMap<String, Object> builtinsBzlEnv;
+  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
   public abstract static class BuilderForTesting {
-    protected final String version = "test";
+    protected static final String VERSION = "test";
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
+    protected PackageOverheadEstimator packageOverheadEstimator =
+        PackageOverheadEstimator.NOOP_ESTIMATOR;
+
     protected boolean doChecksForTesting = true;
 
     public BuilderForTesting setEnvironmentExtensions(
@@ -172,6 +153,12 @@ public final class PackageFactory {
 
     public BuilderForTesting setPackageValidator(PackageValidator packageValidator) {
       this.packageValidator = packageValidator;
+      return this;
+    }
+
+    public BuilderForTesting setPackageOverheadEstimator(
+        PackageOverheadEstimator packageOverheadEstimator) {
+      this.packageOverheadEstimator = packageOverheadEstimator;
       return this;
     }
 
@@ -202,30 +189,29 @@ public final class PackageFactory {
       String version,
       PackageSettings packageSettings,
       PackageValidator packageValidator,
+      PackageOverheadEstimator packageOverheadEstimator,
       PackageLoadingListener packageLoadingListener) {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
-    this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
-    this.packageArguments = createPackageArguments();
+    this.packageArguments = createPackageArguments(this.environmentExtensions);
     this.packageSettings = packageSettings;
     this.packageValidator = packageValidator;
+    this.packageOverheadEstimator = packageOverheadEstimator;
     this.packageLoadingListener = packageLoadingListener;
-
-    this.uninjectedBuildBzlNativeBindings =
-        createUninjectedBuildBzlNativeBindings(
-            ruleFunctions, packageArguments, this.environmentExtensions);
-    this.workspaceBzlNativeBindings = createWorkspaceBzlNativeBindings(ruleClassProvider, version);
-    this.uninjectedBuildBzlEnv =
-        createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
-    this.workspaceBzlEnv = createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
-    this.builtinsBzlEnv = createBuiltinsBzlEnv(ruleClassProvider);
+    this.bazelStarlarkEnvironment =
+        new BazelStarlarkEnvironment(
+            ruleClassProvider,
+            buildRuleFunctions(ruleFactory),
+            this.environmentExtensions,
+            newPackageFunction(packageArguments),
+            version);
   }
 
-  /** Sets the syscalls cache used in globbing. */
-  public void setSyscalls(AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls) {
-    this.syscalls = Preconditions.checkNotNull(syscalls);
+  /** Sets the syscalls cache used in filesystem access. */
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.syscallCache = Preconditions.checkNotNull(syscallCache);
   }
 
   /**
@@ -291,42 +277,13 @@ public final class PackageFactory {
     return environmentExtensions;
   }
 
-  /**
-   * Returns the contents of the "native" object for BUILD-loaded bzls, not accounting for builtins
-   * injection.
-   */
-  public ImmutableMap<String, Object> getUninjectedBuildBzlNativeBindings() {
-    return uninjectedBuildBzlNativeBindings;
-  }
-
-  /** Returns the contents of the "native" object for WORKSPACE-loaded bzls. */
-  public ImmutableMap<String, Object> getWorkspaceBzlNativeBindings() {
-    return workspaceBzlNativeBindings;
-  }
-
-  /**
-   * Returns the original environment for BUILD-loaded bzl files, not accounting for builtins
-   * injection.
-   *
-   * <p>The post-injection environment may differ from this one by what symbols a name is bound to,
-   * but the set of symbols remains the same.
-   */
-  public ImmutableMap<String, Object> getUninjectedBuildBzlEnv() {
-    return uninjectedBuildBzlEnv;
-  }
-
-  /** Returns the environment for WORKSPACE-loaded bzl files. */
-  public ImmutableMap<String, Object> getWorkspaceBzlEnv() {
-    return workspaceBzlEnv;
-  }
-
-  /** Returns the environment for bzl files in the {@code @builtins} pseudo-repository. */
-  public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
-    return builtinsBzlEnv;
+  public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
+    return bazelStarlarkEnvironment;
   }
 
   /** Creates the map of arguments for the 'package' function. */
-  private ImmutableMap<String, PackageArgument<?>> createPackageArguments() {
+  private static ImmutableMap<String, PackageArgument<?>> createPackageArguments(
+      List<EnvironmentExtension> environmentExtensions) {
     ImmutableList.Builder<PackageArgument<?>> arguments =
         ImmutableList.<PackageArgument<?>>builder().addAll(DefaultPackageArguments.get());
 
@@ -338,7 +295,7 @@ public final class PackageFactory {
     for (PackageArgument<?> argument : arguments.build()) {
       packageArguments.put(argument.getName(), argument);
     }
-    return packageArguments.build();
+    return packageArguments.buildOrThrow();
   }
 
   /** Returns a function-value implementing "package" in the specified package context. */
@@ -347,7 +304,7 @@ public final class PackageFactory {
   // once for the native module) as it results in distinct objects. (Using
   // @StarlarkMethod may accomplish that.)
   private static StarlarkCallable newPackageFunction(
-      final ImmutableMap<String, PackageArgument<?>> packageArguments) {
+      final Map<String, PackageArgument<?>> packageArguments) {
     return new StarlarkCallable() {
       @Override
       public String getName() {
@@ -370,7 +327,7 @@ public final class PackageFactory {
       }
 
       @Override
-      public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
           throws EvalException {
         if (!args.isEmpty()) {
           throw new EvalException("unexpected positional arguments");
@@ -424,13 +381,13 @@ public final class PackageFactory {
         result.put(ruleClassName, new BuiltinRuleFunction(cl));
       }
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /** A callable Starlark value that creates Rules for native RuleClasses. */
   // TODO(adonovan): why is this distinct from RuleClass itself?
   // Make RuleClass implement StarlarkCallable directly.
-  private static class BuiltinRuleFunction implements StarlarkCallable, RuleFunction {
+  private static class BuiltinRuleFunction implements RuleFunction {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(RuleClass ruleClass) {
@@ -438,17 +395,19 @@ public final class PackageFactory {
     }
 
     @Override
-    public NoneType call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+    public NoneType call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
         throw Starlark.errorf("unexpected positional arguments");
       }
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
+        PackageContext context = getContext(thread);
         RuleFactory.createAndAddRule(
-            getContext(thread),
+            context.pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
+            context.eventHandler,
             thread.getSemantics(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -483,87 +442,48 @@ public final class PackageFactory {
     }
   }
 
-  /**
-   * Creates and populates a Package.Builder by executing the specified BUILD file.
-   *
-   * <p>This is the sole entrypoint for package creation in production and tests. Do not add others!
-   * It is exposed for the benefit of skyframe.PackageFunction, which is logically part of the
-   * loading phase, and should in due course be moved to lib.packages, but that cannot happen until
-   * skyframe's core interfaces have been separated.
-   *
-   * <p>Do not call it from elsewhere! It is not in any meaningful sense a public API. In tests, use
-   * BuildViewTestCase or PackageLoadingTestCase instead. TODO(adonovan): move PackageFunction into
-   * this package and develop a rational API.
-   */
-  public Package.Builder createPackageFromAst(
-      String workspaceName,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      PackageIdentifier packageId,
-      RootedPath buildFile,
-      StarlarkFile file, // becomes resolved as a side effect
-      @Nullable Module preludeModule,
-      ImmutableMap<String, Module> loadedModules,
-      RuleVisibility defaultVisibility,
-      StarlarkSemantics starlarkSemantics,
-      Globber globber)
-      throws InterruptedException {
-    try {
-      // At this point the package is guaranteed to exist,
-      // though it may have parse or evaluation errors.
-      return evaluateBuildFile(
-          workspaceName,
-          packageId,
-          file,
-          buildFile,
-          globber,
-          defaultVisibility,
-          starlarkSemantics,
-          preludeModule,
-          loadedModules,
-          repositoryMapping);
-    } catch (InterruptedException e) {
-      globber.onInterrupt();
-      throw e;
-    } finally {
-      globber.onCompletion();
-    }
-  }
-
-  @VisibleForTesting // exposed to WorkspaceFileFunction
+  @VisibleForTesting // exposed to WorkspaceFileFunction and BzlmodRepoRuleFunction
   public Package.Builder newExternalPackageBuilder(
       RootedPath workspacePath, String workspaceName, StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
         packageSettings, workspacePath, workspaceName, starlarkSemantics);
   }
 
-  // Do not make this public!
+  // This function is public only for the benefit of skyframe.PackageFunction,
+  // which is morally part of lib.packages, so that it can create empty packages
+  // in case of error before BUILD execution. Do not call it from anywhere else.
   // TODO(adonovan): refactor Rule{Class,Factory}Test not to need this.
-  Package.Builder newPackageBuilder(
-      PackageIdentifier packageId, String workspaceName, StarlarkSemantics starlarkSemantics) {
+  public Package.Builder newPackageBuilder(
+      PackageIdentifier packageId,
+      String workspaceName,
+      StarlarkSemantics starlarkSemantics,
+      RepositoryMapping repositoryMapping) {
     return new Package.Builder(
         packageSettings,
         packageId,
         workspaceName,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-        Package.Builder.EMPTY_REPOSITORY_MAPPING);
+        repositoryMapping);
   }
 
-  /** Returns a new {@link LegacyGlobber}. */
+  /** Returns a new {@link NonSkyframeGlobber}. */
   // Exposed to skyframe.PackageFunction.
-  public LegacyGlobber createLegacyGlobber(
+  public NonSkyframeGlobber createNonSkyframeGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
       ImmutableSet<PathFragment> ignoredGlobPrefixes,
-      CachingPackageLocator locator) {
-    return new LegacyGlobber(
+      CachingPackageLocator locator,
+      ThreadStateReceiver threadStateReceiverForMetrics) {
+    return new NonSkyframeGlobber(
         new GlobCache(
             packageDirectory,
             packageId,
             ignoredGlobPrefixes,
             locator,
-            syscalls,
+            syscallCache,
             executor,
-            maxDirectoriesToEagerlyVisitInGlobbing));
+            maxDirectoriesToEagerlyVisitInGlobbing,
+            threadStateReceiverForMetrics));
   }
 
   /**
@@ -603,174 +523,19 @@ public final class PackageFactory {
     public Package.Builder getBuilder() {
       return pkgBuilder;
     }
-  }
 
-  /**
-   * Produces everything that would be in the "native" object for BUILD-loaded bzl files if builtins
-   * injection didn't happen.
-   */
-  private static ImmutableMap<String, Object> createUninjectedBuildBzlNativeBindings(
-      ImmutableMap<String, BuiltinRuleFunction> ruleFunctions,
-      ImmutableMap<String, PackageArgument<?>> packageArguments,
-      ImmutableList<EnvironmentExtension> environmentExtensions) {
-    ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-    builder.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    builder.putAll(ruleFunctions);
-    builder.put("package", newPackageFunction(packageArguments));
-    for (EnvironmentExtension ext : environmentExtensions) {
-      ext.updateNative(builder);
-    }
-    return builder.build();
-  }
-
-  /** Produces everything in the "native" object for WORKSPACE-loaded bzl files. */
-  private static ImmutableMap<String, Object> createWorkspaceBzlNativeBindings(
-      RuleClassProvider ruleClassProvider, String version) {
-    return WorkspaceFactory.createNativeModuleBindings(ruleClassProvider, version);
-  }
-
-  private static ImmutableMap<String, Object> createUninjectedBuildBzlEnv(
-      RuleClassProvider ruleClassProvider,
-      ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings) {
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(ruleClassProvider.getEnvironment());
-
-    // TODO(#11437): We *should* be able to uncomment the following line, but the native module is
-    // added prematurely (without its rule-logic fields) and overridden unconditionally. There's no
-    // reason for this now that ASTFileLookupFunction observes the correct predeclared env.
-    // Preconditions.checkState(!predeclared.containsKey("native"));
-
-    // Determine the "native" module.
-    // TODO(#11954): Use the same "native" object for both BUILD- and WORKSPACE-loaded .bzls, and
-    // just have it be a dynamic error to call the wrong thing at the wrong time. This is a breaking
-    // change.
-    env.put("native", createNativeModule(uninjectedBuildBzlNativeBindings));
-
-    return ImmutableMap.copyOf(env);
-  }
-
-  private static ImmutableMap<String, Object> createWorkspaceBzlEnv(
-      RuleClassProvider ruleClassProvider,
-      ImmutableMap<String, Object> workspaceBzlNativeBindings) {
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(ruleClassProvider.getEnvironment());
-
-    // See above comments for native in BUILD bzls.
-    env.put("native", createNativeModule(workspaceBzlNativeBindings));
-
-    return ImmutableMap.copyOf(env);
-  }
-
-  private static ImmutableMap<String, Object> createBuiltinsBzlEnv(
-      RuleClassProvider ruleClassProvider) {
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(ruleClassProvider.getEnvironment());
-
-    // Clear out rule-specific symbols like CcInfo.
-    env.keySet().removeAll(ruleClassProvider.getNativeRuleSpecificBindings().keySet());
-    // TODO(#11437): We shouldn't have to delete the (not fully formed) "native" object here; see
-    // above TODO in createUninjectedBuildBzlEnv().
-    env.remove("native");
-
-    // TODO(#11437): To support inspection of StarlarkSemantics via _internal, we'll have to let
-    // this method be parameterized by the StarlarkSemantics, which means it'll need to be computed
-    // on the fly and not initialized on PackageFactory construction. To avoid computing it
-    // redundantly for each builtins bzl evaluation, we can either 1) create a second
-    // StarlarkBuiltinsValue-like object (which sounds like a lot of work), or 2) create a cache
-    // from StarlarkSemantics to builtins predeclared envs (sounds preferable to me).
-    env.put("_internal", InternalModule.INSTANCE);
-
-    return ImmutableMap.copyOf(env);
-  }
-
-  /** Constructs a "native" module object with the given contents. */
-  private static Object createNativeModule(Map<String, Object> bindings) {
-    return StructProvider.STRUCT.create(bindings, "no native function or rule '%s'");
-  }
-
-  /** Indicates a problem performing builtins injection. */
-  public static final class InjectionException extends Exception {
-    public InjectionException(String message) {
-      super(message);
-    }
-  }
-
-  /**
-   * Constructs an environment for a BUILD-loaded bzl file based on the default environment as well
-   * as the given injected top-level symbols and "native" bindings.
-   *
-   * <p>Injected symbols must override an existing symbol of that name. Furthermore, the overridden
-   * symbol must be a rule or a piece of a specific ruleset's logic (e.g., {@code CcInfo} or {@code
-   * cc_library}), not a generic built-in (e.g., {@code provider} or {@code glob}). Throws
-   * InjectionException if these conditions are not met.
-   */
-  public ImmutableMap<String, Object> createBuildBzlEnvUsingInjection(
-      ImmutableMap<String, Object> injectedToplevels, ImmutableMap<String, Object> injectedRules)
-      throws InjectionException {
-    // TODO(#11437): Builtins injection should take into account StarlarkSemantics and
-    // FlagGuardedValues. If a builtin is disabled by a flag, we can either:
-    //
-    //   1) Treat it as if it doesn't exist for the purposes of injection. In this case it's an
-    //      error to attempt to inject it, so exports.bzl is required to explicitly check the flag's
-    //      value (via the _internal module) before exporting it.
-    //
-    //   2) Allow it to be exported and automatically suppress/omit it from the final environment,
-    //      effectively rewrapping the injected builtin in the FlagGuardedValue.
-
-    // Determine top-level symbols.
-    Map<String, Object> env = new HashMap<>();
-    env.putAll(uninjectedBuildBzlEnv);
-    for (Map.Entry<String, Object> symbol : injectedToplevels.entrySet()) {
-      String name = symbol.getKey();
-      if (!env.containsKey(name) && !Starlark.UNIVERSE.containsKey(name)) {
-        throw new InjectionException(
-            String.format(
-                "Injected top-level symbol '%s' must override an existing symbol by that name",
-                name));
-      } else if (!ruleClassProvider.getNativeRuleSpecificBindings().containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override top-level builtin '%s' with an injected value", name));
-      } else {
-        env.put(name, symbol.getValue());
-      }
-    }
-
-    // Determine "native" bindings.
-    // See above comments for native in BUILD bzls.
-    Map<String, Object> nativeBindings = new HashMap<>();
-    nativeBindings.putAll(uninjectedBuildBzlNativeBindings);
-    for (Map.Entry<String, Object> symbol : injectedRules.entrySet()) {
-      String name = symbol.getKey();
-      Object preexisting = nativeBindings.put(name, symbol.getValue());
-      if (preexisting == null) {
-        throw new InjectionException(
-            String.format(
-                "Injected native module field '%s' must override an existing symbol by that name",
-                name));
-      } else if (!ruleFunctions.containsKey(name)) {
-        throw new InjectionException(
-            String.format("Cannot override native module field '%s' with an injected value", name));
-      }
-    }
-
-    env.put("native", createNativeModule(nativeBindings));
-    return ImmutableMap.copyOf(env);
-  }
-
-  private void populateEnvironment(ImmutableMap.Builder<String, Object> env) {
-    env.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
-    env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    env.put("package", newPackageFunction(packageArguments));
-    env.putAll(ruleFunctions);
-
-    for (EnvironmentExtension ext : environmentExtensions) {
-      ext.update(env);
+    /**
+     * Returns the event handler that should be used to report events happening while building this
+     * package.
+     */
+    public ExtendedEventHandler getEventHandler() {
+      return eventHandler;
     }
   }
 
   /**
    * Runs final validation and administrative tasks on newly loaded package. Called by a caller of
-   * {@link #createPackageFromAst} after this caller has fully loaded the package.
+   * {@link #executeBuildFile} after this caller has fully loaded the package.
    *
    * @throws InvalidPackageException if the package is determined to be invalid
    */
@@ -780,7 +545,9 @@ public final class PackageFactory {
       long loadTimeNanos,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
-    packageValidator.validate(pkg, eventHandler);
+    OptionalLong packageOverhead = packageOverheadEstimator.estimatePackageOverhead(pkg);
+
+    packageValidator.validate(pkg, packageOverhead, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
     long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
@@ -794,7 +561,6 @@ public final class PackageFactory {
           pkg.getPackageIdentifier(),
           message,
           DetailedExitCode.of(
-              ExitCode.BUILD_FAILURE,
               FailureDetail.newBuilder()
                   .setMessage(message)
                   .setPackageLoading(
@@ -804,73 +570,132 @@ public final class PackageFactory {
                   .build()));
     }
 
-    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(
+        pkg, starlarkSemantics, loadTimeNanos, packageOverhead);
   }
 
   /**
-   * Constructs a Package instance, evaluates the BUILD-file AST inside the build environment, and
-   * populates the package with Rule instances as it goes. As with most programming languages,
-   * evaluation stops when an exception is encountered: no further rules after the point of failure
-   * will be constructed. We assume that rules constructed before the point of failure are valid;
-   * this assumption is not entirely correct, since a "vardef" after a rule declaration can affect
-   * the behavior of that rule.
+   * Populates the Package.Builder by executing the specified BUILD file.
    *
-   * <p>Rule attribute checking is performed during evaluation. Each attribute must conform to the
-   * type specified for that <i>(rule class, attribute name)</i> pair. Errors reported at this stage
-   * include: missing value for mandatory attribute, value of wrong type. Such error cause Rule
-   * construction to be aborted, so the resulting package will have missing members.
+   * <p>The package exists---we have parsed its BUILD file---but it may contain errors, either
+   * arising from Starlark evaluation (such as an array index error, or a call to a built-in
+   * function that fails), or reported as a side effect of a built-in function, such as rule
+   * instantiation, that returns normally. A partial package is nonetheless returned in both cases,
+   * although it may have fewer rules than expected.
    *
-   * @see PackageFactory#PackageFactory
+   * <p>TODO(adonovan): do not return a partial package in case of BUILD evaluation errors. Errors
+   * during .bzl execution are already fatal.
+   *
+   * <p><b>Do not call it from elsewhere! It is not in any meaningful sense a public API.</b><br>
+   * In tests, use BuildViewTestCase or PackageLoadingTestCase instead.
+   *
+   * <p>TODO(adonovan): move PackageFunction into this package and develop a rational API.
    */
-  // Used by PackageFactoryApparatus. DO NOT make this public!
-  Package.Builder evaluateBuildFile(
-      String workspaceName,
-      PackageIdentifier packageId,
-      StarlarkFile file, // becomes resolved as a side effect
-      RootedPath buildFilePath,
-      Globber globber,
-      RuleVisibility defaultVisibility,
-      StarlarkSemantics semantics,
-      @Nullable Module preludeModule,
+  // This function is the sole entry point for package creation in production and tests. Do not add
+  // others! It changes often, and is exposed only for the benefit of skyframe.PackageFunction,
+  // which is logically part of the loading phase and should in due course be moved to lib.packages,
+  // but that cannot happen until Skyframe's core interfaces have been separated.
+  public void executeBuildFile(
+      Package.Builder pkgBuilder,
+      Program buildFileProgram,
+      ImmutableList<String> globs,
+      ImmutableList<String> globsWithDirs,
+      ImmutableList<String> subpackages,
+      ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      StarlarkSemantics starlarkSemantics,
+      Globber globber)
       throws InterruptedException {
-    Package.Builder pkgBuilder =
-        new Package.Builder(
-                packageSettings,
-                packageId,
-                workspaceName,
-                semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-                repositoryMapping)
-            .setFilename(buildFilePath)
-            .setDefaultVisibility(defaultVisibility)
-            // "defaultVisibility" comes from the command line.
-            // Let's give the BUILD file a chance to set default_visibility once,
-            // by resetting the PackageBuilder.defaultVisibilitySet flag.
-            .setDefaultVisibilitySet(false)
-            // TODO(adonovan): opt: don't precompute this value, which is rarely needed
-            // and can be derived from Package.loads (if available) on demand.
-            .setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules))
-            .setThirdPartyLicenceExistencePolicy(
-                ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+    // Prefetch glob patterns asynchronously.
+    if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
+      try {
+        boolean allowEmpty = true;
+        globber.runAsync(globs, ImmutableList.of(), Globber.Operation.FILES, allowEmpty);
+        globber.runAsync(
+            globsWithDirs, ImmutableList.of(), Globber.Operation.FILES_AND_DIRS, allowEmpty);
+        globber.runAsync(
+            subpackages, ImmutableList.of(), Globber.Operation.SUBPACKAGES, allowEmpty);
+      } catch (BadGlobException ex) {
+        logger.atWarning().withCause(ex).log(
+            "Suppressing exception for globs=%s, globsWithDirs=%s", globs, globsWithDirs);
+        // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
+      }
+    }
+
+    try {
+      executeBuildFileImpl(
+          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics, globber);
+    } catch (InterruptedException e) {
+      globber.onInterrupt();
+      throw e;
+    } finally {
+      globber.onCompletion();
+    }
+  }
+
+  private void executeBuildFileImpl(
+      Package.Builder pkgBuilder,
+      Program buildFileProgram,
+      ImmutableMap<String, Object> predeclared,
+      ImmutableMap<String, Module> loadedModules,
+      StarlarkSemantics semantics,
+      Globber globber)
+      throws InterruptedException {
+    pkgBuilder.setThirdPartyLicenceExistencePolicy(
+        ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+
+    // TODO(adonovan): opt: don't precompute this value, which is rarely needed
+    // and can be derived from Package.loads (if available) on demand.
+    pkgBuilder.setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules));
     if (packageSettings.recordLoadedModules()) {
       pkgBuilder.setLoads(loadedModules);
     }
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    if (!buildPackage(
-        pkgBuilder,
-        packageId,
-        file,
-        semantics,
-        preludeModule,
-        loadedModules,
-        new PackageContext(pkgBuilder, globber, eventHandler))) {
-      pkgBuilder.setContainsErrors();
+    PackageContext pkgContext = new PackageContext(pkgBuilder, globber, eventHandler);
+
+    try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
+      Module module = Module.withPredeclared(semantics, predeclared);
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      thread.setLoader(loadedModules::get);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
+
+      new BazelStarlarkContext(
+              BazelStarlarkContext.Phase.LOADING,
+              ruleClassProvider.getToolsRepository(),
+              /*fragmentNameToClass=*/ null,
+              pkgBuilder.getConvertedLabelsInPackage(),
+              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
+          .storeInThread(thread);
+
+      // TODO(adonovan): save this as a field in BazelStarlarkContext.
+      // It needn't be a second thread-local.
+      thread.setThreadLocal(PackageContext.class, pkgContext);
+
+      try {
+        Starlark.execFileProgram(buildFileProgram, module, thread);
+      } catch (EvalException ex) {
+        pkgContext.eventHandler.handle(
+            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+        pkgBuilder.setContainsErrors();
+      } catch (InterruptedException ex) {
+        if (pkgContext.pkgBuilder.containsErrors()) {
+          // Suppress the interrupted exception: we have an error of our own to return.
+          Thread.currentThread().interrupt();
+          logger.atInfo().withCause(ex).log(
+              "Suppressing InterruptedException for Package %s because an error was also found",
+              pkgBuilder.getPackageIdentifier().getCanonicalForm());
+        } else {
+          throw ex;
+        }
+      }
+      pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
+
     pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
-    return pkgBuilder;
   }
 
   private static ImmutableList<Label> transitiveClosureOfLabels(
@@ -880,7 +705,7 @@ public final class PackageFactory {
     return ImmutableList.copyOf(set);
   }
 
-  private static void transitiveClosureOfLabelsRec(
+  public static void transitiveClosureOfLabelsRec(
       Set<Label> set, ImmutableMap<String, Module> loads) {
     for (Module m : loads.values()) {
       BazelModuleContext ctx = BazelModuleContext.of(m);
@@ -888,131 +713,6 @@ public final class PackageFactory {
         transitiveClosureOfLabelsRec(set, ctx.loads());
       }
     }
-  }
-
-  // Validates and executes a parsed BUILD file, returning true on success,
-  // or reporting errors to pkgContext.eventHandler on failure.
-  private boolean buildPackage(
-      Package.Builder pkgBuilder,
-      PackageIdentifier packageId,
-      StarlarkFile file, // becomes resolved as a side effect
-      StarlarkSemantics semantics,
-      @Nullable Module preludeModule,
-      ImmutableMap<String, Module> loadedModules,
-      PackageContext pkgContext)
-      throws InterruptedException {
-
-    // Report scan/parse errors.
-    if (!file.ok()) {
-      Event.replayEventsOn(
-          pkgContext.eventHandler,
-          file.errors(),
-          DetailedExitCode.class,
-          syntaxError -> Package.createDetailedCode(syntaxError.toString(), Code.SYNTAX_ERROR));
-      return false;
-    }
-
-    // Validate the package identifier.
-    // TODO(adonovan): it's kinda late to be doing this check.
-    // after we've parsed the BUILD file and created the Package.
-    String error = LabelValidator.validatePackageName(packageId.getPackageFragment().toString());
-    if (error != null) {
-      pkgContext.eventHandler.handle(
-          Package.error(file.getStartLocation(), error, Code.PACKAGE_NAME_INVALID));
-      return false;
-    }
-
-    // Construct environment.
-    // TODO(bazel-team): Have populateEnvironment accept a Map rather than an ImmutableMap.Builder,
-    // so we're not forced to create both a builder and map here.
-    ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-    populateEnvironment(predeclared);
-    HashMap<String, Object> predeclaredWithPrelude = new HashMap<>();
-    predeclaredWithPrelude.putAll(predeclared.build());
-    if (preludeModule != null) {
-      predeclaredWithPrelude.putAll(preludeModule.getGlobals());
-    }
-    Module module = Module.withPredeclared(semantics, predeclaredWithPrelude);
-
-    // resolve & compile
-    // TODO(adonovan): this mutates the StarlarkFile, which may be shared in the fileSyntaxCache.
-    Program prog;
-    try {
-      prog = Program.compileFile(file, module);
-    } catch (SyntaxError.Exception ex) {
-      Event.replayEventsOn(
-          pkgContext.eventHandler,
-          ex.errors(),
-          DetailedExitCode.class,
-          syntaxError -> Package.createDetailedCode(syntaxError.toString(), Code.SYNTAX_ERROR));
-      return false;
-    }
-
-    // Check syntax. Make a pass over the syntax tree to:
-    // - reject forbidden BUILD syntax
-    // - extract literal glob patterns for prefetching
-    // - record the generator_name of each top-level macro call
-    Set<String> globs = new HashSet<>();
-    Set<String> globsWithDirs = new HashSet<>();
-    if (!checkBuildSyntax(
-        file,
-        globs,
-        globsWithDirs,
-        pkgBuilder.getGeneratorNameByLocation(),
-        pkgContext.eventHandler)) {
-      return false;
-    }
-
-    // Prefetch glob patterns asynchronously.
-    if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
-      try {
-        pkgContext.globber.runAsync(
-            ImmutableList.copyOf(globs),
-            ImmutableList.of(),
-            /*excludeDirs=*/ true,
-            /*allowEmpty=*/ true);
-        pkgContext.globber.runAsync(
-            ImmutableList.copyOf(globsWithDirs),
-            ImmutableList.of(),
-            /*excludeDirs=*/ false,
-            /*allowEmpty=*/ true);
-      } catch (BadGlobException ex) {
-        // Ignore exceptions.
-        // Errors will be properly reported when the actual globbing is done.
-      }
-    }
-
-    try (Mutability mu = Mutability.create("package", packageId)) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
-      thread.setLoader(loadedModules::get);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
-
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              ruleClassProvider.getToolsRepository(),
-              /*fragmentNameToClass=*/ null,
-              pkgBuilder.getRepositoryMapping(),
-              new SymbolGenerator<>(packageId),
-              /*analysisRuleLabel=*/ null)
-          .storeInThread(thread);
-
-      // TODO(adonovan): save this as a field in BazelStarlarkContext.
-      // It needn't be a second thread-local.
-      thread.setThreadLocal(PackageContext.class, pkgContext);
-
-      // Execute.
-      try {
-        Starlark.execFileProgram(prog, module, thread);
-      } catch (EvalException ex) {
-        pkgContext.eventHandler.handle(
-            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
-        return false;
-      }
-
-      pkgBuilder.setComputationSteps(thread.getExecutedSteps());
-    }
-
-    return true; // success
   }
 
   /**
@@ -1031,29 +731,35 @@ public final class PackageFactory {
    * <p>It returns true if it reported no errors.
    */
   // TODO(adonovan): restructure so that this is called from the sole place that executes BUILD
-  // files. Also, make private; there's reason for tests to call this directly.
+  // files. Also, make private; there's no reason for tests to call this directly.
   public static boolean checkBuildSyntax(
       StarlarkFile file,
       Collection<String> globs,
       Collection<String> globsWithDirs,
+      Collection<String> subpackages,
       Map<Location, String> generatorNameByLocation,
-      EventHandler eventHandler) {
+      Consumer<SyntaxError> errors) {
     final boolean[] success = {true};
     NodeVisitor checker =
         new NodeVisitor() {
           void error(Location loc, String message) {
-            eventHandler.handle(Package.error(loc, message, Code.SYNTAX_ERROR));
+            errors.accept(new SyntaxError(loc, message));
             success[0] = false;
           }
 
           // Extract literal glob patterns from calls of the form:
           //   glob(include = ["pattern"])
           //   glob(["pattern"])
-          // This may spuriously match user-defined functions named glob;
-          // that's ok, it's only a heuristic.
+          //   subpackages(include = ["pattern"])
+          // This may spuriously match user-defined functions named glob or
+          // subpackages; that's ok, it's only a heuristic.
           void extractGlobPatterns(CallExpression call) {
-            if (call.getFunction() instanceof Identifier
-                && ((Identifier) call.getFunction()).getName().equals("glob")) {
+            if (call.getFunction() instanceof Identifier) {
+              String functionName = ((Identifier) call.getFunction()).getName();
+              if (!functionName.equals("glob") && !functionName.equals("subpackages")) {
+                return;
+              }
+
               Expression excludeDirectories = null, include = null;
               List<Argument> arguments = call.getArguments();
               for (int i = 0; i < arguments.size(); i++) {
@@ -1081,7 +787,11 @@ public final class PackageFactory {
                         exclude = false;
                       }
                     }
-                    (exclude ? globs : globsWithDirs).add(pattern);
+                    if (functionName.equals("glob")) {
+                      (exclude ? globs : globsWithDirs).add(pattern);
+                    } else {
+                      subpackages.add(pattern);
+                    }
                   }
                 }
               }
@@ -1127,7 +837,15 @@ public final class PackageFactory {
           public void visit(DefStatement node) {
             error(
                 node.getStartLocation(),
-                "function definitions are not allowed in BUILD files. You may move the function to "
+                "functions may not be defined in BUILD files. You may move the function to "
+                    + "a .bzl file and load it.");
+          }
+
+          @Override
+          public void visit(LambdaExpression node) {
+            error(
+                node.getStartLocation(),
+                "functions may not be defined in BUILD files. You may move the function to "
                     + "a .bzl file and load it.");
           }
 

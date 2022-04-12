@@ -19,17 +19,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintSettingInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.syntax.Location;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
 @Immutable
-@AutoCodec
 public class ConstraintSettingInfo extends NativeInfo implements ConstraintSettingInfoApi {
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ConstraintSettingInfo";
@@ -41,12 +37,14 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
   private final Label label;
   @Nullable private final Label defaultConstraintValueLabel;
 
-  @VisibleForSerialization
-  ConstraintSettingInfo(Label label, Label defaultConstraintValueLabel, Location location) {
-    super(PROVIDER, location);
-
+  private ConstraintSettingInfo(Label label, Label defaultConstraintValueLabel) {
     this.label = label;
     this.defaultConstraintValueLabel = defaultConstraintValueLabel;
+  }
+
+  @Override
+  public BuiltinProvider<ConstraintSettingInfo> getProvider() {
+    return PROVIDER;
   }
 
   @Override
@@ -100,18 +98,12 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(Label constraintSetting) {
-    return create(constraintSetting, null, Location.BUILTIN);
+    return create(constraintSetting, null);
   }
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(
       Label constraintSetting, Label defaultConstraintValue) {
-    return create(constraintSetting, defaultConstraintValue, Location.BUILTIN);
-  }
-
-  /** Returns a new {@link ConstraintSettingInfo} with the given data. */
-  public static ConstraintSettingInfo create(
-      Label constraintSetting, Label defaultConstraintValue, Location location) {
-    return new ConstraintSettingInfo(constraintSetting, defaultConstraintValue, location);
+    return new ConstraintSettingInfo(constraintSetting, defaultConstraintValue);
   }
 }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -65,7 +64,7 @@ public class RepositoryCacheTest {
 
   @Test
   public void testNonExistentCacheValue() {
-    String fakeSha256 = Strings.repeat("a", 64);
+    String fakeSha256 = "a".repeat(64);
     assertThat(repositoryCache.exists(fakeSha256, KeyType.SHA256)).isFalse();
   }
 

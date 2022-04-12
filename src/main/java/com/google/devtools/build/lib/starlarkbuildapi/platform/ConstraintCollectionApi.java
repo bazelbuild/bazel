@@ -50,7 +50,6 @@ public interface ConstraintCollectionApi<
       parameters = {
         @Param(
             name = "constraint",
-            type = ConstraintSettingInfoApi.class,
             named = true,
             doc = "The constraint setting to fetch the value for.")
       },
@@ -64,7 +63,6 @@ public interface ConstraintCollectionApi<
       parameters = {
         @Param(
             name = "constraint",
-            type = ConstraintSettingInfoApi.class,
             named = true,
             doc = "The constraint setting to check.")
       },
@@ -77,7 +75,6 @@ public interface ConstraintCollectionApi<
       parameters = {
         @Param(
             name = "constraint_value",
-            type = ConstraintValueInfoApi.class,
             named = true,
             doc = "The constraint value to check.")
       },

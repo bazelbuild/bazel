@@ -24,6 +24,9 @@ if [ "${PLATFORM}" != "darwin" ]; then
   exit 0
 fi
 
+source "${CURRENT_DIR}/apple_common.sh" \
+  || { echo "apple_common.sh not found!" >&2; exit 1; }
+
 function make_lib() {
   rm -rf ios
   mkdir -p ios
@@ -52,7 +55,7 @@ function test_build_app() {
   bazel build --verbose_failures --apple_platform_type=ios \
       --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:lib >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-out/apl-ios_x86_64-fastbuild/bin/ios/liblib.a \
+  ls bazel-out/*/bin/ios/liblib.a \
       || fail "should generate lib.a"
 }
 
@@ -111,9 +114,9 @@ EOF
   # Dec 31 1969 or Jan 1 1970 -- either is fine.
   # We would use 'date' here, but the format is slightly different (Jan 1 vs.
   # Jan 01).
-  ar -tv bazel-out/apl-ios_x86_64-fastbuild/bin/objclib/libobjclib.a \
+  ar -tv bazel-out/*/bin/objclib/libobjclib.a \
       | grep "mysrc" | grep "Dec 31" | grep "1969" \
-      || ar -tv bazel-out/apl-ios_x86_64-fastbuild/bin/objclib/libobjclib.a \
+      || ar -tv bazel-out/*/bin/objclib/libobjclib.a \
       | grep "mysrc" | grep "Jan  1" | grep "1970" || \
       fail "Timestamp of contents of archive file should be zero"
 }
@@ -123,6 +126,7 @@ function test_strip_symbols() {
 
   rm -rf ios
   mkdir -p ios
+  make_starlark_apple_binary_rule_in ios
 
   cat >ios/main.m <<EOF
 #import <UIKit/UIKit.h>
@@ -140,9 +144,10 @@ int addOne(int num) {
 EOF
 
   cat >ios/BUILD <<EOF
-apple_binary(name = 'app',
-             deps = [':main'],
-             platform_type = 'ios')
+load("//ios:starlark_apple_binary.bzl", "starlark_apple_binary")
+starlark_apple_binary(name = 'app',
+                      deps = [':main'],
+                      platform_type = 'ios')
 objc_library(name = 'main',
              non_arc_srcs = ['main.m'])
 EOF
@@ -153,9 +158,9 @@ EOF
       --objc_enable_binary_stripping=true \
       --compilation_mode=opt \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin \
+  ls bazel-out/*/bin/ios/app_lipobin \
     || fail "should generate lipobin (stripped binary)"
-  ! nm bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin | grep addOne \
+  ! nm bazel-out/*/bin/ios/app_lipobin | grep addOne \
     || fail "should fail to find symbol addOne"
 }
 

@@ -13,124 +13,13 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
-import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
 /** Internal declarations used by the evaluator. */
 final class EvalUtils {
 
   private EvalUtils() {}
-
-  /**
-   * The exception that STARLARK_COMPARATOR might throw. This is an unchecked exception because
-   * Comparator doesn't let us declare exceptions. It should normally be caught and wrapped in an
-   * EvalException.
-   */
-  static class ComparisonException extends RuntimeException {
-    ComparisonException(String msg) {
-      super(msg);
-    }
-  }
-
-  /**
-   * Compare two Starlark values.
-   *
-   * <p>It may throw an unchecked exception ComparisonException that should be wrapped in an
-   * EvalException.
-   */
-  // TODO(adonovan): consider what API to expose around comparison and ordering. Java's three-valued
-  // comparator cannot properly handle weakly or partially ordered values such as IEEE754 floats.
-  static final Ordering<Object> STARLARK_COMPARATOR =
-      new Ordering<Object>() {
-        private int compareLists(Sequence<?> o1, Sequence<?> o2) {
-          if (o1 instanceof RangeList || o2 instanceof RangeList) {
-            // RangeLists don't support ordered comparison, only equality.
-            throw new ComparisonException("Cannot compare range objects");
-          }
-
-          for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
-            int cmp = compare(o1.get(i), o2.get(i));
-            if (cmp != 0) {
-              return cmp;
-            }
-          }
-          return Integer.compare(o1.size(), o2.size());
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public int compare(Object o1, Object o2) {
-
-          // optimize the most common cases
-
-          if (o1 instanceof String && o2 instanceof String) {
-            return ((String) o1).compareTo((String) o2);
-          }
-          if (o1 instanceof StarlarkInt && o2 instanceof StarlarkInt) {
-            // int <=> int
-            return StarlarkInt.compare((StarlarkInt) o1, (StarlarkInt) o2);
-          }
-
-          o1 = Starlark.fromJava(o1, null);
-          o2 = Starlark.fromJava(o2, null);
-
-          if (o1 instanceof Sequence
-              && o2 instanceof Sequence
-              && o1 instanceof Tuple == o2 instanceof Tuple) {
-            return compareLists((Sequence) o1, (Sequence) o2);
-          }
-
-          if (o1 instanceof ClassObject) {
-            throw new ComparisonException("Cannot compare structs");
-          }
-          try {
-            return ((Comparable<Object>) o1).compareTo(o2);
-          } catch (ClassCastException e) {
-            throw new ComparisonException(
-                "Cannot compare " + Starlark.type(o1) + " with " + Starlark.type(o2));
-          }
-        }
-      };
-
-  /** Throws EvalException if x is not hashable. */
-  static void checkHashable(Object x) throws EvalException {
-    if (!isHashable(x)) {
-      // This results in confusing errors such as "unhashable type: tuple".
-      // TODO(adonovan): ideally the error message would explain which
-      // element of, say, a tuple is unhashable. The only practical way
-      // to implement this is by implementing isHashable as a call to
-      // Object.hashCode within a try/catch, and requiring all
-      // unhashable Starlark values to throw a particular unchecked exception
-      // with a helpful error message.
-      throw Starlark.errorf("unhashable type: '%s'", Starlark.type(x));
-    }
-  }
-
-  /**
-   * Reports whether a legal Starlark value is considered hashable to Starlark, and thus suitable as
-   * a key in a dict.
-   */
-  static boolean isHashable(Object o) {
-    // Bazel makes widespread assumptions that all Starlark values can be hashed
-    // by Java code, so we cannot implement isHashable by having
-    // StarlarkValue.hashCode throw an unchecked exception, which would be more
-    // efficient. Instead, before inserting a value in a dict, we must first ask
-    // it whether it isHashable, and then call its hashCode method only if so.
-    // For structs and tuples, this unfortunately visits the object graph twice.
-    //
-    // One subtlety: the struct.isHashable recursively asks whether its
-    // elements are immutable, not hashable. Consequently, even though a list
-    // may not be used as a dict key (even if frozen), a struct containing
-    // a list is hashable. TODO(adonovan): fix this inconsistency.
-    // Requires an incompatible change flag.
-    if (o instanceof StarlarkValue) {
-      return ((StarlarkValue) o).isHashable();
-    }
-    return Starlark.isImmutable(o);
-  }
 
   static void addIterator(Object x) {
     if (x instanceof Mutability.Freezable) {
@@ -183,15 +72,20 @@ final class EvalUtils {
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
-  static Object binaryOp(
-      TokenKind op, Object x, Object y, StarlarkSemantics semantics, Mutability mu)
+  static Object binaryOp(TokenKind op, Object x, Object y, StarlarkThread starlarkThread)
       throws EvalException {
+    StarlarkSemantics semantics = starlarkThread.getSemantics();
+    Mutability mu = starlarkThread.mutability();
     switch (op) {
       case PLUS:
         if (x instanceof StarlarkInt) {
           if (y instanceof StarlarkInt) {
             // int + int
             return StarlarkInt.add((StarlarkInt) x, (StarlarkInt) y);
+          } else if (y instanceof StarlarkFloat) {
+            // int + float
+            double z = ((StarlarkInt) x).toFiniteDouble() + ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
           }
 
         } else if (x instanceof String) {
@@ -203,7 +97,7 @@ final class EvalUtils {
         } else if (x instanceof Tuple) {
           if (y instanceof Tuple) {
             // tuple + tuple
-            return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
+            return Tuple.concat((Tuple) x, (Tuple) y);
           }
 
         } else if (x instanceof StarlarkList) {
@@ -212,6 +106,17 @@ final class EvalUtils {
             return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, mu);
           }
 
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float + float
+            double z = xf + ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
+          } else if (y instanceof StarlarkInt) {
+            // float + int
+            double z = xf + ((StarlarkInt) y).toFiniteDouble();
+            return StarlarkFloat.of(z);
+          }
         }
         break;
 
@@ -220,6 +125,11 @@ final class EvalUtils {
           if (y instanceof StarlarkInt) {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
+          }
+        } else if (x instanceof Dict) {
+          if (y instanceof Dict) {
+            // dict | dict
+            return Dict.builder().putAll((Dict<?, ?>) x).putAll((Dict<?, ?>) y).build(mu);
           }
         }
         break;
@@ -253,9 +163,27 @@ final class EvalUtils {
         break;
 
       case MINUS:
-        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
-          // x - y
-          return StarlarkInt.subtract((StarlarkInt) x, (StarlarkInt) y);
+        if (x instanceof StarlarkInt) {
+          if (y instanceof StarlarkInt) {
+            // int - int
+            return StarlarkInt.subtract((StarlarkInt) x, (StarlarkInt) y);
+          } else if (y instanceof StarlarkFloat) {
+            // int - float
+            double z = ((StarlarkInt) x).toFiniteDouble() - ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float - float
+            double z = xf - ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
+          } else if (y instanceof StarlarkInt) {
+            // float - int
+            double z = xf - ((StarlarkInt) y).toFiniteDouble();
+            return StarlarkFloat.of(z);
+          }
         }
         break;
 
@@ -264,16 +192,20 @@ final class EvalUtils {
           StarlarkInt xi = (StarlarkInt) x;
           if (y instanceof StarlarkInt) {
             // int * int
-            return StarlarkInt.multiply((StarlarkInt) x, (StarlarkInt) y);
+            return StarlarkInt.multiply(xi, (StarlarkInt) y);
           } else if (y instanceof String) {
             // int * string
             return repeatString((String) y, xi);
           } else if (y instanceof Tuple) {
             //  int * tuple
-            return ((Tuple<?>) y).repeat(xi);
+            return ((Tuple) y).repeat(xi);
           } else if (y instanceof StarlarkList) {
             // int * list
             return ((StarlarkList<?>) y).repeat(xi, mu);
+          } else if (y instanceof StarlarkFloat) {
+            // int * float
+            double z = xi.toFiniteDouble() * ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
           }
 
         } else if (x instanceof String) {
@@ -285,7 +217,7 @@ final class EvalUtils {
         } else if (x instanceof Tuple) {
           if (y instanceof StarlarkInt) {
             // tuple * int
-            return ((Tuple<?>) x).repeat((StarlarkInt) y);
+            return ((Tuple) x).repeat((StarlarkInt) y);
           }
 
         } else if (x instanceof StarlarkList) {
@@ -293,24 +225,77 @@ final class EvalUtils {
             // list * int
             return ((StarlarkList<?>) x).repeat((StarlarkInt) y, mu);
           }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float * float
+            return StarlarkFloat.of(xf * ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float * int
+            return StarlarkFloat.of(xf * ((StarlarkInt) y).toFiniteDouble());
+          }
         }
         break;
 
-      case SLASH:
-        throw Starlark.errorf("The `/` operator is not allowed. For integer division, use `//`.");
+      case SLASH: // real division
+        if (x instanceof StarlarkInt) {
+          double xf = ((StarlarkInt) x).toFiniteDouble();
+          if (y instanceof StarlarkInt) {
+            // int / int
+            return StarlarkFloat.div(xf, ((StarlarkInt) y).toFiniteDouble());
+          } else if (y instanceof StarlarkFloat) {
+            // int / float
+            return StarlarkFloat.div(xf, ((StarlarkFloat) y).toDouble());
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float / float
+            return StarlarkFloat.div(xf, ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float / int
+            return StarlarkFloat.div(xf, ((StarlarkInt) y).toFiniteDouble());
+          }
+        }
+        break;
 
       case SLASH_SLASH:
-        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
-          // x // y
-          return StarlarkInt.floordiv((StarlarkInt) x, (StarlarkInt) y);
+        if (x instanceof StarlarkInt) {
+          if (y instanceof StarlarkInt) {
+            // int // int
+            return StarlarkInt.floordiv((StarlarkInt) x, (StarlarkInt) y);
+          } else if (y instanceof StarlarkFloat) {
+            // int // float
+            double xf = ((StarlarkInt) x).toFiniteDouble();
+            double yf = ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.floordiv(xf, yf);
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float // float
+            return StarlarkFloat.floordiv(xf, ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float // int
+            return StarlarkFloat.floordiv(xf, ((StarlarkInt) y).toFiniteDouble());
+          }
         }
         break;
 
       case PERCENT:
         if (x instanceof StarlarkInt) {
           if (y instanceof StarlarkInt) {
-            // x % y
+            // int % int
             return StarlarkInt.mod((StarlarkInt) x, (StarlarkInt) y);
+
+          } else if (y instanceof StarlarkFloat) {
+            // int % float
+            double xf = ((StarlarkInt) x).toFiniteDouble();
+            double yf = ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.mod(xf, yf);
           }
 
         } else if (x instanceof String) {
@@ -324,6 +309,16 @@ final class EvalUtils {
             }
           } catch (IllegalFormatException ex) {
             throw new EvalException(ex);
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float % float
+            return StarlarkFloat.mod(xf, ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float % int
+            return StarlarkFloat.mod(xf, ((StarlarkInt) y).toFiniteDouble());
           }
         }
         break;
@@ -349,6 +344,8 @@ final class EvalUtils {
       case IN:
         if (y instanceof StarlarkIndexable) {
           return ((StarlarkIndexable) y).containsKey(semantics, x);
+        } else if (y instanceof StarlarkIndexable.Threaded) {
+          return ((StarlarkIndexable.Threaded) y).containsKey(starlarkThread, semantics, x);
         } else if (y instanceof String) {
           if (!(x instanceof String)) {
             throw Starlark.errorf(
@@ -359,7 +356,7 @@ final class EvalUtils {
         break;
 
       case NOT_IN:
-        Object z = binaryOp(TokenKind.IN, x, y, semantics, mu);
+        Object z = binaryOp(TokenKind.IN, x, y, starlarkThread);
         if (z != null) {
           return !Starlark.truth(z);
         }
@@ -387,19 +384,25 @@ final class EvalUtils {
         "unsupported binary operation: %s %s %s", Starlark.type(x), op, Starlark.type(y));
   }
 
-  /** Implements comparison operators. */
+  // Defines the behavior of the language's ordered comparison operators (< <= => >).
   private static int compare(Object x, Object y) throws EvalException {
     try {
-      return STARLARK_COMPARATOR.compare(x, y);
-    } catch (ComparisonException e) {
-      throw new EvalException(e);
+      return Starlark.compareUnchecked(x, y);
+    } catch (ClassCastException ex) {
+      throw new EvalException(ex.getMessage());
     }
   }
 
   private static String repeatString(String s, StarlarkInt in) throws EvalException {
     int n = in.toInt("repeat");
-    // TODO(adonovan): reject unreasonably large n.
-    return n <= 0 ? "" : Strings.repeat(s, n);
+    if (n <= 0) {
+      return "";
+    } else if ((long) s.length() * (long) n > Integer.MAX_VALUE) {
+      // Would exceed max length of a java String.
+      throw Starlark.errorf("excessive repeat (%d * %d characters)", s.length(), n);
+    } else {
+      return s.repeat(n);
+    }
   }
 
   /** Evaluates a unary operation. */
@@ -411,12 +414,16 @@ final class EvalUtils {
       case MINUS:
         if (x instanceof StarlarkInt) {
           return StarlarkInt.uminus((StarlarkInt) x); // -int
+        } else if (x instanceof StarlarkFloat) {
+          return StarlarkFloat.of(-((StarlarkFloat) x).toDouble()); // -float
         }
         break;
 
       case PLUS:
         if (x instanceof StarlarkInt) {
           return x; // +int
+        } else if (x instanceof StarlarkFloat) {
+          return x; // +float
         }
         break;
 
@@ -437,9 +444,14 @@ final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
-  static Object index(Mutability mu, StarlarkSemantics semantics, Object object, Object key)
+  static Object index(StarlarkThread starlarkThread, Object object, Object key)
       throws EvalException {
-    if (object instanceof StarlarkIndexable) {
+    Mutability mu = starlarkThread.mutability();
+    StarlarkSemantics semantics = starlarkThread.getSemantics();
+
+    if (object instanceof StarlarkIndexable.Threaded) {
+      return ((StarlarkIndexable.Threaded) object).getIndex(starlarkThread, semantics, key);
+    } else if (object instanceof StarlarkIndexable) {
       Object result = ((StarlarkIndexable) object).getIndex(semantics, key);
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
       // it should go in the implementations of StarlarkIndexable#getIndex that produce non-Starlark
@@ -449,7 +461,7 @@ final class EvalUtils {
       String string = (String) object;
       int index = Starlark.toInt(key, "string index");
       index = getSequenceIndex(index, string.length());
-      return string.substring(index, index + 1);
+      return StringModule.memoizedCharToString(string.charAt(index));
     } else {
       throw Starlark.errorf(
           "type '%s' has no operator [](%s)", Starlark.type(object), Starlark.type(key));
@@ -465,19 +477,28 @@ final class EvalUtils {
     if (object instanceof Dict) {
       @SuppressWarnings("unchecked")
       Dict<Object, Object> dict = (Dict<Object, Object>) object;
-      dict.put(key, value, (Location) null);
+      dict.putEntry(key, value);
 
     } else if (object instanceof StarlarkList) {
       @SuppressWarnings("unchecked")
       StarlarkList<Object> list = (StarlarkList<Object>) object;
       int index = Starlark.toInt(key, "list index");
       index = EvalUtils.getSequenceIndex(index, list.size());
-      list.set(index, value, (Location) null);
+      list.setElementAt(index, value);
 
     } else {
       throw Starlark.errorf(
           "can only assign an element in a dictionary or a list, not in a '%s'",
           Starlark.type(object));
+    }
+  }
+
+  /** Updates the named field of x as if by the Starlark statement {@code x.field = value}. */
+  static void setField(Object x, String field, Object value) throws EvalException {
+    if (x instanceof Structure) {
+      ((Structure) x).setField(field, value);
+    } else {
+      throw Starlark.errorf("cannot set .%s field of %s value", field, Starlark.type(x));
     }
   }
 }

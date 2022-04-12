@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
@@ -29,10 +31,8 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags;
 import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -45,15 +45,14 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 
 /** The 'blaze canonicalize-flags' command. */
 @Command(
     name = "canonicalize-flags",
     options = {CanonicalizeCommand.Options.class, PackageOptions.class},
-    // inherits from query to get proper package loading options.
-    inherits = {QueryCommand.class},
+    // inherits from build to get proper package loading options and rc flag aliases.
+    inherits = {BuildCommand.class},
     allowResidue = true,
     mustRunInWorkspace = false,
     shortDescription = "Canonicalizes a list of %{product} options.",
@@ -152,7 +151,6 @@ public final class CanonicalizeCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.detailedExitCode(
           DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(message)
                   .setCanonicalizeFlags(
@@ -174,8 +172,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
       String message = "canonicalization interrupted";
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              message, Interrupted.Code.PACKAGE_LOADING_SYNC));
+          InterruptedFailureDetails.detailedExitCode(message));
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
@@ -186,6 +183,8 @@ public final class CanonicalizeCommand implements BlazeCommand {
             .optionsClasses(optionsClasses)
             .skipStarlarkOptionPrefixes()
             .allowResidue(true)
+            .withAliasFlag(BLAZE_ALIASING_FLAG)
+            .withAliases(options.getAliases())
             .build();
 
     try {
@@ -195,8 +194,10 @@ public final class CanonicalizeCommand implements BlazeCommand {
           env, e.getMessage(), FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE);
     }
 
+    StarlarkOptionsParser starlarkOptionsParser =
+        StarlarkOptionsParser.newStarlarkOptionsParser(env, parser);
     try {
-      StarlarkOptionsParser.newStarlarkOptionsParser(env, parser).parse(env.getReporter());
+      starlarkOptionsParser.parse(env.getReporter());
     } catch (OptionsParsingException e) {
       return reportAndCreateCommandFailure(
           env, e.getMessage(), FailureDetails.Command.Code.STARLARK_OPTIONS_PARSE_FAILURE);
@@ -237,10 +238,9 @@ public final class CanonicalizeCommand implements BlazeCommand {
       } else {
         // Otherwise, print out the canonical command line
         List<String> nativeResult = parser.canonicalize();
-        ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(nativeResult);
-        for (Map.Entry<String, Object> starlarkOption : parser.getStarlarkOptions().entrySet()) {
-          result.add("--" + starlarkOption.getKey() + "=" + starlarkOption.getValue());
-        }
+        List<String> starlarkResult = starlarkOptionsParser.canonicalize();
+        ImmutableList.Builder<String> result =
+            ImmutableList.<String>builder().addAll(nativeResult).addAll(starlarkResult);
         for (String piece : result.build()) {
           env.getReporter().getOutErr().printOutLn(piece);
         }
@@ -258,7 +258,6 @@ public final class CanonicalizeCommand implements BlazeCommand {
     env.getReporter().handle(Event.error(message));
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
-            ExitCode.COMMAND_LINE_ERROR,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))

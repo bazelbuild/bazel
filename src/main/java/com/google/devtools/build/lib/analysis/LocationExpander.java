@@ -28,7 +28,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -68,13 +68,13 @@ public final class LocationExpander {
 
   private final RuleErrorConsumer ruleErrorConsumer;
   private final ImmutableMap<String, LocationFunction> functions;
-  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final RepositoryMapping repositoryMapping;
 
   @VisibleForTesting
   LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
       Map<String, LocationFunction> functions,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      RepositoryMapping repositoryMapping) {
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.functions = ImmutableMap.copyOf(functions);
     this.repositoryMapping = repositoryMapping;
@@ -85,8 +85,12 @@ public final class LocationExpander {
       Label root,
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-    this(ruleErrorConsumer, allLocationFunctions(root, locationMap, execPaths), repositoryMapping);
+      boolean legacyExternalRunfiles,
+      RepositoryMapping repositoryMapping) {
+    this(
+        ruleErrorConsumer,
+        allLocationFunctions(root, locationMap, execPaths, legacyExternalRunfiles),
+        repositoryMapping);
   }
 
   /**
@@ -109,8 +113,9 @@ public final class LocationExpander {
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, true)),
         execPaths,
+        ruleContext.getConfiguration().legacyExternalRunfiles(),
         ruleContext.getRule().getPackage().getRepositoryMapping());
   }
 
@@ -230,16 +235,19 @@ public final class LocationExpander {
     private final Label root;
     private final Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier;
     private final boolean execPaths;
+    private final boolean legacyExternalRunfiles;
     private final boolean multiple;
 
     LocationFunction(
         Label root,
         Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier,
         boolean execPaths,
+        boolean legacyExternalRunfiles,
         boolean multiple) {
       this.root = root;
       this.locationMapSupplier = locationMapSupplier;
       this.execPaths = execPaths;
+      this.legacyExternalRunfiles = legacyExternalRunfiles;
       this.multiple = multiple;
     }
 
@@ -252,8 +260,7 @@ public final class LocationExpander {
      * @param repositoryMapping map of {@code RepositoryName}s defined in the main workspace
      * @return The expanded value
      */
-    public String apply(
-        String arg, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+    public String apply(String arg, RepositoryMapping repositoryMapping) {
       Label label;
       try {
         label = root.getRelativeWithRemapping(arg, repositoryMapping);
@@ -279,7 +286,7 @@ public final class LocationExpander {
                 unresolved, functionName()));
       }
 
-      Set<String> paths = getPaths(artifacts, execPaths);
+      Set<String> paths = getPaths(artifacts);
       if (paths.isEmpty()) {
         throw new IllegalStateException(
             String.format(
@@ -304,14 +311,17 @@ public final class LocationExpander {
      * Extracts list of all executables associated with given collection of label artifacts.
      *
      * @param artifacts to get the paths of
-     * @param takeExecPath if false, the location path will be taken
      * @return all associated executable paths
      */
-    private Set<String> getPaths(Collection<Artifact> artifacts, boolean takeExecPath) {
+    private Set<String> getPaths(Collection<Artifact> artifacts) {
       TreeSet<String> paths = Sets.newTreeSet();
       for (Artifact artifact : artifacts) {
         PathFragment execPath =
-            takeExecPath ? artifact.getExecPath() : artifact.getPathForLocationExpansion();
+            execPaths
+                ? artifact.getExecPath()
+                : legacyExternalRunfiles
+                    ? artifact.getPathForLocationExpansion()
+                    : artifact.getRunfilesPath();
         if (execPath != null) {  // omit middlemen etc
           paths.add(execPath.getCallablePathString());
         }
@@ -329,17 +339,35 @@ public final class LocationExpander {
   }
 
   static ImmutableMap<String, LocationFunction> allLocationFunctions(
-      Label root, Supplier<Map<Label, Collection<Artifact>>> locationMap, boolean execPaths) {
+      Label root,
+      Supplier<Map<Label, Collection<Artifact>>> locationMap,
+      boolean execPaths,
+      boolean legacyExternalRunfiles) {
     return new ImmutableMap.Builder<String, LocationFunction>()
-        .put("location", new LocationFunction(root, locationMap, execPaths, EXACTLY_ONE))
-        .put("locations", new LocationFunction(root, locationMap, execPaths, ALLOW_MULTIPLE))
-        .put("rootpath", new LocationFunction(root, locationMap, USE_LOCATION_PATHS, EXACTLY_ONE))
+        .put(
+            "location",
+            new LocationFunction(root, locationMap, execPaths, legacyExternalRunfiles, EXACTLY_ONE))
+        .put(
+            "locations",
+            new LocationFunction(
+                root, locationMap, execPaths, legacyExternalRunfiles, ALLOW_MULTIPLE))
+        .put(
+            "rootpath",
+            new LocationFunction(
+                root, locationMap, USE_LOCATION_PATHS, legacyExternalRunfiles, EXACTLY_ONE))
         .put(
             "rootpaths",
-            new LocationFunction(root, locationMap, USE_LOCATION_PATHS, ALLOW_MULTIPLE))
-        .put("execpath", new LocationFunction(root, locationMap, USE_EXEC_PATHS, EXACTLY_ONE))
-        .put("execpaths", new LocationFunction(root, locationMap, USE_EXEC_PATHS, ALLOW_MULTIPLE))
-        .build();
+            new LocationFunction(
+                root, locationMap, USE_LOCATION_PATHS, legacyExternalRunfiles, ALLOW_MULTIPLE))
+        .put(
+            "execpath",
+            new LocationFunction(
+                root, locationMap, USE_EXEC_PATHS, legacyExternalRunfiles, EXACTLY_ONE))
+        .put(
+            "execpaths",
+            new LocationFunction(
+                root, locationMap, USE_EXEC_PATHS, legacyExternalRunfiles, ALLOW_MULTIPLE))
+        .buildOrThrow();
   }
 
   /**
@@ -352,7 +380,8 @@ public final class LocationExpander {
   static Map<Label, Collection<Artifact>> buildLocationMap(
       RuleContext ruleContext,
       Map<Label, ? extends Collection<Artifact>> labelMap,
-      boolean allowDataAttributeEntriesInLabel) {
+      boolean allowDataAttributeEntriesInLabel,
+      boolean collectSrcs) {
     Map<Label, Collection<Artifact>> locationMap = Maps.newHashMap();
     if (labelMap != null) {
       for (Map.Entry<Label, ? extends Collection<Artifact>> entry : labelMap.entrySet()) {
@@ -371,7 +400,7 @@ public final class LocationExpander {
       }
     }
 
-    if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
+    if (collectSrcs && ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection src :
           ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
         for (Label label : AliasProvider.getDependencyLabels(src)) {

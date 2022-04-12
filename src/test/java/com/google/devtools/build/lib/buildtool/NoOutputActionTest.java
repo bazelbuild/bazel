@@ -18,9 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,23 +27,24 @@ import org.junit.runners.JUnit4;
  * outputs it's supposed to should cause an error to be reported, but not a
  * crash.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class NoOutputActionTest extends BuildIntegrationTestCase {
 
   @Test
   public void testNoOutput() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-    write("nooutput/BUILD",
-          "genrule(name = 'nooutput', ",
-          "        outs = ['out1', 'out2'],  ",
-          "        cmd = '/bin/true')");
+    write(
+        "nooutput/BUILD",
+        "genrule(name = 'nooutput', ",
+        "        outs = ['out1', 'out2'],  ",
+        "        cmd = '')");
 
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//nooutput"));
     assertThat(e)
         .hasMessageThat()
-        .contains("nooutput/BUILD:1:8 not all outputs were created or valid");
+        .contains(
+            "nooutput/BUILD:1:8 Executing genrule //nooutput:nooutput failed: not all outputs were"
+                + " created or valid");
     events.assertContainsError("declared output 'nooutput/out1' was not created by genrule");
     events.assertContainsError("declared output 'nooutput/out2' was not created by genrule");
   }

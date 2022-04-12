@@ -20,21 +20,17 @@ if [ -d derived/jars ]; then
   ADDITIONAL_JARS=derived/jars
 else
   DISTRIBUTION=${BAZEL_DISTRIBUTION:-debian}
-  ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/java/|g')"
+  ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/|g')"
 fi
 
 # Parse third_party/googleapis/BUILD.bazel to find the proto files we need to compile from googleapis
 GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
-PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto -name "*.proto")
-LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
-GRPC_JAVA_VERSION=1.20.0
+PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics.proto -name "*.proto")
+# For protobuf jars, derived/jars/com_google_protobuf/java/core/libcore.jar must be in front of derived/jars/com_google_protobuf/java/core/liblite.jar, so we sort jars here
+LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | sort | grep -Fv JavaBuilder | grep -Fv third_party/guava/guava | grep -ve 'third_party/grpc/grpc.*jar' | grep -Fv third_party/netty_tcnative | tr "\n" " ")
+GRPC_JAVA_VERSION=1.41.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-# TODO(pcloudy): Remove this after upgrading gRPC to 1.26.0
-if [ -z "${GRPC_LIBRARY_JARS}" ]; then
-  GRPC_JAVA_VERSION=1.26.0
-  GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-fi
-GUAVA_VERSION=25.1
+GUAVA_VERSION=31.1
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
@@ -284,6 +280,11 @@ EOF
   link_file "${PWD}/tools/sh/sh_configure.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_configure.bzl"
   link_file "${PWD}/tools/sh/sh_toolchain.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_toolchain.bzl"
   link_file "${PWD}/tools/sh/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/sh/BUILD"
+
+  # Create @bazel_tools//tools/jdk
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/jdk
+  link_file "${PWD}/tools/jdk/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/jdk/BUILD"
+  link_children "${PWD}" tools/jdk "${BAZEL_TOOLS_REPO}"
 
   # Create @bazel_tools//tools/java/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles

@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -44,8 +46,8 @@ public class BzlLoadValue implements SkyValue {
 
   @VisibleForTesting
   public BzlLoadValue(Module module, byte[] transitiveDigest) {
-    this.module = Preconditions.checkNotNull(module);
-    this.transitiveDigest = Preconditions.checkNotNull(transitiveDigest);
+    this.module = checkNotNull(module);
+    this.transitiveDigest = checkNotNull(transitiveDigest);
   }
 
   /** Returns the .bzl module. */
@@ -61,19 +63,26 @@ public class BzlLoadValue implements SkyValue {
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
   /** SkyKey for a Starlark load. */
-  abstract static class Key implements SkyKey {
+  public abstract static class Key implements SkyKey {
+    // Closed, for class-based equals()/hashCode().
+    private Key() {}
 
     /**
-     * Returns the label of the .bzl file to be loaded.
+     * Returns the absolute label of the .bzl file to be loaded.
      *
-     * <p>For {@link KeyForBuiltins}, it usually begins with {@code @builtins//:}. Other values are
-     * possible but indicate a bug in the {@code @builtins} .bzl files and will fail during
-     * evaluation.
+     * <p>For {@link KeyForBuiltins}, it must begin with {@code @_builtins//:}. (It is legal for
+     * other keys to use {@code @_builtins}, but since no real repo by that name may be defined,
+     * they won't evaluate to a successful result.)
      */
     abstract Label getLabel();
 
     /** Returns true if this is a request for the special BUILD prelude file. */
     boolean isBuildPrelude() {
+      return false;
+    }
+
+    /** Returns true if this is a request for a builtins bzl file. */
+    boolean isBuiltins() {
       return false;
     }
 
@@ -88,7 +97,7 @@ public class BzlLoadValue implements SkyValue {
     abstract Key getKeyForLoad(Label loadLabel);
 
     /**
-     * Constructs an BzlCompileValue key suitable for retrieving the Starlark code for this .bzl,
+     * Constructs a BzlCompileValue key suitable for retrieving the Starlark code for this .bzl,
      * given the Root in which to find its file.
      */
     abstract BzlCompileValue.Key getCompileKey(Root root);
@@ -97,13 +106,53 @@ public class BzlLoadValue implements SkyValue {
     public SkyFunctionName functionName() {
       return SkyFunctions.BZL_LOAD;
     }
+
+    @Override
+    public final boolean valueIsShareable() {
+      // We don't guarantee that all constructs implement equality, meaning we can't correctly
+      // compare deserialized instances. This is currently the case for attribute descriptors.
+      return false;
+    }
+
+    @SuppressWarnings("EqualsGetClass") // All subclasses are known.
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null) {
+        return false;
+      }
+      if (!this.getClass().equals(obj.getClass())) {
+        return false;
+      }
+      Key that = (Key) obj;
+      return this.getLabel().equals(that.getLabel())
+          && (this.isBuildPrelude() == that.isBuildPrelude())
+          && (this.isBuiltins() == that.isBuiltins());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getClass(), getLabel(), isBuildPrelude(), isBuiltins());
+    }
+
+    protected final MoreObjects.ToStringHelper toStringHelper() {
+      return MoreObjects.toStringHelper(this)
+          .add("label", getLabel())
+          .add("isBuildPrelude", isBuildPrelude());
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper().toString();
+    }
   }
 
   /** A key for loading a .bzl during package loading (BUILD evaluation). */
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForBuild extends Key {
-
     private final Label label;
 
     /**
@@ -113,7 +162,7 @@ public class BzlLoadValue implements SkyValue {
     private final boolean isBuildPrelude;
 
     private KeyForBuild(Label label, boolean isBuildPrelude) {
-      this.label = Preconditions.checkNotNull(label);
+      this.label = checkNotNull(label);
       this.isBuildPrelude = isBuildPrelude;
     }
 
@@ -140,32 +189,10 @@ public class BzlLoadValue implements SkyValue {
     @Override
     BzlCompileValue.Key getCompileKey(Root root) {
       if (isBuildPrelude) {
-        return BzlCompileValue.keyForPrelude(root, label);
+        return BzlCompileValue.keyForBuildPrelude(root, label);
       } else {
         return BzlCompileValue.key(root, label);
       }
-    }
-
-    @Override
-    public String toString() {
-      return label.toString();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof KeyForBuild)) {
-        return false;
-      }
-      KeyForBuild other = (KeyForBuild) obj;
-      return this.label.equals(other.label) && this.isBuildPrelude == other.isBuildPrelude;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(KeyForBuild.class, label, isBuildPrelude);
     }
   }
 
@@ -184,15 +211,14 @@ public class BzlLoadValue implements SkyValue {
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForWorkspace extends Key {
-
     private final Label label;
     private final int workspaceChunk;
     private final RootedPath workspacePath;
 
     private KeyForWorkspace(Label label, int workspaceChunk, RootedPath workspacePath) {
-      this.label = Preconditions.checkNotNull(label);
+      this.label = checkNotNull(label);
       this.workspaceChunk = workspaceChunk;
-      this.workspacePath = Preconditions.checkNotNull(workspacePath);
+      this.workspacePath = checkNotNull(workspacePath);
     }
 
     @Override
@@ -219,52 +245,51 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    public String toString() {
-      return label + " (in workspace)";
-    }
-
-    @Override
     public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof KeyForWorkspace)) {
+      if (!super.equals(obj)) {
         return false;
       }
       KeyForWorkspace other = (KeyForWorkspace) obj;
-      return label.equals(other.label)
-          && workspaceChunk == other.workspaceChunk
-          && workspacePath.equals(other.workspacePath);
+      return workspaceChunk == other.workspaceChunk && workspacePath.equals(other.workspacePath);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(KeyForWorkspace.class, label, workspaceChunk, workspacePath);
+      return Objects.hash(super.hashCode(), workspaceChunk, workspacePath);
     }
   }
 
   /**
-   * A key for loading a .bzl during {@code @builtins} evaluation.
+   * A key for loading a .bzl during {@code @_builtins} evaluation.
    *
    * <p>This kind of key is only requested by {@link StarlarkBuiltinsFunction} and its transitively
    * loaded {@link BzlLoadFunction} calls.
    *
-   * <p>The label begins with {@code @builtins//:}, but it is distinct from any .bzl in an external
-   * repository named {@code "@builtins"}.
+   * <p>The label must have {@link StarlarkBuiltinsValue#BUILTINS_REPO} as its repository component.
+   * (It is valid for other key types to use that repo name, but since it is not a real repository
+   * and cannot be fetched, any attempt to resolve such a key would fail.)
    */
+  // TODO(#11437): Prevent users from trying to declare a repo named "@_builtins".
   @Immutable
   @AutoCodec.VisibleForSerialization
   static final class KeyForBuiltins extends Key {
-
     private final Label label;
 
     private KeyForBuiltins(Label label) {
-      this.label = Preconditions.checkNotNull(label);
+      this.label = checkNotNull(label);
+      if (!StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
+        throw new IllegalArgumentException("repository name for builtins key must be '@_builtins'");
+      }
     }
 
     @Override
     Label getLabel() {
       return label;
+    }
+
+    @Override
+    boolean isBuiltins() {
+      return true;
     }
 
     @Override
@@ -276,31 +301,36 @@ public class BzlLoadValue implements SkyValue {
     BzlCompileValue.Key getCompileKey(Root root) {
       return BzlCompileValue.keyForBuiltins(root, label);
     }
+  }
 
-    @Override
-    public String toString() {
-      return label + " (in builtins)";
+  /** A key for loading a .bzl to get the repo rule required by Bzlmod generated repositories. */
+  @Immutable
+  @AutoCodec.VisibleForSerialization
+  static final class KeyForBzlmod extends Key {
+    private final Label label;
+
+    private KeyForBzlmod(Label label) {
+      this.label = checkNotNull(label);
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof KeyForBuiltins)) {
-        return false;
-      }
-      return this.label.equals(((KeyForBuiltins) obj).label);
+    Label getLabel() {
+      return label;
     }
 
     @Override
-    public int hashCode() {
-      return Objects.hash(KeyForBuiltins.class, label);
+    Key getKeyForLoad(Label loadLabel) {
+      return keyForBzlmod(loadLabel);
+    }
+
+    @Override
+    BzlCompileValue.Key getCompileKey(Root root) {
+      return BzlCompileValue.key(root, label);
     }
   }
 
   /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
-  static Key keyForBuild(Label label) {
+  public static Key keyForBuild(Label label) {
     return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ false));
   }
 
@@ -316,7 +346,7 @@ public class BzlLoadValue implements SkyValue {
     return keyInterner.intern(new KeyForWorkspace(label, workspaceChunk, workspacePath));
   }
 
-  /** Constructs a key for loading a .bzl file within the {@code @builtins} pseudo-repository. */
+  /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */
   static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
   }
@@ -324,5 +354,10 @@ public class BzlLoadValue implements SkyValue {
   /** Constructs a key for loading the special prelude .bzl. */
   static Key keyForBuildPrelude(Label label) {
     return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ true));
+  }
+
+  /** Constructs a key for loading a .bzl for Bzlmod repos */
+  public static Key keyForBzlmod(Label label) {
+    return keyInterner.intern(new KeyForBzlmod(label));
   }
 }

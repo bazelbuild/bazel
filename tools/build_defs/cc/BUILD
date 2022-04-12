@@ -9,10 +9,18 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
-        "//devtools/blaze/integration:__pkg__",
         "//:__pkg__",
+        "//devtools/blaze/integration:__pkg__",
         "//tools/build_defs:__pkg__",
     ],
+)
+
+filegroup(
+    name = "action_names",
+    srcs = [
+        "action_names.bzl",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(

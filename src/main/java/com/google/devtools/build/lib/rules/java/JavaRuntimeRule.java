@@ -37,6 +37,7 @@ public final class JavaRuntimeRule implements RuleDefinition {
         .originalBuilder()
         .requiresConfigurationFragments(JavaConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
+        .advertiseStarlarkProvider(JavaRuntimeInfo.PROVIDER.id())
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(srcs) -->
         All files in the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -60,7 +61,7 @@ public final class JavaRuntimeRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_runtime")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(JavaRuntime.class)
         .build();
   }
@@ -71,7 +72,7 @@ public final class JavaRuntimeRule implements RuleDefinition {
 Specifies the configuration for a Java runtime.
 </p>
 
-<h4 id="java_runtime">Example:</h4>
+<h4 id="java_runtime_example">Example:</h4>
 
 <pre class="code">
 java_runtime(

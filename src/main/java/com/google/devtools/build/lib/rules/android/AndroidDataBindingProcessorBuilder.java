@@ -29,13 +29,15 @@ public class AndroidDataBindingProcessorBuilder {
    * @param androidResources The resources to process.
    * @param appId The app id (the app's java package).
    * @param dataBindingLayoutInfoOut The output layout info file to write.
+   * @param useDataBindingAndroidX Whether generated files should use AndroidX dependencies.
    * @return The new AndroidResources that has been processed by databinding.
    */
   public static AndroidResources create(
       AndroidDataContext dataContext,
       AndroidResources androidResources,
       String appId,
-      Artifact dataBindingLayoutInfoOut) {
+      Artifact dataBindingLayoutInfoOut,
+      boolean useDataBindingAndroidX) {
 
     ImmutableList.Builder<Artifact> databindingProcessedResourcesBuilder = ImmutableList.builder();
     for (Artifact resource : androidResources.getResources()) {
@@ -89,6 +91,7 @@ public class AndroidDataBindingProcessorBuilder {
 
     builder.addOutput("--dataBindingInfoOut", dataBindingLayoutInfoOut);
     builder.addFlag("--appId", appId);
+    builder.maybeAddFlag("--useDataBindingAndroidX", useDataBindingAndroidX);
 
     builder.buildAndRegister("Processing data binding", "ProcessDatabinding");
 

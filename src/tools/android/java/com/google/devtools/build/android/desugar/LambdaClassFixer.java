@@ -25,6 +25,7 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -151,6 +152,7 @@ class LambdaClassFixer extends ClassVisitor {
     if (!FACTORY_METHOD_NAME.equals(name) && !"<init>".equals(name)) {
       methodVisitor = new LambdaClassInvokeSpecialRewriter(methodVisitor);
     }
+    methodVisitor.visitLineNumber(lambdaInfo.lineNumber(), new Label());
     return methodVisitor;
   }
 
@@ -160,6 +162,9 @@ class LambdaClassFixer extends ClassVisitor {
         !hasState || hasFactory,
         "Expected factory method for capturing lambda %s",
         getInternalName());
+    if (lambdaInfo.sourceFilename().isPresent()) {
+      super.visitSource(lambdaInfo.sourceFilename().get(), /* debug= */ null);
+    }
     if (!hasState) {
       checkState(
           signature == null,
@@ -181,7 +186,6 @@ class LambdaClassFixer extends ClassVisitor {
               (String) null,
               (Object) null)
           .visitEnd();
-
       MethodVisitor codeBuilder =
           super.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", (String) null, new String[0]);
       codeBuilder.visitTypeInsn(Opcodes.NEW, getInternalName());

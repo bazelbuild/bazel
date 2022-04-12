@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses.BaseRule;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -54,19 +54,22 @@ public final class BindRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("bind")
         .type(RuleClassType.WORKSPACE)
-        .ancestors(BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Bind.class)
         .build();
   }
 }
 /*<!-- #BLAZE_RULE (NAME = bind, FAMILY = Workspace)[GENERIC_RULE] -->
 
-<em><p>Warning: use of <code>bind()</code> is not recommended. See "<a
+<p><em>Warning: use of <code>bind()</code> is not recommended. See "<a
 href="https://github.com/bazelbuild/bazel/issues/1952">Consider removing bind</a>" for a long
-discussion of its issues and alternatives.</p></em>
-<em><p>Warning: <code>select()</code> cannot be used in <code>bind()</code>. See the <a
-href="../configurable-attributes.html#bind-select">Configurable Attributes FAQ</a> for
-details.</p></em>
+discussion of its issues and alternatives. In particular, consider the use of
+<a href="https://bazel.build/rules/repository_rules#attributes"><code>repo_mapping</code>
+repository attributes</a>.</em></p>
+
+<p><em>Warning: <code>select()</code> cannot be used in <code>bind()</code>. See the <a
+href="${link configurable-attributes#bind-select}">Configurable Attributes FAQ</a> for
+details.</em></p>
 
 <p>Gives a target an alias in the <code>//external</code> package.</p>
 

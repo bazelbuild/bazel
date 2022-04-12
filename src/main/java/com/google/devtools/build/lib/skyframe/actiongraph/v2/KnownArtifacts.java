@@ -28,7 +28,8 @@ public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtosV2.Artifac
   }
 
   @Override
-  AnalysisProtosV2.Artifact createProto(Artifact artifact, int id) throws IOException {
+  AnalysisProtosV2.Artifact createProto(Artifact artifact, int id)
+      throws IOException, InterruptedException {
     AnalysisProtosV2.Artifact.Builder artifactProtoBuilder =
         AnalysisProtosV2.Artifact.newBuilder()
             .setId(id)

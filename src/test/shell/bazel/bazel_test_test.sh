@@ -222,7 +222,7 @@ EOF
   expect_log '1 test passes.$'
 }
 
-# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
@@ -241,7 +241,7 @@ EOF
   chmod u+x scripts/hello
 
   # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
-  PATH=$PATH:$PWD/scripts bazel --nomaster_bazelrc test //testing:t1 -s --run_under=hello \
+  PATH=$PATH:$PWD/scripts bazel --ignore_all_rc_files test //testing:t1 -s --run_under=hello \
     --test_output=all --incompatible_strict_action_env=true >& $TEST_log && fail "Expected failure"
 
   # With --action_env=PATH, the local PATH is forwarded to the test.
@@ -264,6 +264,52 @@ EOF
   bazel test //testing:t1 --run_under=$PWD/scripts/hello \
     -s --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! testing/t1'
+}
+
+function test_run_under_external_file_with_options() {
+  # Set up the external repo.
+  local run_repo=$TEST_TMPDIR/run
+  mkdir -p $run_repo || fail "mkdir run_repo failed"
+  touch $run_repo/WORKSPACE
+
+  cat <<EOF > $run_repo/BUILD
+exports_files(["under.sh"])
+EOF
+  cat <<EOF > $run_repo/under.sh
+#!/bin/sh
+echo running under @run//:under "\$*"
+EOF
+  chmod u+x $run_repo/under.sh
+
+
+  # Set up the main repo.
+  cat <<EOF > WORKSPACE
+local_repository(
+    name = "run",
+    path = "../run",
+)
+EOF
+
+  mkdir -p testing || fail "mkdir testing failed"
+
+  cat <<EOF > testing/BUILD
+sh_test(
+  name = "passing_test" ,
+  srcs = [ "passing_test.sh" ])
+EOF
+  cat <<EOF > testing/passing_test.sh
+#!/bin/sh
+exit 0
+EOF
+  chmod u+x testing/passing_test.sh
+
+
+  bazel test //testing:passing_test -s --run_under='@run//:under.sh -c' \
+    --test_output=all >& $TEST_log || fail "Expected success"
+
+  expect_log 'running under @run//:under -c testing/passing_test'
+  expect_log 'passing_test *PASSED'
+  expect_log '1 test passes.$'
 }
 
 function test_test_timeout() {
@@ -580,7 +626,7 @@ function test_detailed_test_summary() {
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
 }
 
-# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
@@ -612,7 +658,7 @@ EOF
   chmod +x true.sh flaky.sh false.sh
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events \
+  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events \
       --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
@@ -626,7 +672,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:pass \
+  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events //:pass \
       &> $TEST_log || fail "//:pass should have passed"
   expect_log_once "PASS.*: //:pass"
   expect_log_once "PASSED"
@@ -635,7 +681,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:fail \
+  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events //:fail \
       &> $TEST_log && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL.*: //:fail (.*/fail/test_attempts/attempt_..log)" 2
@@ -649,7 +695,7 @@ EOF
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 }
 
-function test_undeclared_outputs_are_zipped_and_manifest_exists() {
+function setup_undeclared_outputs_test() {
   mkdir -p dir
 
   cat <<'EOF' > dir/test.sh
@@ -668,6 +714,15 @@ sh_test(
     srcs = [ "test.sh" ],
   )
 EOF
+}
+
+function test_undeclared_outputs_are_zipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/fake.html
 
   bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
@@ -675,29 +730,115 @@ EOF
   N=$'\n'
 
   # Check that the undeclared outputs zip file exists.
-  outputs_zip=bazel-testlogs/dir/test/test.outputs/outputs.zip
   [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
+
+  # Check that the original undeclared outputs no longer exist.
+  [ -e $output_text ] && fail "$output_text was present after test"
+  [ -e $output_text ] && fail "$output_text was present after test"
+
 
   # Check the contents of the zip file.
   unzip -q "$outputs_zip" -d unzipped_outputs || fail "failed to unzip $outputs_zip"
   cat > expected_text <<EOF
 some text
 EOF
-diff "unzipped_outputs/text.txt" expected_text > d || fail "unzipped_outputs/text.txt differs from expected:$N$(cat d)$N"
+  diff "unzipped_outputs/text.txt" expected_text > d || fail "unzipped_outputs/text.txt differs from expected:$N$(cat d)$N"
   cat > expected_html <<EOF
 <!DOCTYPE html>
 EOF
-diff expected_html "unzipped_outputs/fake.html" > d || fail "unzipped_outputs/fake.html differs from expected:$N$(cat d)$N"
+  diff expected_html "unzipped_outputs/fake.html" > d || fail "unzipped_outputs/fake.html differs from expected:$N$(cat d)$N"
+}
+
+function test_undeclared_outputs_are_not_zipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/fake.html
+
+  bazel test -s --nozip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+
+  # Newlines are useful around diffs. This helps us get them in bash strings.
+  N=$'\n'
+
+  # Check that the undeclared outputs zip file does not exist.
+  [ -e $outputs_zip ] && fail "$outputs_zip was present after test"
+
+  # Check that the undeclared outputs exist.
+  [ -e $output_text ] || fail "$output_text was not present after test"
+  [ -e $output_text ] || fail "$output_text was not present after test"
+
+  # Check the contents of the undeclared outputs.
+  cat > expected_text <<EOF
+some text
+EOF
+  diff "$outputs_dir/text.txt" expected_text > d || fail "$outputs_dir/text.txt differs from expected:$N$(cat d)$N"
+  cat > expected_html <<EOF
+<!DOCTYPE html>
+EOF
+  diff expected_html "$outputs_dir/fake.html" > d || fail "$outputs_dir/fake.html differs from expected:$N$(cat d)$N"
+}
+
+function test_undeclared_outputs_zipped_then_unzipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/fake.html
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  [ -s $output_text ] && fail "$output_text was present after test"
+  [ -s $output_html ] && fail "$output_html was present after test"
+  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
+
+  bazel test -s --nozip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+
+  [ -s $outputs_zip ] && fail "$outputs_zip was present after test"
+  [ -s $output_text ] || fail "$output_text was not present after test"
+  [ -s $output_html ] || fail "$output_html was not present after test"
+}
+
+function test_undeclared_outputs_unzipped_then_zipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/fake.html
+
+  bazel test -s --nozip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+
+  [ -s $outputs_zip ] && fail "$outputs_zip was present after test"
+  [ -s $output_text ] || fail "$output_text was not present after test"
+  [ -s $output_html ] || fail "$output_html was not present after test"
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  [ -s $output_text ] && fail "$output_text was present after test"
+  [ -s $output_html ] && fail "$output_html was present after test"
+  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
+}
+
+function test_undeclared_outputs_manifest_is_created() {
+  setup_undeclared_outputs_test
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  # Newlines are useful around diffs. This helps us get them in bash strings.
+  N=$'\n'
 
   # Check that the undeclared outputs manifest exists and that it has the
   # correct contents.
-  outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  local -r outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
   [ -s $outputs_manifest ] || fail "$outputs_manifest was not present after test"
   cat > expected_manifest <<EOF
 fake.html	16	text/html
 text.txt	10	text/plain
 EOF
-diff expected_manifest "$outputs_manifest" > d || fail "$outputs_manifest differs from expected:$N$(cat d)$N"
+  diff expected_manifest "$outputs_manifest" > d || fail "$outputs_manifest differs from expected:$N$(cat d)$N"
 }
 
 function test_undeclared_outputs_annotations_are_added() {
@@ -778,6 +919,50 @@ sh_test(
 EOF
   bazel test --nobuild_runfile_manifests //dir:test >& $TEST_log && fail "should have failed"
   expect_log "cannot run local tests with --nobuild_runfile_manifests"
+}
+
+function test_run_from_external_repo_sibling_repository_layout() {
+  cat <<EOF > WORKSPACE
+local_repository(
+    name = "a",
+    path = "./a",
+)
+EOF
+
+  mkdir -p a
+  touch a/WORKSPACE
+  cat <<'EOF' > a/BUILD
+py_test(
+    name = 'x',
+    srcs = ['x.py'],
+)
+EOF
+  touch a/x.py
+
+  bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
+      || fail "expected success"
+
+  cp $(testlogs_dir a)/x/test.xml $TEST_log
+  expect_log "<testsuite name=\"a/x\""
+  expect_log "<testcase name=\"a/x\""
+}
+
+function test_xml_output_format() {
+  touch WORKSPACE
+  cat <<'EOF' > BUILD
+py_test(
+    name = 'x',
+    srcs = ['x.py'],
+)
+EOF
+  touch x.py
+
+  bazel test //:x &> $TEST_log \
+      || fail "expected success"
+
+  cat bazel-testlogs/x/test.xml > $TEST_log
+  expect_log "<testsuite name=\"x\""
+  expect_log "<testcase name=\"x\""
 }
 
 run_suite "bazel test tests"

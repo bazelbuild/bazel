@@ -62,6 +62,7 @@ import org.xml.sax.SAXException;
  *       --manifestValues key value pairs of manifest overrides
  *       --customPackage package to write for library manifest
  *       --manifestOutput path to write output manifest
+ *       --mergeManifestPermissions merge manifest uses-permissions
  * </pre>
  */
 public class ManifestMergerAction {
@@ -152,14 +153,21 @@ public class ManifestMergerAction {
       help = "Path to where the merger log should be written."
     )
     public Path log;
+
+    @Option(
+        name = "mergeManifestPermissions",
+        defaultValue = "false",
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "If enabled, manifest permissions will be merged.")
+    public boolean mergeManifestPermissions;
   }
 
   private static final String[] PERMISSION_TAGS =
       new String[] {"uses-permission", "uses-permission-sdk-23"};
   private static final StdLogger stdLogger = new StdLogger(StdLogger.Level.WARNING);
   private static final Logger logger = Logger.getLogger(ManifestMergerAction.class.getName());
-
-  private static Options options;
 
   private static Path removePermissions(Path manifest, Path outputDir)
       throws IOException, ParserConfigurationException, TransformerConfigurationException,
@@ -175,9 +183,8 @@ public class ManifestMergerAction {
         }
       }
     }
-    // Write resulting manifest to the output directory, maintaining full path to prevent collisions
-    Path output = outputDir.resolve(manifest.toString().replaceFirst("^/", ""));
-    Files.createDirectories(output.getParent());
+    // Write resulting manifest to a tmp file to prevent collisions
+    Path output = Files.createTempFile(outputDir, "AndroidManifest", ".xml");
     TransformerFactory.newInstance()
         .newTransformer()
         .transform(new DOMSource(doc), new StreamResult(output.toFile()));
@@ -191,19 +198,23 @@ public class ManifestMergerAction {
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
-    options = optionsParser.getOptions(Options.class);
+    Options options = optionsParser.getOptions(Options.class);
 
     try {
       Path mergedManifest;
       AndroidManifestProcessor manifestProcessor = AndroidManifestProcessor.with(stdLogger);
 
-      // Remove uses-permission tags from mergees before the merge.
       Path tmp = Files.createTempDirectory("manifest_merge_tmp");
       tmp.toFile().deleteOnExit();
       ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
       for (Map.Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
-        mergeeManifests.put(
-            removePermissions(mergeeManifest.getKey(), tmp), mergeeManifest.getValue());
+        if (!options.mergeManifestPermissions) {
+          // Remove uses-permission tags from mergees before the merge.
+          mergeeManifests.put(
+              removePermissions(mergeeManifest.getKey(), tmp), mergeeManifest.getValue());
+        } else {
+          mergeeManifests.put(mergeeManifest);
+        }
       }
 
       Path manifest = options.manifest;
@@ -216,14 +227,17 @@ public class ManifestMergerAction {
       mergedManifest =
           manifestProcessor.mergeManifest(
               manifest,
-              mergeeManifests.build(),
+              mergeeManifests.buildOrThrow(),
               options.mergeType,
               options.manifestValues,
               options.customPackage,
               options.manifestOutput,
               options.log,
               optionsParser.getOptions(ResourceProcessorCommonOptions.class).logWarnings);
-
+      // Bazel expects a log file output as a result of manifest merging, even if it is a no-op.
+      if (options.log != null && !options.log.toFile().exists()) {
+        options.log.toFile().createNewFile();
+      }
       if (!mergedManifest.equals(options.manifestOutput)) {
         // manifestProcess.mergeManifest returns the merged manifest, or, if merging was a no-op,
         // the original primary manifest. In the latter case, explicitly copy that primary manifest

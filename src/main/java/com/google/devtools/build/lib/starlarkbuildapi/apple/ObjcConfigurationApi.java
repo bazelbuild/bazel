@@ -35,6 +35,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       allowReturnNones = true,
       doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
+  @Nullable
   String getIosSimulatorDevice();
 
   @StarlarkMethod(
@@ -42,6 +43,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       allowReturnNones = true,
       doc = "The SDK version of the iOS simulator to use when running on the simulator.")
+  @Nullable
   DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
@@ -53,9 +55,9 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
+  @Nullable
   String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
 
   @StarlarkMethod(
@@ -67,16 +69,10 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
+  @Nullable
   DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
-      name = "generate_dsym",
-      doc = "Whether to generate debug symbol(.dSYM) artifacts.",
-      structField = true)
-  boolean generateDsym();
 
   @StarlarkMethod(
       name = "generate_linkmap",
@@ -108,6 +104,12 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   ImmutableList<String> getCopts();
 
   @StarlarkMethod(
+      name = "should_strip_binary",
+      structField = true,
+      doc = "Returns whether to perform symbol and dead-code strippings on linked binaries.")
+  boolean shouldStripBinary();
+
+  @StarlarkMethod(
       name = "signing_certificate_name",
       structField = true,
       allowReturnNones = true,
@@ -124,10 +126,4 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
           "Returns whether device debug entitlements should be included when signing an "
               + "application.")
   boolean useDeviceDebugEntitlements();
-
-  @StarlarkMethod(
-      name = "enable_apple_binary_native_protos",
-      structField = true,
-      doc = "Returns whether apple_binary should generate and link protos natively.")
-  boolean enableAppleBinaryNativeProtos();
 }

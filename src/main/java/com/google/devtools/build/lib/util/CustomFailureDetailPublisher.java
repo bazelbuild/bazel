@@ -43,16 +43,18 @@ public class CustomFailureDetailPublisher {
     failureDetailFilePath = null;
   }
 
-  public static void maybeWriteFailureDetailFile(FailureDetail failureDetail) {
+  public static boolean maybeWriteFailureDetailFile(FailureDetail failureDetail) {
     Path path = CustomFailureDetailPublisher.failureDetailFilePath;
     if (path != null) {
       try {
         Files.write(path, failureDetail.toByteArray());
+        return true;
       } catch (IOException ioe) {
         System.err.printf(
             "io error writing failure detail to file %s.\nfailure_detail: %s\nIOException: %s",
             path, failureDetail, ioe.getMessage());
       }
     }
+    return false;
   }
 }

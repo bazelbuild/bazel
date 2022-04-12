@@ -15,12 +15,14 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase.AnalysisFailureRecorder;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -44,14 +47,16 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ConfigurableAttributesTest extends BuildViewTestCase {
+
   private void writeConfigRules() throws Exception {
-    scratch.file("conditions/BUILD",
+    scratch.file(
+        "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
-        "    values = {'test_arg': 'a'})",
+        "    values = {'foo': 'a'})",
         "config_setting(",
         "    name = 'b',",
-        "    values = {'test_arg': 'b'})");
+        "    values = {'foo': 'b'})");
   }
 
   private void writeHelloRules(boolean includeDefaultCondition) throws IOException {
@@ -150,6 +155,15 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
                           .value(Label.parseAbsoluteUnchecked("//foo:default"))
                           .allowedFileTypes(FileTypeSet.ANY_FILE)));
 
+  private static final MockRule RULE_WITH_NO_PLATFORM =
+      () ->
+          MockRule.define(
+              "rule_with_no_platform",
+              (builder, env) ->
+                  builder
+                      .add(attr("deps", LABEL_LIST).allowedFileTypes())
+                      .useToolchainResolution(ToolchainResolutionMode.DISABLED));
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -158,8 +172,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             .addRuleDefinition(RULE_WITH_COMPUTED_DEFAULT)
             .addRuleDefinition(RULE_WITH_BOOLEAN_ATTR)
             .addRuleDefinition(RULE_WITH_ALLOWED_VALUES)
-            .addRuleDefinition(RULE_WITH_LABEL_DEFAULT);
+            .addRuleDefinition(RULE_WITH_LABEL_DEFAULT)
+            .addRuleDefinition(RULE_WITH_NO_PLATFORM);
     TestRuleClassProvider.addStandardRules(builder);
+    // Allow use of --foo as a dummy flag
+    builder.addConfigurationFragment(DummyTestFragment.class);
     return builder.build();
   }
 
@@ -167,10 +184,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void basicConfigurability() throws Exception {
     writeHelloRules(/*includeDefaultCondition=*/true);
     writeConfigRules();
-    checkRule("//java/hello:hello", "--test_arg=a",
+    checkRule(
+        "//java/hello:hello",
+        "--foo=a",
         /*expected:*/ ImmutableList.of(ADEP_INPUT),
         /*not expected:*/ ImmutableList.of(BDEP_INPUT, DEFAULTDEP_INPUT));
-    checkRule("//java/hello:hello", "--test_arg=b",
+    checkRule(
+        "//java/hello:hello",
+        "--foo=b",
         /*expected:*/ ImmutableList.of(BDEP_INPUT),
         /*not expected:*/ ImmutableList.of(ADEP_INPUT, DEFAULTDEP_INPUT));
   }
@@ -179,7 +200,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void configurabilityDefaults() throws Exception {
     writeHelloRules(/*includeDefaultCondition=*/true);
     writeConfigRules();
-    checkRule("//java/hello:hello", "--test_arg=something_random",
+    checkRule(
+        "//java/hello:hello",
+        "--foo=something_random",
         /*expected:*/ ImmutableList.of(DEFAULTDEP_INPUT),
         /*not expected:*/ ImmutableList.of(ADEP_INPUT, BDEP_INPUT));
     checkRule("//java/hello:hello", "",
@@ -212,7 +235,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "java_library(",
         "    name = 'cdep',",
         "    srcs = ['cdep.java'])");
-    checkRule("//java/hello:hello",  "--test_arg=a",
+    checkRule(
+        "//java/hello:hello",
+        "--foo=a",
         /*expected:*/ ImmutableList.of(ADEP_INPUT, CDEP_INPUT),
         /*not expected:*/ ImmutableList.of(BDEP_INPUT, DEFAULTDEP_INPUT));
   }
@@ -244,7 +269,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    srcs = ['cdep.java'])");
 
     reporter.removeHandler(failFastHandler); // Expect errors.
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent(
         "Label '//java/hello:adep' is duplicated in the 'deps' attribute of rule 'hello'");
@@ -271,7 +296,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
 
     reporter.removeHandler(failFastHandler); // Expect errors.
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent(
         "Label '//java/hello:a.java' is duplicated in the 'srcs' attribute of rule 'hello'");
@@ -296,7 +321,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "        '//conditions:b': ['b.java'],",
         "    }))");
 
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     getConfiguredTarget("//java/hello:hello");
     assertNoEvents();
   }
@@ -320,7 +345,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
 
     reporter.removeHandler(failFastHandler); // Expect errors.
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent(
         "Label '//java/hello:a.java' is duplicated in the 'srcs' attribute of rule 'hello'");
@@ -381,13 +406,13 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
 
     // Configuration a:
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     ConfiguredTargetAndData binary = getConfiguredTargetAndData("//test:the_rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(binary);
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("a2");
 
     // configuration b:
-    useConfiguration("--test_arg=b");
+    useConfiguration("--foo=b");
     binary = getConfiguredTargetAndData("//test:the_rule");
     attributes = getMapperFromConfiguredTargetAndTarget(binary);
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("b2");
@@ -402,7 +427,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'int_key',",
         "    srcs = select({123: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:int_key", "select: got int for dict key, want a label string");
+    assertTargetError(
+        "//java/foo:int_key", "select: got int for dict key, want a Label or label string");
   }
 
   @Test
@@ -414,7 +440,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'bool_key',",
         "    srcs = select({True: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:bool_key", "select: got bool for dict key, want a label string");
+    assertTargetError(
+        "//java/foo:bool_key", "select: got bool for dict key, want a Label or label string");
   }
 
   @Test
@@ -427,7 +454,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    srcs = select({None: ['a.java']})",
         ")");
     assertTargetError(
-        "//java/foo:none_key", "select: got NoneType for dict key, want a label string");
+        "//java/foo:none_key", "select: got NoneType for dict key, want a Label or label string");
   }
 
   @Test
@@ -454,10 +481,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void missingConfigKey() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
     // Only create one of two necessary configurability rules:
-    scratch.file("conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'test_arg': 'a'})");
+    scratch.file(
+        "conditions/BUILD", "config_setting(", "    name = 'a',", "    values = {'foo': 'a'})");
     writeHelloRules(/*includeDefaultCondition=*/true);
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent("no such target '//conditions:b'");
@@ -469,10 +494,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void invalidConfigKey() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("conditions/BUILD",
+    scratch.file(
+        "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
-        "    values = {'test_arg': 'a'})",
+        "    values = {'foo': 'a'})",
         "rule_with_output_attr(",
         "    name = 'b',",
         "    out = 'b.out')");
@@ -499,10 +525,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void configKeyNonexistentTarget_otherPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
-        "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'test_arg': 'a'})");
+        "conditions/BUILD", "config_setting(", "    name = 'a',", "    values = {'foo': 'a'})");
     scratch.file("bar/BUILD");
     scratch.file(
         "foo/BUILD",
@@ -514,8 +537,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    cmd = select({'//bar:fake': '', '//conditions:a': ''})",
         ")");
     assertThat(getConfiguredTarget("//foo:g")).isNull();
-    assertContainsEvent(
-        "While resolving configuration keys for //foo:g: no such target '//bar:fake'");
+    assertContainsEvent("bar/BUILD: no such target '//bar:fake'");
+    assertContainsEvent("foo/BUILD:1:8: errors encountered resolving select() keys for //foo:g");
   }
 
   /**
@@ -524,20 +547,25 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void multiConditionConfigKeys() throws Exception {
     writeHelloRules(/*includeDefaultCondition=*/true);
-    scratch.file("conditions/BUILD",
+    scratch.file(
+        "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
         "    values = {",
-        "        'test_arg': 'a',",
+        "        'foo': 'a',",
         "        'compilation_mode': 'dbg'",
         "    })",
         "config_setting(",
         "    name = 'b',",
-        "    values = {'test_arg': 'b'})");
-    checkRule("//java/hello:hello", "--test_arg=a",
+        "    values = {'foo': 'b'})");
+    checkRule(
+        "//java/hello:hello",
+        "--foo=a",
         /*expected:*/ ImmutableList.of(DEFAULTDEP_INPUT),
         /*not expected:*/ ImmutableList.of(ADEP_INPUT, BDEP_INPUT));
-    checkRule("//java/hello:hello", ImmutableList.of("--test_arg=a", "--compilation_mode=dbg"),
+    checkRule(
+        "//java/hello:hello",
+        ImmutableList.of("--foo=a", "--compilation_mode=dbg"),
         /*expected:*/ ImmutableList.of(ADEP_INPUT),
         /*not expected:*/ ImmutableList.of(BDEP_INPUT, DEFAULTDEP_INPUT));
   }
@@ -551,23 +579,28 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
 
     // Iteration 1: --test_args=a should apply //conditions:a.
-    useConfiguration("--test_arg=a");
-    checkRule("//java/hello:hello", "--test_arg=a",
+    useConfiguration("--foo=a");
+    checkRule(
+        "//java/hello:hello",
+        "--foo=a",
         /*expected:*/ ImmutableList.of(ADEP_INPUT),
         /*not expected:*/ ImmutableList.of(BDEP_INPUT, DEFAULTDEP_INPUT));
 
     // Rewrite the condition for //conditions:a.
-    scratch.overwriteFile("conditions/BUILD",
+    scratch.overwriteFile(
+        "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
-        "    values = {'test_arg': 'c'})",
+        "    values = {'foo': 'c'})",
         "config_setting(",
         "    name = 'b',",
-        "    values = {'test_arg': 'b'})");
+        "    values = {'foo': 'b'})");
 
     // Iteration 2: same exact analysis should now apply the default condition.
     invalidatePackages();
-    checkRule("//java/hello:hello", "--test_arg=a",
+    checkRule(
+        "//java/hello:hello",
+        "--foo=a",
         /*expected:*/ ImmutableList.of(DEFAULTDEP_INPUT),
         /*not expected:*/ ImmutableList.of(ADEP_INPUT, BDEP_INPUT));
   }
@@ -611,7 +644,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
    */
   @Test
   public void multipleMatchesConditionAndSubcondition() throws Exception {
-    scratch.file("conditions/BUILD",
+    scratch.file(
+        "conditions/BUILD",
         "config_setting(",
         "    name = 'generic',",
         "    values = {'compilation_mode': 'opt'})",
@@ -620,7 +654,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    values = {'compilation_mode': 'opt', 'define': 'foo=bar'})",
         "config_setting(",
         "    name = 'most_precise',",
-        "    values = {'compilation_mode': 'opt', 'define': 'foo=bar', 'test_arg': 'baz'})");
+        "    values = {'compilation_mode': 'opt', 'define': 'foo=bar', 'foo': 'baz'})");
         scratch.file("java/a/BUILD",
             "java_binary(",
             "    name = 'binary',",
@@ -639,12 +673,12 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             "java_library(",
             "    name = 'most_precise',",
             "    srcs = ['most_precise.java'])");
-    checkRule("//java/a:binary",
-        ImmutableList.of("-c", "opt", "--define", "foo=bar", "--test_arg", "baz"),
+    checkRule(
+        "//java/a:binary",
+        ImmutableList.of("-c", "opt", "--define", "foo=bar", "--foo", "baz"),
         /*expected:*/ ImmutableList.of("bin java/a/libmost_precise.jar"),
         /*not expected:*/ ImmutableList.of(
-            "bin java/a/libgeneric.jar",
-            "bin java/a/libprecise.jar"));
+            "bin java/a/libgeneric.jar", "bin java/a/libprecise.jar"));
   }
 
   /**
@@ -663,10 +697,10 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    values = {'compilation_mode': 'opt'})",
         "config_setting(",
         "    name = 'c',",
-        "    values = {'test_arg': 'baz'})",
+        "    values = {'foo': 'baz'})",
         "config_setting(",
         "    name = 'b_a_c',", // Named to come alphabetically after a and b but before c.
-        "    values = {'define': 'a=1', 'test_arg': 'baz', 'compilation_mode': 'opt'})");
+        "    values = {'define': 'a=1', 'foo': 'baz', 'compilation_mode': 'opt'})");
     scratch.file("java/a/BUILD",
         "java_binary(",
         "    name = 'binary',",
@@ -691,7 +725,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    srcs = ['b_a_c.java'])");
     checkRule(
         "//java/a:binary",
-        ImmutableList.of("--define", "a=1", "--compilation_mode", "opt", "--test_arg", "baz"),
+        ImmutableList.of("--define", "a=1", "--compilation_mode", "opt", "--foo", "baz"),
         /*expected:*/ ImmutableList.of("bin java/a/libb_a_c.jar"),
         /*not expected:*/ ImmutableList.of(
             "bin java/a/liba.jar", "bin java/a/libb.jar", "bin java/a/libc.jar"));
@@ -704,7 +738,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
 
     // An explicit configuration matches: all is well.
-    checkRule("//java/hello:hello", "--test_arg=a",
+    checkRule(
+        "//java/hello:hello",
+        "--foo=a",
         /*expected:*/ ImmutableList.of(ADEP_INPUT),
         /*not expected:*/ ImmutableList.of(BDEP_INPUT, DEFAULTDEP_INPUT));
 
@@ -712,7 +748,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration("");
     assertThat(getConfiguredTarget("//java/hello:hello")).isNull();
-    assertContainsEvent("Configurable attribute \"deps\" doesn't match this configuration");
+    assertContainsEvent(
+        "configurable attribute \"deps\" in //java/hello:hello doesn't match this configuration");
   }
 
   @Test
@@ -738,8 +775,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("");
 
     assertThat(getConfiguredTarget("//java/hello:hello_default_no_match_error")).isNull();
-    String commonPrefix = "Configurable attribute \"srcs\" doesn't match this configuration";
-    assertContainsEvent(commonPrefix + " (would a default condition help?).\nConditions checked:");
+    assertContainsEvent(
+        "configurable attribute \"srcs\" in //java/hello:hello_default_no_match_error doesn't"
+            + " match this configuration. Would a default condition help?\n"
+            + "\n"
+            + "Conditions checked:");
     // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
     assertThat(analysisFailureRecorder.causes).hasSize(1);
     AnalysisRootCauseEvent rootCause = analysisFailureRecorder.causes.get(0);
@@ -753,7 +793,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     eventCollector.clear();
 
     assertThat(getConfiguredTarget("//java/hello:hello_custom_no_match_error")).isNull();
-    assertContainsEvent(commonPrefix + ": You always have to choose condition a!");
+    assertContainsEvent(
+        "configurable attribute \"srcs\" in //java/hello:hello_custom_no_match_error doesn't match "
+            + "this configuration: You always have to choose condition a!");
     // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
     assertThat(analysisFailureRecorder.causes).hasSize(1);
     rootCause = analysisFailureRecorder.causes.get(0);
@@ -784,12 +826,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'b',",
         "    srcs = ['b.java'])");
 
-    checkRule("//java/foo:binary", "--test_arg=b",
-        /*expected:*/ ImmutableList.of(
-            "bin java/foo/libalways.jar",
-            "bin java/foo/libb.jar"),
-        /*not expected:*/ ImmutableList.of(
-            "bin java/foo/liba.jar"));
+    checkRule(
+        "//java/foo:binary",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
   }
 
   @Test
@@ -813,12 +854,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'b',",
         "    srcs = ['b.java'])");
 
-    checkRule("//java/foo:binary", "--test_arg=b",
-        /*expected:*/ ImmutableList.of(
-            "bin java/foo/libalways.jar",
-            "bin java/foo/libb.jar"),
-        /*not expected:*/ ImmutableList.of(
-            "bin java/foo/liba.jar"));
+    checkRule(
+        "//java/foo:binary",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
   }
 
   @Test
@@ -849,13 +889,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'b2',",
         "    srcs = ['b2.java'])");
 
-    checkRule("//java/foo:binary", "--test_arg=b",
-        /*expected:*/ ImmutableList.of(
-            "bin java/foo/libb.jar",
-            "bin java/foo/libb2.jar"),
-        /*not expected:*/ ImmutableList.of(
-            "bin java/foo/liba.jar",
-            "bin java/foo/liba2.jar"));
+    checkRule(
+        "//java/foo:binary",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
   }
 
   @Test
@@ -903,7 +941,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "        '//conditions:b': ['b.java'],",
         "    }))");
 
-    useConfiguration("--test_arg=b");
+    useConfiguration("--foo=b");
     ConfiguredTarget binary = getConfiguredTarget("//java/foo:binary");
     assertThat(binary).isNotNull();
     Set<String> sources = artifactsToStrings(getPrerequisiteArtifacts(binary, "srcs"));
@@ -942,7 +980,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "        '//conditions:b': ['b.java'],",
         "    }))");
 
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     ConfiguredTarget binary = getConfiguredTarget("//java/foo:binary");
     assertThat(binary).isNotNull();
     Set<String> sources = artifactsToStrings(getPrerequisiteArtifacts(binary, "srcs"));
@@ -1070,10 +1108,10 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "        '//conditions:a': None,",
         "    }))");
 
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//srctest:gen");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
-    assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
+    assertThat(attributes.get("srcs", LABEL_LIST)).isEmpty();
   }
 
   @Test
@@ -1089,7 +1127,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'default',",
         "    boolean_attr = 1)");
 
-    useConfiguration("--test_arg=a");
+    useConfiguration("--foo=a");
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributes.get("dep", BuildType.LABEL))
@@ -1243,8 +1281,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "check/BUILD",
         "filegroup(name = 'adep', srcs = ['afile'])",
-        "filegroup(name = 'hello',",
-        "    srcs = select({",
+        "rule_with_no_platform(name = 'hello',",
+        "    deps = select({",
         "        '//conditions:apple': [':adep'],",
         "    })",
         ")");
@@ -1252,6 +1290,49 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("--platforms=//conditions:apple_platform");
     assertThat(getConfiguredTarget("//check:hello")).isNull();
     assertContainsEvent("//conditions:apple is not a valid select() condition for //check:hello");
+  }
+
+  @Test
+  public void selectOnlyToolchainResolvingTargetsCanSelectDirectlyOnConstraints() throws Exception {
+    // Tests select()ing directly on a constraint_value when the rule uses toolchain resolution
+    // *only if it has a select()*. As of this test, alias() is the only rule that supports that
+    // (see Alias#useToolchainResolution(ToolchainResolutionMode.HAS_SELECT).
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'fruit')",
+        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
+        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
+        "platform(",
+        "    name = 'apple_platform',",
+        "    constraint_values = [':apple'],",
+        ")");
+    scratch.file(
+        "check/defs.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {}",
+        ")");
+    scratch.file(
+        "check/BUILD",
+        "load('//check:defs.bzl', 'simple_rule')",
+        "filegroup(name = 'bdep', srcs = ['bfile'])",
+        "simple_rule(name = 'hello')",
+        "simple_rule(name = 'tere')",
+        "alias(",
+        "    name = 'selectable_alias',",
+        "    actual = select({",
+        "        '//conditions:apple': ':hello',",
+        "        '//conditions:banana': ':tere',",
+        "    }))");
+    useConfiguration("--platforms=//conditions:apple_platform");
+    assertThat(
+            getConfiguredTarget("//check:selectable_alias")
+                .getActual()
+                .getLabel()
+                .getCanonicalForm())
+        .isEqualTo("//check:hello");
   }
 
   @Test
@@ -1273,10 +1354,266 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
     assertContainsEvent(
-        "Configurable attribute \"boolean_attr\" doesn't match this configuration (would a default "
-            + "condition help?).\n"
+        "configurable attribute \"boolean_attr\" in //a:binary doesn't match this configuration. "
+            + "Would a default condition help?\n\n"
             + "Conditions checked:\n"
             + " //a:foo\n"
             + " //a:alias_to_foo");
+  }
+
+  @Test
+  public void defaultVisibilityConfigSetting_noVisibilityEnforcement() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=false");
+    scratch.file("c/BUILD", "config_setting(name = 'foo', define_values = { 'foo': '1' })");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void privateVisibilityConfigSetting_noVisibilityEnforcement() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=false");
+    scratch.file(
+        "c/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        "    visibility = ['//visibility:private']",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void publicVisibilityConfigSetting__noVisibilityEnforcement() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=false");
+    scratch.file(
+        "c/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        "    visibility = ['//visibility:public']",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+  @Test
+  public void defaultVisibilityConfigSetting_defaultIsPublic() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=false");
+    scratch.file("c/BUILD", "config_setting(name = 'foo', define_values = { 'foo': '1' })");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void privateVisibilityConfigSetting_defaultIsPublic() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=false");
+    scratch.file(
+        "c/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        "    visibility = ['//visibility:private']",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNull();
+    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+  }
+
+  @Test
+  public void publicVisibilityConfigSetting_defaultIsPublic() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=false");
+    scratch.file(
+        "c/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        "    visibility = ['//visibility:public']",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+  @Test
+  public void defaultVisibilityConfigSetting_defaultIsPrivate() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=true");
+    scratch.file("c/BUILD", "config_setting(name = 'foo', define_values = { 'foo': '1' })");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNull();
+    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+  }
+
+  @Test
+  public void privateVisibilityConfigSetting_defaultIsPrivate() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=true");
+    scratch.file(
+        "c/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        "    visibility = ['//visibility:private']",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNull();
+    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+  }
+
+  @Test
+  public void publicVisibilityConfigSetting_defaultIsPrivate() throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions("--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=true");
+    scratch.file(
+        "c/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        "    visibility = ['//visibility:public']",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void selectWithLabelKeysInMacro() throws Exception {
+    writeConfigRules();
+    scratch.file("java/BUILD");
+    scratch.file(
+        "java/macros.bzl",
+        "def my_java_binary(name, deps = [], **kwargs):",
+        "    native.java_binary(",
+        "        name = name,",
+        "        deps = select({",
+        "            Label('//conditions:a'): [Label('//java/foo:a')],",
+        "            '//conditions:b': [Label('//java/foo:b')],",
+        "        }) + select({",
+        "            '//conditions:a': [Label('//java/foo:a2')],",
+        "            Label('//conditions:b'): [Label('//java/foo:b2')],",
+        "        }),",
+        "        **kwargs,",
+        "    )");
+    scratch.file(
+        "java/foo/BUILD",
+        "load('//java:macros.bzl', 'my_java_binary')",
+        "my_java_binary(",
+        "    name = 'binary',",
+        "    srcs = ['binary.java'],",
+        ")",
+        "java_library(",
+        "    name = 'a',",
+        "    srcs = ['a.java'])",
+        "java_library(",
+        "    name = 'b',",
+        "    srcs = ['b.java'])",
+        "java_library(",
+        "    name = 'a2',",
+        "    srcs = ['a2.java'])",
+        "java_library(",
+        "    name = 'b2',",
+        "    srcs = ['b2.java'])");
+
+    checkRule(
+        "//java/foo:binary",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
   }
 }

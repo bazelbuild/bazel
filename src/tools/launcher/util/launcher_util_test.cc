@@ -50,11 +50,11 @@ class LaunchUtilTest : public ::testing::Test {
 
   void SetUp() override {
     char* tmpdir = getenv("TEST_TMPDIR");
-    if (tmpdir != NULL) {
+    if (tmpdir != nullptr) {
       test_tmpdir = blaze_util::CstringToWstring(string(tmpdir));
     } else {
       tmpdir = getenv("TEMP");
-      ASSERT_FALSE(tmpdir == NULL);
+      ASSERT_FALSE(tmpdir == nullptr);
       test_tmpdir = blaze_util::CstringToWstring(string(tmpdir));
     }
   }
@@ -113,7 +113,7 @@ TEST_F(LaunchUtilTest, DoesFilePathExistTest) {
 TEST_F(LaunchUtilTest, DoesDirectoryPathExistTest) {
   wstring dir1 = GetTmpDir() + L"/dir1";
   wstring dir2 = GetTmpDir() + L"/dir2";
-  CreateDirectoryW(dir1.c_str(), NULL);
+  CreateDirectoryW(dir1.c_str(), nullptr);
   ASSERT_TRUE(DoesDirectoryPathExist(dir1.c_str()));
   ASSERT_FALSE(DoesDirectoryPathExist(dir2.c_str()));
 }

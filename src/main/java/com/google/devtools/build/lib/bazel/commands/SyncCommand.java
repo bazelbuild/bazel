@@ -13,19 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOrderEvent;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -40,7 +43,6 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.SyncCommand.Code;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -167,12 +170,17 @@ public final class SyncCommand implements BlazeCommand {
       env.getReporter()
           .post(
               genericArgsCall(
-                  "register_toolchains", fileValue.getPackage().getRegisteredToolchains()));
+                  "register_toolchains",
+                  fileValue.getPackage().getRegisteredToolchains().stream()
+                      .map(TargetPattern::getOriginalPattern)
+                      .collect(toImmutableList())));
       env.getReporter()
           .post(
               genericArgsCall(
                   "register_execution_platforms",
-                  fileValue.getPackage().getRegisteredExecutionPlatforms()));
+                  fileValue.getPackage().getRegisteredExecutionPlatforms().stream()
+                      .map(TargetPattern::getOriginalPattern)
+                      .collect(toImmutableList())));
       env.getReporter().post(new RepositoryOrderEvent(repositoryOrder.build()));
 
       // take all Starlark workspace rules and get their values
@@ -212,8 +220,7 @@ public final class SyncCommand implements BlazeCommand {
     } catch (InterruptedException e) {
       reportNoBuildRequestFinished(env, ExitCode.INTERRUPTED);
       BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              e.getMessage(), Interrupted.Code.SYNC_COMMAND));
+          InterruptedFailureDetails.detailedExitCode(e.getMessage()));
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       reportNoBuildRequestFinished(env, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
@@ -257,14 +264,14 @@ public final class SyncCommand implements BlazeCommand {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "bind")
             .put(
                 ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>of("name", name, "actual", actual))
             .put(ResolvedHashesFunction.NATIVE, nativeCommand)
-            .build();
+            .buildOrThrow();
       }
     };
   }
@@ -289,7 +296,7 @@ public final class SyncCommand implements BlazeCommand {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, ruleName)
             .put(
@@ -313,7 +320,7 @@ public final class SyncCommand implements BlazeCommand {
   private static BlazeCommandResult blazeCommandResultWithNoBuildReport(
       CommandEnvironment env, ExitCode exitCode, Code syncCommandCode, String message) {
     reportNoBuildRequestFinished(env, exitCode);
-    return createFailedBlazeCommandResult(exitCode, syncCommandCode, message);
+    return createFailedBlazeCommandResult(syncCommandCode, message);
   }
 
   private static void reportNoBuildRequestFinished(CommandEnvironment env, ExitCode exitCode) {
@@ -322,10 +329,9 @@ public final class SyncCommand implements BlazeCommand {
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
-      ExitCode exitCode, Code syncCommandCode, String message) {
+      Code syncCommandCode, String message) {
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setSyncCommand(

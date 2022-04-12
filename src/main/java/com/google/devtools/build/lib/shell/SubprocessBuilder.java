@@ -53,8 +53,12 @@ public class SubprocessBuilder {
 
   static SubprocessFactory defaultFactory = JavaSubprocessFactory.INSTANCE;
 
+  /**
+   * Sets the default factory class for creating subprocesses. Passing {@code null} resets it to the
+   * initial state.
+   */
   public static void setDefaultSubprocessFactory(SubprocessFactory factory) {
-    SubprocessBuilder.defaultFactory = factory;
+    SubprocessBuilder.defaultFactory = factory != null ? factory : JavaSubprocessFactory.INSTANCE;
   }
 
   public SubprocessBuilder() {

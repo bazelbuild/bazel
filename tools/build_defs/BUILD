@@ -5,6 +5,7 @@ filegroup(
         "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:srcs",
         "//tools/build_defs/cc/whitelists/starlark_hdrs_check:srcs",
         "//tools/build_defs/hash:srcs",
+        "//tools/build_defs/inspect:srcs",
         "//tools/build_defs/pkg:srcs",
         "//tools/build_defs/repo:srcs",
         "//tools/build_defs/cc/tests:cc_import_tests_files",
@@ -21,15 +22,6 @@ filegroup(
         "//tools/build_defs/hash:srcs",
         "//tools/build_defs/pkg:srcs",
         "//tools/build_defs/repo:embedded_tools",
-    ],
-    visibility = ["//tools:__pkg__"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//tools/build_defs/hash:all_windows_tests",
-        "//tools/build_defs/pkg:all_windows_tests",
     ],
     visibility = ["//tools:__pkg__"],
 )

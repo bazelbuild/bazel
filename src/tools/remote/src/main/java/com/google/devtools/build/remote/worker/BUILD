@@ -1,11 +1,15 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
+package(default_visibility = ["//:__subpackages__"])
+
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http:srcs",
     ],
-    visibility = ["//src/tools/remote:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -15,9 +19,8 @@ java_library(
     visibility = ["//src/tools/remote:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
@@ -25,9 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:process",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -37,8 +38,9 @@ java_library(
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:netty",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@googleapis//:google_bytestream_bytestream_java_grpc",

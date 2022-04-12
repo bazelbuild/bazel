@@ -107,7 +107,7 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
 
       // The option is of the form '--bazelrc=value', hence proceed to
       // examine the next argument.
-      if (current_arg.find("=") != string::npos) {
+      if (current_arg.find('=') != string::npos) {
         startup_args.push_back(std::move(current_arg));
         i++;
       } else {
@@ -201,11 +201,24 @@ std::set<std::string> GetOldRcPaths(
         internal::FindRcAlongsideBinary(cwd, path_to_binary);
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
-  string user_bazelrc_path = internal::FindLegacyUserBazelrc(
-      SearchUnaryOption(startup_args, "--bazelrc", /* warn_if_dupe */ true),
-      workspace);
-  if (!user_bazelrc_path.empty()) {
-    candidate_bazelrc_paths.push_back(user_bazelrc_path);
+  vector<std::string> cmd_line_rc_files =
+      GetAllUnaryOptionValues(startup_args, "--bazelrc", "/dev/null");
+  // Divide the cases where the vector is empty vs not, as
+  // `FindLegacyUserBazelrc` has a case for rc_file to be a nullptr.
+  if (cmd_line_rc_files.empty()) {
+    string user_bazelrc_path =
+        internal::FindLegacyUserBazelrc(nullptr, workspace);
+    if (!user_bazelrc_path.empty()) {
+      candidate_bazelrc_paths.push_back(user_bazelrc_path);
+    }
+  } else {
+    for (auto& rc_file : cmd_line_rc_files) {
+      string user_bazelrc_path =
+          internal::FindLegacyUserBazelrc(rc_file.c_str(), workspace);
+      if (!user_bazelrc_path.empty()) {
+        candidate_bazelrc_paths.push_back(user_bazelrc_path);
+      }
+    }
   }
   // DedupeBlazercPaths returns paths whose canonical path could be computed,
   // therefore these paths must exist.
@@ -370,11 +383,10 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   // Get the command-line provided rc, passed as --bazelrc or nothing if the
   // flag is absent.
-  const char* cmd_line_rc_file =
-      SearchUnaryOption(cmd_line->startup_args, "--bazelrc",
-                        /* warn_if_dupe */ true);
-  if (cmd_line_rc_file != nullptr) {
-    string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_file);
+  vector<std::string> cmd_line_rc_files =
+      GetAllUnaryOptionValues(cmd_line->startup_args, "--bazelrc", "/dev/null");
+  for (auto& rc_file : cmd_line_rc_files) {
+    string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(rc_file);
     // Unlike the previous 3 paths, where we ignore it if the file does not
     // exist or is unreadable, since this path is explicitly passed, this is an
     // error. Check this condition here.
@@ -625,7 +637,7 @@ static void PreprocessEnvString(const string* env_str) {
 
 static std::vector<std::string> GetProcessedEnv() {
   std::vector<std::string> processed_env;
-  for (char** env = environ; *env != NULL; env++) {
+  for (char** env = environ; *env != nullptr; env++) {
     string env_str(*env);
     if (IsValidEnvName(*env)) {
       PreprocessEnvString(&env_str);

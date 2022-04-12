@@ -63,6 +63,7 @@ public class ArgsParamFileTest extends BuildViewTestCase {
         false,
         false,
         false,
+        false,
         thread);
     args.addArgument("--nod", Starlark.UNBOUND, /* format= */ Starlark.NONE, thread);
     args.addArgument("pos1", Starlark.UNBOUND, /* format= */ Starlark.NONE, thread);
@@ -76,6 +77,7 @@ public class ArgsParamFileTest extends BuildViewTestCase {
         false,
         false,
         Starlark.NONE,
+        false,
         thread);
     args.addArgument("--e", "'f'", /* format= */ Starlark.NONE, thread);
     args.addArgument("pos2", Starlark.UNBOUND, /* format= */ Starlark.NONE, thread);

@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-/**
- * Determines whether a Spawn is executable locally, remotely, or both.
- */
+import com.google.errorprone.annotations.Immutable;
+
+/** Determines whether a Spawn is executable locally, remotely, or both. */
+@Immutable
 public final class ExecutionPolicy {
   private enum Locality {
     LOCAL_ONLY,
@@ -51,5 +52,10 @@ public final class ExecutionPolicy {
 
   public boolean canRunLocally() {
     return locality != Locality.REMOTE_ONLY;
+  }
+
+  @Override
+  public String toString() {
+    return locality.toString();
   }
 }

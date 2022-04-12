@@ -13,18 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
+import com.google.devtools.build.lib.skyframe.TopLevelAspectsValue;
+import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,13 +45,13 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * Listener for executed actions and built artifacts. We use a listener so that we have an
- * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
+ * Listener for executed actions and built artifacts. We use a listener so that we have an accurate
+ * set of successfully run actions and built artifacts, even if the build is interrupted.
  */
 public final class ExecutionProgressReceiver
-    extends EvaluationProgressReceiver.NullEvaluationProgressReceiver
     implements SkyframeActionExecutor.ProgressSupplier,
-        SkyframeActionExecutor.ActionCompletedReceiver {
+        SkyframeActionExecutor.ActionCompletedReceiver,
+        EvaluationProgressReceiver {
   private static final ThreadLocal<NumberFormat> PROGRESS_MESSAGE_NUMBER_FORMATTER =
       ThreadLocal.withInitial(
           () -> {
@@ -102,7 +109,8 @@ public final class ExecutionProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
-      @Nullable SkyValue value,
+      @Nullable SkyValue newValue,
+      @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     SkyFunctionName type = skyKey.functionName();
@@ -118,6 +126,19 @@ public final class ExecutionProgressReceiver
       // Remember all completed actions, even those in error, regardless of having been cached or
       // really executed.
       actionCompleted((ActionLookupData) skyKey.argument());
+    } else if (type.equals(SkyFunctions.BUILD_DRIVER)) {
+      if (evaluationSuccessState.get().succeeded() && newValue != null) {
+        BuildDriverKey buildDriverKey = (BuildDriverKey) skyKey;
+        if (buildDriverKey.isTopLevelAspectDriver()) {
+          builtAspects.addAll(
+              ((TopLevelAspectsValue) ((BuildDriverValue) newValue).getWrappedSkyValue())
+                  .getTopLevelAspectsValues().stream()
+                      .map(x -> ((AspectValue) x).getKey())
+                      .collect(toImmutableSet()));
+        } else {
+          builtTargets.add((ConfiguredTargetKey) buildDriverKey.getActionLookupKey());
+        }
+      }
     }
   }
 

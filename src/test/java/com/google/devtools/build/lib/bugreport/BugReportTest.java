@@ -16,40 +16,115 @@ package com.google.devtools.build.lib.bugreport;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bugreport.BugReport.BlazeRuntimeInterface;
-import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Throwable;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ExtensionRegistry;
-import java.io.File;
-import java.nio.charset.StandardCharsets;
+import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.security.Permission;
+import java.util.Arrays;
 import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 
-/** Tests for {@link BugReport}. */
-@RunWith(JUnit4.class)
-public class BugReportTest {
+/**
+ * Tests for {@link BugReport}.
+ *
+ * <p>Assuming that {@link GoogleTestSecurityManager} is not already installed, uses {@link
+ * ExitProhibitingSecurityManager} to exercise attempting to halt the JVM without aborting the whole
+ * test.
+ */
+// TODO(b/222158599): Remove handling for GoogleTestSecurityManager.
+@RunWith(TestParameterInjector.class)
+public final class BugReportTest {
 
-  private static final String TEST_EXCEPTION_NAME =
-      "com.google.devtools.build.lib.bugreport.BugReportTest$TestException";
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @BeforeClass
+  public static void installCustomSecurityManager() {
+    if (System.getSecurityManager() == null) {
+      System.setSecurityManager(new ExitProhibitingSecurityManager());
+    } else {
+      assertThat(System.getSecurityManager()).isInstanceOf(GoogleTestSecurityManager.class);
+    }
+  }
+
+  @AfterClass
+  public static void uninstallCustomSecurityManager() {
+    if (System.getSecurityManager() instanceof ExitProhibitingSecurityManager) {
+      System.setSecurityManager(null);
+    }
+  }
+
+  private enum CrashType {
+    CRASH(ExitCode.BLAZE_INTERNAL_ERROR, Code.CRASH_UNKNOWN) {
+      @Override
+      Throwable createThrowable() {
+        return new IllegalStateException("Crashed");
+      }
+    },
+    OOM(ExitCode.OOM_ERROR, Code.CRASH_OOM) {
+      @Override
+      Throwable createThrowable() {
+        return new OutOfMemoryError("Java heap space");
+      }
+    };
+
+    private final ExitCode expectedExitCode;
+    private final Code expectedFailureDetailCode;
+
+    CrashType(ExitCode expectedExitCode, Code expectedFailureDetailCode) {
+      this.expectedExitCode = expectedExitCode;
+      this.expectedFailureDetailCode = expectedFailureDetailCode;
+    }
+
+    abstract Throwable createThrowable();
+  }
+
+  @Rule public final TemporaryFolder tmp = new TemporaryFolder();
+
+  private final BlazeRuntimeInterface mockRuntime = mock(BlazeRuntimeInterface.class);
+
+  @TestParameter private CrashType crashType;
+
+  private Path exitCodeFile;
+  private Path failureDetailFile;
+
+  @Before
+  public void setup() throws Exception {
+    when(mockRuntime.getProductName()).thenReturn("myProductName");
+    BugReport.setRuntime(mockRuntime);
+
+    exitCodeFile = tmp.newFolder().toPath().resolve("exit_code_to_use_on_abrupt_exit");
+    failureDetailFile = tmp.newFolder().toPath().resolve("failure_detail");
+
+    CustomExitCodePublisher.setAbruptExitStatusFileDir(exitCodeFile.getParent().toString());
+    CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailFile.toString());
+  }
 
   @After
   public void resetPublishers() {
@@ -58,60 +133,163 @@ public class BugReportTest {
   }
 
   @Test
-  public void handleCrash() throws Exception {
-    BlazeRuntimeInterface mockRuntime = mock(BlazeRuntimeInterface.class);
-    when(mockRuntime.getProductName()).thenReturn("myProductName");
-    BugReport.setRuntime(mockRuntime);
+  public void convenienceMethod() throws Exception {
+    Throwable t = crashType.createThrowable();
+    FailureDetail expectedFailureDetail =
+        createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
 
-    File folderForExitStatusFile = temporaryFolder.newFolder();
-    CustomExitCodePublisher.setAbruptExitStatusFileDir(folderForExitStatusFile.getPath());
+    // TODO(b/222158599): This should always be ExitException.
+    SecurityException e = assertThrows(SecurityException.class, () -> BugReport.handleCrash(t));
+    if (e instanceof ExitException) {
+      int code = ((ExitException) e).code;
+      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
+    }
+    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
 
-    Path failureDetailFilePath =
-        folderForExitStatusFile.toPath().resolve("failure_detail.rawproto");
-    CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailFilePath.toString());
-
-    assertThrows(
-        SecurityException.class,
-        () ->
-            BugReport.handleCrashWithoutSendingBugReport(
-                functionForStackFrameTest(), ExitCode.RESERVED));
-
-    Path exitStatusFile =
-        folderForExitStatusFile.toPath().resolve("exit_code_to_use_on_abrupt_exit");
-    List<String> strings = Files.readAllLines(exitStatusFile, StandardCharsets.UTF_8);
-    assertThat(strings).containsExactly("40");
-
-    FailureDetail failureDetail =
-        FailureDetail.parseFrom(
-            Files.readAllBytes(failureDetailFilePath), ExtensionRegistry.getEmptyRegistry());
-    assertThat(failureDetail.getMessage())
-        .isEqualTo(String.format("Crashed: (%s) myMessage", TEST_EXCEPTION_NAME));
-    assertThat(failureDetail.hasCrash()).isTrue();
-    Crash crash = failureDetail.getCrash();
-    assertThat(crash.getCode()).isEqualTo(Code.CRASH_UNKNOWN);
-    assertThat(crash.getCausesList()).hasSize(1);
-    Throwable cause = crash.getCauses(0);
-    assertThat(cause.getMessage()).isEqualTo("myMessage");
-    assertThat(cause.getThrowableClass()).isEqualTo(TEST_EXCEPTION_NAME);
-    assertThat(cause.getStackTraceCount()).isAtLeast(1);
-    assertThat(cause.getStackTrace(0))
-        .contains(
-            "com.google.devtools.build.lib.bugreport.BugReportTest.functionForStackFrameTest");
-    ArgumentCaptor<DetailedExitCode> exitCodeCaptor =
-        ArgumentCaptor.forClass(DetailedExitCode.class);
-    verify(mockRuntime).cleanUpForCrash(exitCodeCaptor.capture());
-    DetailedExitCode exitCode = exitCodeCaptor.getValue();
-    assertThat(exitCode.getExitCode()).isEqualTo(ExitCode.RESERVED);
-    assertThat(exitCode.getFailureDetail()).isEqualTo(failureDetail);
+    verify(mockRuntime)
+        .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
+    verifyExitCodeWritten(crashType.expectedExitCode.getNumericExitCode());
+    verifyFailureDetailWritten(expectedFailureDetail);
   }
 
-  private TestException functionForStackFrameTest() {
-    return new TestException("myMessage");
+  @Test
+  public void halt() throws Exception {
+    Throwable t = crashType.createThrowable();
+    FailureDetail expectedFailureDetail =
+        createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
+
+    // TODO(b/222158599): This should always be ExitException.
+    SecurityException e =
+        assertThrows(
+            SecurityException.class,
+            () -> BugReport.handleCrash(Crash.from(t), CrashContext.halt()));
+    if (e instanceof ExitException) {
+      int code = ((ExitException) e).code;
+      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
+    }
+    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+
+    verify(mockRuntime)
+        .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
+    verifyExitCodeWritten(crashType.expectedExitCode.getNumericExitCode());
+    verifyFailureDetailWritten(expectedFailureDetail);
   }
 
-  private static class TestException extends Exception {
-    private TestException(String message) {
-      super(message);
+  @Test
+  public void keepAlive() throws Exception {
+    Throwable t = crashType.createThrowable();
+    FailureDetail expectedFailureDetail =
+        createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
+
+    BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive());
+    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+
+    verify(mockRuntime)
+        .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
+    verifyNoExitCodeWritten();
+    verifyFailureDetailWritten(expectedFailureDetail);
+  }
+
+  @Test
+  public void customContext_setUpFront() {
+    Throwable t = crashType.createThrowable();
+    EventHandler handler = mock(EventHandler.class);
+    ArgumentCaptor<Event> event = ArgumentCaptor.forClass(Event.class);
+
+    BugReport.handleCrash(
+        Crash.from(t),
+        CrashContext.keepAlive().withExtraOomInfo("Build fewer targets!").reportingTo(handler));
+    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+
+    verify(handler).handle(event.capture());
+    assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);
+    assertThat(event.getValue().getMessage()).contains(Throwables.getStackTraceAsString(t));
+
+    if (crashType == CrashType.OOM) {
+      assertThat(event.getValue().getMessage()).contains("Build fewer targets!");
+    } else {
+      assertThat(event.getValue().getMessage()).doesNotContain("Build fewer targets!");
     }
   }
+
+  @Test
+  public void customContext_filledInByRuntime() {
+    Throwable t = crashType.createThrowable();
+    EventHandler handler = mock(EventHandler.class);
+    ArgumentCaptor<Event> event = ArgumentCaptor.forClass(Event.class);
+    doAnswer(
+            inv ->
+                inv.getArgument(0, CrashContext.class)
+                    .withExtraOomInfo("Build fewer targets!")
+                    .reportingTo(handler))
+        .when(mockRuntime)
+        .fillInCrashContext(any());
+
+    BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive());
+    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+
+    verify(handler).handle(event.capture());
+    assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);
+    assertThat(event.getValue().getMessage()).contains(Throwables.getStackTraceAsString(t));
+
+    if (crashType == CrashType.OOM) {
+      assertThat(event.getValue().getMessage()).contains("Build fewer targets!");
+    } else {
+      assertThat(event.getValue().getMessage()).doesNotContain("Build fewer targets!");
+    }
+  }
+
+  private void verifyExitCodeWritten(int exitCode) throws Exception {
+    assertThat(Files.readAllLines(exitCodeFile)).containsExactly(String.valueOf(exitCode));
+  }
+
+  private void verifyNoExitCodeWritten() {
+    assertThat(exitCodeFile.toFile().exists()).isFalse();
+  }
+
+  private void verifyFailureDetailWritten(FailureDetail expected) throws Exception {
+    assertThat(
+            FailureDetail.parseFrom(
+                Files.readAllBytes(failureDetailFile), ExtensionRegistry.getEmptyRegistry()))
+        .isEqualTo(expected);
+  }
+
+  private static FailureDetail createExpectedFailureDetail(
+      Throwable t, Code expectedFailureDetailCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(String.format("Crashed: (%s) %s", t.getClass().getName(), t.getMessage()))
+        .setCrash(
+            FailureDetails.Crash.newBuilder()
+                .setCode(expectedFailureDetailCode)
+                .addCauses(
+                    FailureDetails.Throwable.newBuilder()
+                        .setThrowableClass(t.getClass().getName())
+                        .setMessage(t.getMessage())
+                        .addAllStackTrace(
+                            Lists.transform(
+                                Arrays.asList(t.getStackTrace()), StackTraceElement::toString))))
+        .build();
+  }
+
+  private static final class ExitException extends SecurityException {
+    private final int code;
+
+    ExitException(int code) {
+      super("Tried to exit JVM with code " + code);
+      this.code = code;
+    }
+  }
+
+  /** Instead of exiting the JVM, throws {@link ExitException} to keep the test alive. */
+  private static final class ExitProhibitingSecurityManager extends SecurityManager {
+
+    @Override
+    public void checkExit(int code) {
+      throw new ExitException(code);
+    }
+
+    @Override
+    public void checkPermission(Permission p) {} // Allow everything else.
+  }
 }
+

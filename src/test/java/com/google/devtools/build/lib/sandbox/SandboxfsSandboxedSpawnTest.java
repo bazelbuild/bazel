@@ -46,8 +46,7 @@ public class SandboxfsSandboxedSpawnTest {
   @Before
   public final void setupTestDirs() throws IOException {
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    testRoot = fileSystem.getPath(TestUtils.tmpDir());
-    testRoot.createDirectoryAndParents();
+    testRoot = TestUtils.createUniqueTmpDir(fileSystem);
 
     workspaceDir = testRoot.getRelative("workspace");
     workspaceDir.createDirectory();

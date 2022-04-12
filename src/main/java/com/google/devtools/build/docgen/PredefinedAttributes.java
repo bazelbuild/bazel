@@ -27,50 +27,63 @@ import java.nio.charset.StandardCharsets;
 public class PredefinedAttributes {
 
   /**
-   * List of documentation for common attributes of *_test rules, relative to
-   * {@link com.google.devtools.build.docgen}.
+   * List of documentation for common attributes of *_test rules, relative to {@link
+   * com.google.devtools.build.docgen}.
    */
-  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES = ImmutableList.of(
-      "templates/attributes/test/args.html",
-      "templates/attributes/test/size.html",
-      "templates/attributes/test/timeout.html",
-      "templates/attributes/test/flaky.html",
-      "templates/attributes/test/shard_count.html",
-      "templates/attributes/test/local.html");
+  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/test/args.html",
+          "templates/attributes/test/env.html",
+          "templates/attributes/test/env_inherit.html",
+          "templates/attributes/test/size.html",
+          "templates/attributes/test/timeout.html",
+          "templates/attributes/test/flaky.html",
+          "templates/attributes/test/shard_count.html",
+          "templates/attributes/test/local.html");
 
   /**
-   * List of common attributes documentation, relative to {@link com.google.devtools.build.docgen}.
+   * List of typical (defined by most rules, but not implicitly added to all rules) attributes
+   * documentation, relative to {@link com.google.devtools.build.docgen}.
+   */
+  public static final ImmutableList<String> TYPICAL_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/typical/data.html",
+          "templates/attributes/typical/deps.html",
+          "templates/attributes/typical/licenses.html",
+          "templates/attributes/typical/srcs.html");
+
+  /**
+   * List of common (implicitly added to all rules) attributes documentation, relative to {@link
+   * com.google.devtools.build.docgen}.
    */
   public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES =
       ImmutableList.of(
           "templates/attributes/common/compatible_with.html",
-          "templates/attributes/common/data.html",
           "templates/attributes/common/deprecation.html",
-          "templates/attributes/common/deps.html",
           "templates/attributes/common/distribs.html",
           "templates/attributes/common/exec_compatible_with.html",
           "templates/attributes/common/exec_properties.html",
           "templates/attributes/common/features.html",
-          "templates/attributes/common/licenses.html",
           "templates/attributes/common/restricted_to.html",
           "templates/attributes/common/tags.html",
+          "templates/attributes/common/target_compatible_with.html",
           "templates/attributes/common/testonly.html",
           "templates/attributes/common/toolchains.html",
           "templates/attributes/common/visibility.html");
 
   /**
-   * List of documentation for common attributes of *_binary rules, relative to
-   * {@link com.google.devtools.build.docgen}.
+   * List of documentation for common attributes of *_binary rules, relative to {@link
+   * com.google.devtools.build.docgen}.
    */
   public static final ImmutableList<String> BINARY_ATTRIBUTES_DOCFILES =
       ImmutableList.of(
           "templates/attributes/binary/args.html",
+          "templates/attributes/binary/env.html",
           "templates/attributes/binary/output_licenses.html");
 
   private static ImmutableMap<String, RuleDocumentationAttribute> generateAttributeMap(
       String commonType, ImmutableList<String> filenames) {
-    ImmutableMap.Builder<String, RuleDocumentationAttribute> builder =
-        ImmutableMap.<String, RuleDocumentationAttribute>builder();
+    ImmutableMap.Builder<String, RuleDocumentationAttribute> builder = ImmutableMap.builder();
     for (String filename : filenames) {
       String name = Files.getNameWithoutExtension(filename);
       try {
@@ -84,8 +97,11 @@ public class PredefinedAttributes {
         throw new IllegalStateException("Exception while reading " + filename, e);
       }
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
+
+  public static final ImmutableMap<String, RuleDocumentationAttribute> TYPICAL_ATTRIBUTES =
+      generateAttributeMap(DocgenConsts.TYPICAL_ATTRIBUTES, TYPICAL_ATTRIBUTES_DOCFILES);
 
   public static final ImmutableMap<String, RuleDocumentationAttribute> COMMON_ATTRIBUTES =
       generateAttributeMap(DocgenConsts.COMMON_ATTRIBUTES, COMMON_ATTRIBUTES_DOCFILES);

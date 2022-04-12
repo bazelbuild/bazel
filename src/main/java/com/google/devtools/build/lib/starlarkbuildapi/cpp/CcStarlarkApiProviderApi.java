@@ -15,22 +15,12 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Object with information about C++ rules. Every C++-related target should provide this. */
-@StarlarkBuiltin(
-    name = "CcStarlarkApiProvider",
-    category = DocCategory.PROVIDER,
-    doc =
-        "Provides access to information about C++ rules.  Every C++-related target provides this"
-            + " struct, accessible as a <code>cc</code> field on <a"
-            + " href=\"Target.html\">target</a>.")
-public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
+public interface CcStarlarkApiProviderApi<FileT extends FileApi> {
 
   @StarlarkMethod(
       name = "transitive_headers",

@@ -1,3 +1,4 @@
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
@@ -16,6 +17,7 @@ java_library(
     name = "shell",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:execution_statistics_java_proto",
         "//third_party:auto_value",
@@ -26,7 +28,6 @@ java_library(
 
 # Bootstrapping SingleJar using Starlark rules
 #
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "shell-starlark",

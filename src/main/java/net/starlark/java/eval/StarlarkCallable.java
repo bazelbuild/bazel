@@ -45,7 +45,7 @@ public interface StarlarkCallable extends StarlarkValue {
    * @param kwargs a new, mutable dict of the arguments passed by keyword. Iteration order is
    *     determined by keyword order in the call expression.
    */
-  default Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+  default Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
       throws EvalException, InterruptedException {
     throw Starlark.errorf("function %s not implemented", getName());
   }

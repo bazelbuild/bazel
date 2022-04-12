@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -123,7 +122,7 @@ public final class BlazeOptionHandler {
               + "' command is only supported from within a workspace"
               + " (below a directory having a WORKSPACE file).\n"
               + "See documentation at"
-              + " https://docs.bazel.build/versions/master/build-ref.html#workspace";
+              + " https://bazel.build/concepts/build-ref#workspace";
       eventHandler.handle(Event.error(message));
       return createDetailedExitCode(message, Code.NOT_IN_WORKSPACE);
     }
@@ -169,7 +168,7 @@ public final class BlazeOptionHandler {
    * specific commands should have priority over the broader commands (say a "build" option that
    * conflicts with a "common" option should override the common one regardless of order.)
    *
-   * <p>For each command, the options are parsed in rc order. This uses the master rc file first,
+   * <p>For each command, the options are parsed in rc order. This uses the primary rc file first,
    * and follows import statements. This is the order in which they were passed by the client.
    */
   void parseRcOptions(
@@ -243,15 +242,12 @@ public final class BlazeOptionHandler {
     optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, remainingCmdLine.build());
 
-    // TODO(b/132346407) : Remove when shorthand aliasing is fully implemented
-    validateFlagAliasUsage(optionsParser);
-
     if (commandAnnotation.builds()) {
       // splits project files from targets in the traditional sense
       ProjectFileSupport.handleProjectFiles(
           eventHandler,
           runtime.getProjectFileProvider(),
-          workspaceDirectory,
+          workspaceDirectory.asFragment(),
           workingDirectory,
           optionsParser,
           commandAnnotation.name());
@@ -278,7 +274,7 @@ public final class BlazeOptionHandler {
       StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
-      logger.atInfo().withCause(e).log(logMessage);
+      logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           eventHandler, e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
     }
@@ -308,6 +304,11 @@ public final class BlazeOptionHandler {
       // Migration of --watchfs to a command option.
       // TODO(ulfjack): Get rid of the startup option and drop this code.
       if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
+        eventHandler.handle(
+            Event.error(
+                "--watchfs as startup option is deprecated, replace it with the equivalent command "
+                    + "option. For example, instead of 'bazel --watchfs build //foo', run "
+                    + "'bazel build --watchfs //foo'."));
         try {
           optionsParser.parse("--watchfs");
         } catch (OptionsParsingException e) {
@@ -342,7 +343,7 @@ public final class BlazeOptionHandler {
       }
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing options";
-      logger.atInfo().withCause(e).log(logMessage);
+      logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           eventHandler, e, logMessage, Code.OPTIONS_PARSE_FAILURE);
     } catch (InterruptedException e) {
@@ -350,7 +351,7 @@ public final class BlazeOptionHandler {
           FailureDetail.newBuilder()
               .setInterrupted(
                   FailureDetails.Interrupted.newBuilder()
-                      .setCode(FailureDetails.Interrupted.Code.OPTIONS_PARSING))
+                      .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
               .build());
     } catch (AbruptExitException e) {
       return e.getDetailedExitCode();
@@ -433,7 +434,8 @@ public final class BlazeOptionHandler {
       EventHandler eventHandler,
       List<String> rcFiles,
       List<ClientOptions.OptionOverride> rawOverrides,
-      Set<String> validCommands) {
+      Set<String> validCommands)
+      throws OptionsParsingException {
     ListMultimap<String, RcChunkOfArgs> commandToRcArgs = ArrayListMultimap.create();
 
     String lastRcFile = null;
@@ -445,6 +447,21 @@ public final class BlazeOptionHandler {
         continue;
       }
       String rcFile = rcFiles.get(override.blazeRc);
+      // The canonicalize-flags command only inherits bazelrc "build" commands. Not "test", not
+      // "build:foo". Restrict --flag_alias accordingly to prevent building with flags that
+      // canonicalize-flags can't recognize.
+      if ((override.option.startsWith("--" + Converters.BLAZE_ALIASING_FLAG + "=")
+              || override.option.equals("--" + Converters.BLAZE_ALIASING_FLAG))
+          // In production, "build" is always a valid command, but not necessarily in tests.
+          // Particularly C0Command, which some tests use for low-level options parsing logic. We
+          // don't want to interfere with those.
+          && validCommands.contains("build")
+          && !override.command.equals("build")) {
+        throw new OptionsParsingException(
+            String.format(
+                "%s: \"%s %s\" disallowed. --%s only supports the \"build\" command.",
+                rcFile, override.command, override.option, Converters.BLAZE_ALIASING_FLAG));
+      }
       String command = override.command;
       int index = command.indexOf(':');
       if (index > 0) {
@@ -520,42 +537,5 @@ public final class BlazeOptionHandler {
         remainingCmdLine.add(option);
       }
     }
-  }
-
-  private static void validateFlagAliasUsage(OptionsParser optionsParser)
-      throws OptionsParsingException {
-
-    CoreOptions coreOptions = optionsParser.getOptions(CoreOptions.class);
-
-    // --flag_alias would've thrown an error before reaching this if it was used, but CoreOptions
-    // may not necessarily be present
-    if (coreOptions == null) {
-      return;
-    }
-
-    List<Map.Entry<String, String>> collectedAliases = coreOptions.commandLineFlagAliases;
-    if (collectedAliases.isEmpty()) {
-      return;
-    }
-
-    if (coreOptions.enableFlagAlias) {
-      return;
-    }
-
-    String detectedAliases =
-        "Detected aliases: --flag_alias="
-            + collectedAliases.get(0).getKey()
-            + "="
-            + collectedAliases.get(0).getValue();
-    for (int i = 1; i < collectedAliases.size(); i++) {
-      Map.Entry<String, String> entry = collectedAliases.get(i);
-      String aliasString = ", --flag_alias=" + entry.getKey() + "=" + entry.getValue();
-      detectedAliases += aliasString;
-    }
-
-    throw new OptionsParsingException(
-        "--flag_alias is experimental. Set --experimental_enable_flag_alias to true to make use of"
-            + " it. "
-            + detectedAliases);
   }
 }

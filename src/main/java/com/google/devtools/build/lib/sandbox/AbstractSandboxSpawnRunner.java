@@ -21,8 +21,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -30,7 +32,9 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -80,16 +84,24 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    context.report(ProgressStatus.SCHEDULING, getName());
+    context.report(SpawnSchedulingEvent.create(getName()));
     try (ResourceHandle ignored =
-        resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-      context.report(ProgressStatus.EXECUTING, getName());
+        resourceManager.acquireResources(
+            owner,
+            spawn.getLocalResources(),
+            context.speculating() ? ResourcePriority.DYNAMIC_STANDALONE : ResourcePriority.LOCAL)) {
+      context.report(SpawnExecutingEvent.create(getName()));
       SandboxedSpawn sandbox = prepareSpawn(spawn, context);
       return runSpawn(spawn, sandbox, context);
     } catch (IOException e) {
       FailureDetail failureDetail =
           createFailureDetail(
               "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
+      throw new UserExecException(e, failureDetail);
+    } catch (ForbiddenActionInputException e) {
+      FailureDetail failureDetail =
+          createFailureDetail(
+              "Forbidden input found during sandboxed execution", Code.FORBIDDEN_INPUT);
       throw new UserExecException(e, failureDetail);
     }
   }
@@ -105,26 +117,32 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException;
+      throws IOException, ExecException, InterruptedException, ForbiddenActionInputException;
 
   private SpawnResult runSpawn(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+      throws IOException, ForbiddenActionInputException, InterruptedException {
     try {
       try (SilentCloseable c = Profiler.instance().profile("sandbox.createFileSystem")) {
         sandbox.createFileSystem();
       }
       FileOutErr outErr = context.getFileOutErr();
       try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
-        context.prefetchInputs();
+        context.prefetchInputsAndWait();
       }
 
       SpawnResult result;
       try (SilentCloseable c = Profiler.instance().profile("subprocess.run")) {
         result = run(originalSpawn, sandbox, context.getTimeout(), outErr);
       }
+      try (SilentCloseable c = Profiler.instance().profile("sandbox.verifyPostCondition")) {
+        verifyPostCondition(originalSpawn, sandbox, context);
+      }
 
-      context.lockOutputFiles();
+      context.lockOutputFiles(
+          result.exitCode(),
+          result.failureDetail() != null ? result.failureDetail().getMessage() : "",
+          outErr);
       try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);
@@ -140,22 +158,18 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     }
   }
+  /** Override this method if you need to run a post condition after the action has executed */
+  public void verifyPostCondition(
+      Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
+      throws IOException, ForbiddenActionInputException {}
 
   private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
     if (sandboxOptions.sandboxDebug) {
       return CommandFailureUtils.describeCommandFailure(
-          true,
-          sandbox.getArguments(),
-          sandbox.getEnvironment(),
-          sandbox.getSandboxExecRoot().getPathString(),
-          null);
+          true, sandbox.getSandboxExecRoot().getPathString(), sandbox);
     } else {
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures,
-              originalSpawn.getArguments(),
-              originalSpawn.getEnvironment(),
-              sandbox.getSandboxExecRoot().getPathString(),
-              originalSpawn.getExecutionPlatform())
+              verboseFailures, sandbox.getSandboxExecRoot().getPathString(), originalSpawn)
           + SANDBOX_DEBUG_SUGGESTION;
     }
   }
@@ -197,7 +211,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
           .setFailureMessage(message)
-          .setFailureDetail(createFailureDetail(message, Code.EXECUTION_FAILED))
+          .setFailureDetail(createFailureDetail(message, Code.SUBPROCESS_START_FAILED))
           .build();
     }
 
@@ -266,6 +280,14 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
                     resourceUsage.getBlockInputOperations());
                 spawnResultBuilder.setNumInvoluntaryContextSwitches(
                     resourceUsage.getInvoluntaryContextSwitches());
+                // The memory usage of the largest child process. For Darwin maxrss returns size in
+                // bytes.
+                if (OS.getCurrent() == OS.DARWIN) {
+                  spawnResultBuilder.setMemoryInKb(
+                      resourceUsage.getMaximumResidentSetSize() / 1000);
+                } else {
+                  spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                }
               });
     }
 

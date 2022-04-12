@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -21,8 +23,6 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 
 /** Strategy to perform template expansion locally. */
 public class LocalTemplateExpansionStrategy implements TemplateExpansionContext {
@@ -36,13 +36,7 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
       TemplateExpansionAction action, ActionExecutionContext ctx) throws InterruptedException {
     try {
       final String expandedTemplate = getExpandedTemplateUnsafe(action, ctx.getPathResolver());
-      DeterministicWriter deterministicWriter =
-          new DeterministicWriter() {
-            @Override
-            public void writeOutputFile(OutputStream out) throws IOException {
-              out.write(expandedTemplate.getBytes(StandardCharsets.UTF_8));
-            }
-          };
+      DeterministicWriter deterministicWriter = out -> out.write(expandedTemplate.getBytes(UTF_8));
       return ctx.getContext(FileWriteActionContext.class)
           .beginWriteOutputToFile(
               action, ctx, deterministicWriter, action.makeExecutable(), /*isRemotable=*/ true);

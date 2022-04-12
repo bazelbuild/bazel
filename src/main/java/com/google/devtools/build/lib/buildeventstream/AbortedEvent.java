@@ -15,21 +15,38 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** A {@link BuildEvent} reporting an event not coming due to the build being aborted. */
-public class AbortedEvent extends GenericBuildEvent {
-  private final BuildEventStreamProtos.Aborted.AbortReason reason;
+public final class AbortedEvent extends GenericBuildEvent {
+
+  private final AbortReason reason;
   private final String description;
   @Nullable private final Label label;
 
+  public AbortedEvent(BuildEventId id, AbortReason reason, String description) {
+    this(id, reason, description, /*label=*/ null);
+  }
+
   public AbortedEvent(
+      BuildEventId id, AbortReason reason, String description, @Nullable Label label) {
+    this(id, /*children=*/ ImmutableList.of(), reason, description, label);
+  }
+
+  public AbortedEvent(
+      BuildEventId id, Collection<BuildEventId> children, AbortReason reason, String description) {
+    this(id, children, reason, description, /*label=*/ null);
+  }
+
+  private AbortedEvent(
       BuildEventId id,
       Collection<BuildEventId> children,
-      BuildEventStreamProtos.Aborted.AbortReason reason,
+      AbortReason reason,
       String description,
       @Nullable Label label) {
     super(id, children);
@@ -38,43 +55,15 @@ public class AbortedEvent extends GenericBuildEvent {
     this.label = label;
   }
 
-  public AbortedEvent(
-      BuildEventId id,
-      BuildEventStreamProtos.Aborted.AbortReason reason,
-      String description,
-      @Nullable Label label) {
-    this(id, ImmutableList.<BuildEventId>of(), reason, description, label);
-  }
-
-  public AbortedEvent(
-      BuildEventId id,
-      Collection<BuildEventId> children,
-      BuildEventStreamProtos.Aborted.AbortReason reason,
-      String description) {
-    this(id, children, reason, description, null);
-  }
-
-  public AbortedEvent(
-      BuildEventId id, BuildEventStreamProtos.Aborted.AbortReason reason, String description) {
-    this(id, reason, description, null);
-  }
-
-  public AbortedEvent(BuildEventId id) {
-    this(id, BuildEventStreamProtos.Aborted.AbortReason.UNKNOWN, "", null);
-  }
-
-  @Nullable public Label getLabel() {
+  @Nullable
+  public Label getLabel() {
     return label;
   }
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     return GenericBuildEvent.protoChaining(this)
-        .setAborted(
-            BuildEventStreamProtos.Aborted.newBuilder()
-                .setReason(reason)
-                .setDescription(description)
-                .build())
+        .setAborted(Aborted.newBuilder().setReason(reason).setDescription(description).build())
         .build();
   }
 }

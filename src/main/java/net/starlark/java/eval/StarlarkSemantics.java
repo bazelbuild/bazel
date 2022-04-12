@@ -16,9 +16,9 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSortedMap;
-import java.util.HashMap;
+import com.google.common.collect.ImmutableMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * A StarlarkSemantics is an immutable set of optional name/value pairs that affect the dynamic
@@ -42,16 +42,25 @@ import java.util.Map;
  */
 public final class StarlarkSemantics {
 
-  /** Returns the empty semantics, in which every option has its default value. */
-  public static final StarlarkSemantics DEFAULT = new StarlarkSemantics(ImmutableSortedMap.of());
+  /**
+   * Returns the empty semantics, in which every option has its default value.
+   *
+   * <p><i>Usage note:</i> Usually all Starlark evaluation contexts (i.e., {@link StarlarkThread}s
+   * or other interpreter APIs that accept a {@code StarlarkSemantics}) within the same application
+   * should use the same semantics. Otherwise, different pieces of code -- or even the same code
+   * when executed in different capacities -- could produce diverging results. It is therefore
+   * generally a code smell to use the {@code DEFAULT} semantics rather than propagating a {@code
+   * StarlarkSemantics} from another context.
+   */
+  public static final StarlarkSemantics DEFAULT = new StarlarkSemantics(ImmutableMap.of());
 
   // A map entry must be accessed by Key iff its name has no [+-] prefix.
   // Key<Boolean> is permitted too.
-  // We use ImmutableSortedMap for the benefit of equals/hashCode/toString.
-  private final ImmutableSortedMap<String, Object> map;
+  // The map keys are sorted but we avoid ImmutableSortedMap due to observed inefficiency.
+  private final ImmutableMap<String, Object> map;
   private final int hashCode;
 
-  private StarlarkSemantics(ImmutableSortedMap<String, Object> map) {
+  private StarlarkSemantics(ImmutableMap<String, Object> map) {
     this.map = map;
     this.hashCode = map.hashCode();
   }
@@ -70,6 +79,25 @@ public final class StarlarkSemantics {
     @SuppressWarnings("unchecked") // safe, if Key.names are unique
     T v = (T) map.get(key.name);
     return v != null ? v : key.defaultValue;
+  }
+
+  // TODO(bazel-team): This exists solely for BuiltinsInternalModule#getFlag, which allows a
+  // (privileged) Starlark caller to programmatically retrieve a flag's value without knowing its
+  // schema and default value. Reconsider whether we should support that use case from this class.
+  /**
+   * Returns the value of the option with the given name, or the default value if it is not set or
+   * does not exist.
+   */
+  public Object getGeneric(String name, Object defaultValue) {
+    Object v = map.get(name);
+    // Try boolean prefixes if that didn't work.
+    if (v == null) {
+      v = map.get("+" + name);
+    }
+    if (v == null) {
+      v = map.get("-" + name);
+    }
+    return v != null ? v : defaultValue;
   }
 
   /** A Key identifies an option, providing its name, type, and default value. */
@@ -98,19 +126,19 @@ public final class StarlarkSemantics {
    * Returns a new builder that initially holds the same key/value pairs as this StarlarkSemantics.
    */
   public Builder toBuilder() {
-    return new Builder(new HashMap<>(map));
+    return new Builder(new TreeMap<>(map));
   }
 
   /** Returns a new empty builder. */
   public static Builder builder() {
-    return new Builder(new HashMap<>());
+    return new Builder(new TreeMap<>());
   }
 
   /** A Builder is a mutable container used to construct an immutable StarlarkSemantics. */
   public static final class Builder {
-    private final HashMap<String, Object> map;
+    private final TreeMap<String, Object> map;
 
-    private Builder(HashMap<String, Object> map) {
+    private Builder(TreeMap<String, Object> map) {
       this.map = map;
     }
 
@@ -139,7 +167,7 @@ public final class StarlarkSemantics {
 
     /** Returns an immutable StarlarkSemantics. */
     public StarlarkSemantics build() {
-      return new StarlarkSemantics(ImmutableSortedMap.copyOf(map));
+      return new StarlarkSemantics(ImmutableMap.copyOf(map));
     }
   }
 
@@ -205,10 +233,12 @@ public final class StarlarkSemantics {
 
   // -- semantics options affecting the Starlark interpreter itself --
 
-  /** Ignore negative n in string.replace(count=n), and treat n=None as an error. */
-  public static final String INCOMPATIBLE_STRING_REPLACE_COUNT =
-      "-incompatible_string_replace_count";
-
   /** Change the behavior of 'print' statements. Used in tests to verify flag propagation. */
   public static final String PRINT_TEST_MARKER = "-print_test_marker";
+
+  /**
+   * Whether recursive function calls are allowed. This option is not exposed to Bazel, which
+   * unconditionally prohibits recursion.
+   */
+  public static final String ALLOW_RECURSION = "-allow_recursion";
 }

@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  */
 public class RawAttributeMapper extends AbstractAttributeMapper {
 
-  RawAttributeMapper(Rule rule) {
+  private RawAttributeMapper(Rule rule) {
     super(rule);
   }
 

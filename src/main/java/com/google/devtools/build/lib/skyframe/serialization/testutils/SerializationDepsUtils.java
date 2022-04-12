@@ -13,70 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactResolver;
-import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Utilities for testing with serialization dependencies. */
-public class SerializationDepsUtils {
+public final class SerializationDepsUtils {
 
   /** Default serialization dependencies for testing. */
-  public static final ImmutableMap<Class<?>, Object> SERIALIZATION_DEPS_FOR_TEST =
-      ImmutableMap.of(ArtifactResolverSupplier.class, new ArtifactResolverSupplierForTest());
+  public static final ImmutableClassToInstanceMap<?> SERIALIZATION_DEPS_FOR_TEST =
+      ImmutableClassToInstanceMap.of(
+          ArtifactSerializationContext.class,
+          (execPath, root, owner) ->
+              new SourceArtifact(ArtifactRoot.asSourceRoot(root), execPath, owner));
 
-  /**
-   * An {@link ArtifactResolverSupplier} that calls directly into the {@link SourceArtifact}
-   * constructor.
-   */
-  public static class ArtifactResolverSupplierForTest implements ArtifactResolverSupplier {
-
-    @Override
-    public ArtifactResolver get() {
-      return new ArtifactResolver() {
-        @Override
-        public Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
-          return new SourceArtifact(ArtifactRoot.asSourceRoot(root), execPath, owner);
-        }
-
-        @Override
-        public Artifact getSourceArtifact(PathFragment execPath, Root root) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Artifact resolveSourceArtifact(
-            PathFragment execPath, RepositoryName repositoryName) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Nullable
-        @Override
-        public Map<PathFragment, Artifact> resolveSourceArtifacts(
-            Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
-          throw new UnsupportedOperationException();
-        }
-      };
-    }
-
-    @Override
-    public Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original) {
-      return original;
-    }
-  }
+  private SerializationDepsUtils() {}
 }

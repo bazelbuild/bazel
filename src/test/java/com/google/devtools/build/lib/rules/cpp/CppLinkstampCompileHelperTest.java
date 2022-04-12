@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -67,10 +66,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
 
     CcToolchainProvider ccToolchainProvider =
-        (CcToolchainProvider)
-            getConfiguredTarget(
-                    ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-                .get(ToolchainInfo.PROVIDER);
+        getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
+            .get(CcToolchainProvider.PROVIDER);
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -128,10 +126,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     CcToolchainProvider ccToolchainProvider =
-        (CcToolchainProvider)
-            getConfiguredTarget(
-                    ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-                .get(ToolchainInfo.PROVIDER);
+        getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
+            .get(CcToolchainProvider.PROVIDER);
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(

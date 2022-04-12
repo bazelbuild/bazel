@@ -19,6 +19,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.RunnableMaker;
 import java.util.Collection;
@@ -82,29 +84,47 @@ class NodeEntryVisitor {
    * that have already started evaluating. Sprawl can be expensive because an incompletely evaluated
    * node keeps state in Skyframe, and often in external caches, that uses memory.
    *
-   * <p>In general, {@code evaluationPriority} should be maximal ({@link Integer#MAX_VALUE}) when
-   * restarting a node that has already started evaluation, and minimal when enqueueing a node that
-   * no other tasks depend on. Setting {@code evaluationPriority} to the same value for all children
-   * of a parent has good results experimentally, since it prioritizes batches of work that can be
-   * used together. Similarly, prioritizing deeper nodes (depth-first search of the evaluation
-   * graph) also has good results experimentally, since it minimizes sprawl.
+   * <p>In general, {@code evaluationPriority} should be higher when restarting a node that has
+   * already started evaluation, and lower when enqueueing a node that no other tasks depend on.
+   * Setting {@code evaluationPriority} to the same value for all children of a parent has good
+   * results experimentally, since it prioritizes batches of work that can be used together.
+   * Similarly, prioritizing deeper nodes (depth-first search of the evaluation graph) also has good
+   * results experimentally, since it minimizes sprawl.
    */
   void enqueueEvaluation(SkyKey key, int evaluationPriority) {
-    if (preventNewEvaluations.get()) {
+    if (shouldPreventNewEvaluations()) {
       // If an error happens in nokeep_going mode, we still want to mark these nodes as inflight,
       // otherwise cleanup will not happen properly.
       progressReceiver.enqueueAfterError(key);
       return;
     }
     progressReceiver.enqueueing(key);
-    quiescingExecutor.execute(runnableMaker.make(key, evaluationPriority));
+    if (quiescingExecutor instanceof MultiThreadPoolsQuiescingExecutor) {
+      ThreadPoolType threadPoolType;
+      if (key instanceof CPUHeavySkyKey) {
+        threadPoolType = ThreadPoolType.CPU_HEAVY;
+      } else if (key instanceof ExecutionPhaseSkyKey) {
+        // Only possible with --experimental_merged_skyframe_analysis_execution.
+        threadPoolType = ThreadPoolType.EXECUTION_PHASE;
+      } else {
+        threadPoolType = ThreadPoolType.REGULAR;
+      }
+      ((MultiThreadPoolsQuiescingExecutor) quiescingExecutor)
+          .execute(runnableMaker.make(key, evaluationPriority), threadPoolType);
+    } else {
+      quiescingExecutor.execute(runnableMaker.make(key, evaluationPriority));
+    }
   }
 
   /**
-   * Registers a listener with all passed futures that causes the node to be re-enqueued when all
-   * futures are completed.
+   * Registers a listener with all passed futures that causes the node to be re-enqueued (at the
+   * given {@code evaluationPriority}) when all futures are completed.
    */
-  void registerExternalDeps(SkyKey skyKey, NodeEntry entry, List<ListenableFuture<?>> externalDeps)
+  void registerExternalDeps(
+      SkyKey skyKey,
+      NodeEntry entry,
+      List<ListenableFuture<?>> externalDeps,
+      int evaluationPriority)
       throws InterruptedException {
     // Generally speaking, there is no ordering guarantee for listeners registered with a single
     // listenable future. If we used a listener here, there would be a potential race condition
@@ -118,11 +138,21 @@ class NodeEntryVisitor {
             .run(
                 () -> {
                   if (entry.signalDep(entry.getVersion(), null)) {
-                    enqueueEvaluation(skyKey, Integer.MAX_VALUE);
+                    enqueueEvaluation(skyKey, evaluationPriority);
                   }
                 },
                 MoreExecutors.directExecutor());
     quiescingExecutor.dependOnFuture(future);
+  }
+
+  /**
+   * Returns whether any new evaluations should be prevented.
+   *
+   * <p>If called from within node evaluation, the caller may use the return value to determine
+   * whether it is responsible for throwing an exception to halt evaluation at the executor level.
+   */
+  boolean shouldPreventNewEvaluations() {
+    return preventNewEvaluations.get();
   }
 
   /**

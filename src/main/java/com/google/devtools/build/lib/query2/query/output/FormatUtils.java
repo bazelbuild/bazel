@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -29,7 +30,7 @@ import net.starlark.java.syntax.Location;
  * Given a set of query options, returns a BinaryPredicate suitable for passing to {@link
  * Rule#getLabels()}, {@link XmlOutputFormatter}, etc.
  */
-class FormatUtils {
+final class FormatUtils {
 
   private FormatUtils() {}
 
@@ -41,8 +42,7 @@ class FormatUtils {
     }
     return queryOptions.includeImplicitDeps
         ? DependencyFilter.ONLY_TARGET_DEPS
-        : DependencyFilter.and(
-            DependencyFilter.NO_IMPLICIT_DEPS, DependencyFilter.ONLY_TARGET_DEPS);
+        : DependencyFilter.NO_IMPLICIT_DEPS.and(DependencyFilter.ONLY_TARGET_DEPS);
   }
 
   /** An ordering of Targets based on the ordering of their labels. */
@@ -58,6 +58,27 @@ class FormatUtils {
    */
   static String getLocation(Target target, boolean relative) {
     Location loc = target.getLocation();
+
+    if (relative) {
+      loc = getRootRelativeLocation(loc, target.getPackage());
+    }
+    return loc.toString();
+  }
+
+  /**
+   * Returns the target location string, optionally relative to its package's source root directory
+   * and optionally to display the location of source files.
+   *
+   * @param relative flag to display the location relative to its package's source root directory.
+   * @param displaySourceFileLocation flag to display the location of line 1 of the actual source
+   *     file instead of its location in the BUILD file.
+   */
+  static String getLocation(Target target, boolean relative, boolean displaySourceFileLocation) {
+    Location loc = target.getLocation();
+    if (target instanceof InputFile && displaySourceFileLocation) {
+      PathFragment packageDir = target.getPackage().getPackageDirectory().asFragment();
+      loc = Location.fromFileLineColumn(packageDir.getRelative(target.getName()).toString(), 1, 1);
+    }
     if (relative) {
       loc = getRootRelativeLocation(loc, target.getPackage());
     }

@@ -156,6 +156,8 @@ public final class Lexer {
             // close-quote, all done.
             return new Token(bufferSlice(oldPos + 1, pos - 1));
           }
+          break;
+        default: // fall out
       }
     }
     throw new QuerySyntaxException("unclosed quotation");
@@ -186,6 +188,8 @@ public final class Lexer {
         case ':':
         case '$':
         case '~':
+        case '[':
+        case ']':
           pos++;
           break;
        default:

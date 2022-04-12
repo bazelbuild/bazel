@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
@@ -65,7 +63,7 @@ public class BlazeTestUtils {
 
   /** Creates an empty file, along with all its parent directories. */
   public static void makeEmptyFile(Path path) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
   }
 
@@ -83,16 +81,6 @@ public class BlazeTestUtils {
       newMtime += 1000;
       path.setLastModifiedTime(newMtime);
     } while (path.getLastModifiedTime() == prevMtime);
-  }
-
-  public static Label convertLabel(Label label) {
-    try {
-      return label.getPackageIdentifier().getRepository().isDefault()
-          ? Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName())
-          : label;
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   /**

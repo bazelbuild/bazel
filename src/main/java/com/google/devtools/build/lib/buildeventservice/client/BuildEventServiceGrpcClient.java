@@ -28,7 +28,8 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.CallCredentials;
-import io.grpc.Channel;
+import io.grpc.ClientInterceptor;
+import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -38,29 +39,40 @@ import java.time.Duration;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
-public abstract class BuildEventServiceGrpcClient implements BuildEventServiceClient {
+public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   /** Max wait time for a single non-streaming RPC to finish */
   private static final Duration RPC_TIMEOUT = Duration.ofSeconds(15);
+
+  private final ManagedChannel channel;
 
   private final PublishBuildEventStub besAsync;
   private final PublishBuildEventBlockingStub besBlocking;
 
-  public BuildEventServiceGrpcClient(Channel channel, @Nullable CallCredentials callCredentials) {
-    this(
-        withCallCredentials(PublishBuildEventGrpc.newStub(channel), callCredentials),
-        withCallCredentials(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials));
+  public BuildEventServiceGrpcClient(
+      ManagedChannel channel,
+      @Nullable CallCredentials callCredentials,
+      ClientInterceptor interceptor) {
+    this.besAsync =
+        configureStub(PublishBuildEventGrpc.newStub(channel), callCredentials, interceptor);
+    this.besBlocking =
+        configureStub(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials, interceptor);
+    this.channel = channel;
   }
 
   @VisibleForTesting
   protected BuildEventServiceGrpcClient(
-      PublishBuildEventStub besAsync, PublishBuildEventBlockingStub besBlocking) {
+      PublishBuildEventStub besAsync,
+      PublishBuildEventBlockingStub besBlocking,
+      ManagedChannel channel) {
     this.besAsync = besAsync;
     this.besBlocking = besBlocking;
+    this.channel = channel;
   }
 
-  private static <T extends AbstractStub<T>> T withCallCredentials(
-      T stub, @Nullable CallCredentials callCredentials) {
+  private static <T extends AbstractStub<T>> T configureStub(
+      T stub, @Nullable CallCredentials callCredentials, @Nullable ClientInterceptor interceptor) {
     stub = callCredentials != null ? stub.withCallCredentials(callCredentials) : stub;
+    stub = interceptor != null ? stub.withInterceptors(interceptor) : stub;
     return stub;
   }
 
@@ -180,7 +192,9 @@ public abstract class BuildEventServiceGrpcClient implements BuildEventServiceCl
   }
 
   @Override
-  public abstract void shutdown();
+  public void shutdown() {
+    channel.shutdown();
+  }
 
   private static void throwIfInterrupted() throws InterruptedException {
     if (Thread.interrupted()) {

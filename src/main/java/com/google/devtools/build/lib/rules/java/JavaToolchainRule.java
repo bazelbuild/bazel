@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -30,7 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -52,6 +51,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
+        .advertiseStarlarkProvider(JavaToolchainProvider.PROVIDER.id())
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(output_licenses) -->
         See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
         </code></a>
@@ -72,13 +72,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("bootclasspath", LABEL_LIST)
-                .value(ImmutableList.of())
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                // This should be in the target configuration.
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr("extclasspath", LABEL_LIST)
-                .undocumented("internal")
                 .value(ImmutableList.of())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 // This should be in the target configuration.
@@ -106,10 +99,24 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         The list of arguments for the JVM when invoking JavaBuilder.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javabuilder_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder_data) -->
+        Labels of data available for label-expansion in javabuilder_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("javabuilder_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_jvm_opts) -->
         The list of arguments for the JVM when invoking turbine.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("turbine_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_data) -->
+        Labels of data available for label-expansion in turbine_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("turbine_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers) -->
         True if JavaBuilder supports running as a persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -117,16 +124,11 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_multiplex_workers) -->
         True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(false))
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
-        Label of the javac jar.
+        .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(true))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers_cancellation) -->
+        True if JavaBuilder supports cancellation of persistent workers, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("javac", LABEL_LIST)
-                // This needs to be in the execution configuration.
-                .cfg(ExecutionTransitionFactory.create())
-                .singleArtifact()
-                .allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(attr("javac_supports_worker_cancellation", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
         Labels of tools available for label-expansion in jvm_opts.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -164,6 +166,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .mandatory()
                 .singleArtifact()
                 // This needs to be in the execution configuration.
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(deps_checker) -->
+        Label of the ImportDepsChecker deploy jar.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("deps_checker", LABEL_LIST)
+                .singleArtifact()
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
@@ -228,14 +239,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("reduced_classpath_incompatible_processors", STRING_LIST)
                 .undocumented("internal")
                 .value(ImmutableList.<String>of()))
-        .add(
-            attr("reduced_classpath_incompatible_targets", NODEP_LABEL_LIST)
-                .undocumented("internal")
-                .value(ImmutableList.<Label>of()))
-        .add(
-            attr("turbine_incompatible_processors", STRING_LIST)
-                .undocumented("internal")
-                .value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
         Label of the one-version enforcement binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -273,7 +276,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .allowedFileTypes()
                 // This needs to be in the execution configuration.
                 .cfg(ExecutionTransitionFactory.create())
-                .mandatoryNativeProviders(ImmutableList.of(JavaPackageConfigurationProvider.class)))
+                .mandatoryBuiltinProviders(
+                    ImmutableList.of(JavaPackageConfigurationProvider.class)))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(jacocorunner) -->
         Label of the JacocoCoverageRunner deploy jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -283,6 +287,88 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(proguard_allowlister) -->
+        Label of the Proguard allowlister.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("proguard_allowlister", LABEL)
+                // This needs to be in the execution configuration.
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                // TODO(b/170769708): set explicitly in Bazel and remove this default
+                .value(env.getToolsLabel("//tools/jdk:proguard_whitelister"))
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(java_runtime) -->
+        The java_runtime to use with this toolchain. It defaults to java_runtime
+        in execution configuration.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("java_runtime", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .mandatory()
+                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .useOutputLicenses())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_runner) -->
+        Label of the Android Lint runner, if any.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("android_lint_runner", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_opts) -->
+        The list of Android Lint arguments.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("android_lint_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_data) -->
+        Labels of tools available for label-expansion in android_lint_jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("android_lint_data", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_jvm_opts) -->
+        The list of arguments for the JVM when invoking Android Lint.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("android_lint_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_package_configuration) -->
+        Android Lint Configuration that should be applied to the specified package groups.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("android_lint_package_configuration", LABEL_LIST)
+                .allowedFileTypes()
+                .cfg(ExecutionTransitionFactory.create())
+                .mandatoryBuiltinProviders(
+                    ImmutableList.of(JavaPackageConfigurationProvider.class)))
+        .add(attr("jspecify_processor_class", STRING).value("").undocumented("experimental"))
+        .add(
+            attr("jspecify_processor", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_implicit_deps", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_javacopts", STRING_LIST)
+                .value(ImmutableList.<String>of())
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_stubs", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_packages", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes()
+                .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id()))
+                .undocumented("experimental"))
         .build();
   }
 
@@ -290,7 +376,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_toolchain")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(ruleClass)
         .build();
   }

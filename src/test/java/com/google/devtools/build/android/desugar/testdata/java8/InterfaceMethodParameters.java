@@ -7,14 +7,12 @@ import com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethodW
 public interface InterfaceMethodParameters {
 
   @Foo
-  @TyFoo
-  static int simpleComputeStatic(int x, @Foo @TyFoo int y) {
+  static @TyFoo int simpleComputeStatic(int x, @Foo @TyFoo int y) {
     return x + y;
   }
 
   @Foo
-  @TyFoo
-  default int simpleComputeDefault(int x, @Foo @TyFoo int y) {
+  default @TyFoo int simpleComputeDefault(int x, @Foo @TyFoo int y) {
     return x + y;
   }
 }

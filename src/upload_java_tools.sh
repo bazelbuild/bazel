@@ -20,8 +20,7 @@
 # Mandatory flags:
 # --java_tools_zip       The workspace-relative path of a java_tools zip.
 # --gcs_java_tools_dir   The directory under bazel_java_tools on GCS where the zip is uploaded.
-# --java_version         The version of the javac the given zip embeds.
-# --platform             The name of the platform where the zip was built.
+# --platform             Optional: The name of the platform where the zip was built. (If empty the zip should be platform independent).
 
 set -euo pipefail
 
@@ -67,7 +66,6 @@ while [[ -n "$@" ]]; do
   case "$arg" in
     "--java_tools_zip") java_tools_zip_name="$val" ;;
     "--gcs_java_tools_dir") gcs_java_tools_dir="$val" ;;
-    "--java_version") java_version="$val" ;;
     "--platform") platform="$val" ;;
     "--commit_hash") commit_hash="$val" ;;
     "--timestamp") timestamp="$val" ;;
@@ -89,23 +87,25 @@ tmp_zip="$tmp_dir/archive.zip"
 cp $java_tools_zip $tmp_zip
 chmod +w $tmp_zip
 
+target_basename=$(basename $java_tools_zip)
+
 # Create the README.md file and add the re-build java tools instructions.
 readme_file="README.md"
 cat >${readme_file} <<EOF
 This Java tools version was built from the bazel repository at commit hash ${commit_hash}
-using bazel version ${bazel_version}.
+using bazel version ${bazel_version}${platform:+" on platform ${platform}"}.
 To build from source the same zip run the commands:
 
 $ git clone https://github.com/bazelbuild/bazel.git
 $ git checkout ${commit_hash}
-$ bazel build //src:java_tools_java${java_version}.zip
+$ bazel build //src:${target_basename}
 EOF
 
 # Add the README.md file to the temp zip.
 zip -rv "${tmp_zip}" "${readme_file}"
 
 gsutil_cmd="gsutil"
-if [[ "$platform" == "windows" ]]; then
+if "$is_windows"; then
   gsutil_cmd="gsutil.cmd"
 fi
 
@@ -119,4 +119,4 @@ fi
 
 # Upload the zip that contains the README.md to GCS.
 "$gsutil_cmd" cp "$zip_url" \
- "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}-${timestamp}.zip"
+ "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java/java_tools${platform:+"_${platform}"}-${timestamp}.zip"

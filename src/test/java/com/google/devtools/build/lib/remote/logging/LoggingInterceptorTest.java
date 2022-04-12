@@ -49,6 +49,8 @@ import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamBlockingStub;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
@@ -58,6 +60,7 @@ import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.FindMissi
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetActionResultDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetCapabilitiesDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.QueryWriteStatusDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ReadDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.UpdateActionResultDetails;
@@ -854,6 +857,10 @@ public class LoggingInterceptorTest {
                         WriteDetails.newBuilder()
                             .addResourceNames("test1")
                             .addResourceNames("test2")
+                            .addOffsets(0)
+                            .addOffsets(0)
+                            .addOffsets(0)
+                            // finish write is empty
                             .setResponse(response)
                             .setBytesSent(9)
                             .setNumWrites(3)))
@@ -862,6 +869,81 @@ public class LoggingInterceptorTest {
             .setEndTime(Timestamp.newBuilder().setSeconds(10).setNanos(400000000))
             .build();
 
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void testWriteCallOffsetAndFinishWriteCompounding() {
+    WriteRequest request1 =
+        WriteRequest.newBuilder()
+            .setResourceName("test1")
+            .setData(ByteString.copyFromUtf8("abc"))
+            .setWriteOffset(10)
+            .build();
+    WriteRequest request2 =
+        WriteRequest.newBuilder()
+            .setData(ByteString.copyFromUtf8("def"))
+            .setWriteOffset(request1.getWriteOffset() + request1.getData().size())
+            .build();
+    WriteResponse response = WriteResponse.newBuilder().setCommittedSize(6).build();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {}
+
+              @Override
+              public void onCompleted() {
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+    ByteStreamStub stub = ByteStreamGrpc.newStub(loggedChannel);
+    @SuppressWarnings("unchecked")
+    StreamObserver<WriteResponse> responseObserver = Mockito.mock(StreamObserver.class);
+
+    clock.advanceMillis(10000);
+    // Request three writes, the first identical with the third, but offset correctly and
+    // finish_writing
+    StreamObserver<WriteRequest> requester = stub.write(responseObserver);
+    requester.onNext(request1);
+    clock.advanceMillis(100);
+    requester.onNext(request2);
+    clock.advanceMillis(200);
+    requester.onNext(
+        request1.toBuilder()
+            .setWriteOffset(request2.getWriteOffset() + request2.getData().size())
+            .setFinishWrite(true)
+            .build());
+    clock.advanceMillis(100);
+    requester.onCompleted();
+
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getWriteMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setWrite(
+                        WriteDetails.newBuilder()
+                            .addResourceNames("test1")
+                            .addResourceNames("")
+                            .addOffsets(request1.getWriteOffset())
+                            .addFinishWrites(
+                                10 + request1.getData().size() * 2 + request2.getData().size())
+                            .setResponse(response)
+                            .setBytesSent(9)
+                            .setNumWrites(3)))
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(10))
+            .setEndTime(Timestamp.newBuilder().setSeconds(10).setNanos(400000000))
+            .build();
     verify(logStream).write(expectedEntry);
   }
 
@@ -881,7 +963,6 @@ public class LoggingInterceptorTest {
             return Mockito.mock(StreamObserver.class);
           }
         });
-
     ByteStreamStub stub = ByteStreamGrpc.newStub(loggedChannel);
     @SuppressWarnings("unchecked")
     StreamObserver<WriteResponse> responseObserver = Mockito.mock(StreamObserver.class);
@@ -894,7 +975,6 @@ public class LoggingInterceptorTest {
     requester.onError(error.asRuntimeException());
 
     Status expectedCancel = Status.CANCELLED.withCause(error.asRuntimeException());
-
     LogEntry expectedEntry =
         LogEntry.newBuilder()
             .setMethodName(ByteStreamGrpc.getWriteMethod().getFullMethodName())
@@ -907,12 +987,50 @@ public class LoggingInterceptorTest {
                     .setWrite(
                         WriteDetails.newBuilder()
                             .addResourceNames("test")
+                            .addOffsets(0)
                             .setNumWrites(1)
                             .setBytesSent(3)))
             .setStartTime(Timestamp.newBuilder().setSeconds(10000000))
             .setEndTime(Timestamp.newBuilder().setSeconds(20000000))
             .build();
+    verify(logStream).write(expectedEntry);
+  }
 
+  @Test
+  public void testQueryWriteStatusCallOk() {
+    QueryWriteStatusRequest request =
+        QueryWriteStatusRequest.newBuilder().setResourceName("test").build();
+    QueryWriteStatusResponse response =
+        QueryWriteStatusResponse.newBuilder().setCommittedSize(10).build();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void queryWriteStatus(
+              QueryWriteStatusRequest request,
+              StreamObserver<QueryWriteStatusResponse> responseObserver) {
+            clock.advanceMillis(22222);
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+          }
+        });
+    ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(loggedChannel);
+
+    clock.advanceMillis(11111);
+    stub.queryWriteStatus(request);
+
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getQueryWriteStatusMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setQueryWriteStatus(
+                        QueryWriteStatusDetails.newBuilder()
+                            .setRequest(request)
+                            .setResponse(response)))
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(11).setNanos(111000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(33).setNanos(333000000))
+            .build();
     verify(logStream).write(expectedEntry);
   }
 }

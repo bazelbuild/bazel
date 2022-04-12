@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import java.util.Objects;
 
 @VisibleForTesting
 class UnixOsPathPolicy implements OsPathPolicy {
@@ -103,11 +104,14 @@ class UnixOsPathPolicy implements OsPathPolicy {
 
   @Override
   public boolean equals(String s1, String s2) {
-    return s1.equals(s2);
+    return Objects.equals(s1, s2);
   }
 
   @Override
   public int hash(String s) {
+    if (s == null) {
+      return 0;
+    }
     return s.hashCode();
   }
 
@@ -122,13 +126,13 @@ class UnixOsPathPolicy implements OsPathPolicy {
   }
 
   @Override
-  public char getSeparator() {
-    return '/';
+  public boolean isSeparator(char c) {
+    return c == '/';
   }
 
   @Override
-  public boolean isSeparator(char c) {
-    return c == '/';
+  public char additionalSeparator() {
+    return 0;
   }
 
   @Override

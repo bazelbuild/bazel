@@ -148,8 +148,10 @@ public class ShowIncludesFilter {
                 StandardCharsets.UTF_8) // Spanish
             );
     private final String sourceFileName;
-    private static final Pattern EXECROOT_HEADER_PATTERN =
-        Pattern.compile(".*execroot\\\\[^\\\\]*\\\\(?<headerPath>.*)");
+    // Grab everything under the execroot base so that external repository header files are covered
+    // in the sibling repository layout.
+    private static final Pattern EXECROOT_BASE_HEADER_PATTERN =
+        Pattern.compile(".*execroot\\\\(?<headerPath>.*)");
 
     public FilterShowIncludesOutputStream(OutputStream out, String sourceFileName) {
       super(out);
@@ -165,9 +167,13 @@ public class ShowIncludesFilter {
         for (String prefix : SHOW_INCLUDES_PREFIXES) {
           if (line.startsWith(prefix)) {
             line = line.substring(prefix.length()).trim();
-            Matcher m = EXECROOT_HEADER_PATTERN.matcher(line);
+            Matcher m = EXECROOT_BASE_HEADER_PATTERN.matcher(line);
             if (m.matches()) {
-              line = m.group("headerPath");
+              // Prefix the matched header path with "..\". This way, external repo header paths are
+              // resolved to "<execroot>\..\<repo name>\<path>", and main repo file paths are
+              // resolved to "<execroot>\..\<main repo>\<path>", which is nicely normalized to
+              // "<execroot>\<path>".
+              line = "..\\" + m.group("headerPath");
             }
             dependencies.add(line);
             prefixMatched = true;

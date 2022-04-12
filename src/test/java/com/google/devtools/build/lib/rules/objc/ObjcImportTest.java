@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -72,24 +75,18 @@ public class ObjcImportTest extends ObjcRuleTestCase {
   @Test
   public void testImportLibrariesLinkedToFinalBinary() throws Exception {
     addTrivialImportLibrary();
-    createBinaryTargetWriter("//bin:bin").setList("deps", "//imp:imp").write();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
     CommandAction linkBinAction = linkAction("//bin:bin");
     verifyObjlist(linkBinAction, "imp/precomp_lib.a");
     assertThat(Artifact.asExecPaths(linkBinAction.getInputs())).contains("imp/precomp_lib.a");
-  }
-
-  @Test
-  public void testNoDepsAllowed() throws Exception {
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .write();
-    checkError("imp", "imp",
-        "//imp:imp: no such attribute 'deps' in 'objc_import' rule",
-        "objc_import(",
-        "    name = 'imp',",
-        "    archives = ['library.a'],",
-        "    deps = ['//lib:lib'],",
-        ")");
   }
 
   @Test
@@ -133,19 +130,45 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testObjcImportNotLoadedThroughMacro() throws Exception {
-    setupTestObjcImportLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestObjcImportLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_import"),
         "objc_import(name='a', archives=['a.a'])");
+  }
+
+  @Test
+  public void testDependency() throws Exception {
+    scratch.file("imp/precomp_dep.a");
+    scratch.file("imp/precomp_dep.h");
+    scratch.file("imp/precomp_lib.a");
+    scratch.file(
+        "imp/BUILD",
+        "objc_import(",
+        "    name = 'imp_dep',",
+        "    archives = ['precomp_dep.a'],",
+        "    hdrs = ['precomp_dep.h'],",
+        ")",
+        "objc_import(",
+        "    name = 'imp',",
+        "    archives = ['precomp_lib.a'],",
+        "    deps = [':imp_dep'],",
+        ")");
+
+    assertThat(getArifactPaths(getConfiguredTarget("//imp:imp"), IMPORTED_LIBRARY))
+        .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
+    assertThat(getArifactPathsOfHeaders(getConfiguredTarget("//imp:imp")))
+        .containsExactly("imp/precomp_dep.h");
+  }
+
+  private static Iterable<String> getArifactPaths(
+      ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
+    return Artifact.toRootRelativePaths(
+        target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
+  }
+
+  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+    return Artifact.toRootRelativePaths(
+        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 }

@@ -19,8 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.AttributeValueGetter;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -35,7 +33,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link ImplicitOutputsFunction}.
  */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public final class ImplicitOutputsFunctionTest {
   private void assertPlaceholderCollection(

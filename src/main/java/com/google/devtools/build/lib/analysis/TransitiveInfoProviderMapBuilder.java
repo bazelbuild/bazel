@@ -60,7 +60,12 @@ public class TransitiveInfoProviderMapBuilder {
 
   public TransitiveInfoProviderMapBuilder put(Info classObject) {
     Preconditions.checkNotNull(classObject);
-    Preconditions.checkState(!(classObject instanceof TransitiveInfoProvider),
+    // TODO(bazel-team): VisibilityProvider should be migrated to Info to avoid the
+    //  PackageSpecificationInfo check. Perhaps as part of a wider effort to migrate all native
+    //  TransitiveInfoProviders to Info.
+    Preconditions.checkState(
+        !(classObject instanceof TransitiveInfoProvider)
+            || classObject.getProvider().getPrintableName().equals("PackageSpecificationInfo"),
         "Declared provider %s should not implement TransitiveInfoProvider",
         classObject.getClass());
 

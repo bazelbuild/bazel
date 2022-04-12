@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,13 +28,15 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * A {@link SkyFunction.Environment} backed by a {@link SkyframeExecutor} that can be used to
  * evaluate arbitrary {@link SkyKey}s for testing.
  */
-public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnvironment
+public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnvironment
     implements SkyFunction.Environment {
 
   private final ExtendedEventHandler eventHandler;
@@ -53,7 +58,7 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
     for (SkyKey depKey : ImmutableSet.copyOf(depKeys)) {
       resultMap.put(depKey, ValueOrUntypedException.ofValueUntyped(evaluationResult.get(depKey)));
     }
-    return resultMap.build();
+    return resultMap.buildOrThrow();
   }
 
   @Override
@@ -62,7 +67,23 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
+      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
+    EvaluationResult<SkyValue> evaluationResult =
+        skyframeExecutor.evaluateSkyKeys(eventHandler, depKeys, true);
+    return stream(depKeys)
+        .map(evaluationResult::get)
+        .map(ValueOrUntypedException::ofValueUntyped)
+        .collect(toImmutableList());
+  }
+
+  @Override
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
     return false;
   }
 
@@ -74,5 +95,10 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
   @Override
   public boolean restartPermitted() {
     return false;
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return stateSupplier.get();
   }
 }

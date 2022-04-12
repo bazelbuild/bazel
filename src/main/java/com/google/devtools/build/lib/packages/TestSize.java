@@ -42,13 +42,13 @@ public enum TestSize {
     for (TestSize size : TestSize.values()) {
       builder.put(size.name().toLowerCase(), size);
     }
-    CANONICAL_LOWER_CASE_NAME_TABLE = builder.build();
+    CANONICAL_LOWER_CASE_NAME_TABLE = builder.buildOrThrow();
   }
 
   private final TestTimeout timeout;
   private final int defaultShards;
 
-  private TestSize(TestTimeout defaultTimeout, int defaultShards) {
+  TestSize(TestTimeout defaultTimeout, int defaultShards) {
     this.timeout = defaultTimeout;
     this.defaultShards = defaultShards;
   }

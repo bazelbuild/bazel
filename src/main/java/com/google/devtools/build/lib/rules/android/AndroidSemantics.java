@@ -109,12 +109,15 @@ public interface AndroidSemantics {
   /** The artifact for the map that proguard will output. */
   Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException;
 
+  boolean postprocessClassesRewritesMap(RuleContext ruleContext);
+
   /** Maybe post process the dex files and proguard output map. */
   AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
       Artifact classesDexZip,
-      ProguardOutput proguardOutput)
+      ProguardOutput proguardOutput,
+      Artifact proguardMapOutput)
       throws InterruptedException;
 
   default AndroidDataContext makeContextForNative(RuleContext ruleContext) {
@@ -142,4 +145,12 @@ public interface AndroidSemantics {
 
   /** Executes a ruleContext.attributeError when the check for the migration tag fails. */
   void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException;
+
+  /**
+   * Whether invoking apksigner, whether or not to pass it flags to make DSA signing be
+   * deterministic.
+   */
+  default boolean deterministicSigning() {
+    return false;
+  }
 }

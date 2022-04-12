@@ -100,6 +100,18 @@ message Action {
 
   // The id to an Artifact that is the primary output of this action.
   uint32 primary_output_id = 13;
+
+  // The execution platform for this action. Empty if the action has no
+  // execution platform.
+  string execution_platform = 14;
+
+  // The template content of the action, if it is TemplateExpand action.
+  string template_content = 15;
+
+  // The list of substitution should be performed on the template. The key is
+  // the string to be substituted and the value is the string to be substituted
+  // to.
+  repeated KeyValuePair substitutions = 16;
 }
 
 // Represents a single target (without configuration information) that is
@@ -167,6 +179,9 @@ message Configuration {
 
   // The checksum representation of the configuration options;
   string checksum = 4;
+
+  // Whether this configuration is used for building tools.
+  bool is_tool = 5;
 }
 
 message KeyValuePair {
@@ -184,14 +199,22 @@ message ConfiguredTarget {
   // regular blaze query.
   blaze_query.Target target = 1;
 
-  // The configuration
-  Configuration configuration = 2;
+  // DEPRECATED. Use configuration_id instead.
+  Configuration configuration = 2 [deprecated = true];
+
+  // The id of the configuration this target is configured for. The actual
+  // Configuration message can be found in CqueryResults. If the target doesn't
+  // have a configuration, the value will be 0.
+  uint32 configuration_id = 3;
 }
 
 // Container for cquery results
 message CqueryResult {
   // All the configuredtargets returns by cquery
   repeated ConfiguredTarget results = 1;
+
+  // All the Configurations referenced by results.
+  repeated Configuration configurations = 2;
 }
 
 // Content of a param file.

@@ -18,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A provider that advertises which environments the associated target is compatible with
@@ -74,15 +73,15 @@ public interface SupportedEnvironmentsProvider extends TransitiveInfoProvider {
    */
   @AutoValue
   abstract class RemovedEnvironmentCulprit {
-    @AutoCodec.Instantiator
     public static RemovedEnvironmentCulprit create(LabelAndLocation culprit,
         Label selectedDepForCulprit) {
       return new AutoValue_SupportedEnvironmentsProvider_RemovedEnvironmentCulprit(culprit,
           selectedDepForCulprit);
     }
 
-    abstract LabelAndLocation culprit();
-    abstract Label selectedDepForCulprit();
+    public abstract LabelAndLocation culprit();
+
+    public abstract Label selectedDepForCulprit();
   }
 
   /**

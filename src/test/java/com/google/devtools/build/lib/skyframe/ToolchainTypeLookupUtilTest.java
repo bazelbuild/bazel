@@ -59,7 +59,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
       return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
           .putAll(super.getSkyFunctions(directories))
           .put(GET_TOOLCHAIN_TYPE_INFO_FUNCTION, new GetToolchainTypeInfoFunction())
-          .build();
+          .buildOrThrow();
     }
   }
 
@@ -85,14 +85,14 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
 
     Map<Label, ToolchainTypeInfo> toolchainTypes = result.get(key).toolchainTypes();
     assertThat(toolchainTypes)
-        .containsExactlyEntriesIn(ImmutableMap.of(testToolchainTypeLabel, testToolchainType));
+        .containsExactlyEntriesIn(ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo));
   }
 
   @Test
   public void testToolchainTypeLookup_toolchainAlias() throws Exception {
     scratch.file(
         "alias/BUILD", "alias(name = 'toolchain_type', actual = '" + testToolchainTypeLabel + "')");
-    Label aliasToolchainTypeLabel = makeLabel("//alias:toolchain_type");
+    Label aliasToolchainTypeLabel = Label.parseAbsoluteUnchecked("//alias:toolchain_type");
     ConfiguredTargetKey testToolchainTypeKey =
         ConfiguredTargetKey.builder()
             .setLabel(aliasToolchainTypeLabel)
@@ -111,9 +111,9 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
         .containsExactlyEntriesIn(
             ImmutableMap.of(
                 testToolchainTypeLabel,
-                testToolchainType,
+                testToolchainTypeInfo,
                 aliasToolchainTypeLabel,
-                testToolchainType));
+                testToolchainTypeInfo));
   }
 
   @Test
@@ -122,7 +122,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
 
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//invalid:not_a_toolchain_type"))
+            .setLabel(Label.parseAbsoluteUnchecked("//invalid:not_a_toolchain_type"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetToolchainTypeInfoKey key = GetToolchainTypeInfoKey.create(ImmutableList.of(targetKey));
@@ -145,7 +145,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
   public void testToolchainTypeLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//fake:missing"))
+            .setLabel(Label.parseAbsoluteUnchecked("//fake:missing"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetToolchainTypeInfoKey key = GetToolchainTypeInfoKey.create(ImmutableList.of(targetKey));
@@ -182,8 +182,8 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
     }
   }
 
-  EvaluationResult<GetToolchainTypeInfoValue> getToolchainTypeInfo(GetToolchainTypeInfoKey key)
-      throws InterruptedException {
+  private EvaluationResult<GetToolchainTypeInfoValue> getToolchainTypeInfo(
+      GetToolchainTypeInfoKey key) throws InterruptedException {
     try {
       // Must re-enable analysis for Skyframe functions that create configured targets.
       skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
@@ -212,7 +212,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
       GetToolchainTypeInfoKey key = (GetToolchainTypeInfoKey) skyKey;
       try {
         Map<Label, ToolchainTypeInfo> toolchainTypes =
-            ToolchainTypeLookupUtil.resolveToolchainTypes(env, key.toolchainTypeKeys(), false);
+            ToolchainTypeLookupUtil.resolveToolchainTypes(env, key.toolchainTypeKeys());
         if (env.valuesMissing()) {
           return null;
         }
@@ -221,16 +221,10 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
         throw new GetToolchainTypeInfoFunctionException(e);
       }
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
-  private static class GetToolchainTypeInfoFunctionException extends SkyFunctionException {
-    public GetToolchainTypeInfoFunctionException(InvalidToolchainTypeException e) {
+  private static final class GetToolchainTypeInfoFunctionException extends SkyFunctionException {
+    GetToolchainTypeInfoFunctionException(InvalidToolchainTypeException e) {
       super(e, Transience.PERSISTENT);
     }
   }

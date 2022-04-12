@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,5 +69,14 @@ public class StoredEventHandler implements ExtendedEventHandler {
     events.clear();
     posts.clear();
     hasErrors = false;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("events", events)
+        .add("posts", posts)
+        .add("hasErrors", hasErrors)
+        .toString();
   }
 }

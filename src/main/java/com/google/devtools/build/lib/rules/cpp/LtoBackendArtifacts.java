@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -23,7 +24,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -32,11 +33,14 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.LtoBackendArtifactsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * LtoBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.
@@ -59,7 +63,7 @@ import javax.annotation.Nullable;
  *   <li>4. Backend link (once). This is the traditional link, and produces the final executable.
  * </ul>
  */
-public final class LtoBackendArtifacts {
+public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifact> {
 
   // A file containing mapping of symbol => bitcode file containing the symbol.
   // It will be null when this is a shared non-lto backend.
@@ -87,7 +91,7 @@ public final class LtoBackendArtifacts {
       BitcodeFiles allBitcodeFiles,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
@@ -97,7 +101,9 @@ public final class LtoBackendArtifacts {
       List<String> userCompileFlags)
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
+    PathFragment obj =
+        ltoOutputRootPrefix.getRelative(
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
 
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
@@ -140,7 +146,7 @@ public final class LtoBackendArtifacts {
       Artifact bitcodeFile,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
@@ -151,7 +157,9 @@ public final class LtoBackendArtifacts {
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
 
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
+    PathFragment obj =
+        ltoOutputRootPrefix.getRelative(
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
@@ -178,12 +186,24 @@ public final class LtoBackendArtifacts {
     return objectFile;
   }
 
+  @Override
+  public Artifact getObjectFileForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return objectFile;
+  }
+
   Artifact getBitcodeFile() {
     return bitcodeFile;
   }
 
   public Artifact getDwoFile() {
     return dwoFile;
+  }
+
+  @Override
+  public Artifact getDwoFileForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getDwoFile();
   }
 
   void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
@@ -208,7 +228,7 @@ public final class LtoBackendArtifacts {
       FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       LinkArtifactFactory linkArtifactFactory,
       List<String> userCompileFlags,
       @Nullable BitcodeFiles bitcodeFiles)
@@ -265,7 +285,9 @@ public final class LtoBackendArtifacts {
               actionConstructionContext,
               repositoryName,
               configuration,
-              FileSystemUtils.replaceExtension(objectFile.getOutputDirRelativePath(), ".dwo"));
+              FileSystemUtils.replaceExtension(
+                  objectFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()),
+                  ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
           CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),

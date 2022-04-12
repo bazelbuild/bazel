@@ -22,26 +22,33 @@ import java.io.OutputStream;
 /** An implementation of a Bazel worker using Proto to communicate with the worker process. */
 final class ProtoWorkerProtocol implements WorkerProtocolImpl {
 
-  /** The worker process's stdin */
-  private final InputStream stdin;
+  /** The worker process's stdin, which we send requests to. */
+  private final OutputStream workersStdin;
 
-  /** The worker process's stdout. */
-  private final OutputStream stdout;
+  /** The worker process's stdout, which we read responses from. */
+  private final InputStream workersStdout;
 
-  public ProtoWorkerProtocol(InputStream stdin, OutputStream stdout) {
-    this.stdin = stdin;
-    this.stdout = stdout;
+  public ProtoWorkerProtocol(OutputStream workersStdin, InputStream workersStdout) {
+    this.workersStdin = workersStdin;
+    this.workersStdout = workersStdout;
   }
 
   @Override
   public void putRequest(WorkRequest request) throws IOException {
-    request.writeDelimitedTo(stdout);
-    stdout.flush();
+    request.writeDelimitedTo(workersStdin);
+    workersStdin.flush();
   }
 
   @Override
   public WorkResponse getResponse() throws IOException {
-    return WorkResponse.parseDelimitedFrom(stdin);
+    boolean interrupted = Thread.interrupted();
+    try {
+      return WorkResponse.parseDelimitedFrom(workersStdout);
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   @Override

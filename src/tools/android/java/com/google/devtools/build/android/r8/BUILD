@@ -16,7 +16,11 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(
         ["*.java"],
-        exclude = ["NoAndroidSdkStub.java"],
+        exclude = [
+            "NoAndroidSdkStub.java",
+            "CoreLibraryDesugar.java",
+            "Desugar.java",
+        ],
     ) + ["BUILD.tools"],
     visibility = ["//visibility:public"],
 )
@@ -41,6 +45,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
         "//third_party:guava",
+        "//third_party:jsr305",
     ] + select({
         "//external:has_androidsdk": ["//external:android/d8_jar_import"],
         "//conditions:default": [],
@@ -50,8 +55,19 @@ java_library(
 java_library(
     name = "utils",
     srcs = ["R8Utils.java"],
+)
+
+java_library(
+    name = "deps_collector_api",
+    srcs = ["DependencyCollector.java"],
     visibility = [
-        "//src/tools/android/java/com/google/devtools/build/android/desugar:__subpackages__",
+        "//src/test/java/com/google/devtools/build/android/desugar:__subpackages__",
+        "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:__subpackages__",
+    ],
+    deps = [
+        ":utils",
+        "//third_party:jsr305",
     ],
 )
 

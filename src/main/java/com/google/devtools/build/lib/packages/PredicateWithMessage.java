@@ -22,9 +22,8 @@ import com.google.common.base.Predicate;
 public interface PredicateWithMessage<T> extends Predicate<T> {
 
   /**
-   * The error message to display when predicate checks param. Only makes sense to
-   * call this method is apply(param) returns false.
+   * The error message to display when predicate checks param. Only makes sense to call this method
+   * if apply(param) returns false.
    */
-  public String getErrorReason(T param);
-
+  String getErrorReason(T param);
 }

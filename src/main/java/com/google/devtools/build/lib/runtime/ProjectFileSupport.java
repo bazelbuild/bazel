@@ -46,7 +46,7 @@ public final class ProjectFileSupport {
   public static void handleProjectFiles(
       ExtendedEventHandler eventHandler,
       ProjectFile.Provider projectFileProvider,
-      Path workspaceDir,
+      PathFragment workspaceDir,
       Path workingDir,
       OptionsParser optionsParser,
       String command)
@@ -72,7 +72,7 @@ public final class ProjectFileSupport {
                   // We only need a non-null outputBase for the PathPackageLocator if we support
                   // external
                   // repositories, which we don't for project files.
-                  null,
+                  /*outputBase=*/ null,
                   optionsParser.getOptions(PackageOptions.class).packagePath,
                   eventHandler,
                   workspaceDir,

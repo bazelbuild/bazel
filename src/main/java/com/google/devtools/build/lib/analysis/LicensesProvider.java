@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /** A {@link ConfiguredTarget} that has licensed targets in its transitive closure. */
@@ -27,7 +26,8 @@ public interface LicensesProvider extends TransitiveInfoProvider {
    * The set of label - license associations in the transitive closure.
    *
    * <p>Always returns an empty set if {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#checkLicenses()} is false.
+   * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#checkLicenses()} is
+   * false.
    */
   NestedSet<TargetLicense> getTransitiveLicenses();
 
@@ -43,7 +43,6 @@ public interface LicensesProvider extends TransitiveInfoProvider {
   boolean hasOutputLicenses();
 
   /** License association for a particular target. */
-  @AutoCodec
   final class TargetLicense {
     private final Label label;
     private final License license;

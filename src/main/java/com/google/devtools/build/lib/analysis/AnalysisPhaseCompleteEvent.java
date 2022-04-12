@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import java.util.Collection;
 
 /**
@@ -26,31 +28,23 @@ public class AnalysisPhaseCompleteEvent {
 
   private final Collection<ConfiguredTarget> topLevelTargets;
   private final long timeInMs;
-  private int targetsLoaded;
-  private int targetsConfigured;
+  private final TotalAndConfiguredTargetOnlyMetric targetsConfigured;
   private final PackageManagerStatistics pkgManagerStats;
-  private final int actionsConstructed;
+  private final TotalAndConfiguredTargetOnlyMetric actionsConstructed;
   private final boolean analysisCacheDropped;
 
-  /**
-   * Construct the event.
-   *
-   * @param topLevelTargets The set of active topLevelTargets that remain.
-   */
   public AnalysisPhaseCompleteEvent(
       Collection<? extends ConfiguredTarget> topLevelTargets,
-      int targetsLoaded,
-      int targetsConfigured,
+      TotalAndConfiguredTargetOnlyMetric targetsConfigured,
+      TotalAndConfiguredTargetOnlyMetric actionsConstructed,
       long timeInMs,
       PackageManagerStatistics pkgManagerStats,
-      int actionsConstructed,
       boolean analysisCacheDropped) {
     this.timeInMs = timeInMs;
     this.topLevelTargets = ImmutableList.copyOf(topLevelTargets);
-    this.targetsLoaded = targetsLoaded;
-    this.targetsConfigured = targetsConfigured;
+    this.targetsConfigured = checkNotNull(targetsConfigured);
     this.pkgManagerStats = pkgManagerStats;
-    this.actionsConstructed = actionsConstructed;
+    this.actionsConstructed = checkNotNull(actionsConstructed);
     this.analysisCacheDropped = analysisCacheDropped;
   }
 
@@ -62,13 +56,8 @@ public class AnalysisPhaseCompleteEvent {
     return topLevelTargets;
   }
 
-  /** Returns the number of targets loaded during analysis */
-  public int getTargetsLoaded() {
-    return targetsLoaded;
-  }
-
-  /** Returns the number of targets configured during analysis */
-  public int getTargetsConfigured() {
+  /** Returns the number of targets/aspects configured during analysis. */
+  public TotalAndConfiguredTargetOnlyMetric getTargetsConfigured() {
     return targetsConfigured;
   }
 
@@ -76,7 +65,8 @@ public class AnalysisPhaseCompleteEvent {
     return timeInMs;
   }
 
-  public int getActionsConstructed() {
+  /** Returns the actions constructed during this analysis. */
+  public TotalAndConfiguredTargetOnlyMetric getActionsConstructed() {
     return actionsConstructed;
   }
 

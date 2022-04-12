@@ -101,8 +101,9 @@ class DirectoryTreeBuilder {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          currDir.addChild(new FileNode(path.getBaseName(), input, d));
-          return 1;
+          boolean childAdded =
+              currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
+          return childAdded ? 1 : 0;
         });
   }
 
@@ -127,8 +128,11 @@ class DirectoryTreeBuilder {
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualActionInput = (VirtualActionInput) input;
             Digest d = digestUtil.compute(virtualActionInput);
-            currDir.addChild(new FileNode(path.getBaseName(), virtualActionInput.getBytes(), d));
-            return 1;
+            boolean childAdded =
+                currDir.addChild(
+                    FileNode.createExecutable(
+                        path.getBaseName(), virtualActionInput.getBytes(), d));
+            return childAdded ? 1 : 0;
           }
 
           FileArtifactValue metadata =
@@ -139,14 +143,14 @@ class DirectoryTreeBuilder {
           switch (metadata.getType()) {
             case REGULAR_FILE:
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-              currDir.addChild(
-                  new FileNode(
-                      path.getBaseName(), ActionInputHelper.toInputPath(input, execRoot), d));
-              return 1;
+              Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
+              boolean childAdded =
+                  currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
+              return childAdded ? 1 : 0;
 
             case DIRECTORY:
               SortedMap<PathFragment, ActionInput> directoryInputs =
-                  explodeDirectory(path, execRoot);
+                  explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
                   directoryInputs, metadataProvider, execRoot, digestUtil, tree);
 

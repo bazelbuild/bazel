@@ -65,7 +65,7 @@ public class QueryExpressionContext<T> {
       }
     }
     newContextBuilder.put(name, value);
-    return newContextBuilder.build();
+    return newContextBuilder.buildOrThrow();
   }
 
   @Override

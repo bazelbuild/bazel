@@ -1,0 +1,120 @@
+<!-- This Ant build file illustrates how to process ProGuard (including its
+     main application, its GUI, its Ant task, and its WTK plugin), and the
+     ReTrace tool, all in one go.
+     Usage: ant -f proguard.xml -->
+
+<project name="ProGuard" default="obfuscate" basedir="../..">
+
+<target name="obfuscate">
+  <taskdef resource="proguard/ant/task.properties"
+           classpath="lib/proguard.jar" />
+
+  <proguard verbose="true"
+            printmapping="proguard.map"
+            overloadaggressively="on"
+            repackageclasses=""
+            renamesourcefileattribute="SourceFile">
+
+    <!-- Specify the input jars, output jars, and library jars. -->
+
+    <injar  file="lib/proguard.jar" />
+    <injar  file="lib/proguardgui.jar" filter="!META-INF/**" />
+    <injar  file="lib/retrace.jar"     filter="!META-INF/**" />
+
+    <outjar file="examples/ant/proguard_out.jar" />
+
+    <libraryjar file="${java.home}/lib/rt.jar" />
+
+    <libraryjar file="/usr/local/java/ant/lib/ant.jar" />
+    <libraryjar file="/usr/local/java/wtk2.5.2/wtklib/kenv.zip" />
+
+    <libraryjar file="/usr/local/java/gradle-4.2.1/lib/plugins/gradle-plugins-4.2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-4.2.1/lib/gradle-base-services-4.2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-4.2.1/lib/gradle-logging-4.2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-4.2.1/lib/gradle-core-api-4.2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-4.2.1/lib/gradle-core-4.2.1.jar" />
+    <libraryjar file="/usr/local/java/gradle-4.2.1/lib/groovy-all-2.4.12.jar" />
+
+    <libraryjar file="${user.home}/.gradle/caches/modules-2/files-2.1/com.android.tools.build/builder/3.0.0/36884960f350cb29f1c2c93107f4fa27f4e7444e/builder-3.0.0.jar" />
+    <libraryjar file="${user.home}/.gradle/caches/modules-2/files-2.1/com.android.tools.build/gradle-api/3.0.0/e98ade5c308a99980d2a61f4ce1d9286df0105e3/gradle-api-3.0.0.jar" />
+    <libraryjar file="${user.home}/.gradle/caches/modules-2/files-2.1/com.android.tools.build/builder-model/3.0.0/a86b254415fded5297e1d849fa1884dfdf62ff42/builder-model-3.0.0.jar" />
+    <libraryjar file="${user.home}/.gradle/caches/modules-2/files-2.1/com.android.tools.build/gradle/3.0.0/2356ee8e98b68c53dafc28898e7034080e5c91aa/gradle-3.0.0.jar" />
+    <libraryjar file="${user.home}/.gradle/caches/modules-2/files-2.1/com.android.tools.build/gradle-core/3.0.0/b4b02fa623c5a618e68478d9a4a67e1e87c023c6/gradle-core-3.0.0.jar" filter="!com/android/build/gradle/tasks/TestModuleProGuardTask*.class" />
+    <libraryjar file="${user.home}/.gradle/caches/modules-2/files-2.1/com.google.guava/guava-jdk5/17.0/463f8378feba44df7ba7cd9272d01837dad62b36/guava-jdk5-17.0.jar" />
+    <libraryjar file="${user.home}/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/1.7.6/562424e36df3d2327e8e9301a76027fca17d54ea/slf4j-api-1.7.6.jar" />
+
+    <!-- Don't print notes about reflection in injected code. -->
+
+    <dontnote filter="proguard.configuration.ConfigurationLogger" />
+
+    <!-- Don't print warnings about GSON dependencies. -->
+
+    <dontwarn filter="com.google.gson.**" />
+
+    <!-- Preserve injected GSON utility classes and their members. -->
+
+    <keep name="proguard.optimize.gson._*" allowobfuscation="true" />
+    <keepclassmembers name="proguard.optimize.gson._*">
+      <field name="*" />
+      <method name="*" />
+    </keepclassmembers>
+
+    <!-- Obfuscate class strings of injected GSON utility classes. -->
+    <adaptclassstrings name="proguard.optimize.gson.**" />
+
+    <!-- Adapt the resource file names, based on the corresponding obfuscated
+         class names. -->
+
+    <adaptresourcefilenames    filter="**.properties,**.gif,**.jpg"  />
+    <adaptresourcefilecontents filter="proguard/ant/task.properties" />
+
+    <!-- Optionally preserve line numbers in the obfuscated stack traces.
+    <keepattribute name="LineNumberTable">
+    <keepattribute name="SourceFile">
+    -->
+
+    <!-- The main seeds: ProGuard and its companion tool ReTrace. -->
+
+    <keep access="public" name="proguard.ProGuard">
+      <method access    ="public static"
+              type      ="void"
+              name      ="main"
+              parameters="java.lang.String[]" />
+    </keep>
+    <keep access="public" name="proguard.gui.ProGuardGUI">
+      <method access    ="public static"
+              type      ="void"
+              name      ="main"
+              parameters="java.lang.String[]" />
+    </keep>
+    <keep access="public" name="proguard.retrace.ReTrace">
+      <method access    ="public static"
+              type      ="void"
+              name      ="main"
+              parameters="java.lang.String[]" />
+    </keep>
+
+    <!-- If we have ant.jar, we can properly process the Ant task. -->
+
+    <keeppackagename name="proguard.ant" />
+    <keep name="proguard.ant.*" allowobfuscation="true" />
+    <keepclassmembers access="public" name="proguard.ant.*">
+      <constructor parameters="org.apache.tools.ant.Project" />
+      <method access="public" type="void" name="set*" parameters="***" />
+      <method access="public" type="void" name="add*" parameters="***" />
+    </keepclassmembers>
+
+    <!-- If we have the Gradle jars, we can properly process the Gradle task. -->
+
+    <keep access="public" name="proguard.gradle.*">
+      <method access="public" />
+    </keep>
+
+    <!-- If we have kenv.zip, we can process the J2ME WTK plugin. -->
+
+    <keep access="public" name="proguard.wtk.ProGuardObfuscator" />
+
+  </proguard>
+</target>
+
+</project>

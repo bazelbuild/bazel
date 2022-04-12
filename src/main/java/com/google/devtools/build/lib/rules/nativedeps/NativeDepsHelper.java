@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.nativedeps;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.NATIVE_DEPS_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 
 import com.google.common.base.Preconditions;
@@ -28,7 +29,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -82,7 +83,7 @@ public abstract class NativeDepsHelper {
         public Artifact create(
             ActionConstructionContext actionConstructionContext,
             RepositoryName repositoryName,
-            BuildConfiguration configuration,
+            BuildConfigurationValue configuration,
             PathFragment rootRelativePath) {
           return actionConstructionContext.getShareableArtifact(
               rootRelativePath, configuration.getBinDirectory(repositoryName));
@@ -118,7 +119,7 @@ public abstract class NativeDepsHelper {
   public static Artifact linkAndroidNativeDepsIfPresent(
       final RuleContext ruleContext,
       CcInfo ccInfo,
-      final BuildConfiguration configuration,
+      final BuildConfigurationValue configuration,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics)
       throws InterruptedException, RuleErrorException {
@@ -182,7 +183,7 @@ public abstract class NativeDepsHelper {
       final RuleContext ruleContext,
       CcInfo ccInfo,
       Collection<String> extraLinkOpts,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CcToolchainProvider toolchain,
       Artifact nativeDeps,
       ArtifactRoot bindirIfShared,
@@ -211,13 +212,10 @@ public abstract class NativeDepsHelper {
     ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
         ImmutableSortedSet.<String>naturalOrder()
             .addAll(ruleContext.getFeatures())
-            .add(STATIC_LINKING_MODE);
+            .add(STATIC_LINKING_MODE)
+            .add(NATIVE_DEPS_LINK);
     if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
       requestedFeaturesBuilder.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
-    }
-    final String sanitizerFeature = configuration.getFatApkSplitSanitizer().feature;
-    if (sanitizerFeature != null && !ruleContext.getDisabledFeatures().contains(sanitizerFeature)) {
-      requestedFeaturesBuilder.add(sanitizerFeature);
     }
     ImmutableSortedSet<String> requestedFeatures = requestedFeaturesBuilder.build();
 
@@ -295,7 +293,19 @@ public abstract class NativeDepsHelper {
   }
 
   /**
-   * Returns the path of the shared native library. The name must be generated based on the
+   * This method facilitates sharing C++ linking between multiple test binaries.
+   *
+   * <p>The theory is that since there are generally multiple test rules that test similar
+   * functionality, their native dependencies must be exactly the same and therefore running C++
+   * linking for each binary is wasteful.
+   *
+   * <p>The way this method gets around that is by computing a file name that depends on the
+   * contents of the eventual shared library (but not on the rule it is generated for). Test actions
+   * put their native dependencies at this place, so if multiple test rules have the same
+   * dependencies it will be a shared action and therefore be executed only once instead of once per
+   * test rule.
+   *
+   * <p>Returns the path of the shared native library. The name must be generated based on the
    * rule-specific inputs to the link actions. At this point this includes order-sensitive list of
    * linker inputs and options collected from the transitive closure and linkstamp-related artifacts
    * that are compiled during linking. All those inputs can be affected by modifying target

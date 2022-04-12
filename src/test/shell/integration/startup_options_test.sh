@@ -75,4 +75,47 @@ function test_command_args_are_not_parsed_as_startup_args() {
   expect_not_log "Error: Unable to read .bazelrc file"
 }
 
+# Test that normal bazel works with and without --autodetect_server_javabase
+# because it has an embedded JRE.
+function test_autodetect_server_javabase() {
+  bazel --autodetect_server_javabase version &> $TEST_log || fail "Should pass"
+  bazel --noautodetect_server_javabase version &> $TEST_log || fail "Should pass"
+}
+
+# Below are the regression tests for Issue #7489
+function test_multiple_bazelrc_later_overwrites_earlier() {
+  # Help message only visible with --help_verbosity=medium
+  help_message_in_description="--${PRODUCT_NAME}rc (a string; default: see description)"
+
+  echo "help --help_verbosity=short" > 1.rc
+  echo "help --help_verbosity=medium" > 2.rc
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" help startup_options &> $TEST_log || fail "Should pass"
+  expect_log "$help_message_in_description"
+
+  echo "help --help_verbosity=medium" > 1.rc
+  echo "help --help_verbosity=short" > 2.rc
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" help startup_options &> $TEST_log || fail "Should pass"
+  expect_not_log "$help_message_in_description"
+}
+
+function test_multiple_bazelrc_set_different_options() {
+  echo "common --verbose_failures" > 1.rc
+  echo "common --test_output=all" > 2.rc
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" info --announce_rc &> $TEST_log || fail "Should pass"
+  expect_log "Inherited 'common' options: --verbose_failures"
+  expect_log "Inherited 'common' options: --test_output=all"
+}
+
+function test_bazelrc_after_devnull_ignored() {
+  echo "common --verbose_failures" > 1.rc
+  echo "common --test_output=all" > 2.rc
+  echo "common --definitely_invalid_config" > 3.rc
+
+  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" "--${PRODUCT_NAME}rc=/dev/null" \
+   "--${PRODUCT_NAME}rc=3.rc" info --announce_rc &> $TEST_log || fail "Should pass"
+  expect_log "Inherited 'common' options: --verbose_failures"
+  expect_log "Inherited 'common' options: --test_output=all"
+  expect_not_log "--definitely_invalid_config"
+}
+
 run_suite "${PRODUCT_NAME} startup options test"

@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
-load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(
     default_testonly = 1,
@@ -283,21 +282,4 @@ java_test(
 cc_binary(
     name = "killmyself",
     srcs = ["killmyself.cc"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

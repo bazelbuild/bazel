@@ -1,0 +1,92 @@
+//
+// This Gradle build file illustrates how to process the ReTrace tool.
+// Configuration files for typical applications will be very similar.
+// Usage:
+//     gradle -b retrace.gradle proguard
+//
+
+// Tell Gradle where to find the ProGuard task.
+
+buildscript {
+    repositories {
+        flatDir dirs: '../../lib'
+    }
+    dependencies {
+        classpath ':proguard'
+    }
+}
+
+// Define a ProGuard task.
+
+task ('proguard', type: proguard.gradle.ProGuardTask) {
+
+    // You should probably import a more compact ProGuard-style configuration
+    // file for all static settings, but we're specifying them all here, for
+    // the sake of the example.
+    //configuration 'configuration.pro'
+
+    verbose
+
+    // Specify the input jars, output jars, and library jars.
+    // The input jars will be merged in a single output jar.
+    // We'll filter out the Ant and WTK classes.
+
+    injars  '../../lib/retrace.jar'
+    injars  '../../lib/proguard.jar', filter: '!META-INF/MANIFEST.MF,!proguard/gui/**,!proguard/gradle/**,!proguard/ant/**,!proguard/wtk/**'
+    outjars 'retrace_out.jar'
+
+    // Automatically handle the Java version of this build.
+    if (System.getProperty('java.version').startsWith('1.')) {
+        // Before Java 9, the runtime classes were packaged in a single jar file.
+        libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
+    } else {
+        // As of Java 9, the runtime classes are packaged in modular jmod files.
+        libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
+        //libraryjars "${System.getProperty('java.home')}/jmods/....."
+    }
+
+    // If we wanted to reuse the previously obfuscated proguard_out.jar, we could
+    // perform incremental obfuscation based on its mapping file, and only keep the
+    // additional ReTrace files instead of all files.
+
+    //applymapping 'proguard.map'
+    //outjars      'retrace_out.jar', filter: 'proguard/retrace/**'
+
+    // Don't print notes about reflection in injected code.
+
+    dontnote 'proguard.configuration.ConfigurationLogger'
+
+    // Don't print warnings about GSON dependencies.
+
+    dontwarn 'com.google.gson.**'
+
+    // Preserve injected GSON utility classes and their members.
+
+    keep allowobfuscation: true, 'class proguard.optimize.gson._*'
+    keepclassmembers 'class proguard.optimize.gson._* { \
+        *; \
+    }'
+
+    // Obfuscate class strings of injected GSON utility classes.
+
+    adaptclassstrings 'proguard.optimize.gson.**'
+
+    // Allow methods with the same signature, except for the return type,
+    // to get the same obfuscation name.
+
+    overloadaggressively
+
+    // Put all obfuscated classes into the nameless root package.
+
+    repackageclasses ''
+
+    // Allow classes and class members to be made public.
+
+    allowaccessmodification
+
+    // The entry point: ReTrace and its main method.
+
+    keep 'public class proguard.retrace.ReTrace { \
+        public static void main(java.lang.String[]); \
+    }'
+}

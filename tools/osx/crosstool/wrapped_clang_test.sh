@@ -58,6 +58,12 @@ function test_add_ast_path_remapping() {
   expect_log "-Wl,-add_ast_path,${PWD}/foo" "Expected add_ast_path to be remapped."
 }
 
+function test_disable_add_ast_path_remapping() {
+  env RELATIVE_AST_PATH=isset DEVELOPER_DIR=dummy SDKROOT=a \
+      "${WRAPPED_CLANG}" "-Wl,-add_ast_path,relative/foo" >$TEST_log || fail "wrapped_clang failed";
+  expect_log "-Wl,-add_ast_path,relative/foo" "Expected add_ast_path to not be remapped."
+}
+
 # Test that __BAZEL_XCODE_DEVELOPER_DIR__ is remapped properly.
 function test_developer_dir_remapping() {
   env DEVELOPER_DIR=mydir SDKROOT=a \
@@ -72,6 +78,22 @@ function test_sdkroot_remapping() {
       "${WRAPPED_CLANG}" "sdkroot=__BAZEL_XCODE_SDKROOT__" \
       >$TEST_log || fail "wrapped_clang failed";
   expect_log "sdkroot=mysdkroot" "Expected sdkroot to be remapped."
+}
+
+function test_params_expansion() {
+  params=$(mktemp)
+  {
+    echo "first"
+    echo "-rpath"
+    echo "@loader_path"
+    echo "sdkroot=__BAZEL_XCODE_SDKROOT__"
+    echo "developer_dir=__BAZEL_XCODE_DEVELOPER_DIR__"
+  } > "$params"
+
+  env DEVELOPER_DIR=dummy SDKROOT=mysdkroot \
+      "${WRAPPED_CLANG}" "@$params" \
+      >"$TEST_log" || fail "wrapped_clang failed";
+  expect_log "/usr/bin/xcrun clang first -rpath @loader_path sdkroot=mysdkroot developer_dir=dummy"
 }
 
 run_suite "Wrapped clang tests"

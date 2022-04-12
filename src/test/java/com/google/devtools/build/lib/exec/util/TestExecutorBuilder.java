@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
 
 /**
  * Builder for the test instance of the {@link BlazeExecutor} class.
@@ -86,6 +88,11 @@ public class TestExecutorBuilder {
     return this;
   }
 
+  public TestExecutorBuilder parseOptions(List<String> options) throws OptionsParsingException {
+    this.optionsParser.parse(options);
+    return this;
+  }
+
   /**
    * Makes the given action context available in the execution phase.
    *
@@ -128,6 +135,7 @@ public class TestExecutorBuilder {
         execRoot,
         reporter,
         BlazeClock.instance(),
+        BugReporter.defaultInstance(),
         optionsParser,
         actionContextRegistry,
         strategyRegistry);

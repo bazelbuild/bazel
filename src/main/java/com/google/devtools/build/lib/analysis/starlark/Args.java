@@ -40,6 +40,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -56,8 +57,9 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   @Override
-  public boolean isHashable() {
-    return false; // even a frozen Args is not hashable
+  public void checkHashable() throws EvalException {
+    // Even a frozen Args is not hashable.
+    throw Starlark.errorf("unhashable type: '%s'", Starlark.type(this));
   }
 
   @Override
@@ -71,6 +73,9 @@ public abstract class Args implements CommandLineArgsApi {
       printer.append(Joiner.on(" ").join(build().arguments()));
     } catch (CommandLineExpansionException e) {
       printer.append("Cannot expand command line: " + e.getMessage());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      printer.append("Interrupted while expanding command line: " + e.getMessage());
     }
   }
 
@@ -192,6 +197,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean uniquify,
         Boolean expandDirectories,
         Object terminateWith,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       throw Starlark.errorf("cannot modify frozen value");
@@ -208,6 +214,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean omitIfEmpty,
         Boolean uniquify,
         Boolean expandDirectories,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       throw Starlark.errorf("cannot modify frozen value");
@@ -317,11 +324,11 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean uniquify,
         Boolean expandDirectories,
         Object terminateWith,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       Starlark.checkMutable(this);
       final String argName;
-      commandLine.recordArgStart();
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values);
@@ -333,7 +340,7 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
+          validateMapEach(mapEach, allowClosure),
           formatEach != Starlark.NONE ? (String) formatEach : null,
           beforeEach != Starlark.NONE ? (String) beforeEach : null,
           /* joinWith= */ null,
@@ -344,6 +351,32 @@ public abstract class Args implements CommandLineArgsApi {
           terminateWith != Starlark.NONE ? (String) terminateWith : null,
           thread.getCallerLocation());
       return this;
+    }
+
+    @Nullable
+    private static StarlarkCallable validateMapEach(Object fn, boolean allowClosure)
+        throws EvalException {
+      if (fn == Starlark.NONE) {
+        return null;
+      }
+      if (fn instanceof StarlarkFunction) {
+        StarlarkFunction sfn = (StarlarkFunction) fn;
+        // Reject non-global functions, because arbitrary closures may cause large
+        // analysis-phase data structures to remain live into the execution phase.
+        // We require that the function is "global" as opposed to "not a closure"
+        // because a global function may be closure if it refers to load bindings.
+        // This unfortunately disallows such trivially safe non-global
+        // functions as "lambda x: x".
+        // See https://github.com/bazelbuild/bazel/issues/12701.
+        if (sfn.getModule().getGlobal(sfn.getName()) != sfn && !allowClosure) {
+          throw Starlark.errorf(
+              "to avoid unintended retention of analysis data structures, "
+                  + "the map_each function (declared at %s) must be declared "
+                  + "by a top-level def statement",
+              sfn.getLocation());
+        }
+      }
+      return (StarlarkCallable) fn;
     }
 
     @Override
@@ -357,11 +390,11 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean omitIfEmpty,
         Boolean uniquify,
         Boolean expandDirectories,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       Starlark.checkMutable(this);
       final String argName;
-      commandLine.recordArgStart();
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values);
@@ -373,7 +406,7 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
+          validateMapEach(mapEach, allowClosure),
           formatEach != Starlark.NONE ? (String) formatEach : null,
           /* beforeEach= */ null,
           joinWith,
@@ -400,23 +433,30 @@ public abstract class Args implements CommandLineArgsApi {
         String terminateWith,
         Location loc)
         throws EvalException {
+      validateFormatString("format_each", formatEach);
+      validateFormatString("format_joined", formatJoined);
       StarlarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof Depset) {
         Depset starlarkNestedSet = (Depset) value;
         NestedSet<?> nestedSet = starlarkNestedSet.getSet();
+        if (nestedSet.isEmpty() && omitIfEmpty) {
+          return;
+        }
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
         Sequence<?> starlarkList = (Sequence) value;
+        if (starlarkList.isEmpty() && omitIfEmpty) {
+          return;
+        }
         if (expandDirectories) {
           scanForDirectories(starlarkList);
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(starlarkList);
       }
-      validateFormatString("format_each", formatEach);
-      validateFormatString("format_joined", formatJoined);
+      commandLine.recordArgStart();
       vectorArg
           .setLocation(loc)
           .setArgName(argName)

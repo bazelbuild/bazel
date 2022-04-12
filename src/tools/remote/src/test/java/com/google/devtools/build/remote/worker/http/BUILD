@@ -3,11 +3,13 @@ package(
     default_visibility = ["//src/tools/remote:__pkg__"],
 )
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/tools/remote:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(

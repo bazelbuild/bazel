@@ -31,7 +31,7 @@ distrib_cc_library(
         "-w",
         "-Dverbose=-1",
     ],
+    enable_distributions = ["debian"],
     includes = ["."],
     visibility = ["//visibility:public"],
-    enable_distributions = ["debian"],
 )

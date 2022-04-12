@@ -14,23 +14,22 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
 
-/**
- * Support for resolving {@code package/...} target patterns.
- */
+/** Support for resolving {@code package/...} target patterns. */
 public interface RecursivePackageProvider extends PackageProvider {
 
   /**
@@ -45,18 +44,23 @@ public interface RecursivePackageProvider extends PackageProvider {
    * @param eventHandler any errors emitted during package lookup and loading for {@code directory}
    *     and non-excluded directories beneath it will be reported here
    * @param directory a {@link RootedPath} specifying the directory to search
-   * @param blacklistedSubdirectories a set of {@link PathFragment}s specifying transitive
-   *     subdirectories that have been blacklisted
+   * @param ignoredSubdirectories a set of {@link PathFragment}s specifying transitive
+   *     subdirectories that are ignored. {@code directory} must not be a subdirectory of any of
+   *     these
    * @param excludedSubdirectories a set of {@link PathFragment}s specifying transitive
+   *     subdirectories that are excluded from this traversal. Different from {@code
+   *     ignoredSubdirectories} only in that these directories should not be embedded in any {@code
+   *     SkyKey}s that are created during the traversal, instead filtered out later
    */
   void streamPackagesUnderDirectory(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException;
+      throws InterruptedException, QueryException, NoSuchPackageException,
+          ProcessPackageDirectoryException;
 
   /**
    * Returns the {@link Package} corresponding to each Package in "pkgIds". If any of the packages
@@ -116,11 +120,11 @@ public interface RecursivePackageProvider extends PackageProvider {
 
     @Override
     public void streamPackagesUnderDirectory(
-        BatchCallback<PackageIdentifier, UnusedException> results,
+        SafeBatchCallback<PackageIdentifier> results,
         ExtendedEventHandler eventHandler,
         RepositoryName repository,
         PathFragment directory,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories) {
       throw new UnsupportedOperationException();
     }

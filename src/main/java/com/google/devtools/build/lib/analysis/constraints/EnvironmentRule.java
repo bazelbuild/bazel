@@ -70,7 +70,7 @@ public class EnvironmentRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(ConstraintConstants.ENVIRONMENT_RULE)
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Environment.class)
         .build();
   }

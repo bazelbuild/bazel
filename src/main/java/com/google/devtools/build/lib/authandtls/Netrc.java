@@ -14,12 +14,18 @@
 package com.google.devtools.build.lib.authandtls;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
+import java.io.InputStream;
 import javax.annotation.Nullable;
 
 /** Container for the content of a .netrc file. */
 @AutoValue
 public abstract class Netrc {
+  public static Netrc fromStream(InputStream inputStream) throws IOException {
+    return NetrcParser.parseAndClose(inputStream);
+  }
   /**
    * Construct a new {@link Netrc} instance.
    *
@@ -63,18 +69,12 @@ public abstract class Netrc {
      */
     @Override
     public final String toString() {
-      return "Credential{"
-          + "machine="
-          + machine()
-          + ", "
-          + "login="
-          + login()
-          + ", "
-          + "password=<password>"
-          + ", "
-          + "account="
-          + account()
-          + "}";
+      return MoreObjects.toStringHelper(this)
+          .add("machine", machine())
+          .add("login", login())
+          .add("password", "<password>")
+          .add("account", account())
+          .toString();
     }
 
     /** Create a {@link Builder} object for a given machine. */

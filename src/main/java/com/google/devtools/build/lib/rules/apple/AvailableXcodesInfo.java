@@ -32,9 +32,13 @@ public class AvailableXcodesInfo extends NativeInfo {
 
   public AvailableXcodesInfo(
       Iterable<XcodeVersionRuleData> availableXcodes, XcodeVersionRuleData defaultVersion) {
-    super(PROVIDER);
     this.availableXcodes = availableXcodes;
     this.defaultVersion = defaultVersion;
+  }
+
+  @Override
+  public BuiltinProvider<AvailableXcodesInfo> getProvider() {
+    return PROVIDER;
   }
 
   /** Returns the available xcode versions from {@code available_xcodes}. */

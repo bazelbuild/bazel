@@ -365,11 +365,12 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Double8"
+      owner: "java/lang/DesugarDouble"
       name: "max"
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -382,11 +383,12 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Double8"
+      owner: "java/lang/DesugarDouble"
       name: "min"
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -399,12 +401,55 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Double8"
+      owner: "java/lang/DesugarDouble"
       name: "sum"
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Double"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarDouble"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/lang/Double"
+      name: "hashCode"
+      desc: "()I"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarDouble"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
 }
 
 replacements {
@@ -416,7 +461,7 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Integer8"
+      owner: "java/lang/DesugarInteger"
       name: "max"
     }
   }
@@ -433,7 +478,7 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Integer8"
+      owner: "java/lang/DesugarInteger"
       name: "min"
     }
   }
@@ -450,12 +495,92 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Integer8"
+      owner: "java/lang/DesugarInteger"
       name: "sum"
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Integer"
+      name: "toUnsignedLong"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarInteger"
+      name: "toUnsignedLong"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "hashCode"
+      desc: "(I)I"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarInteger"
+      name: "hashCode"
+      desc: "(I)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/lang/Integer"
+      name: "hashCode"
+      desc: "()I"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarInteger"
+      name: "hashCode"
+      desc: "(I)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "parseInt"
+      desc: "(Ljava/lang/CharSequence;III)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarInteger"
+      name: "parseInt"
+      desc: "(Ljava/lang/CharSequence;III)I"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
 }
 
 replacements {
@@ -467,7 +592,7 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Long8"
+      owner: "java/lang/DesugarLong"
       name: "max"
     }
   }
@@ -484,7 +609,7 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Long8"
+      owner: "java/lang/DesugarLong"
       name: "min"
     }
   }
@@ -501,11 +626,201 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Long8"
+      owner: "java/lang/DesugarLong"
       name: "sum"
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarLong"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/lang/Long"
+      name: "hashCode"
+      desc: "()I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarLong"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Long"
+      name: "divideUnsigned"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarLong"
+      name: "divideUnsigned"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "parseLong"
+      desc: "(Ljava/lang/CharSequence;III)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarLong"
+      name: "parseLong"
+      desc: "(Ljava/lang/CharSequence;III)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "addExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "addExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "subtractExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "subtractExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "multiplyExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "multiplyExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "incrementExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "incrementExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "decrementExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "decrementExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "negateExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "negateExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -518,78 +833,109 @@ replacements {
   }
   destination {
     method_id {
-      owner: "java/lang/Math8"
+      owner: "java/lang/DesugarMath"
       name: "toIntExact"
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
-    opcode: 184
     method_id {
       owner: "java/lang/Math"
-      name: "floorDiv"
-      desc: "(JI)J"
+      name: "multiplyFull"
     }
-    is_interface: false
   }
   destination {
-    opcode: 184
     method_id {
-      owner: "java/lang/Math8"
-      name: "floorDiv"
-      desc: "(JI)J"
+      owner: "java/lang/DesugarMath"
+      name: "multiplyFull"
     }
-    is_interface: false
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
-    opcode: 184
     method_id {
       owner: "java/lang/Math"
-      name: "floorMod"
-      desc: "(JI)J"
+      name: "multiplyHigh"
     }
-    is_interface: false
   }
   destination {
-    opcode: 184
     method_id {
-      owner: "java/lang/Math8"
-      name: "floorMod"
-      desc: "(JI)J"
+      owner: "java/lang/DesugarMath"
+      name: "multiplyHigh"
     }
-    is_interface: false
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
-    opcode: 184
     method_id {
       owner: "java/lang/Math"
-      name: "multiplyExact"
-      desc: "(JI)J"
+      name: "floorDiv"
     }
     is_interface: false
   }
   destination {
-    opcode: 184
     method_id {
-      owner: "java/lang/Math8"
-      name: "multiplyExact"
-      desc: "(JI)J"
+      owner: "java/lang/DesugarMath"
+      name: "floorDiv"
     }
     is_interface: false
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "floorMod"
+    }
+    is_interface: false
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "floorMod"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "nextDown"
+    }
+    is_interface: false
+  }
+  destination {
+    method_id {
+      owner: "java/lang/DesugarMath"
+      name: "nextDown"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
 }
 
 replacements {
@@ -623,6 +969,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -640,6 +987,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -657,6 +1005,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -730,36 +1079,85 @@ replacements {
 
 replacements {
   source {
+    opcode: 182
     method_id {
       owner: "java/util/LinkedHashSet"
       name: "spliterator"
+      desc: "()Ljava/util/Spliterator;"
     }
   }
   destination {
+    opcode: 184
     method_id {
       owner: "java/util/DesugarLinkedHashSet"
       name: "spliterator"
+      desc: "(Ljava/util/LinkedHashSet;)Ljava/util/Spliterator;"
     }
   }
+  range: DESUGAR_JAVA8_CORE_LIBS
   range: DESUGAR_JAVA8_LIBS
-  auto_deduce_opcode_and_desc: true
 }
 
 replacements {
   source {
+    opcode: 184
     method_id {
       owner: "java/util/TimeZone"
       name: "getTimeZone"
+      desc: "(Ljava/time/ZoneId;)Ljava/util/TimeZone;"
     }
   }
   destination {
+    opcode: 184
     method_id {
       owner: "java/util/DesugarTimeZone"
       name: "getTimeZone"
+      desc: "(Ljava/time/ZoneId;)Ljava/util/TimeZone;"
     }
   }
   range: DESUGAR_JAVA8_LIBS
-  auto_deduce_opcode_and_desc: true
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/util/TimeZone"
+      name: "getTimeZone"
+      desc: "(Ljava/lang/String;)Ljava/util/TimeZone;"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/util/DesugarTimeZone"
+      name: "getTimeZone"
+      desc: "(Ljava/lang/String;)Ljava/util/TimeZone;"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+}
+
+replacements {
+  source {
+    opcode: 182
+    method_id {
+      owner: "java/util/TimeZone"
+      name: "toZoneId"
+      desc: "()Ljava/time/ZoneId;"
+    }
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/util/DesugarTimeZone"
+      name: "toZoneId"
+      desc: "(Ljava/util/TimeZone;)Ljava/time/ZoneId;"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+  range: DESUGAR_JAVA8_LIBS
 }
 
 replacements {
@@ -776,6 +1174,7 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 
@@ -793,6 +1192,24 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Iterable"
+      name: "forEach"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarCollections"
+      name: "forEachIterable"
+    }
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }
 

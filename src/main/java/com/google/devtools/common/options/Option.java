@@ -70,7 +70,7 @@ public @interface Option {
    * usual literal meaning.
    *
    * <p>Multiple options (e.g. with {@code allowMultiple = true}) are not allowed to have default
-   * values (with only a small numner of exceptions - see {@link OptionsProcessor}), thus should
+   * values (with only a small number of exceptions - see {@link OptionsProcessor}), thus should
    * always use {@link OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
    */
   String defaultValue();
@@ -153,17 +153,6 @@ public @interface Option {
    * the blaze team and it was decided that it is not a strong enough case to change the behavior.
    */
   String[] expansion() default {};
-
-  /**
-   * A mechanism for specifying an expansion that is a function of the parser's {@link
-   * IsolatedOptionsData}. This can be used to create an option that expands to different strings
-   * depending on what other options the parser knows about.
-   *
-   * <p>If provided (i.e. not {@link ExpansionFunction}{@code .class}), the {@code expansion} field
-   * must not be set. The mechanism of expansion is as if the {@code expansion} field were set to
-   * whatever the return value of this function is.
-   */
-  Class<? extends ExpansionFunction> expansionFunction() default ExpansionFunction.class;
 
   /**
    * Additional options that need to be implicitly added for this option.

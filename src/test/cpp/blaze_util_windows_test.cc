@@ -39,20 +39,20 @@ using std::wstring;
 // are case-insensitive on Windows).
 //
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_ENVVAR_UNSET(/* const char* */ key)                            \
-  {                                                                           \
-    ASSERT_EQ(::GetEnvironmentVariableA(key, NULL, 0), (DWORD)0);             \
-    ASSERT_EQ(                                                                \
-        ::GetEnvironmentVariableA(blaze_util::AsLower(key).c_str(), NULL, 0), \
-        (DWORD)0);                                                            \
-    ASSERT_EQ(::GetEnvironmentVariableW(                                      \
-                  blaze_util::CstringToWstring(key).c_str(), NULL, 0),        \
-              (DWORD)0);                                                      \
-    ASSERT_EQ(                                                                \
-        ::GetEnvironmentVariableW(                                            \
-            blaze_util::CstringToWstring(blaze_util::AsLower(key)).c_str(),   \
-            NULL, 0),                                                         \
-        (DWORD)0);                                                            \
+#define ASSERT_ENVVAR_UNSET(/* const char* */ key)                          \
+  {                                                                         \
+    ASSERT_EQ(::GetEnvironmentVariableA(key, nullptr, 0), (DWORD)0);        \
+    ASSERT_EQ(::GetEnvironmentVariableA(blaze_util::AsLower(key).c_str(),   \
+                                        nullptr, 0),                        \
+              (DWORD)0);                                                    \
+    ASSERT_EQ(::GetEnvironmentVariableW(                                    \
+                  blaze_util::CstringToWstring(key).c_str(), nullptr, 0),   \
+              (DWORD)0);                                                    \
+    ASSERT_EQ(                                                              \
+        ::GetEnvironmentVariableW(                                          \
+            blaze_util::CstringToWstring(blaze_util::AsLower(key)).c_str(), \
+            nullptr, 0),                                                    \
+        (DWORD)0);                                                          \
   }
 
 // Asserts that the envvar named `key` is set to the `expected` value.
@@ -66,7 +66,7 @@ using std::wstring;
   {                                                                       \
     string key(_key);                                                     \
     string expected(_expected);                                           \
-    DWORD size = ::GetEnvironmentVariableA(key.c_str(), NULL, 0);         \
+    DWORD size = ::GetEnvironmentVariableA(key.c_str(), nullptr, 0);      \
     ASSERT_GT(size, (DWORD)0);                                            \
     unique_ptr<char[]> buf(new char[size]);                               \
                                                                           \
@@ -84,7 +84,7 @@ using std::wstring;
     /* Assert that GetEnvironmentVariableW can retrieve the value. */     \
     wstring wkey(blaze_util::CstringToWstring(key));                      \
     wstring wexpected(blaze_util::CstringToWstring(expected));            \
-    size = ::GetEnvironmentVariableW(wkey.c_str(), NULL, 0);              \
+    size = ::GetEnvironmentVariableW(wkey.c_str(), nullptr, 0);           \
     ASSERT_GT(size, (DWORD)0);                                            \
     unique_ptr<WCHAR[]> wbuf(new WCHAR[size]);                            \
     ASSERT_EQ(::GetEnvironmentVariableW(wkey.c_str(), wbuf.get(), size),  \

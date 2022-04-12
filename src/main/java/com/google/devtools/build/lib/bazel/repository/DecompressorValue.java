@@ -57,16 +57,10 @@ public class DecompressorValue implements SkyValue {
         return error + suggestion + suggestionBody;
       }
 
-      private static boolean isValidPrefixSuggestion(PathFragment pathFragment) {
-        return pathFragment.segmentCount() > 1;
-      }
-
       public static Optional<String> maybeMakePrefixSuggestion(PathFragment pathFragment) {
-        if (isValidPrefixSuggestion(pathFragment)) {
-          return Optional.of(pathFragment.getSegment(0));
-        } else {
-          return Optional.absent();
-        }
+        return pathFragment.isMultiSegment()
+            ? Optional.of(pathFragment.getSegment(0))
+            : Optional.absent();
       }
     }
 
@@ -98,7 +92,10 @@ public class DecompressorValue implements SkyValue {
   static Decompressor getDecompressor(Path archivePath)
       throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
-    if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
+    if (baseName.endsWith(".zip")
+        || baseName.endsWith(".jar")
+        || baseName.endsWith(".war")
+        || baseName.endsWith(".aar")) {
       return ZipDecompressor.INSTANCE;
     } else if (baseName.endsWith(".tar")) {
       return TarFunction.INSTANCE;
@@ -106,13 +103,17 @@ public class DecompressorValue implements SkyValue {
       return TarGzFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.xz") || baseName.endsWith(".txz")) {
       return TarXzFunction.INSTANCE;
+    } else if (baseName.endsWith(".tar.zst") || baseName.endsWith(".tzst")) {
+      return TarZstFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.bz2")) {
       return TarBz2Function.INSTANCE;
+    } else if (baseName.endsWith(".ar") || baseName.endsWith(".deb")) {
+      return ArFunction.INSTANCE;
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
-              "Expected a file with a .zip, .jar, .war, .tar, .tar.gz, .tgz, .tar.xz, .txz, or "
-                  + ".tar.bz2 suffix (got %s)",
+              "Expected a file with a .zip, .jar, .war, .aar, .tar, .tar.gz, .tgz, .tar.xz, .txz,"
+                  + " .tar.zst, .tzst, .tar.bz2, .ar or .deb suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }

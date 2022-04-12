@@ -16,16 +16,19 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback;
+import com.google.devtools.build.lib.cmdline.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -37,9 +40,12 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -67,7 +73,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws PrepareDepsOfPatternFunctionException, InterruptedException {
     TargetPatternValue.TargetPatternKey patternKey =
         ((TargetPatternValue.TargetPatternKey) key.argument());
 
@@ -77,8 +83,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     // with SkyframeTargetPatternEvaluator, which can create TargetPatternKeys with other
     // filtering policies like FILTER_TESTS or FILTER_MANUAL.) This check makes sure that the
     // key's filtering policy is NO_FILTER as expected.
-    Preconditions.checkState(patternKey.getPolicy().equals(FilteringPolicies.NO_FILTER),
-        patternKey.getPolicy());
+    Preconditions.checkState(
+        patternKey.getPolicy().equals(FilteringPolicies.NO_FILTER), patternKey.getPolicy());
 
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
@@ -88,18 +94,24 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     if (repositoryIgnoredPrefixes == null) {
       return null;
     }
-    ImmutableSet<PathFragment> repositoryIgnoredPatterns = repositoryIgnoredPrefixes.getPatterns();
-
-    // This SkyFunction is used to load the universe, so we want both the
-    // ignored directories from the global list of exclusions (set with
-    // .bazelignore in Bazel and set staticly in other binaries) and the
-    // excluded directories from the TargetPatternKey itself to be embedded in
-    // the SkyKeys created and used by the DepsOfPatternPreparer. The
-    // DepsOfPatternPreparer ignores excludedSubdirectories and embeds
-    // repositoryIgnoredSubdirectories in the SkyKeys it creates and uses.
-    ImmutableSet<PathFragment> repositoryIgnoredSubdirectories =
-        patternKey.getAllSubdirectoriesToExclude(repositoryIgnoredPatterns);
-    ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
+    // This SkyFunction is used to load the universe, so we want both the ignored directories from
+    // the global list of exclusions (set with .bazelignore in Bazel and set statically in other
+    // binaries) and the excluded directories from the TargetPatternKey itself to be embedded in the
+    // SkyKeys created and used by the DepsOfPatternPreparer. The DepsOfPatternPreparer ignores
+    // excludedSubdirectories and embeds repositoryIgnoredPatterns in SkyKeys it creates and uses.
+    //
+    // This consolidation of excluded into ignored means that parsedPattern.eval below does a bit of
+    // extra work when parsePattern is a TargetsBelowDirectory and there are excluded directories,
+    // since it has to iterate over those exclusions to see if they fully exclude the directory even
+    // though TargetPatternKey guarantees that the exclusions will not fully exclude the directory.
+    ImmutableSet<PathFragment> excludedPatterns = patternKey.getExcludedSubdirectories();
+    ImmutableSet<PathFragment> ignoredPatterns = repositoryIgnoredPrefixes.getPatterns();
+    ImmutableSet<PathFragment> repositoryIgnoredPatterns =
+        ImmutableSet.<PathFragment>builderWithExpectedSize(
+                excludedPatterns.size() + ignoredPatterns.size())
+            .addAll(excludedPatterns)
+            .addAll(ignoredPatterns)
+            .build();
 
     DepsOfPatternPreparer preparer =
         new DepsOfPatternPreparer(env, pkgPath.get(), traverseTestSuites);
@@ -107,24 +119,22 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     try {
       parsedPattern.eval(
           preparer,
-          repositoryIgnoredSubdirectories,
-          excludedSubdirectories,
-          NullCallback.<Void>instance(),
-          RuntimeException.class);
+          () -> repositoryIgnoredPatterns,
+          ImmutableSet.of(),
+          NullCallback.instance(),
+          QueryExceptionMarkerInterface.MarkerRuntimeException.class);
     } catch (TargetParsingException e) {
       throw new PrepareDepsOfPatternFunctionException(e);
     } catch (MissingDepException e) {
       // The DepsOfPatternPreparer constructed above might throw MissingDepException to signal
       // when it has a dependency on a missing Environment value.
       return null;
+    } catch (ProcessPackageDirectoryException e) {
+      throw new PrepareDepsOfPatternFunctionException(parsedPattern, e);
+    } catch (InconsistentFilesystemException e) {
+      throw new PrepareDepsOfPatternFunctionException(parsedPattern, e);
     }
     return PrepareDepsOfPatternValue.INSTANCE;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**
@@ -132,9 +142,57 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
    * PrepareDepsOfPatternFunction#compute}.
    */
   private static final class PrepareDepsOfPatternFunctionException extends SkyFunctionException {
-
     PrepareDepsOfPatternFunctionException(TargetParsingException e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    PrepareDepsOfPatternFunctionException(
+        TargetPattern pattern, ProcessPackageDirectoryException e) {
+      super(new PrepareDepsOfPatternException(pattern, e), Transience.PERSISTENT);
+    }
+
+    PrepareDepsOfPatternFunctionException(
+        TargetPattern pattern, InconsistentFilesystemException e) {
+      super(new PrepareDepsOfPatternException(pattern, e), Transience.PERSISTENT);
+    }
+  }
+
+  private static final class PrepareDepsOfPatternException extends Exception
+      implements DetailedException {
+    private final DetailedExitCode detailedExitCode;
+
+    PrepareDepsOfPatternException(TargetPattern pattern, ProcessPackageDirectoryException e) {
+      super(
+          "Preparing deps of pattern '"
+              + pattern.getOriginalPattern()
+              + "' failed: "
+              + e.getMessage(),
+          e);
+      detailedExitCode = e.getDetailedExitCode();
+    }
+
+    public PrepareDepsOfPatternException(TargetPattern pattern, InconsistentFilesystemException e) {
+      super(
+          "Preparing deps of pattern '"
+              + pattern.getOriginalPattern()
+              + "' failed: "
+              + e.getMessage(),
+          e);
+      detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setMessage(getMessage())
+                  .setPackageLoading(
+                      FailureDetails.PackageLoading.newBuilder()
+                          .setCode(
+                              FailureDetails.PackageLoading.Code
+                                  .TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR))
+                  .build());
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 
@@ -168,7 +226,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public Void getTargetOrNull(Label label) throws InterruptedException {
+    public Void getTargetOrNull(Label label) {
       // Note:
       // This method is used in just one place, TargetPattern.TargetsInPackage#getWildcardConflict.
       // Returning null tells #getWildcardConflict that there is not a target with a name like
@@ -216,20 +274,22 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           builder.add(TransitiveTraversalValue.key(target.getLabel()));
         }
         ImmutableList<SkyKey> skyKeys = builder.build();
-        env.getValuesOrThrow(skyKeys, NoSuchPackageException.class, NoSuchTargetException.class);
-        if (env.valuesMissing()) {
+        if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, skyKeys, NoSuchPackageException.class, NoSuchTargetException.class)) {
           throw new MissingDepException();
         }
         return ImmutableSet.of();
       } catch (NoSuchThingException e) {
-        String message = TargetPatternResolverUtil.getParsingErrorMessage(
-            "package contains errors", originalPattern);
+        String message =
+            TargetPatternResolverUtil.getParsingErrorMessage(
+                "package contains errors", originalPattern);
         throw new TargetParsingException(message, e, e.getDetailedExitCode());
       }
     }
 
     @Override
-    public boolean isPackage(PackageIdentifier packageIdentifier) throws InterruptedException {
+    public boolean isPackage(PackageIdentifier packageIdentifier)
+        throws InterruptedException, InconsistentFilesystemException {
       return packageProvider.isPackage(env.getListener(), packageIdentifier);
     }
 
@@ -243,7 +303,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public <E extends Exception> void findTargetsBeneathDirectory(
+    public <E extends Exception & QueryExceptionMarkerInterface> void findTargetsBeneathDirectory(
         RepositoryName repository,
         String originalPattern,
         String directory,
@@ -254,9 +314,6 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       PathFragment directoryPathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-      if (repositoryIgnoredSubdirectories.contains(directoryPathFragment)) {
-        return;
-      }
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
@@ -273,15 +330,17 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         if (!repositoryValue.repositoryExists()) {
           // This shouldn't be possible; we're given a repository, so we assume that the caller has
           // already checked for its existence.
-          throw new IllegalStateException(String.format("No such repository '%s'", repository));
+          throw new IllegalStateException(
+              String.format(
+                  "No such repository '%s': %s", repository, repositoryValue.getErrorMsg()));
         }
         roots.add(Root.fromPath(repositoryValue.getPath()));
       }
 
       for (Root root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
-        env.getValues(getDeps(repository, repositoryIgnoredSubdirectories, policy, rootedPath));
-        if (env.valuesMissing()) {
+        if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, getDeps(repository, repositoryIgnoredSubdirectories, policy, rootedPath))) {
           throw new MissingDepException();
         }
       }

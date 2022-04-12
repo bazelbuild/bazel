@@ -29,15 +29,16 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import java.lang.ref.Reference;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -84,7 +85,7 @@ public class MoreAsserts {
   static final Predicate<Field> ALL_STRONG_REFS = Predicates.equalTo(NON_STRONG_REF);
 
   private static boolean isRetained(Predicate<Object> predicate, Object start) {
-    Map<Object, Object> visited = Maps.newIdentityHashMap();
+    IdentityHashMap<Object, Object> visited = Maps.newIdentityHashMap();
     visited.put(start, start);
     Queue<Object> toScan = new ArrayDeque<>();
     toScan.add(start);
@@ -186,11 +187,31 @@ public class MoreAsserts {
     assertExitCode(0, exitCode, stdout, stderr);
   }
 
+  public static void assertZeroExitCode(int exitCode, RecordingOutErr recordingOutErr) {
+    assertExitCode(0, exitCode, recordingOutErr.outAsLatin1(), recordingOutErr.errAsLatin1());
+  }
+
   public static void assertExitCode(int expectedExitCode,
       int exitCode, String stdout, String stderr) {
     if (exitCode != expectedExitCode) {
       fail(String.format("expected exit code <%d> but exit code was <%d> and stdout was <%s> "
           + "and stderr was <%s>", expectedExitCode, exitCode, stdout, stderr));
+    }
+  }
+
+  public static void assertExitCode(
+      int expectedExitCode, int exitCode, RecordingOutErr recordingOutErr) {
+    assertExitCode(
+        expectedExitCode, exitCode, recordingOutErr.outAsLatin1(), recordingOutErr.errAsLatin1());
+  }
+
+  public static void assertEqualWithStdoutAndErr(
+      Object expected, Object actual, String stdout, String stderr) {
+    if (!expected.equals(actual)) {
+      fail(
+          String.format(
+              "expected <%s> but was <%s> and stdout was <%s> and stderr was <%s>",
+              expected, actual, stdout, stderr));
     }
   }
 
@@ -301,28 +322,45 @@ public class MoreAsserts {
   }
 
   /**
-   * If {@code eventCollector} does not contain an event which matches {@code expectedEventRegex},
+   * If {@code eventCollector} does not contain an event which matches {@code expectedEventPattern},
    * fails with an informative assertion.
    */
-  public static void assertContainsEventRegex(
-      Iterable<Event> eventCollector, String expectedEventRegex) {
+  public static Event assertContainsEvent(
+      Iterable<Event> eventCollector, Pattern expectedEventPattern, EventKind... kinds) {
+    return assertContainsEvent(eventCollector, expectedEventPattern, ImmutableSet.copyOf(kinds));
+  }
+
+  /**
+   * If {@code eventCollector} does not contain an event which matches {@code expectedEventPattern},
+   * fails with an informative assertion.
+   */
+  public static Event assertContainsEvent(
+      Iterable<Event> eventCollector, Pattern expectedEventPattern, Set<EventKind> kinds) {
     for (Event event : eventCollector) {
-      if (event.toString().matches(expectedEventRegex)) {
-        return;
+      // Does the event message match the expected regex?
+      if (!expectedEventPattern.matcher(event.toString()).find()) {
+        continue;
       }
+      // Was an expected kind given, and does the event match?
+      if (!kinds.isEmpty() && !kinds.contains(event.getKind())) {
+        continue;
+      }
+      // Return the event, assertion successful
+      return event;
     }
     String eventsString = eventsToString(eventCollector);
-    String failureMessage = "Event matching '" + expectedEventRegex + "' not found";
+    String failureMessage = "Event matching '" + expectedEventPattern + "' not found";
     if (!eventsString.isEmpty()) {
       failureMessage += "; found these though: " + eventsString;
     }
     fail(failureMessage);
+    return null; // unreachable
   }
 
-  public static void assertNotContainsEventRegex(
-      Iterable<Event> eventCollector, String unexpectedEventRegex) {
+  public static void assertNotContainsEvent(
+      Iterable<Event> eventCollector, Pattern unexpectedEventPattern) {
     for (Event event : eventCollector) {
-      assertThat(event.toString()).doesNotMatch(unexpectedEventRegex);
+      assertThat(event.toString()).doesNotMatch(unexpectedEventPattern);
     }
   }
 
@@ -384,12 +422,12 @@ public class MoreAsserts {
   }
 
   /**
-   * If "expectedSublist" is not a sublist of "arguments", an informative
-   * assertion is failed in the context of the specified TestCase.
+   * If "expectedSublist" is not a sublist of "arguments", an informative assertion is failed in the
+   * context of the specified TestCase.
    *
    * <p>Argument order mnemonic: assert(X)ContainsSublist(Y).
    */
-  @SuppressWarnings({"unchecked", "varargs"})
+  @SuppressWarnings("varargs")
   public static <T> void assertContainsSublist(List<T> arguments, T... expectedSublist) {
     List<T> sublist = Arrays.asList(expectedSublist);
     try {
@@ -400,12 +438,12 @@ public class MoreAsserts {
   }
 
   /**
-   * If "expectedSublist" is a sublist of "arguments", an informative
-   * assertion is failed in the context of the specified TestCase.
+   * If "expectedSublist" is a sublist of "arguments", an informative assertion is failed in the
+   * context of the specified TestCase.
    *
    * <p>Argument order mnemonic: assert(X)DoesNotContainSublist(Y).
    */
-  @SuppressWarnings({"unchecked", "varargs"})
+  @SuppressWarnings("varargs")
   public static <T> void assertDoesNotContainSublist(List<T> arguments, T... expectedSublist) {
     List<T> sublist = Arrays.asList(expectedSublist);
     try {
@@ -442,7 +480,6 @@ public class MoreAsserts {
    * if the elements of the pair are equal by its lights.
    * @return first element not in arguments in order, or null if success.
    */
-  @SuppressWarnings({"unchecked"})
   protected static <S, T> T containsSublistWithGapsAndEqualityChecker(List<S> arguments,
       Function<Pair<S, T>, Boolean> equalityChecker, T... expectedSublist) {
     Iterator<S> iter = arguments.iterator();

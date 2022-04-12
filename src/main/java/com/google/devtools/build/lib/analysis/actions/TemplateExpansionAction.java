@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -32,12 +31,10 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.util.List;
@@ -45,7 +42,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 
 /** Action to expand a template and write the expanded content to a file. */
-@AutoCodec
 @Immutable // if all substitutions are immutable
 public final class TemplateExpansionAction extends AbstractAction {
 
@@ -66,9 +62,7 @@ public final class TemplateExpansionAction extends AbstractAction {
    *     will be applied in order.
    * @param makeExecutable iff true will change the output file to be executable.
    */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  TemplateExpansionAction(
+  private TemplateExpansionAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       Artifact primaryOutput,
@@ -170,9 +164,7 @@ public final class TemplateExpansionAction extends AbstractAction {
             return this;
           }
         } catch (ExecException e) {
-          throw e.toActionExecutionException(
-              "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
-              TemplateExpansionAction.this);
+          throw ActionExecutionException.fromExecException(e, TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       }
@@ -218,10 +210,10 @@ public final class TemplateExpansionAction extends AbstractAction {
 
   @Override
   public Dict<String, String> getStarlarkSubstitutions() {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    Dict.Builder<String, String> builder = Dict.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());
     }
-    return Dict.copyOf(null, builder.build());
+    return builder.buildImmutable();
   }
 }

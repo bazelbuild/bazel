@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -46,6 +47,15 @@ final class MethodDescriptor {
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
 
+  private enum HowToHandleReturn {
+    NULL_TO_NONE, // any Starlark value; null -> None
+    ERROR_ON_NULL, // any Starlark value; null -> error
+    STARLARK_INT_OF_INT, // Java int -> StarlarkInt
+    FROM_JAVA, // Starlark.fromJava conversion (List, Map, various Numbers, null perhaps)
+  }
+
+  private final HowToHandleReturn howToHandleReturn;
+
   private MethodDescriptor(
       Method method,
       StarlarkMethod annotation,
@@ -73,6 +83,23 @@ final class MethodDescriptor {
     this.allowReturnNones = allowReturnNones;
     this.useStarlarkThread = useStarlarkThread;
     this.useStarlarkSemantics = useStarlarkSemantics;
+
+    Class<?> ret = method.getReturnType();
+    if (ret == void.class || ret == boolean.class) {
+      // * `void` function returns `null`
+      // * `boolean` function never returns `null`
+      // We could have specialized enum variant, but null check is cheap.
+      howToHandleReturn = HowToHandleReturn.NULL_TO_NONE;
+    } else if (StarlarkValue.class.isAssignableFrom(ret)
+        || String.class == ret
+        || Boolean.class == ret) {
+      howToHandleReturn =
+          allowReturnNones ? HowToHandleReturn.NULL_TO_NONE : HowToHandleReturn.ERROR_ON_NULL;
+    } else if (ret == int.class) {
+      howToHandleReturn = HowToHandleReturn.STARLARK_INT_OF_INT;
+    } else {
+      howToHandleReturn = HowToHandleReturn.FROM_JAVA;
+    }
   }
 
   /** Returns the StarlarkMethod annotation corresponding to this method. */
@@ -169,22 +196,32 @@ final class MethodDescriptor {
         throw new EvalException(e);
       }
     }
-    if (method.getReturnType().equals(Void.TYPE)) {
-      return Starlark.NONE;
-    }
-    if (result == null) {
-      // TODO(adonovan): eliminate allowReturnNones. Given that we convert
-      // String/Integer/Boolean/List/Map, it seems obtuse to crash instead
-      // of converting null too.
-      if (isAllowReturnNones()) {
-        return Starlark.NONE;
-      } else {
-        throw new IllegalStateException(
-            "method invocation returned null: " + getName() + Tuple.copyOf(Arrays.asList(args)));
-      }
-    }
 
-    return Starlark.fromJava(result, mu);
+    // This switch is an optimization to reduce the overhead
+    // of an unconditional null check and fromJava call.
+    switch (howToHandleReturn) {
+      case NULL_TO_NONE:
+        return result != null ? result : Starlark.NONE;
+      case ERROR_ON_NULL:
+        if (result == null) {
+          throw methodInvocationReturnedNull(args);
+        }
+        return result;
+      case STARLARK_INT_OF_INT:
+        return StarlarkInt.of((Integer) result);
+      case FROM_JAVA:
+        if (result == null && !allowReturnNones) {
+          throw methodInvocationReturnedNull(args);
+        }
+        return Starlark.fromJava(result, mu);
+    }
+    throw new IllegalStateException("unreachable: " + howToHandleReturn);
+  }
+
+  @CheckReturnValue // don't forget to throw it
+  private NullPointerException methodInvocationReturnedNull(Object[] args) {
+    return new NullPointerException(
+        "method invocation returned null: " + getName() + Tuple.of(args));
   }
 
   /** @see StarlarkMethod#name() */
@@ -209,11 +246,6 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#useStarlarkSemantics() */
   boolean isUseStarlarkSemantics() {
     return useStarlarkSemantics;
-  }
-
-  /** @see StarlarkMethod#allowReturnNones() */
-  boolean isAllowReturnNones() {
-    return allowReturnNones;
   }
 
   /** @return {@code true} if this method accepts extra arguments ({@code *args}) */

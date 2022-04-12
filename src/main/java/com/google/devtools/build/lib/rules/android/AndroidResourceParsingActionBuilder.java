@@ -100,7 +100,8 @@ public class AndroidResourceParsingActionBuilder {
           BusyBoxActionBuilder.create(dataContext, "COMPILE_LIBRARY_RESOURCES")
               .addAapt()
               .addInput("--resources", resourceDirectories, resourceArtifacts)
-              .addOutput("--output", compiledSymbols);
+              .addOutput("--output", compiledSymbols)
+              .maybeAddFlag("--useDataBindingAndroidX", dataContext.useDataBindingAndroidX());
 
       if (dataBindingInfoZip != null) {
         compiledBuilder

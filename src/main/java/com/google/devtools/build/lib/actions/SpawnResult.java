@@ -217,6 +217,16 @@ public interface SpawnResult {
    */
   Optional<Long> getNumInvoluntaryContextSwitches();
 
+  /**
+   * Returns the memory in Kilobytes used during the {@link Spawn}'s execution. The spawn memory
+   * based on the maximum resident set size during command execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  // TODO(b/181317827) implement for windows systems.
+  Optional<Long> getMemoryInKb();
+
   SpawnMetrics getMetrics();
 
   /** Returns whether the spawn result was a cache hit. */
@@ -239,7 +249,6 @@ public interface SpawnResult {
   }
 
   String getDetailMessage(
-      String messagePrefix,
       String message,
       boolean catastrophe,
       boolean forciblyRunRemotely);
@@ -267,6 +276,7 @@ public interface SpawnResult {
     private final Optional<Long> numBlockOutputOperations;
     private final Optional<Long> numBlockInputOperations;
     private final Optional<Long> numInvoluntaryContextSwitches;
+    private final Optional<Long> memoryKb;
     private final Optional<MetadataLog> actionMetadataLog;
     private final boolean cacheHit;
     private final String failureMessage;
@@ -292,6 +302,7 @@ public interface SpawnResult {
       this.numBlockOutputOperations = builder.numBlockOutputOperations;
       this.numBlockInputOperations = builder.numBlockInputOperations;
       this.numInvoluntaryContextSwitches = builder.numInvoluntaryContextSwitches;
+      this.memoryKb = builder.memoryInKb;
       this.cacheHit = builder.cacheHit;
       this.failureMessage = builder.failureMessage;
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
@@ -367,6 +378,11 @@ public interface SpawnResult {
     }
 
     @Override
+    public Optional<Long> getMemoryInKb() {
+      return memoryKb;
+    }
+
+    @Override
     public boolean isCacheHit() {
       return cacheHit;
     }
@@ -378,20 +394,14 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String messagePrefix,
         String message,
         boolean catastrophe,
         boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
-      String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
+      String reason = "(" + status.toShortString() + ")"; // e.g "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
-      if (!status().isConsideredUserError()) {
-        String errorDetail = status().name().toLowerCase(Locale.US)
-            .replace('_', ' ');
-        explanation += ". Note: Remote connection/protocol failed with: " + errorDetail;
-      }
       if (status() == Status.TIMEOUT) {
         if (getWallTime().isPresent()) {
           explanation +=
@@ -409,10 +419,7 @@ public interface SpawnResult {
         explanation += " Action tagged as local was forcibly run remotely and failed - it's "
             + "possible that the action simply doesn't work remotely";
       }
-      if (!Strings.isNullOrEmpty(failureMessage)) {
-        explanation += " " + failureMessage;
-      }
-      return messagePrefix + " failed" + reason + explanation;
+      return reason + explanation;
     }
 
     @Nullable
@@ -450,6 +457,7 @@ public interface SpawnResult {
     private Optional<Long> numBlockOutputOperations = Optional.empty();
     private Optional<Long> numBlockInputOperations = Optional.empty();
     private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
+    private Optional<Long> memoryInKb = Optional.empty();
     private Optional<MetadataLog> actionMetadataLog = Optional.empty();
     private boolean cacheHit;
     private String failureMessage = "";
@@ -554,6 +562,11 @@ public interface SpawnResult {
 
     public Builder setNumInvoluntaryContextSwitches(long numInvoluntaryContextSwitches) {
       this.numInvoluntaryContextSwitches = Optional.of(numInvoluntaryContextSwitches);
+      return this;
+    }
+
+    public Builder setMemoryInKb(long memoryInKb) {
+      this.memoryInKb = Optional.of(memoryInKb);
       return this;
     }
 

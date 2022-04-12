@@ -27,12 +27,12 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.Objects;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.Program;
 
 /**
  * The result of BzlCompileFunction, which compiles a .bzl file. There are two subclasses: {@code
- * Success}, for when the file is found (even though it may contain errors), and {@code Failure},
- * for when the file does not exist.
+ * Success}, for when the file is compiled successfully, and {@code Failure}, for when the file does
+ * not exist, or had parser/resolver errors.
  */
 // In practice, almost any change to a .bzl causes the BzlCompileValue to be recomputed.
 // We could do better with a finer-grained notion of equality than "the source
@@ -51,20 +51,20 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
   public abstract boolean lookupSuccessful();
 
-  public abstract StarlarkFile getAST(); // on success
+  public abstract Program getProgram(); // on success
 
   public abstract byte[] getDigest(); // on success
 
   public abstract String getError(); // on failure
 
-  /** If the file is found, this class encapsulates the compiled program. */
+  /** If the file is compiled successfully, this class encapsulates the compiled program. */
   @AutoCodec.VisibleForSerialization
   public static class Success extends BzlCompileValue {
-    private final StarlarkFile ast;
+    private final Program prog;
     private final byte[] digest;
 
-    private Success(StarlarkFile ast, byte[] digest) {
-      this.ast = Preconditions.checkNotNull(ast);
+    private Success(Program prog, byte[] digest) {
+      this.prog = Preconditions.checkNotNull(prog);
       this.digest = Preconditions.checkNotNull(digest);
     }
 
@@ -74,8 +74,8 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     }
 
     @Override
-    public StarlarkFile getAST() {
-      return this.ast;
+    public Program getProgram() {
+      return this.prog;
     }
 
     @Override
@@ -90,7 +90,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     }
   }
 
-  /** If the file isn't found, this class encapsulates a message with the reason. */
+  /** If the file isn't found or has errors, this class encapsulates a message with the reason. */
   @AutoCodec.VisibleForSerialization
   public static class Failure extends BzlCompileValue {
     private final String errorMsg;
@@ -105,8 +105,9 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     }
 
     @Override
-    public StarlarkFile getAST() {
-      throw new IllegalStateException("attempted to retrieve AST from an unsuccessful lookup");
+    public Program getProgram() {
+      throw new IllegalStateException(
+          "attempted to retrieve .bzl program from an unsuccessful lookup");
     }
 
     @Override
@@ -126,9 +127,9 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     return new Failure(String.format(format, args));
   }
 
-  /** Constructs a value from a parsed file. */
-  public static BzlCompileValue withFile(StarlarkFile ast, byte[] digest) {
-    return new Success(ast, digest);
+  /** Constructs a value from a compiled .bzl program. */
+  public static BzlCompileValue withProgram(Program prog, byte[] digest) {
+    return new Success(prog, digest);
   }
 
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
@@ -141,7 +142,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     // differ. (See also #11954, which aims to make even the symbol definitions the same.)
     NORMAL,
 
-    /** A .bzl file loaded during evaluation of the {@code @builtins} pseudo-repository. */
+    /** A .bzl file loaded during evaluation of the {@code @_builtins} pseudo-repository. */
     BUILTINS,
 
     /** The prelude file, whose declarations are implicitly loaded by all BUILD files. */
@@ -155,9 +156,9 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     EMPTY_PRELUDE,
   }
 
-  /** SkyKey for retrieving a .bzl AST. */
+  /** SkyKey for retrieving a compiled .bzl program. */
   @AutoCodec
-  static class Key implements SkyKey {
+  public static class Key implements SkyKey {
     /** The root in which the .bzl file is to be found. Null for EMPTY_PRELUDE. */
     @Nullable final Root root;
 
@@ -182,14 +183,21 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       return keyInterner.intern(new Key(root, label, kind));
     }
 
-    boolean isPrelude() {
+    /** Returns whether this key is for a {@code @_builtins} .bzl file. */
+    public boolean isBuiltins() {
+      return kind == Kind.BUILTINS;
+    }
+
+    boolean isBuildPrelude() {
       return kind == Kind.PRELUDE || kind == Kind.EMPTY_PRELUDE;
+    }
+
+    public Label getLabel() {
+      return label;
     }
 
     @Override
     public int hashCode() {
-      // TODO(bazel-team): Consider optimizing e.g. by omitting root from the hash. Roots are not
-      // interned and in the common case there's only one.
       return Objects.hash(Key.class, root, label, kind);
     }
 
@@ -212,6 +220,11 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     public SkyFunctionName functionName() {
       return SkyFunctions.BZL_COMPILE;
     }
+
+    @Override
+    public String toString() {
+      return String.format("%s:[%s]%s", functionName(), root, label);
+    }
   }
 
   /** Constructs a key for loading a regular (non-prelude) .bzl. */
@@ -220,14 +233,12 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a key for loading a builtins .bzl. */
-  // TODO(#11437): Retrieve the builtins bzl from the root given by
-  // --experimental_builtins_bzl_path, instead of making the caller specify it here.
   public static Key keyForBuiltins(Root root, Label label) {
     return Key.create(root, label, Kind.BUILTINS);
   }
 
   /** Constructs a key for loading the prelude .bzl. */
-  static Key keyForPrelude(Root root, Label label) {
+  static Key keyForBuildPrelude(Root root, Label label) {
     return Key.create(root, label, Kind.PRELUDE);
   }
 

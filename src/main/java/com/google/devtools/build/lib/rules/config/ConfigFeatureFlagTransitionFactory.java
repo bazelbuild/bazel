@@ -18,18 +18,19 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRIN
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.packages.AllowlistChecker;
+import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import java.util.Map;
 
 /**
@@ -38,12 +39,30 @@ import java.util.Map;
  *
  * <p>Currently, this is only intended for use by android_binary and other Android top-level rules.
  */
-public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rule> {
+public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTransitionFactory {
+  @Override
+  public void addToStarlarkRule(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {
+    builder.add(ConfigFeatureFlag.getAllowlistAttribute(ctx, attributeName));
+    builder.addAllowlistChecker(
+        AllowlistChecker.builder()
+            .setAllowlistAttr(ConfigFeatureFlag.ALLOWLIST_NAME)
+            .setErrorMessage("the attribute " + attributeName + " is not available in this package")
+            .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE)
+            .setAttributeSetTrigger(attributeName)
+            .build());
+    builder.add(ConfigFeatureFlag.getSetterAllowlistAttribute(ctx));
+    builder.addAllowlistChecker(
+        AllowlistChecker.builder()
+            .setAllowlistAttr(ConfigFeatureFlag.SETTER_ALLOWLIST_NAME)
+            .setErrorMessage(
+                "the rule class is not allowed access to feature flags setter transition")
+            .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
+            .setAttributeSetTrigger(attributeName)
+            .build());
+  }
 
   /** Transition which resets the set of flag-value pairs to the map it was constructed with. */
-  @AutoCodec
-  @VisibleForSerialization
-  static final class ConfigFeatureFlagValuesTransition implements PatchTransition {
+  private static final class ConfigFeatureFlagValuesTransition implements PatchTransition {
     private final ImmutableSortedMap<Label, String> flagValues;
     private final int cachedHashCode;
 
@@ -51,7 +70,6 @@ public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rul
       this(ImmutableSortedMap.copyOf(flagValues), flagValues.hashCode());
     }
 
-    @AutoCodec.Instantiator
     ConfigFeatureFlagValuesTransition(
         ImmutableSortedMap<Label, String> flagValues, int cachedHashCode) {
       this.flagValues = ImmutableSortedMap.copyOf(flagValues);
@@ -95,21 +113,26 @@ public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rul
    * exactly the flag values in the attribute with the given {@code attributeName} of that rule,
    * unsetting any flag values not listed there.
    *
-   * <p>This attribute must be a nonconfigurable {@code LABEL_KEYED_STRING_DICT}.
+   * <p>This attribute must not be a configured {@code LABEL_KEYED_STRING_DICT}. (No selects)
    */
   public ConfigFeatureFlagTransitionFactory(String attributeName) {
     this.attributeName = attributeName;
   }
 
   @Override
-  public PatchTransition create(Rule rule) {
-    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(rule);
+  public PatchTransition create(RuleTransitionData ruleData) {
+    NonconfiguredAttributeMapper attrs = NonconfiguredAttributeMapper.of(ruleData.rule());
     if (attrs.isAttributeValueExplicitlySpecified(attributeName)) {
       return new ConfigFeatureFlagValuesTransition(
           attrs.get(attributeName, LABEL_KEYED_STRING_DICT));
     } else {
       return NoTransition.INSTANCE;
     }
+  }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
   }
 
   /**

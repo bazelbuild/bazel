@@ -65,7 +65,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("cc_toolchain_suite")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(CcToolchainSuite.class)
         .build();
   }
@@ -89,7 +89,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
 
 <p>
   See also this
-  <a href="https://docs.bazel.build/versions/master/cc-toolchain-config-reference.html">
+  <a href="https://bazel.build/docs/cc-toolchain-config-reference">
     page
   </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>

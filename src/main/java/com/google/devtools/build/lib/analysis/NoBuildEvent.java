@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
-import com.google.devtools.build.lib.util.ProcessUtils;
-import java.util.Collection;
 
 /** This event raised to indicate that no build will be happening for the given command. */
 public final class NoBuildEvent implements BuildEvent {
@@ -55,7 +53,7 @@ public final class NoBuildEvent implements BuildEvent {
   }
 
   @Override
-  public Collection<BuildEventId> getChildrenEvents() {
+  public ImmutableList<BuildEventId> getChildrenEvents() {
     if (separateFinishedEvent) {
       return ImmutableList.of(
           ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished());
@@ -83,7 +81,7 @@ public final class NoBuildEvent implements BuildEvent {
     if (id != null) {
       started.setUuid(id);
     }
-    started.setServerPid(ProcessUtils.getpid());
+    started.setServerPid(ProcessHandle.current().pid());
     return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
   }
 

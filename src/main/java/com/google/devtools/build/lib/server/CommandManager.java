@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Helper class for commands that are currently running on the server. */
@@ -37,10 +38,30 @@ class CommandManager {
   private final boolean doIdleServerTasks;
 
   private IdleServerTasks idleServerTasks;
+  @Nullable private final String slowInterruptMessageSuffix;
 
-  CommandManager(boolean doIdleServerTasks) {
+  CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
+    this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
     idle();
+  }
+
+  void preemptEligibleCommands() {
+    synchronized (runningCommandsMap) {
+      ImmutableSet.Builder<String> commandsToInterruptBuilder = new ImmutableSet.Builder<>();
+
+      for (RunningCommand command : runningCommandsMap.values()) {
+        if (command.isPreemptible()) {
+          command.thread.interrupt();
+          commandsToInterruptBuilder.add(command.id);
+        }
+      }
+
+      ImmutableSet<String> commandsToInterrupt = commandsToInterruptBuilder.build();
+      if (!commandsToInterrupt.isEmpty()) {
+        startSlowInterruptWatcher(commandsToInterrupt);
+      }
+    }
   }
 
   void interruptInflightCommands() {
@@ -54,7 +75,7 @@ class CommandManager {
   }
 
   void doCancel(CancelRequest request) {
-    try (RunningCommand cancelCommand = create()) {
+    try (RunningCommand cancelCommand = createCommand()) {
       synchronized (runningCommandsMap) {
         RunningCommand pendingCommand = runningCommandsMap.get(request.getCommandId());
         if (pendingCommand != null) {
@@ -88,8 +109,19 @@ class CommandManager {
     }
   }
 
-  RunningCommand create() {
-    RunningCommand command = new RunningCommand();
+  RunningCommand createPreemptibleCommand() {
+    RunningCommand command = new RunningCommand(true);
+    registerCommand(command);
+    return command;
+  }
+
+  RunningCommand createCommand() {
+    RunningCommand command = new RunningCommand(false);
+    registerCommand(command);
+    return command;
+  }
+
+  private void registerCommand(RunningCommand command) {
     synchronized (runningCommandsMap) {
       if (runningCommandsMap.isEmpty()) {
         busy();
@@ -98,7 +130,6 @@ class CommandManager {
       runningCommandsMap.notify();
     }
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
-    return command;
   }
 
   private void idle() {
@@ -132,7 +163,7 @@ class CommandManager {
             }
             if (!ok) {
               // At least one command was not interrupted. Interrupt took too long.
-              ThreadUtils.warnAboutSlowInterrupt();
+              ThreadUtils.warnAboutSlowInterrupt(slowInterruptMessageSuffix);
             }
           } catch (InterruptedException e) {
             // Ignore.
@@ -148,10 +179,12 @@ class CommandManager {
   class RunningCommand implements AutoCloseable {
     private final Thread thread;
     private final String id;
+    private final boolean preemptible;
 
-    private RunningCommand() {
+    private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
       id = UUID.randomUUID().toString();
+      this.preemptible = preemptible;
     }
 
     @Override
@@ -169,6 +202,10 @@ class CommandManager {
 
     String getId() {
       return id;
+    }
+
+    boolean isPreemptible() {
+      return this.preemptible;
     }
   }
 }

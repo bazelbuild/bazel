@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -28,7 +27,7 @@ import java.util.Collection;
  * The value of an AspectCompletion. Currently this just stores an Aspect.
  */
 public class AspectCompletionValue implements SkyValue {
-  @AutoCodec static final AspectCompletionValue INSTANCE = new AspectCompletionValue();
+  @SerializationConstant static final AspectCompletionValue INSTANCE = new AspectCompletionValue();
 
   private AspectCompletionValue() {}
 
@@ -49,8 +48,13 @@ public class AspectCompletionValue implements SkyValue {
     public abstract AspectKey actionLookupKey();
 
     @Override
-    public SkyFunctionName functionName() {
+    public final SkyFunctionName functionName() {
       return SkyFunctions.ASPECT_COMPLETION;
+    }
+
+    @Override
+    public final boolean valueIsShareable() {
+      return false;
     }
   }
 }

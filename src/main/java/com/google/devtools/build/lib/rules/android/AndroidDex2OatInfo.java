@@ -72,13 +72,17 @@ public final class AndroidDex2OatInfo extends NativeInfo
       Artifact framework,
       Artifact dalvikCache,
       Artifact deviceProps) {
-    super(PROVIDER);
     this.dex2OatEnabled = dex2OatEnabled;
     this.executeDex2OatOnHost = executeDex2OatOnHost;
     this.sandboxForPregeneratingOatFilesForTests = sandboxForPregeneratingOatFilesForTests;
     this.framework = framework;
     this.dalvikCache = dalvikCache;
     this.deviceProps = deviceProps;
+  }
+
+  @Override
+  public BuiltinProvider<AndroidDex2OatInfo> getProvider() {
+    return PROVIDER;
   }
 
   /** Returns if the device should run cloud dex2oat. */

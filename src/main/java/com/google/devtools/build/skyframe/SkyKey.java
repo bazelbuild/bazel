@@ -33,7 +33,21 @@ public interface SkyKey extends Serializable {
     return this;
   }
 
-  default ShareabilityOfValue getShareabilityOfValue() {
-    return functionName().getShareabilityOfValue();
+  /**
+   * Returns {@code true} if this key produces a {@link SkyValue} that can be reused across builds.
+   *
+   * <p>Values may be unshareable because they are just not serializable, or because they contain
+   * data that cannot safely be reused as-is by another invocation, such as stamping information or
+   * "flaky" values like test statuses.
+   *
+   * <p>Unshareable data should not be serialized, since it will never be reused. Attempts to fetch
+   * a key's serialized data will call this method and only perform the fetch if it returns {@code
+   * true}.
+   *
+   * <p>The result of this method only applies to non-error values. In case of an error, {@link
+   * ErrorInfo#isTransitivelyTransient()} can be used to determine shareability.
+   */
+  default boolean valueIsShareable() {
+    return true;
   }
 }

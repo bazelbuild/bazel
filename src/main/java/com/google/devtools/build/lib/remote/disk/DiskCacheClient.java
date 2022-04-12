@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.remote.disk;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,16 +81,16 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+  public ListenableFuture<Void> downloadBlob(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     @Nullable
-    HashingOutputStream hashOut = verifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
+    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, hashOut != null ? hashOut : out, /* isActionCache= */ false),
+        download(digest, digestOut != null ? digestOut : out, /* isActionCache= */ false),
         (v) -> {
           try {
-            if (hashOut != null) {
-              Utils.verifyBlobContents(
-                  digest.getHash(), DigestUtil.hashCodeToString(hashOut.hash()));
+            if (digestOut != null) {
+              Utils.verifyBlobContents(digest, digestOut.digest());
             }
             out.flush();
             return Futures.immediateFuture(null);
@@ -101,17 +102,23 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
-      ActionKey actionKey, boolean inlineOutErr) {
-    return Utils.downloadAsActionResult(
-        actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true));
+  public ListenableFuture<CachedActionResult> downloadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    return Futures.transform(
+        Utils.downloadAsActionResult(
+            actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true)),
+        CachedActionResult::disk,
+        MoreExecutors.directExecutor());
   }
 
   @Override
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
-      throws IOException {
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     try (InputStream data = actionResult.toByteString().newInput()) {
       saveFile(actionKey.getDigest().getHash(), data, /* actionResult= */ true);
+      return Futures.immediateFuture(null);
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
     }
   }
 
@@ -119,7 +126,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   public void close() {}
 
   @Override
-  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
     try (InputStream in = file.getInputStream()) {
       saveFile(digest.getHash(), in, /* actionResult= */ false);
     } catch (IOException e) {
@@ -129,7 +137,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try (InputStream in = data.newInput()) {
       saveFile(digest.getHash(), in, /* actionResult= */ false);
     } catch (IOException e) {
@@ -139,7 +148,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+      RemoteActionExecutionContext context, Iterable<Digest> digests) {
     // Both upload and download check if the file exists before doing I/O. So we don't
     // have to do it here.
     return Futures.immediateFuture(ImmutableSet.copyOf(digests));

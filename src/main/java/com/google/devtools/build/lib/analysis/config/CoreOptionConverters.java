@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
@@ -57,7 +58,8 @@ public class CoreOptionConverters {
           .put(STRING_LIST, new CommaSeparatedOptionListConverter())
           .put(LABEL, new LabelConverter())
           .put(LABEL_LIST, new LabelListConverter())
-          .build();
+          .put(NODEP_LABEL, new LabelConverter())
+          .buildOrThrow();
 
   /** A converter from strings to Starlark int values. */
   private static class StarlarkIntConverter implements Converter<StarlarkInt> {

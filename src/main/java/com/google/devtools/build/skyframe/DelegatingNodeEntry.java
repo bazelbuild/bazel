@@ -55,8 +55,10 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
-    return getDelegate().setValue(value, version);
+  public Set<SkyKey> setValue(
+      SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
+      throws InterruptedException {
+    return getDelegate().setValue(value, graphVersion, maxTransitiveSourceVersion);
   }
 
   @Override
@@ -89,6 +91,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   @Override
   public Version getVersion() {
     return getDelegate().getVersion();
+  }
+
+  @Override
+  public Version getMaxTransitiveSourceVersion() {
+    return getDelegate().getMaxTransitiveSourceVersion();
   }
 
   @Override
@@ -169,6 +176,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   @Override
   public void removeReverseDep(SkyKey reverseDep) throws InterruptedException {
     getDelegate().removeReverseDep(reverseDep);
+  }
+
+  @Override
+  public void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
+    getDelegate().removeReverseDepsFromDoneEntryDueToDeletion(deletedKeys);
   }
 
   @Override

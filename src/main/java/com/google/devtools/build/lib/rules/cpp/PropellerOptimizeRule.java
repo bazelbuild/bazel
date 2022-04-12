@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -45,6 +46,16 @@ public final class PropellerOptimizeRule implements RuleDefinition {
             attr("ld_profile", LABEL)
                 .allowedFileTypes(FileTypeSet.of(FileType.of(".txt")))
                 .singleArtifact())
+        /* <!-- #BLAZE_RULE(propeller_optimize).ATTRIBUTE(profile) -->
+        Label of the absolute profile passed to the various compile actions.  This file has
+        the .txt extension.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("absolute_cc_profile", Type.STRING))
+        /* <!-- #BLAZE_RULE(propeller_optimize).ATTRIBUTE(profile) -->
+        Label of the absolute profile passed to the various link actions.  This file has
+        the .txt extension.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("absolute_ld_profile", Type.STRING))
         .advertiseProvider(PropellerOptimizeProvider.class)
         .build();
   }
@@ -53,7 +64,7 @@ public final class PropellerOptimizeRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("propeller_optimize")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(PropellerOptimize.class)
         .build();
   }
@@ -67,9 +78,14 @@ Example:</p>
 <pre class="code">
 propeller_optimize(
     name = "layout",
-    profile = "//path:profile.txt",
+    cc_profile = "//path:cc_profile.txt",
     ld_profile = "//path:ld_profile.txt"
 )
 
+propeller_optimize(
+    name = "layout_absolute",
+    absolute_cc_profile = "/absolute/cc_profile.txt",
+    absolute_ld_profile = "/absolute/ld_profile.txt"
+)
 </pre>
 <!-- #END_BLAZE_RULE -->*/

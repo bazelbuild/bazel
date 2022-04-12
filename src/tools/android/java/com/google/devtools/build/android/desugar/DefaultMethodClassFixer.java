@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.r8.DependencyCollector;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -623,7 +624,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
                   Opcodes.INVOKESPECIAL, superName, name, desc, /*itf=*/ false);
           if (emulatedImplementation != null && !emulatedImplementation.isInterface()) {
             receiverName = internalName(emulatedImplementation);
-            owner = checkNotNull(coreLibrarySupport.getMoveTarget(receiverName, name));
+            owner = checkNotNull(coreLibrarySupport.getMoveTarget(receiverName, name, desc));
             calledMethodName = name;
           }
         }

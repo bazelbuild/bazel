@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventservice;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -24,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -56,8 +57,10 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
+import com.google.devtools.build.lib.runtime.TargetSummaryPublisher;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -67,6 +70,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.protobuf.util.Timestamps;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -88,9 +92,10 @@ import javax.annotation.Nullable;
  * Module responsible for the Build Event Transport (BEP) and Build Event Service (BES)
  * functionality.
  */
-public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServiceOptions>
+public abstract class BuildEventServiceModule<OptionsT extends BuildEventServiceOptions>
     extends BlazeModule {
-  private static final GoogleLogger googleLogger = GoogleLogger.forEnclosingClass();
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
@@ -136,7 +141,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Nullable private ConnectivityStatusProvider connectivityProvider;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
-  protected BESOptionsT besOptions;
+  protected OptionsT besOptions;
 
   protected void reportCommandLineError(EventHandler commandLineReporter, Exception exception) {
     // Don't hide unchecked exceptions as part of the error reporting.
@@ -155,14 +160,13 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       ModuleEnvironment moduleEnvironment,
       String msg,
       Exception exception,
-      ExitCode exitCode,
       BuildProgress.Code besCode) {
     // Don't hide unchecked exceptions as part of the error reporting.
     Throwables.throwIfUnchecked(exception);
 
-    googleLogger.atSevere().withCause(exception).log(msg);
+    logger.atSevere().withCause(exception).log("%s", msg);
     reportCommandLineError(commandLineReporter, exception);
-    moduleEnvironment.exit(createAbruptExitException(exception, msg, exitCode, besCode));
+    moduleEnvironment.exit(createAbruptExitException(exception, msg, besCode));
   }
 
   @Override
@@ -185,7 +189,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private void cancelAndResetPendingUploads() {
     closeFuturesWithTimeoutsMap
         .values()
-        .forEach(closeFuture -> closeFuture.cancel(/* mayInterruptIfRunning= */ true));
+        .forEach(closeFuture -> closeFuture.cancel(/*mayInterruptIfRunning=*/ true));
     resetPendingUploads();
   }
 
@@ -251,7 +255,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   + "Cancelling and starting a new invocation...",
               waitedMillis / 1000, waitedMillis % 1000);
       reporter.handle(Event.warn(msg));
-      googleLogger.atWarning().withCause(exception).log(msg);
+      logger.atWarning().withCause(exception).log("%s", msg);
       cancelCloseFutures = true;
     } catch (ExecutionException e) {
       String msg;
@@ -271,7 +275,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 e.getMessage());
       }
       reporter.handle(Event.warn(msg));
-      googleLogger.atWarning().withCause(e).log(msg);
+      logger.atWarning().withCause(e).log("%s", msg);
       cancelCloseFutures = true;
     } finally {
       if (cancelCloseFutures) {
@@ -317,17 +321,17 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
     CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
 
-    // We need to wait for the previous invocation before we check the whitelist of commands to
+    // We need to wait for the previous invocation before we check the list of allowed commands to
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
-    //   bazel info <-- Doesn't run with BES unless we wait before checking the whitelist.
+    //   bazel info <-- Doesn't run with BES unless we wait before checking {@code allowedCommands}.
     boolean commandIsShutdown = "shutdown".equals(cmdEnv.getCommandName());
     waitForPreviousInvocation(commandIsShutdown);
     if (commandIsShutdown && uploaderFactoryToCleanup != null) {
       uploaderFactoryToCleanup.shutdown();
     }
 
-    if (!whitelistedCommands(besOptions).contains(cmdEnv.getCommandName())) {
+    if (!allowedCommands(besOptions).contains(cmdEnv.getCommandName())) {
       // Exit early if the running command isn't supported.
       return;
     }
@@ -350,7 +354,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
               createAbruptExitException(
                   e,
                   "Could not create BEP transports.",
-                  ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
                   BuildProgress.Code.BES_INITIALIZATION_ERROR));
       return;
     }
@@ -359,11 +362,17 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return;
     }
 
+    if (bepOptions.publishTargetSummary) {
+      cmdEnv.getEventBus().register(new TargetSummaryPublisher(cmdEnv.getEventBus()));
+    }
+
     streamer =
         new BuildEventStreamer.Builder()
             .buildEventTransports(bepTransports)
             .besStreamOptions(besStreamOptions)
+            .publishTargetSummaries(bepOptions.publishTargetSummary)
             .artifactGroupNamer(artifactGroupNamer)
+            .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).oomMessage)
             .build();
 
     cmdEnv.getEventBus().register(streamer);
@@ -378,8 +387,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private void registerOutAndErrOutputStreams() {
     int bufferSize = besOptions.besOuterrBufferSize;
     int chunkSize = besOptions.besOuterrChunkSize;
-    final SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize, chunkSize);
-    final SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize, chunkSize);
+    SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize, chunkSize);
+    SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize, chunkSize);
 
     this.outErr = OutErr.create(out, err);
     streamer.registerOutErrProvider(
@@ -403,25 +412,28 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     return outErr;
   }
 
-  private void forceShutdownBuildEventStreamer() {
-    streamer.close(AbortReason.INTERNAL);
+  private void forceShutdownBuildEventStreamer(AbortReason reason) {
+    streamer.closeOnAbort(reason);
     closeFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
     try {
-      googleLogger.atInfo().log("Closing pending build event transports");
+      logger.atInfo().log("Closing pending build event transports");
       Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesWithTimeoutsMap.values()));
     } catch (ExecutionException e) {
-      googleLogger.atSevere().withCause(e).log("Failed to close a build event transport");
+      logger.atSevere().withCause(e).log("Failed to close a build event transport");
     } finally {
       cancelAndResetPendingUploads();
     }
   }
 
   @Override
-  public void blazeShutdownOnCrash() {
+  public void blazeShutdownOnCrash(DetailedExitCode exitCode) {
     if (streamer != null) {
-      googleLogger.atWarning().log("Attempting to close BES streamer on crash");
-      forceShutdownBuildEventStreamer();
+      logger.atWarning().log("Attempting to close BES streamer on crash");
+      forceShutdownBuildEventStreamer(
+          exitCode.getExitCode().equals(ExitCode.OOM_ERROR)
+              ? AbortReason.OUT_OF_MEMORY
+              : AbortReason.INTERNAL);
       uploaderFactoryToCleanup.shutdown();
     }
   }
@@ -438,7 +450,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           getMaxWaitForPreviousInvocation().getSeconds(),
           TimeUnit.SECONDS);
     } catch (TimeoutException | ExecutionException exception) {
-      googleLogger.atWarning().withCause(exception).log(
+      logger.atWarning().withCause(exception).log(
           "Encountered Exception when closing BEP transports in Blaze's shutting down sequence");
     } finally {
       cancelAndResetPendingUploads();
@@ -467,7 +479,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   },
                   executor));
 
-      try (AutoProfiler p = GoogleAutoProfilerUtils.logged("waiting for BES close")) {
+      try (AutoProfiler p =
+          GoogleAutoProfilerUtils.logged(
+              "waiting for BES close for invocation " + this.invocationId)) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (ExecutionException e) {
@@ -477,7 +491,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         throw createAbruptExitException(
             e,
             "The Build Event Protocol upload timed out.",
-            ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
             BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR);
       }
 
@@ -485,7 +498,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       throw new RuntimeException(
           String.format(
               "Unexpected Exception '%s' when closing BEP transports, this is a bug.",
-              e.getCause().getMessage()));
+              e.getCause().getMessage()),
+          e);
     } finally {
       if (besUploadModeIsSynchronous) {
         cancelAndResetPendingUploads();
@@ -522,19 +536,31 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
             final ListenableFuture<Void> enclosingFuture =
                 Futures.nonCancellationPropagating(closeFuture);
 
-            closeFutureWithTimeout =
+            ListenableFuture<Void> timeoutFuture =
                 Futures.withTimeout(
                     enclosingFuture,
                     bepTransport.getTimeout().toMillis(),
                     TimeUnit.MILLISECONDS,
                     timeoutExecutor);
-            closeFutureWithTimeout.addListener(
-                () -> timeoutExecutor.shutdown(), MoreExecutors.directExecutor());
+            timeoutFuture.addListener(timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+
+            // Cancellation is not propagated to the `closeFuture` for the reasons above. But in
+            // order to cancel the returned future by our explicit mechanism elsewhere in this
+            // class, we need to delegate the `cancel` to `closeFuture` so that cancellation
+            // from Futures.withTimeout is ignored and cancellation from our mechanism is properly
+            // handled.
+            closeFutureWithTimeout =
+                new SimpleForwardingListenableFuture<>(timeoutFuture) {
+                  @Override
+                  public boolean cancel(boolean mayInterruptIfRunning) {
+                    return closeFuture.cancel(mayInterruptIfRunning);
+                  }
+                };
           }
           builder.put(bepTransport, closeFutureWithTimeout);
         });
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private void closeBepTransports() throws AbruptExitException {
@@ -568,9 +594,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       if (!streamer.isClosed()) {
         // This should not occur, but close with an internal error if a {@link BuildEventStreamer}
         // bug manifests as an unclosed streamer.
-        googleLogger.atWarning().log("Attempting to close BES streamer after command");
+        logger.atWarning().log("Attempting to close BES streamer after command");
         reporter.handle(Event.warn("BES was not properly closed"));
-        forceShutdownBuildEventStreamer();
+        forceShutdownBuildEventStreamer(AbortReason.INTERNAL);
       }
 
       closeBepTransports();
@@ -582,8 +608,11 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       }
     }
 
-    if (!besStreamOptions.keepBackendConnections) {
+    // besStreamOptions can be null if we are crashing. Don't crash here too.
+    if (besStreamOptions != null && !besStreamOptions.keepBackendConnections) {
       clearBesClient();
+    } else if (besStreamOptions == null) {
+      BugReport.sendBugReport(new NullPointerException("besStreamOptions null: in a crash?"));
     }
   }
 
@@ -616,7 +645,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   }
 
   private void logIds() {
-    googleLogger.atInfo().log(
+    logger.atInfo().log(
         "Streaming Build Event Protocol to '%s' with build_request_id: '%s'"
             + " and invocation_id: '%s'",
         besOptions.besBackend, buildRequestId, invocationId);
@@ -644,7 +673,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           cmdEnv.getBlazeModuleEnvironment(),
           msg,
           new OptionsParsingException(msg),
-          ExitCode.COMMAND_LINE_ERROR,
           BuildProgress.Code.BES_RUNS_PER_TEST_LIMIT_UNSUPPORTED);
       return null;
     }
@@ -658,7 +686,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           String.format(
               "Build Event Service uploads disabled due to a connectivity problem: %s", status);
       reporter.handle(Event.warn(message));
-      googleLogger.atWarning().log(message);
+      logger.atWarning().log("%s", message);
       return null;
     }
 
@@ -671,7 +699,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           cmdEnv.getBlazeModuleEnvironment(),
           e.getMessage(),
           e,
-          ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
           BuildProgress.Code.BES_INITIALIZATION_ERROR);
       return null;
     }
@@ -680,7 +707,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         new BuildEventServiceProtoUtil.Builder()
             .buildRequestId(buildRequestId)
             .invocationId(invocationId)
-            .projectId(besOptions.projectId)
+            .projectId(besOptions.instanceName)
             .commandName(cmdEnv.getCommandName())
             .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
             .build();
@@ -694,6 +721,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         .bepOptions(bepOptions)
         .clock(cmdEnv.getRuntime().getClock())
         .eventBus(cmdEnv.getEventBus())
+        .commandStartTime(Timestamps.fromMillis(cmdEnv.getCommandStartTime()))
         .build();
   }
 
@@ -716,10 +744,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new TextFormatFileTransport(
-                bepTextOutputStream,
-                bepOptions,
-                localFileUploader,
-                artifactGroupNamer));
+                bepTextOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -730,7 +755,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 + besStreamOptions.buildEventTextFile
                 + "'. Omitting --build_event_text_file.",
             exception,
-            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
       }
     }
@@ -747,10 +771,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new BinaryFormatFileTransport(
-                bepBinaryOutputStream,
-                bepOptions,
-                localFileUploader,
-                artifactGroupNamer));
+                bepBinaryOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -761,7 +782,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 + besStreamOptions.buildEventBinaryFile
                 + "'. Omitting --build_event_binary_file.",
             exception,
-            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
       }
     }
@@ -777,10 +797,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new JsonFormatFileTransport(
-                bepJsonOutputStream,
-                bepOptions,
-                localFileUploader,
-                artifactGroupNamer));
+                bepJsonOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -791,7 +808,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 + besStreamOptions.buildEventJsonFile
                 + "'. Omitting --build_event_json_file.",
             exception,
-            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
       }
     }
@@ -808,10 +824,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   }
 
   private static AbruptExitException createAbruptExitException(
-      Exception e, String message, ExitCode exitCode, BuildProgress.Code besCode) {
+      Exception e, String message, BuildProgress.Code besCode) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message + " " + e.getMessage())
                 .setBuildProgress(BuildProgress.newBuilder().setCode(besCode).build())
@@ -819,18 +834,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         e);
   }
 
-  protected abstract Class<BESOptionsT> optionsClass();
+  protected abstract Class<OptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      BESOptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();
 
-  protected abstract Set<String> whitelistedCommands(BESOptionsT besOptions);
+  protected abstract Set<String> allowedCommands(OptionsT besOptions);
 
   protected Set<String> getBesKeywords(
-      BESOptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
+      OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
     return besOptions.besKeywords.stream()
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());
@@ -859,7 +874,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
 
     BuildEventArtifactUploader get() throws IOException {
-      if (memoizedValue == null && exception == null) {
+      boolean needsInitialization = memoizedValue == null;
+      if (needsInitialization && exception == null) {
         try {
           memoizedValue = callable.call();
         } catch (IOException e) {
@@ -870,6 +886,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         }
       }
       if (memoizedValue != null) {
+        if (!needsInitialization) {
+          memoizedValue.retain();
+        }
         return memoizedValue;
       }
       throw exception;

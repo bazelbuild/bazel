@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import javax.annotation.Nullable;
 
 /**
@@ -97,7 +98,7 @@ public interface DependencyKind {
 
   /** Returns a {@link DependencyKind} for the given execution group. */
   static DependencyKind forExecGroup(String execGroupName) {
-    if (ToolchainCollection.DEFAULT_EXEC_GROUP_NAME.equals(execGroupName)) {
+    if (ExecGroup.DEFAULT_EXEC_GROUP_NAME.equals(execGroupName)) {
       return defaultExecGroupToolchain();
     }
     return new AutoValue_DependencyKind_ToolchainDependencyKind(execGroupName, false);
@@ -106,7 +107,7 @@ public interface DependencyKind {
   /** Returns a {@link DependencyKind} for the default execution group. */
   static DependencyKind defaultExecGroupToolchain() {
     return new AutoValue_DependencyKind_ToolchainDependencyKind(
-        ToolchainCollection.DEFAULT_EXEC_GROUP_NAME, true);
+        ExecGroup.DEFAULT_EXEC_GROUP_NAME, true);
   }
 
   /** Predicate to check if a dependency represents a toolchain. */

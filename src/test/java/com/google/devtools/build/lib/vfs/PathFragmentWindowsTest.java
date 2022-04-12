@@ -47,21 +47,21 @@ public class PathFragmentWindowsTest {
   @Test
   public void testAbsoluteAndAbsoluteLookingPaths() {
     assertThat(create("/c").isAbsolute()).isTrue();
-    assertThat(create("/c").getSegments()).containsExactly("c");
+    assertThat(create("/c").segments()).containsExactly("c");
 
     assertThat(create("/c/").isAbsolute()).isTrue();
-    assertThat(create("/c/").getSegments()).containsExactly("c");
+    assertThat(create("/c/").segments()).containsExactly("c");
 
     assertThat(create("C:/").isAbsolute()).isTrue();
-    assertThat(create("C:/").getSegments()).isEmpty();
+    assertThat(create("C:/").segments()).isEmpty();
 
     PathFragment p5 = create("/c:");
     assertThat(p5.isAbsolute()).isTrue();
-    assertThat(p5.getSegments()).containsExactly("c:");
+    assertThat(p5.segments()).containsExactly("c:");
     assertThat(create("C:").isAbsolute()).isFalse();
 
     assertThat(create("/c:").isAbsolute()).isTrue();
-    assertThat(create("/c:").getSegments()).containsExactly("c:");
+    assertThat(create("/c:").segments()).containsExactly("c:");
 
     assertThat(create("/c")).isEqualTo(create("/c/"));
     assertThat(create("/c")).isNotEqualTo(create("C:/"));
@@ -95,7 +95,7 @@ public class PathFragmentWindowsTest {
   }
 
   @Test
-  public void testGetRelativeMixed() throws Exception {
+  public void testGetRelativeMixed() {
     assertThat(create("a").getRelative("b")).isEqualTo(create("a/b"));
     assertThat(create("a").getRelative("/b")).isEqualTo(create("/b"));
     assertThat(create("a").getRelative("E:/b")).isEqualTo(create("E:/b"));
@@ -110,22 +110,32 @@ public class PathFragmentWindowsTest {
   }
 
   @Test
-  public void testRelativeTo() throws Exception {
-    assertThat(create("").relativeTo("").getPathString()).isEqualTo("");
+  public void testRelativeTo() {
+    assertThat(create("").relativeTo("").getPathString()).isEmpty();
     assertThrows(IllegalArgumentException.class, () -> create("").relativeTo("a"));
 
     assertThat(create("a").relativeTo("")).isEqualTo(create("a"));
-    assertThat(create("a").relativeTo("a").getPathString()).isEqualTo("");
+    assertThat(create("a").relativeTo("a").getPathString()).isEmpty();
     assertThrows(IllegalArgumentException.class, () -> create("a").relativeTo("b"));
     assertThat(create("a/b").relativeTo("a")).isEqualTo(create("b"));
 
     assertThrows(IllegalArgumentException.class, () -> create("C:/").relativeTo(""));
-    assertThat(create("C:/").relativeTo("C:/").getPathString()).isEqualTo("");
+    assertThat(create("C:/").relativeTo("C:/").getPathString()).isEmpty();
   }
 
   @Test
   public void testGetChildWorks() {
     assertThat(create("../some/path").getChild("hi")).isEqualTo(create("../some/path/hi"));
+    assertThat(create("../some/path").getChild(".hi")).isEqualTo(create("../some/path/.hi"));
+    assertThat(create("../some/path").getChild("..hi")).isEqualTo(create("../some/path/..hi"));
+  }
+
+  @Test
+  public void testGetChildRejectsInvalidBaseNames() {
+    assertThrows(IllegalArgumentException.class, () -> create("").getChild("."));
+    assertThrows(IllegalArgumentException.class, () -> create("").getChild(".."));
+    assertThrows(IllegalArgumentException.class, () -> create("").getChild("multi/segment"));
+    assertThrows(IllegalArgumentException.class, () -> create("").getChild("multi\\segment"));
   }
 
   @Test
@@ -226,13 +236,13 @@ public class PathFragmentWindowsTest {
   }
 
   @Test
-  public void testWindowsDriveRelativePaths() throws Exception {
+  public void testWindowsDriveRelativePaths() {
     // On Windows, paths that look like "C:foo" mean "foo relative to the current directory
     // of drive C:\".
     // Bazel doesn't resolve such paths, and just takes them literally like normal path segments.
     // If the user attempts to open files under such paths, the file system API will give an error.
     assertThat(create("C:").isAbsolute()).isFalse();
-    assertThat(create("C:").getSegments()).containsExactly("C:");
+    assertThat(create("C:").segments()).containsExactly("C:");
   }
 
   @Test

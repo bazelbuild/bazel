@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTI
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -28,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -42,14 +44,15 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
         ACTION_CONFLICTS.get(env);
-    ActionLookupValue alValue =
-        (ActionLookupValue)
-            env.getValue(((ActionLookupConflictFindingValue.Key) skyKey).argument());
+    ActionLookupKey lookupKey = ((ActionLookupConflictFindingValue.Key) skyKey).argument();
+    ActionLookupValue alValue = (ActionLookupValue) env.getValue(lookupKey);
     if (env.valuesMissing()) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "b/147589880: unexpected missing action lookup value during action conflict finding: "
-                  + skyKey));
+      if (!CoverageReportValue.COVERAGE_REPORT_KEY.equals(lookupKey)) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "Unexpected missing action lookup value during action conflict finding: "
+                    + skyKey));
+      }
       return null;
     }
 
@@ -63,8 +66,16 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
     // Avoid silly cycles.
     depKeys.remove(skyKey);
 
-    env.getValues(depKeys);
-    return env.valuesMissing() ? null : ActionLookupConflictFindingValue.INSTANCE;
+    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(depKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    while (result.hasNext()) {
+      if (result.next() == null) {
+        return null;
+      }
+    }
+    return ActionLookupConflictFindingValue.INSTANCE;
   }
 
   static Stream<ActionLookupConflictFindingValue.Key> convertArtifacts(
@@ -80,7 +91,7 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
     return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
   }
 
-  private static class ActionConflictFunctionException extends SkyFunctionException {
+  static class ActionConflictFunctionException extends SkyFunctionException {
     ActionConflictFunctionException(ConflictException e) {
       super(e, Transience.PERSISTENT);
     }

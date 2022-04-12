@@ -1,14 +1,11 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
-        "//src/conditions:darwin": ["//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
-        "//src/conditions:openbsd": ["//tools/jdk:jni_md_header-openbsd"],
-        "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
-        "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
+        "//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
+        "//src/conditions:freebsd": ["@bazel_tools//tools/jdk:jni_md_header-freebsd"],
+        "//src/conditions:openbsd": ["@bazel_tools//tools/jdk:jni_md_header-openbsd"],
+        "//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
+        "//conditions:default": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],
     cmd = "cp -f $< $@",
@@ -17,7 +14,7 @@ genrule(
 
 genrule(
     name = "copy_link_jni_header",
-    srcs = ["//tools/jdk:jni_header"],
+    srcs = ["@bazel_tools//tools/jdk:jni_header"],
     outs = ["jni.h"],
     cmd = "cp -f $< $@",
     visibility = ["//src/main/native:__subpackages__"],
@@ -27,12 +24,17 @@ filegroup(
     name = "jni_os",
     srcs = select({
         "//src/conditions:darwin": [
-            "unix_jni_darwin.cc",
-            "fsevents.cc",
-        ],
-        "//src/conditions:darwin_x86_64": [
-            "unix_jni_darwin.cc",
-            "fsevents.cc",
+            "darwin/fsevents.cc",
+            "darwin/file_jni.cc",
+            "darwin/sleep_prevention_jni.cc",
+            "darwin/system_cpu_speed_monitor_jni.cc",
+            "darwin/system_disk_space_monitor_jni.cc",
+            "darwin/system_load_advisory_monitor_jni.cc",
+            "darwin/system_memory_pressure_jni.cc",
+            "darwin/system_suspension_monitor_jni.cc",
+            "darwin/system_thermal_monitor_jni.cc",
+            "darwin/util.cc",
+            "darwin/util.h",
         ],
         "//src/conditions:freebsd": ["unix_jni_bsd.cc"],
         "//src/conditions:openbsd": ["unix_jni_bsd.cc"],
@@ -69,15 +71,15 @@ cc_binary(
     includes = ["."],  # For jni headers.
     linkopts = select({
         "//src/conditions:darwin": ["-framework CoreServices"],
-        "//src/conditions:darwin_x86_64": ["-framework CoreServices"],
         "//conditions:default": [],
     }),
     linkshared = 1,
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
         ":latin1_jni_path",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:port",
     ],
 )
 

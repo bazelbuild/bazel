@@ -19,9 +19,11 @@
 REMOTE_WORKER="$(rlocation io_bazel/src/tools/remote/worker)"
 
 function start_worker() {
-  work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
+  work_path="${TEST_TMPDIR}/remote.work_path"
+  cas_path="${TEST_TMPDIR}/remote.cas_path"
+  pid_file="${TEST_TMPDIR}/remote.pid_file"
+  mkdir -p "${work_path}"
+  mkdir -p "${cas_path}"
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
   native_lib="${BAZEL_RUNFILES}/src/main/native/"
   "${REMOTE_WORKER}" \
@@ -43,15 +45,54 @@ function start_worker() {
 }
 
 function stop_worker() {
+  work_path="${TEST_TMPDIR}/remote.work_path"
+  cas_path="${TEST_TMPDIR}/remote.cas_path"
+  pid_file="${TEST_TMPDIR}/remote.pid_file"
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
     kill -9 "${pid}"
-  rm -rf "${pid_file}"
+    rm -rf "${pid_file}"
   fi
   if [ -d "${work_path}" ]; then
     rm -rf "${work_path}"
   fi
   if [ -d "${cas_path}" ]; then
     rm -rf "${cas_path}"
+  fi
+}
+
+# Pass in the root of the disk cache and count number of files under /ac directory
+# output int to stdout
+function count_disk_ac_files() {
+  if [ -d "$1/ac" ]; then
+    expr $(find "$1/ac" -type f | wc -l)
+  else
+    echo 0
+  fi
+}
+
+# Pass in the root of the disk cache and count number of files under /cas directory
+# output int to stdout
+function count_disk_cas_files() {
+  if [ -d "$1/cas" ]; then
+    expr $(find "$1/cas" -type f | wc -l)
+  else
+    echo 0
+  fi
+}
+
+function count_remote_ac_files() {
+  if [ -d "$cas_path/ac" ]; then
+    expr $(find "$cas_path/ac" -type f | wc -l)
+  else
+    echo 0
+  fi
+}
+
+function count_remote_cas_files() {
+  if [ -d "$cas_path/cas" ]; then
+    expr $(find "$cas_path/cas" -type f | wc -l)
+  else
+    echo 0
   fi
 }

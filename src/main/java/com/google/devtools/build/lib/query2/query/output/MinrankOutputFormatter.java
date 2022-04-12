@@ -59,7 +59,7 @@ class MinrankOutputFormatter extends OutputFormatter {
     if (toSave != null) {
       toSave.add(new RankAndLabel(rank, label));
     } else {
-      out.print(rank + " " + label.getDefaultCanonicalForm() + lineTerminator);
+      out.print(rank + " " + label.getCanonicalForm() + lineTerminator);
     }
   }
 

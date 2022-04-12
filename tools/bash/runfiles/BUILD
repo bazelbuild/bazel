@@ -32,19 +32,3 @@ sh_test(
     srcs = ["runfiles_test.bash"],
     deps = [":runfiles_lib"],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//tools/bash:__pkg__"],
-)

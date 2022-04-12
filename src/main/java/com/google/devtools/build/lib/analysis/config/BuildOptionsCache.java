@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.auto.value.AutoValue;
+import java.util.function.BiFunction;
 
 /**
  * Protects against excessive memory consumption when the same transition applies multiple times.
@@ -27,27 +28,23 @@ import java.util.function.Supplier;
  * the target configuration depends on.
  *
  * <p>Specifically, if {@code (origOptions1, context1)} produces {@code toOptions1}, {@code
- * (origOptions2, context2)} produces {@code toOptions2}, {@code origOptions1 == origOptions2}, and
- * {@code context1.equals(context2)}, this guarantees that {@code toOptions1 == toOptions2}.
+ * (origOptions2, context2)} produces {@code toOptions2}, {@code origOptions1.equals(origOptions2)},
+ * and {@code context1.equals(context2)}, this guarantees that {@code toOptions1 == toOptions2},
+ * assuming the cache entry has not been evicted.
  *
  * <p>This means applying the same transition to the same source multiple times always returns the
  * same reference.
  *
- * <p>Theoretically, constructing a unique {@link BuildOptions} instance should be cheap. But {@link
- * BuildOptions#diffForReconstructionCache} keeps references to every instance. It's not hard to get
- * a build graph with hundreds of thousands of nodes, and persisting hundreds of thousands of {@link
- * BuildOptions} instances consumes gigabytes of memory.
- *
- * <p>While {@link BuildOptions#diffForReconstructionCache}'s references are theoretically
- * garbage-collectible through {@link java.lang.ref.WeakReference} and {@link
- * java.lang.ref.SoftReference} wrappers, garbage collection might not react fast enough to rapidly
- * constructing builds to prevent OOMs.
+ * <p>{@link BuildOptions} references are stored softly.
  */
-public class BuildOptionsCache<T> {
-  private final Cache<ReferenceCacheKey, BuildOptions> cache;
+public final class BuildOptionsCache<T> {
 
-  public BuildOptionsCache() {
-    cache = CacheBuilder.newBuilder().build();
+  private final Cache<CacheKey<T>, BuildOptions> cache = Caffeine.newBuilder().softValues().build();
+
+  private final BiFunction<BuildOptionsView, T, BuildOptions> transition;
+
+  public BuildOptionsCache(BiFunction<BuildOptionsView, T, BuildOptions> transition) {
+    this.transition = checkNotNull(transition);
   }
 
   /**
@@ -57,61 +54,27 @@ public class BuildOptionsCache<T> {
    *
    * @param fromOptions the starting options
    * @param context an additional object that affects the transition's result
-   * @param transitionFunc the transition to apply if {@code (fromOptions, context)} isn't cached
    */
-  public BuildOptions applyTransition(
-      BuildOptionsView fromOptions, T context, Supplier<BuildOptions> transitionFunc) {
-    try {
-      return cache.get(new ReferenceCacheKey(fromOptions, context), () -> transitionFunc.get());
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+  public BuildOptions applyTransition(BuildOptionsView fromOptions, T context) {
+    return cache.get(
+        CacheKey.create(fromOptions.underlying().checksum(), context),
+        unused -> transition.apply(fromOptions, context));
   }
 
   /**
-   * Helper class for matching ({@link BuildOptions}, {@link Object}) cache keys by {@link
-   * BuildOptions} reference.
+   * Helper class for matching ({@link BuildOptions}, {@link T}) cache keys by {@link
+   * BuildOptions#checksum()}.
    *
-   * <p>This is sufficient for a practically effective cache, and saves having the potentially
-   * expensive {@link BuildOptions#maybeInitializeFingerprintAndHashCode} that {@link
-   * BuildOptions#equals} calls.
+   * @param <T> the type of the context object
    */
-  private static final class ReferenceCacheKey {
-    private final BuildOptionsView options;
-    private final Object context;
+  @AutoValue
+  abstract static class CacheKey<T> {
+    abstract String checksum();
 
-    ReferenceCacheKey(BuildOptionsView options, Object context) {
-      this.options = options;
-      this.context = context;
-    }
+    abstract T context();
 
-    @Override
-    public String toString() {
-      return String.format("ReferenceCacheKey(%s, %s)", options.underlying(), context);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof ReferenceCacheKey)) {
-        return false;
-      }
-      ReferenceCacheKey casted = (ReferenceCacheKey) other;
-      // See class javadoc above: we intentionally compare BuildOptions by reference because it
-      // avoids potentially expensive .equals() computation and practically caches just as well
-      // because the memory problem we're trying to solve is the same transition applying to the
-      // same BuildOptions instance over and over again.
-      @SuppressWarnings("ReferenceEquality")
-      boolean match =
-          this.options.underlying() == casted.options.underlying()
-              && this.context.equals(casted.context);
-      return match;
-    }
-
-    @Override
-    public int hashCode() {
-      // Computing BuildOptions.hashCode is potentially expensive and its reference is sufficient,
-      // so we just hash its reference.
-      return Objects.hash(System.identityHashCode(options.underlying()), context);
+    static <T> CacheKey<T> create(String checksum, T context) {
+      return new AutoValue_BuildOptionsCache_CacheKey<>(checksum, context);
     }
   }
 }

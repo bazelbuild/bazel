@@ -14,14 +14,15 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePatternMapper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -49,7 +49,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   private final ImmutableList<ActionConfig> actionConfigs;
   private final ImmutableList<Feature> features;
-  private final ImmutableList<ArtifactNamePattern> artifactNamePatterns;
+  private final ArtifactNamePatternMapper artifactNamePatterns;
   private final ImmutableList<String> cxxBuiltinIncludeDirectories;
 
   private final String toolchainIdentifier;
@@ -65,11 +65,10 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String builtinSysroot;
   private final String ccTargetOs;
 
-  @AutoCodec.Instantiator
-  public CcToolchainConfigInfo(
+  CcToolchainConfigInfo(
       ImmutableList<ActionConfig> actionConfigs,
       ImmutableList<Feature> features,
-      ImmutableList<ArtifactNamePattern> artifactNamePatterns,
+      ArtifactNamePatternMapper artifactNamePatterns,
       ImmutableList<String> cxxBuiltinIncludeDirectories,
       String toolchainIdentifier,
       String hostSystemName,
@@ -83,7 +82,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       ImmutableList<Pair<String, String>> makeVariables,
       String builtinSysroot,
       String ccTargetOs) {
-    super(PROVIDER);
     this.actionConfigs = actionConfigs;
     this.features = features;
     this.artifactNamePatterns = artifactNamePatterns;
@@ -102,7 +100,14 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.ccTargetOs = ccTargetOs;
   }
 
-  public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  @VisibleForTesting // Only called by tests.
+  public static CcToolchainConfigInfo fromToolchainForTestingOnly(CToolchain toolchain)
+      throws EvalException {
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
       actionConfigBuilder.add(new ActionConfig(actionConfig));
@@ -113,10 +118,26 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       featureBuilder.add(new Feature(feature));
     }
 
-    ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
+    ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
+        new ArtifactNamePatternMapper.Builder();
     for (CToolchain.ArtifactNamePattern artifactNamePattern :
         toolchain.getArtifactNamePatternList()) {
-      artifactNamePatternBuilder.add(new ArtifactNamePattern(artifactNamePattern));
+      ArtifactCategory foundCategory = null;
+      for (ArtifactCategory artifactCategory : ArtifactCategory.values()) {
+        if (artifactNamePattern.getCategoryName().equals(artifactCategory.getCategoryName())) {
+          foundCategory = artifactCategory;
+          break;
+        }
+      }
+      Preconditions.checkNotNull(foundCategory, artifactNamePattern);
+      String extension = artifactNamePattern.getExtension();
+      Preconditions.checkState(
+          foundCategory.getAllowedExtensions().contains(extension),
+          "%s had extension not in %s",
+          artifactNamePattern,
+          foundCategory);
+      artifactNamePatternBuilder.addOverride(
+          foundCategory, artifactNamePattern.getPrefix(), extension);
     }
 
     return new CcToolchainConfigInfo(
@@ -150,7 +171,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return features;
   }
 
-  public ImmutableList<ArtifactNamePattern> getArtifactNamePatterns() {
+  public ArtifactNamePatternMapper getArtifactNamePatterns() {
     return artifactNamePatterns;
   }
 
@@ -160,10 +181,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
-  }
-
-  public String getHostSystemName() {
-    return hostSystemName;
   }
 
   public String getTargetSystemName() {
@@ -220,14 +237,13 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
             .map(actionConfig -> actionConfigToProto(actionConfig))
             .collect(ImmutableList.toImmutableList()));
     cToolchain.addAllArtifactNamePattern(
-        artifactNamePatterns.stream()
+        artifactNamePatterns.asImmutableMap().entrySet().stream()
             .map(
-                artifactNamePattern ->
+                entry ->
                     CToolchain.ArtifactNamePattern.newBuilder()
-                        .setCategoryName(
-                            artifactNamePattern.getArtifactCategory().getCategoryName())
-                        .setPrefix(artifactNamePattern.getPrefix())
-                        .setExtension(artifactNamePattern.getExtension())
+                        .setCategoryName(entry.getKey().getCategoryName())
+                        .setPrefix(entry.getValue().getPrefix())
+                        .setExtension(entry.getValue().getExtension())
                         .build())
             .collect(ImmutableList.toImmutableList()));
     cToolchain.addAllToolPath(

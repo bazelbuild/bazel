@@ -14,23 +14,27 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
-import static org.mockito.Mockito.mock;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -59,40 +63,46 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests {@link BlazeCommandDispatcher}.
- */
+/** Tests {@link BlazeCommandDispatcher}. */
 @RunWith(JUnit4.class)
-public class BlazeCommandDispatcherTest {
-
-  private Scratch scratch = new Scratch();
+public final class BlazeCommandDispatcherTest {
+  private final Scratch scratch = new Scratch();
   private BlazeRuntime runtime;
-  private RecordingOutErr outErr = new RecordingOutErr();
-  private FooCommand foo = new FooCommand();
-  private BarCommand bar = new BarCommand();
+  private final RecordingOutErr outErr = new RecordingOutErr();
+  private final FooCommand foo = new FooCommand();
+  private final BarCommand bar = new BarCommand();
   private Map<String, String> clientEnv;
   private AbruptExitException errorOnAfterCommand;
 
   @Before
-  public final void initializeRuntime() throws Exception  {
+  public void initializeRuntime() throws Exception {
+    initializeRuntimeInternal();
+  }
+
+  @After
+  public void cleanUp() {
+    BugReport.maybePropagateUnprocessedThrowableIfInTest();
+  }
+
+  private void initializeRuntimeInternal(BlazeModule... additionalModules) throws Exception {
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
-       new ServerDirectories(scratch.dir("install_base"), scratch.dir("output_base"),
-           scratch.dir("user_root"));
+        new ServerDirectories(
+            scratch.dir("install_base"), scratch.dir("output_base"), scratch.dir("user_root"));
     // no ConfiguredTargetFactory is needed for testing command dispatch
-    this.runtime =
+    BlazeRuntime.Builder builder =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setServerDirectories(serverDirectories)
@@ -112,13 +122,11 @@ public class BlazeCommandDispatcherTest {
                       throw errorOnAfterCommand;
                     }
                   }
-
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.of(ImmutableMap.of());
-                  }
-                })
-            .build();
+                });
+    for (BlazeModule module : additionalModules) {
+      builder.addBlazeModule(module);
+    }
+    this.runtime = builder.build();
 
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -128,6 +136,13 @@ public class BlazeCommandDispatcherTest {
             productName);
     runtime.initWorkspace(directories, /*binTools=*/null);
     errorOnAfterCommand = null;
+  }
+
+  @After
+  public void stopProfilers() throws Exception {
+    // Needs to be done because we are simulating crashes but keeping the jvm alive.
+    Profiler.instance().stop();
+    MemoryProfiler.instance().stop();
   }
 
   /** Options for {@link FooCommand}. */
@@ -177,8 +192,6 @@ public class BlazeCommandDispatcherTest {
       }
     }
 
-    @Override
-    public void editOptions(OptionsParser optionsParser) {}
   }
 
   @Command(name = "bar", shortDescription = "", help = "")
@@ -190,8 +203,6 @@ public class BlazeCommandDispatcherTest {
       return BlazeCommandResult.success();
     }
 
-    @Override
-    public void editOptions(OptionsParser optionsParser) {}
   }
 
   private abstract static class AnsiTestingCommand implements BlazeCommand {
@@ -214,8 +225,6 @@ public class BlazeCommandDispatcherTest {
       return BlazeCommandResult.success();
     }
 
-    @Override
-    public void editOptions(OptionsParser optionsParser) {}
   }
 
   @Command(name = "binary", binaryStdOut = true, shortDescription = "", help = "")
@@ -223,7 +232,7 @@ public class BlazeCommandDispatcherTest {
     // Same logic as AsciiCommand, but binary.
   }
 
-  @Command(name = "ascii", binaryStdOut = false, shortDescription = "", help = "")
+  @Command(name = "ascii", shortDescription = "", help = "")
   private static class AsciiCommand extends AnsiTestingCommand {
     // Same logic as BinaryCommand, but not binary.
   }
@@ -248,14 +257,16 @@ public class BlazeCommandDispatcherTest {
               throw new OutOfMemoryError("oom message");
             });
     runtime.overrideCommands(ImmutableList.of(crashCommand));
-    // Mocked bug reporter to avoid hard crash.
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, mock(BugReporter.class));
+    BlazeCommandDispatcher dispatch =
+        new BlazeCommandDispatcher(runtime, BugReporter.defaultInstance());
 
     BlazeCommandResult directResult =
         dispatch.exec(ImmutableList.of("testcommand"), "clientdesc", outErr);
+    // Crashes from main thread don't interrupt main thread.
+    assertThat(Thread.currentThread().isInterrupted()).isFalse();
 
     CommandCompleteEvent commandCompleteEvent =
-        crashCommand.commandCompleteEvent.get(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        crashCommand.commandCompleteEvent.get(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
     DetailedExitCode exitCode = commandCompleteEvent.getExitCode();
     assertThat(exitCode.getExitCode()).isEqualTo(ExitCode.OOM_ERROR);
     assertThat(exitCode.getFailureDetail()).isNotNull();
@@ -266,6 +277,89 @@ public class BlazeCommandDispatcherTest {
     assertThat(crash.getCauses(0).getStackTrace(0)).contains("BlazeCommandDispatcherTest.java");
     assertThat(directResult.getExitCode()).isEqualTo(ExitCode.OOM_ERROR);
     assertThat(directResult.shutdown()).isTrue();
+    assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
+  }
+
+  @Test
+  public void crashPreventsNewCommand() throws Exception {
+    CountDownLatch commandStarted = new CountDownLatch(1);
+    BlazeCommand hangingCommand =
+        new CommandCompleteRecordingCommand(
+            () -> {
+              commandStarted.countDown();
+              try {
+                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+              } catch (InterruptedException e) {
+                return BlazeCommandResult.detailedExitCode(
+                    DetailedExitCode.of(
+                        FailureDetail.newBuilder()
+                            .setInterrupted(
+                                FailureDetails.Interrupted.newBuilder()
+                                    .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
+                            .build()));
+              }
+              throw new IllegalStateException("Should have been interrupted");
+            });
+
+    CountDownLatch crashStarted = new CountDownLatch(1);
+    CountDownLatch waitToFinishOnCrash = new CountDownLatch(1);
+    initializeRuntimeInternal(
+        new BlazeModule() {
+          @Override
+          public void blazeShutdownOnCrash(DetailedExitCode exitCode) {
+            crashStarted.countDown();
+            Uninterruptibles.awaitUninterruptibly(waitToFinishOnCrash);
+          }
+        });
+    runtime.overrideCommands(ImmutableList.of(hangingCommand));
+    BlazeCommandDispatcher dispatch =
+        new BlazeCommandDispatcher(runtime, BugReporter.defaultInstance());
+
+    AtomicReference<BlazeCommandResult> directResult = new AtomicReference<>();
+    TestThread commandThread =
+        new TestThread(
+            () ->
+                directResult.set(
+                    dispatch.exec(ImmutableList.of("testcommand"), "clientdesc", outErr)));
+    commandThread.start();
+
+    assertThat(commandStarted.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+
+    DetailedExitCode crashExitCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("crash oom message")
+                .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_OOM))
+                .build());
+    TestThread crashThread = new TestThread(() -> runtime.cleanUpForCrash(crashExitCode));
+    crashThread.start();
+
+    assertThat(crashStarted.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    commandThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    assertThat(directResult.get().getDetailedExitCode()).isSameInstanceAs(crashExitCode);
+
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    String errorMessage = TestConstants.PRODUCT_NAME + " is crashing: crash oom message";
+
+    assertThat(
+            dispatch
+                .exec(ImmutableList.of("testcommand"), "clientdesc", recordingOutErr)
+                .getDetailedExitCode()
+                .getFailureDetail())
+        .isEqualTo(
+            FailureDetails.FailureDetail.newBuilder()
+                .setCommand(
+                    FailureDetails.Command.newBuilder()
+                        .setCode(FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN))
+                .setMessage(errorMessage)
+                .build());
+    assertThat(recordingOutErr.errAsLatin1()).contains(errorMessage);
+
+    assertThat(crashThread.isAlive()).isTrue();
+
+    waitToFinishOnCrash.countDown();
+
+    crashThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
   }
 
   @Test
@@ -283,7 +377,7 @@ public class BlazeCommandDispatcherTest {
         dispatch.exec(ImmutableList.of("testcommand"), "clientdesc", outErr);
 
     CommandCompleteEvent commandCompleteEvent =
-        crashCommand.commandCompleteEvent.get(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        crashCommand.commandCompleteEvent.get(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
     assertThat(commandCompleteEvent.getExitCode()).isEqualTo(DetailedExitCode.of(failureDetail));
     assertThat(directResult.shutdown()).isFalse();
   }
@@ -383,7 +477,8 @@ public class BlazeCommandDispatcherTest {
                     LockingMode.WAIT,
                     "test client",
                     runtime.getClock().currentTimeMillis(),
-                    /*startupOptionsTaggedWithBazelRc=*/ Optional.empty()));
+                    /*startupOptionsTaggedWithBazelRc=*/ Optional.empty(),
+                    /*commandExtensions=*/ ImmutableList.of()));
 
     try {
       blockCommandThread.start();
@@ -434,12 +529,10 @@ public class BlazeCommandDispatcherTest {
         return BlazeCommandResult.success();
       }
 
-      @Override
-      public void editOptions(OptionsParser optionsParser) {}
     }
     runtime.overrideCommands(ImmutableList.of(new HelpCommand()));
     BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
-    BlazeCommandResult result = dispatch.exec(Collections.<String>emptyList(), "test", outErr);
+    BlazeCommandResult result = dispatch.exec(ImmutableList.of(), "test", outErr);
     assertThat(result.getExitCode()).isEqualTo(ExitCode.SUCCESS);
     assertThat(outErr.outAsLatin1()).isEqualTo("This is the help message.\n");
   }
@@ -580,17 +673,15 @@ public class BlazeCommandDispatcherTest {
     final class SystemOutErrRetainingCommand implements BlazeCommand {
       private final PrintStream defaultStdout = System.out;
       private final PrintStream defaultStderr = System.err;
-      private PrintStream overriddenStdout;
-      private PrintStream overriddenStderr;
       private WeakReference<Reporter> reporterRef;
 
       @Override
       public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-        overriddenStdout = System.out;
+        PrintStream overriddenStdout = System.out;
         assertThat(overriddenStdout).isNotNull();
         assertThat(overriddenStdout).isNotEqualTo(defaultStdout);
 
-        overriddenStderr = System.err;
+        PrintStream overriddenStderr = System.err;
         assertThat(overriddenStderr).isNotNull();
         assertThat(overriddenStderr).isNotEqualTo(defaultStderr);
 
@@ -600,9 +691,6 @@ public class BlazeCommandDispatcherTest {
 
         return BlazeCommandResult.success();
       }
-
-      @Override
-      public void editOptions(OptionsParser optionsParser) {}
     }
 
     SystemOutErrRetainingCommand cmd = new SystemOutErrRetainingCommand();
@@ -616,7 +704,6 @@ public class BlazeCommandDispatcherTest {
 
   @Command(
       name = "testcommand",
-      options = {},
       shortDescription = "",
       help = "")
   private static class CommandCompleteRecordingCommand implements BlazeCommand {
@@ -638,11 +725,6 @@ public class BlazeCommandDispatcherTest {
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       env.getEventBus().register(this);
       return resultSupplier.get();
-    }
-
-    @Override
-    public void editOptions(OptionsParser optionsParser) {
-      // no-op
     }
   }
 }

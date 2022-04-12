@@ -479,17 +479,25 @@ public final class DocstringUtils {
     /** Parses additional lines that can come after "param: foo" in an 'Args' section. */
     private void parseContinuedParamDescription(
         int baselineIndentation, StringBuilder description) {
+      // Two iterations: first buffer lines and find the minimal indent, then trim to the min
+      List<String> buffer = new ArrayList<>();
+      int continuationIndentation = Integer.MAX_VALUE;
       while (nextLine()) {
-        if (line.isEmpty()) {
-          description.append('\n');
-          continue;
+        if (!line.isEmpty()) {
+          if (getIndentation(line) <= baselineIndentation) {
+            break;
+          }
+          continuationIndentation = Math.min(getIndentation(line), continuationIndentation);
         }
-        if (getIndentation(line) <= baselineIndentation) {
-          break;
-        }
-        String trimmedLine = line.substring(baselineIndentation);
+        buffer.add(line);
+      }
+
+      for (String bufLine : buffer) {
         description.append('\n');
-        description.append(trimmedLine);
+        if (!bufLine.isEmpty()) {
+          String trimmedLine = bufLine.substring(continuationIndentation);
+          description.append(trimmedLine);
+        }
       }
     }
 

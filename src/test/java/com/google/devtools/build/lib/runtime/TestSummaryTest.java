@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -80,10 +82,9 @@ public class TestSummaryTest {
   }
 
   private TestSummary.Builder getTemplateBuilder() {
-    BuildConfiguration configuration = Mockito.mock(BuildConfiguration.class);
+    BuildConfigurationValue configuration = Mockito.mock(BuildConfigurationValue.class);
     when(configuration.checksum()).thenReturn("abcdef");
-    return TestSummary.newBuilder()
-        .setTarget(stubTarget)
+    return TestSummary.newBuilder(stubTarget)
         .setConfiguration(configuration)
         .setStatus(BlazeTestStatus.PASSED)
         .setNumCached(NOT_CACHED)
@@ -277,8 +278,11 @@ public class TestSummaryTest {
             BuildEventStreamProtos.TestSummary.newBuilder()
                 .setOverallStatus(TestStatus.FAILED)
                 .setFirstStartTimeMillis(1000)
+                .setFirstStartTime(Timestamps.fromMillis(1000))
                 .setLastStopTimeMillis(1300)
+                .setLastStopTime(Timestamps.fromMillis(1300))
                 .setTotalRunDurationMillis(300)
+                .setTotalRunDuration(Durations.fromMillis(300))
                 .setRunCount(2)
                 .setShardCount(3)
                 .addPassed(BuildEventStreamProtos.File.newBuilder().setUri("/path/to/apple"))
@@ -591,6 +595,9 @@ public class TestSummaryTest {
     ConfiguredTarget target = Mockito.mock(ConfiguredTarget.class);
     when(target.getLabel()).thenReturn(Label.create(path, targetName));
     when(target.getConfigurationChecksum()).thenReturn("abcdef");
+    TestParams mockParams = Mockito.mock(TestParams.class);
+    when(mockParams.getShards()).thenReturn(1);
+    when(target.getProvider(TestProvider.class)).thenReturn(new TestProvider(mockParams));
     return target;
   }
 
@@ -620,8 +627,7 @@ public class TestSummaryTest {
   private static TestSummary createTestSummary(ConfiguredTarget target, BlazeTestStatus status,
                                                int numCached) {
     ImmutableList<TestCase> emptyList = ImmutableList.of();
-    TestSummary summary = TestSummary.newBuilder()
-        .setTarget(target)
+    return TestSummary.newBuilder(target)
         .setStatus(status)
         .setNumCached(numCached)
         .setActionRan(true)
@@ -630,7 +636,6 @@ public class TestSummaryTest {
         .addFailedTestCases(emptyList, FailedTestCasesStatus.FULL)
         .addTestTimes(SMALL_TIMING)
         .build();
-    return summary;
   }
 
   private TestSummary createTestSummary(BlazeTestStatus status, int numCached) {

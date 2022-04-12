@@ -16,23 +16,19 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.syntax.Location;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @Immutable
-@AutoCodec
 public class ConstraintValueInfo extends NativeInfo implements ConstraintValueInfoApi {
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ConstraintValueInfo";
@@ -44,12 +40,14 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
   private final ConstraintSettingInfo constraint;
   private final Label label;
 
-  @VisibleForSerialization
-  ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
-    super(PROVIDER, location);
-
+  private ConstraintValueInfo(ConstraintSettingInfo constraint, Label label) {
     this.constraint = constraint;
     this.label = label;
+  }
+
+  @Override
+  public BuiltinProvider<ConstraintValueInfo> getProvider() {
+    return PROVIDER;
   }
 
   @Override
@@ -75,7 +73,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
    * method.
    */
   public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
-    return new ConfigMatchingProvider(
+    return ConfigMatchingProvider.create(
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),
@@ -83,7 +81,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
         // used to build the platform this checks against. But platformInfo's existence implies
         // the owning target already depends on PlatformConfiguration. And we can't reference
         // PlatformConfiguration.class here without a build dependency cycle.
-        ImmutableSet.of(),
+        RequiredConfigFragmentsProvider.EMPTY,
         platformInfo.constraints().hasConstraintValue(this));
   }
 
@@ -98,13 +96,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */
   public static ConstraintValueInfo create(ConstraintSettingInfo constraint, Label value) {
-    return create(constraint, value, Location.BUILTIN);
-  }
-
-  /** Returns a new {@link ConstraintValueInfo} with the given data. */
-  public static ConstraintValueInfo create(
-      ConstraintSettingInfo constraint, Label value, Location location) {
-    return new ConstraintValueInfo(constraint, value, location);
+    return new ConstraintValueInfo(constraint, value);
   }
 
   /** Add this constraint value to the given fingerprint. */

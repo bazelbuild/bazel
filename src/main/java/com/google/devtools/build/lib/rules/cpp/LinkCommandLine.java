@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -42,7 +40,6 @@ import javax.annotation.Nullable;
  * Represents the command line of a linker invocation. It supports executables and dynamic libraries
  * as well as static libraries.
  */
-@AutoCodec
 @Immutable
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
@@ -57,12 +54,10 @@ public final class LinkCommandLine extends CommandLine {
   @Nullable private final PathFragment toolchainLibrariesSolibDir;
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
-  private final boolean doNotSplitLinkingCmdLine;
 
   @Nullable private final Artifact paramFile;
 
-  @VisibleForSerialization
-  LinkCommandLine(
+  private LinkCommandLine(
       String actionName,
       String forcedToolPath,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
@@ -74,8 +69,7 @@ public final class LinkCommandLine extends CommandLine {
       boolean useTestOnlyFlags,
       @Nullable Artifact paramFile,
       CcToolchainVariables variables,
-      @Nullable FeatureConfiguration featureConfiguration,
-      boolean doNotSplitLinkingCmdLine) {
+      @Nullable FeatureConfiguration featureConfiguration) {
 
     this.actionName = actionName;
     this.forcedToolPath = forcedToolPath;
@@ -89,7 +83,6 @@ public final class LinkCommandLine extends CommandLine {
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
     this.paramFile = paramFile;
-    this.doNotSplitLinkingCmdLine = doNotSplitLinkingCmdLine;
   }
 
   @Nullable
@@ -169,22 +162,17 @@ public final class LinkCommandLine extends CommandLine {
    */
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline() throws CommandLineExpansionException {
-    return splitCommandline(
-        paramFile, getRawLinkArgv(null), linkTargetType, doNotSplitLinkingCmdLine);
+    return splitCommandline(paramFile, getRawLinkArgv(null), linkTargetType);
   }
 
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline(@Nullable ArtifactExpander expander)
       throws CommandLineExpansionException {
-    return splitCommandline(
-        paramFile, getRawLinkArgv(expander), linkTargetType, doNotSplitLinkingCmdLine);
+    return splitCommandline(paramFile, getRawLinkArgv(expander), linkTargetType);
   }
 
   private static Pair<List<String>, List<String>> splitCommandline(
-      Artifact paramFile,
-      List<String> args,
-      LinkTargetType linkTargetType,
-      boolean doNotSplitLinkingCmdline) {
+      Artifact paramFile, List<String> args, LinkTargetType linkTargetType) {
     Preconditions.checkNotNull(paramFile);
     if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
       // Ar link commands can also generate huge command lines.
@@ -198,8 +186,7 @@ public final class LinkCommandLine extends CommandLine {
       // a parameter file and pass any linker options through it.
       List<String> paramFileArgs = new ArrayList<>();
       List<String> commandlineArgs = new ArrayList<>();
-      extractArgumentsForDynamicLinkParamFile(
-          args, commandlineArgs, paramFileArgs, doNotSplitLinkingCmdline);
+      extractArgumentsForDynamicLinkParamFile(args, commandlineArgs, paramFileArgs);
       return Pair.of(commandlineArgs, paramFileArgs);
     }
   }
@@ -230,32 +217,27 @@ public final class LinkCommandLine extends CommandLine {
    * A {@link CommandLine} implementation that returns the command line args pertaining to the
    * .params file.
    */
-  @AutoCodec
-  @VisibleForSerialization
-  static class ParamFileCommandLine extends CommandLine {
+  private static class ParamFileCommandLine extends CommandLine {
     private final Artifact paramsFile;
     private final LinkTargetType linkTargetType;
     private final String forcedToolPath;
     private final FeatureConfiguration featureConfiguration;
     private final String actionName;
     private final CcToolchainVariables variables;
-    private final boolean doNotSplitLinkingCmdLine;
 
-    public ParamFileCommandLine(
+    ParamFileCommandLine(
         Artifact paramsFile,
         LinkTargetType linkTargetType,
         String forcedToolPath,
         FeatureConfiguration featureConfiguration,
         String actionName,
-        CcToolchainVariables variables,
-        boolean doNotSplitLinkingCmdLine) {
+        CcToolchainVariables variables) {
       this.paramsFile = paramsFile;
       this.linkTargetType = linkTargetType;
       this.forcedToolPath = forcedToolPath;
       this.featureConfiguration = featureConfiguration;
       this.actionName = actionName;
       this.variables = variables;
-      this.doNotSplitLinkingCmdLine = doNotSplitLinkingCmdLine;
     }
 
     @Override
@@ -263,8 +245,7 @@ public final class LinkCommandLine extends CommandLine {
       List<String> argv =
           getRawLinkArgv(
               null, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
-      return splitCommandline(paramsFile, argv, linkTargetType, doNotSplitLinkingCmdLine)
-          .getSecond();
+      return splitCommandline(paramsFile, argv, linkTargetType).getSecond();
     }
 
     @Override
@@ -278,8 +259,7 @@ public final class LinkCommandLine extends CommandLine {
               actionName,
               linkTargetType,
               variables);
-      return splitCommandline(paramsFile, argv, linkTargetType, doNotSplitLinkingCmdLine)
-          .getSecond();
+      return splitCommandline(paramsFile, argv, linkTargetType).getSecond();
     }
   }
 
@@ -287,22 +267,16 @@ public final class LinkCommandLine extends CommandLine {
   CommandLine paramCmdLine() {
     Preconditions.checkNotNull(paramFile);
     return new ParamFileCommandLine(
-        paramFile,
-        linkTargetType,
-        forcedToolPath,
-        featureConfiguration,
-        actionName,
-        variables,
-        doNotSplitLinkingCmdLine);
+        paramFile, linkTargetType, forcedToolPath, featureConfiguration, actionName, variables);
   }
 
-  public static void extractArgumentsForStaticLinkParamFile(
+  private static void extractArgumentsForStaticLinkParamFile(
       List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     commandlineArgs.add(args.get(0)); // ar command, must not be moved!
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
-      if (arg.startsWith("@")) {
+      if (isLikelyParamFile(arg)) {
         commandlineArgs.add(arg); // params file, keep it in the command line
       } else {
         paramFileArgs.add(arg); // the rest goes to the params file
@@ -310,70 +284,27 @@ public final class LinkCommandLine extends CommandLine {
     }
   }
 
-  public static void extractArgumentsForDynamicLinkParamFile(
-      List<String> args,
-      List<String> commandlineArgs,
-      List<String> paramFileArgs,
-      boolean doNotSplitLinkingCmdline) {
+  private static void extractArgumentsForDynamicLinkParamFile(
+      List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     // Note, that it is not important that all linker arguments are extracted so that
     // they can be moved into a parameter file, but the vast majority should.
     commandlineArgs.add(args.get(0)); // gcc command, must not be moved!
     int argsSize = args.size();
-    if (doNotSplitLinkingCmdline) {
-      for (int i = 1; i < argsSize; i++) {
-        String arg = args.get(i);
-        if (arg.startsWith("@")) {
-          commandlineArgs.add(arg); // params file, keep it in the command line
-        } else {
-          paramFileArgs.add(arg); // the rest goes to the params file
-        }
-      }
-    } else {
-      for (int i = 1; i < argsSize; i++) {
-        String arg = args.get(i);
-        if (arg.isEmpty()) {
-          continue;
-        }
-        if (arg.equals("-Wl,-no-whole-archive")) {
-          paramFileArgs.add("-no-whole-archive");
-        } else if (arg.equals("-Wl,-whole-archive")) {
-          paramFileArgs.add("-whole-archive");
-        } else if (arg.equals("-Wl,--start-group")) {
-          paramFileArgs.add("--start-group");
-        } else if (arg.equals("-Wl,--end-group")) {
-          paramFileArgs.add("--end-group");
-        } else if (arg.equals("-Wl,--start-lib")) {
-          paramFileArgs.add("--start-lib");
-        } else if (arg.equals("-Wl,--end-lib")) {
-          paramFileArgs.add("--end-lib");
-        } else if (arg.charAt(0) == '-') {
-          if (arg.startsWith("-l")) {
-            paramFileArgs.add(arg);
-          } else {
-            // Anything else starting with a '-' can stay on the commandline.
-            commandlineArgs.add(arg);
-            if (arg.equals("-o")) {
-              // Special case for '-o': add the following argument as well - it is the output file!
-              commandlineArgs.add(args.get(++i));
-            }
-          }
-        } else if (CppFileTypes.OBJECT_FILE.apply(arg)
-            || CppFileTypes.PIC_OBJECT_FILE.apply(arg)
-            || CppFileTypes.ARCHIVE.apply(arg)
-            || CppFileTypes.PIC_ARCHIVE.apply(arg)
-            || CppFileTypes.ALWAYS_LINK_LIBRARY.apply(arg)
-            || CppFileTypes.ALWAYS_LINK_PIC_LIBRARY.apply(arg)
-            || CppFileTypes.SHARED_LIBRARY.apply(arg)
-            || CppFileTypes.INTERFACE_SHARED_LIBRARY.apply(arg)
-            || CppFileTypes.VERSIONED_SHARED_LIBRARY.apply(arg)) {
-          // All objects of any kind go into the linker parameters.
-          paramFileArgs.add(arg);
-        } else {
-          // Everything that's left stays conservatively on the commandline.
-          commandlineArgs.add(arg);
-        }
+    for (int i = 1; i < argsSize; i++) {
+      String arg = args.get(i);
+      if (isLikelyParamFile(arg)) {
+        commandlineArgs.add(arg); // params file, keep it in the command line
+      } else {
+        paramFileArgs.add(arg); // the rest goes to the params file
       }
     }
+  }
+
+  private static boolean isLikelyParamFile(String arg) {
+    return arg.startsWith("@")
+        && !arg.startsWith("@rpath")
+        && !arg.startsWith("@loader_path")
+        && !arg.startsWith("@executable_path");
   }
 
   /**
@@ -463,7 +394,6 @@ public final class LinkCommandLine extends CommandLine {
     @Nullable private Artifact paramFile;
     private CcToolchainVariables variables;
     private FeatureConfiguration featureConfiguration;
-    private boolean doNotSplitLinkingCmdLine;
     private String actionName;
 
     public LinkCommandLine build() {
@@ -489,8 +419,7 @@ public final class LinkCommandLine extends CommandLine {
           useTestOnlyFlags,
           paramFile,
           variables,
-          featureConfiguration,
-          doNotSplitLinkingCmdLine);
+          featureConfiguration);
     }
 
     /** Use given tool path instead of the one from feature configuration */
@@ -578,11 +507,6 @@ public final class LinkCommandLine extends CommandLine {
 
     public Builder setToolchainLibrariesSolibDir(PathFragment toolchainLibrariesSolibDir) {
       this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
-      return this;
-    }
-
-    public Builder doNotSplitLinkingCmdLine() {
-      this.doNotSplitLinkingCmdLine = true;
       return this;
     }
 

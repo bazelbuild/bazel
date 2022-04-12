@@ -24,7 +24,7 @@ set -eu
 # 1. Set $USE_BAZEL_VERSION to a version number
 #    (e.g. export USE_BAZEL_VERSION=1.0.0).
 # 2. Add a .bazelversion file that contains a version number next to your
-#    WORKSPACE file.
+#    WORKSPACE[.bazel] file.
 # 3. Otherwise, the latest Bazel version will be used.
 #
 # This wrapper only recognizes Bazel versions installed next to itself, thus
@@ -91,7 +91,7 @@ function get_realpath() {
 function get_workspace_root() {
   workspace_dir="${PWD}"
   while [[ "${workspace_dir}" != / ]]; do
-    if [[ -e "${workspace_dir}/WORKSPACE" ]]; then
+    if [[ -e "${workspace_dir}/WORKSPACE" || -e "${workspace_dir}/WORKSPACE.bazel" ]]; then
       readonly workspace_dir
       return
     fi
@@ -194,7 +194,7 @@ if [[ ! -x $BAZEL_REAL ]]; then
     echo "  sudo apt update && sudo apt install bazel-${bazel_version}"
     echo ""
     echo "If this doesn't work, check Bazel's installation instructions for help:"
-    echo "  https://docs.bazel.build/versions/master/install-ubuntu.html") 2>&1
+    echo "  https://docs.bazel.build/versions/main/install-ubuntu.html") 2>&1
   else
     (echo ""
     echo "Bazel binaries for all official releases can be downloaded from here:"

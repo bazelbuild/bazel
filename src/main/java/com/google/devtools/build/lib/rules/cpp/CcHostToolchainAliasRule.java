@@ -14,25 +14,70 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.packages.RuleClass;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
-public class CcHostToolchainAliasRule extends CommonAliasRule<CppConfiguration> {
+public class CcHostToolchainAliasRule implements RuleDefinition {
 
-  public CcHostToolchainAliasRule() {
-    super(
-        "cc_host_toolchain_alias",
-        CppRuleClasses::ccHostToolchainAttribute,
-        CppConfiguration.class);
+  @Override
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+    return builder
+        .requiresConfigurationFragments(CppConfiguration.class)
+        .removeAttribute("licenses")
+        .removeAttribute("distribs")
+        .add(
+            attr("$cc_toolchain_alias", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
+        .build();
   }
 
   @Override
-  protected Attribute.Builder<Label> makeAttribute(RuleDefinitionEnvironment environment) {
-    Attribute.Builder<Label> builder = super.makeAttribute(environment);
-    return builder.cfg(HostTransition.createFactory());
+  public Metadata getMetadata() {
+    return Metadata.builder()
+        .name("cc_host_toolchain_alias")
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
+        .factoryClass(CcHostToolchainAlias.class)
+        .build();
+  }
+
+  /** Implementation of cc_host_toolchain_alias. */
+  public static class CcHostToolchainAlias implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
+
+      TransitiveInfoCollection ccToolchainAlias =
+          ruleContext.getPrerequisite("$cc_toolchain_alias");
+      CcToolchainProvider ccToolchainProvider = ccToolchainAlias.get(CcToolchainProvider.PROVIDER);
+      TemplateVariableInfo templateVariableInfo =
+          ccToolchainAlias.get(TemplateVariableInfo.PROVIDER);
+      ToolchainInfo toolchain = ccToolchainAlias.get(ToolchainInfo.PROVIDER);
+
+      return new RuleConfiguredTargetBuilder(ruleContext)
+          .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+          .addNativeDeclaredProvider(ccToolchainProvider)
+          .addNativeDeclaredProvider(toolchain)
+          .addNativeDeclaredProvider(templateVariableInfo)
+          .setFilesToBuild(ccToolchainProvider.getAllFilesIncludingLibc())
+          .build();
+    }
   }
 }

@@ -16,10 +16,13 @@
 
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+    "action_config",
+    "artifact_name_pattern",
     "feature",
     "feature_set",
     "flag_group",
     "flag_set",
+    "tool",
     "tool_path",
     "variable_with_value",
     "with_feature_set",
@@ -147,6 +150,17 @@ def _impl(ctx):
     ]
     action_configs = []
 
+    llvm_cov_action = action_config(
+        action_name = ACTION_NAMES.llvm_cov,
+        tools = [
+            tool(
+                path = ctx.attr.tool_paths["llvm-cov"],
+            ),
+        ],
+    )
+
+    action_configs.append(llvm_cov_action)
+
     supports_pic_feature = feature(
         name = "supports_pic",
         enabled = True,
@@ -160,6 +174,21 @@ def _impl(ctx):
         name = "default_compile_flags",
         enabled = True,
         flag_sets = [
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [
+                    flag_group(
+                        # Security hardening requires optimization.
+                        # We need to undef it as some distributions now have it enabled by default.
+                        flags = ["-U_FORTIFY_SOURCE"],
+                    ),
+                ],
+                with_features = [
+                    with_feature_set(
+                        not_features = ["thin_lto"],
+                    ),
+                ],
+            ),
             flag_set(
                 actions = all_compile_actions,
                 flag_groups = ([
@@ -362,6 +391,7 @@ def _impl(ctx):
 
     per_object_debug_info_feature = feature(
         name = "per_object_debug_info",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -373,7 +403,7 @@ def _impl(ctx):
                 ],
                 flag_groups = [
                     flag_group(
-                        flags = ["-gsplit-dwarf"],
+                        flags = ["-gsplit-dwarf", "-g"],
                         expand_if_available = "per_object_debug_info_file",
                     ),
                 ],
@@ -650,6 +680,32 @@ def _impl(ctx):
                     flag_group(
                         flags = ["-isystem", "%{system_include_paths}"],
                         iterate_over = "system_include_paths",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    external_include_paths_feature = feature(
+        name = "external_include_paths",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.linkstamp_compile,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.clif_match,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["-isystem", "%{external_include_paths}"],
+                        iterate_over = "external_include_paths",
+                        expand_if_available = "external_include_paths",
                     ),
                 ],
             ),
@@ -1142,10 +1198,26 @@ def _impl(ctx):
         ],
     )
 
+    treat_warnings_as_errors_feature = feature(
+        name = "treat_warnings_as_errors",
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                flag_groups = [flag_group(flags = ["-Werror"])],
+            ),
+            flag_set(
+                actions = all_link_actions,
+                flag_groups = [flag_group(flags = ["-Wl,-fatal-warnings"])],
+            ),
+        ],
+    )
+
     is_linux = ctx.attr.target_libc != "macosx"
 
     # TODO(#8303): Mac crosstool should also declare every feature.
     if is_linux:
+        # Linux artifact name patterns are the default.
+        artifact_name_patterns = []
         features = [
             dependency_file_feature,
             random_seed_feature,
@@ -1154,6 +1226,7 @@ def _impl(ctx):
             preprocessor_defines_feature,
             includes_feature,
             include_paths_feature,
+            external_include_paths_feature,
             fdo_instrument_feature,
             cs_fdo_instrument_feature,
             cs_fdo_optimize_feature,
@@ -1191,8 +1264,18 @@ def _impl(ctx):
             user_compile_flags_feature,
             sysroot_feature,
             unfiltered_compile_flags_feature,
+            treat_warnings_as_errors_feature,
         ] + layering_check_features(ctx.attr.compiler)
     else:
+        # macOS artifact name patterns differ from the defaults only for dynamic
+        # libraries.
+        artifact_name_patterns = [
+            artifact_name_pattern(
+                category_name = "dynamic_library",
+                prefix = "lib",
+                extension = ".dylib",
+            ),
+        ]
         features = [
             supports_pic_feature,
         ] + (
@@ -1203,6 +1286,7 @@ def _impl(ctx):
             coverage_feature,
             default_compile_flags_feature,
             default_link_flags_feature,
+            user_link_flags_feature,
             fdo_optimize_feature,
             supports_dynamic_linker_feature,
             dbg_feature,
@@ -1210,12 +1294,14 @@ def _impl(ctx):
             user_compile_flags_feature,
             sysroot_feature,
             unfiltered_compile_flags_feature,
+            treat_warnings_as_errors_feature,
         ] + layering_check_features(ctx.attr.compiler)
 
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         features = features,
         action_configs = action_configs,
+        artifact_name_patterns = artifact_name_patterns,
         cxx_builtin_include_directories = ctx.attr.cxx_builtin_include_directories,
         toolchain_identifier = ctx.attr.toolchain_identifier,
         host_system_name = ctx.attr.host_system_name,
@@ -1226,6 +1312,7 @@ def _impl(ctx):
         abi_version = ctx.attr.abi_version,
         abi_libc_version = ctx.attr.abi_libc_version,
         tool_paths = tool_paths,
+        builtin_sysroot = ctx.attr.builtin_sysroot,
     )
 
 cc_toolchain_config = rule(
@@ -1252,6 +1339,7 @@ cc_toolchain_config = rule(
         "coverage_compile_flags": attr.string_list(),
         "coverage_link_flags": attr.string_list(),
         "supports_start_end_lib": attr.bool(),
+        "builtin_sysroot": attr.string(),
     },
     provides = [CcToolchainConfigInfo],
 )

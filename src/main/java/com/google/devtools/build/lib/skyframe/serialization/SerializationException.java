@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableList;
-import java.io.NotSerializableException;
 import java.util.ArrayList;
 
 /** Exception signaling a failure to Serialize or Deserialize an Object. */
@@ -45,14 +44,6 @@ public class SerializationException extends Exception {
     NoCodecException(String message, Class<?> type) {
       super(message);
       addTrail(type);
-    }
-
-    NoCodecException(String message, NotSerializableException e) {
-      super(message, e);
-    }
-
-    NoCodecException(String message, NotSerializableRuntimeException e) {
-      super(message, e);
     }
 
     // Needed for wrapping.

@@ -27,29 +27,28 @@ import java.util.logging.LogManager;
  * by the java.io package where appropriate--see package javadoc for details.
  */
 public final class NativePosixFiles {
-
   private NativePosixFiles() {}
 
   static {
     if (!java.nio.charset.Charset.defaultCharset().name().equals("ISO-8859-1")) {
       // Defer the Logger call, so we don't deadlock if this is called from Logger
       // initialization code.
-      new Thread() {
-        @Override
-        public void run() {
-          // wait (if necessary) until the logging system is initialized
-          synchronized (LogManager.getLogManager()) {
-          }
-          GoogleLogger.forEnclosingClass()
-              .atFine()
-              .log(
-                  "WARNING: Default character set is not latin1; java.io.File and "
-                      + "com.google.devtools.build.lib.unix.FilesystemUtils will represent some "
-                      + "filenames differently.");
-        }
-      }.start();
+      new Thread(
+              () -> {
+                // wait (if necessary) until the logging system is initialized
+                synchronized (LogManager.getLogManager()) {
+                }
+                @SuppressWarnings("FloggerRequiredModifiers")
+                GoogleLogger logger = GoogleLogger.forEnclosingClass();
+                logger.atFine().log(
+                    "WARNING: Default character set is not latin1; java.io.File and"
+                        + " com.google.devtools.build.lib.unix.FilesystemUtils will represent"
+                        + " some filenames differently.");
+              })
+          .start();
     }
     JniLoader.loadJni();
+    initJNIClasses();
   }
 
   /**
@@ -158,6 +157,15 @@ public final class NativePosixFiles {
       throws IOException;
 
   /**
+   * Makes sure a writable directory exists at a given path. Returns whether a new directory was
+   * created.
+   *
+   * <p>Unlike {@link #mkdir}, it fails if a file/symlink at a given path already exists. If a
+   * directory is already present, it will make sure it is writable and return false.
+   */
+  public static native boolean mkdirWritable(String path);
+
+  /**
    * Implements (effectively) mkdir -p.
    *
    * @param path the directory to recursively create.
@@ -170,13 +178,31 @@ public final class NativePosixFiles {
    * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
    *
    * @param path the directory to read.
-   * @return the list of directory entries in the order they were returned by
-   *   the system, excluding "." and "..".
+   * @return the list of directory entries in the order they were returned by the system, excluding
+   *     "." and "..".
    * @throws IOException if the call to opendir failed for any reason.
    */
   public static String[] readdir(String path) throws IOException {
     return readdir(path, ReadTypes.NONE).names;
   }
+
+  /**
+   * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
+   *
+   * @param path the directory to read.
+   * @param readTypes How the types of individual entries should be returned. If {@code NONE}, the
+   *     "types" field in the result will be null.
+   * @return a Dirents object, containing "names", the list of directory entries (excluding "." and
+   *     "..") in the order they were returned by the system, and "types", an array of entry types
+   *     (file, directory, etc) corresponding positionally to "names".
+   * @throws IOException if the call to opendir failed for any reason.
+   */
+  public static Dirents readdir(String path, ReadTypes readTypes) throws IOException {
+    // Passing enums to native code is possible, but onerous; we use a char instead.
+    return readdir(path, readTypes.getCode());
+  }
+
+  private static native Dirents readdir(String path, char typeCode) throws IOException;
 
   /**
    * An enum for specifying now the types of the individual entries returned by
@@ -267,26 +293,6 @@ public final class NativePosixFiles {
   }
 
   /**
-   * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
-   *
-   * @param path the directory to read.
-   * @param readTypes How the types of individual entries should be returned. If {@code NONE},
-   *   the "types" field in the result will be null.
-   * @return a Dirents object, containing "names", the list of directory entries
-   *   (excluding "." and "..") in the order they were returned by the system,
-   *   and "types", an array of entry types (file, directory, etc) corresponding
-   *   positionally to "names".
-   * @throws IOException if the call to opendir failed for any reason.
-   */
-  public static Dirents readdir(String path, ReadTypes readTypes) throws IOException {
-    // Passing enums to native code is possible, but onerous; we use a char instead.
-    return readdir(path, readTypes.getCode());
-  }
-
-  private static native Dirents readdir(String path, char typeCode)
-      throws IOException;
-
-  /**
    * Native wrapper around POSIX rename(2) syscall.
    *
    * @param oldpath the source location.
@@ -375,4 +381,6 @@ public final class NativePosixFiles {
    * reference alive.
    */
   public static native int close(int fd, Object ignored) throws IOException;
+
+  private static native void initJNIClasses();
 }

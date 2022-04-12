@@ -43,11 +43,15 @@ public final class AndroidIdlProvider extends NativeInfo
       NestedSet<Artifact> transitiveIdlImports,
       NestedSet<Artifact> transitiveIdlJars,
       NestedSet<Artifact> transitiveIdlPreprocessed) {
-    super(PROVIDER);
     this.transitiveIdlImportRoots = transitiveIdlImportRoots;
     this.transitiveIdlImports = transitiveIdlImports;
     this.transitiveIdlJars = transitiveIdlJars;
     this.transitiveIdlPreprocessed = transitiveIdlPreprocessed;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

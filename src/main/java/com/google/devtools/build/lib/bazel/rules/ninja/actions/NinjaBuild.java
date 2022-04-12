@@ -47,13 +47,13 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    Map<String, List<String>> outputGroupsMap =
+    Map<String, List<String>> outputGroupsFromAttrs =
         ruleContext.attributes().get("output_groups", Type.STRING_LIST_DICT);
     NinjaGraphProvider graphProvider =
         ruleContext.getPrerequisite("ninja_graph", NinjaGraphProvider.class);
     Preconditions.checkNotNull(graphProvider);
     List<PathFragment> pathsToBuild =
-        outputGroupsMap.values().stream()
+        outputGroupsFromAttrs.values().stream()
             .flatMap(List::stream)
             .map(PathFragment::create)
             .collect(Collectors.toList());
@@ -64,18 +64,21 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
     createDepsMap(
         ruleContext, graphProvider.getWorkingDirectory(), depsMapBuilder, symlinksMapBuilder);
 
-    ImmutableSortedMap<PathFragment, Artifact> depsMap = depsMapBuilder.build();
+    ImmutableSortedMap<PathFragment, Artifact> depsMap = depsMapBuilder.buildOrThrow();
 
     NinjaGraphArtifactsHelper artifactsHelper =
         new NinjaGraphArtifactsHelper(
             ruleContext,
             graphProvider.getOutputRoot(),
             graphProvider.getWorkingDirectory(),
-            symlinksMapBuilder.build(),
+            symlinksMapBuilder.buildOrThrow(),
             graphProvider.getOutputRootSymlinks());
     if (ruleContext.hasErrors()) {
       return null;
     }
+
+    RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder =
+        new RuleConfiguredTargetBuilder(ruleContext);
 
     try {
       symlinkDepsMappings(ruleContext, artifactsHelper, depsMap);
@@ -90,6 +93,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
 
       new NinjaActionsHelper(
               ruleContext,
+              ruleConfiguredTargetBuilder,
               artifactsHelper,
               graphProvider.getTargetsMap(),
               graphProvider.getPhonyTargetsMap(),
@@ -103,8 +107,8 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       }
 
       NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
-      TreeMap<String, NestedSet<Artifact>> groups = Maps.newTreeMap();
-      for (Map.Entry<String, List<String>> entry : outputGroupsMap.entrySet()) {
+      TreeMap<String, NestedSet<Artifact>> outputGroups = Maps.newTreeMap();
+      for (Map.Entry<String, List<String>> entry : outputGroupsFromAttrs.entrySet()) {
         NestedSet<Artifact> artifacts =
             getGroupArtifacts(
                 ruleContext,
@@ -112,7 +116,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
                 graphProvider.getPhonyTargetsMap(),
                 phonyTargetArtifacts,
                 artifactsHelper);
-        groups.put(entry.getKey(), artifacts);
+        outputGroups.put(entry.getKey(), artifacts);
         filesToBuild.addTransitive(artifacts);
       }
 
@@ -120,10 +124,10 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
         return null;
       }
 
-      return new RuleConfiguredTargetBuilder(ruleContext)
+      return ruleConfiguredTargetBuilder
           .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
           .setFilesToBuild(filesToBuild.build())
-          .addOutputGroups(groups)
+          .addOutputGroups(outputGroups)
           .build();
     } catch (GenericParsingException e) {
       ruleContext.ruleError(e.getMessage());

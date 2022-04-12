@@ -20,12 +20,11 @@ set -euo pipefail
 # starts the server from.
 
 WORKDIR=$(pwd)
-OUT=$1
-EMBEDDED_TOOLS=$2
-DEPLOY_JAR=$3
-INSTALL_BASE_KEY=$4
-PLATFORMS_ARCHIVE=$5
-shift 5
+OUT=$1; shift
+EMBEDDED_TOOLS=$1; shift
+DEPLOY_JAR=$1; shift
+INSTALL_BASE_KEY=$1; shift
+PLATFORMS_ARCHIVE=$1; shift
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -72,13 +71,24 @@ if [ -n "${EMBEDDED_TOOLS}" ]; then
 fi
 
 # Unzip platforms.zip into platforms/, move files up from external/platforms
-# subdirectory, and create WORKSPACE if it doesn't exist.
+# subdirectory if required, and create WORKSPACE if it doesn't exist.
 (
   cd $PACKAGE_DIR
   unzip -q -d platforms $WORKDIR/$PLATFORMS_ARCHIVE
   cd platforms
-  mv external/platforms/* .
-  rmdir -p external/platforms
+  # Platform files may be located under external/platform or platform depending
+  # on the external repository source layout. Take them out if it's the case.
+  # Note that, when enabling Bzlmod, the canonical repo name for platforms is platforms.<version>,
+  # therefore, we use wildcard (platform*) to make sure it always work.
+  if ls external/platforms*/ >/dev/null 2>&1; then
+    # --experimental_sibling_repository_layout=false
+    mv external/platforms*/* .
+    rmdir -p external/platforms*
+  else
+    # --experimental_sibling_repository_layout=true
+    mv platforms*/* .
+    rmdir -p platforms*
+  fi
   >> WORKSPACE
 )
 

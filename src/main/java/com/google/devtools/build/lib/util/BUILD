@@ -77,6 +77,15 @@ java_library(
 )
 
 java_library(
+    name = "describable_execution_unit",
+    srcs = ["DescribableExecutionUnit.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -85,9 +94,9 @@ java_library(
         "CommandUtils.java",
     ],
     deps = [
+        ":describable_execution_unit",
         ":os",
         ":shell_escaper",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
@@ -103,9 +112,32 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:apache_commons_lang",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "cpu_resource_converter",
+    srcs = [
+        "CpuResourceConverter.java",
+    ],
+    deps = [
+        ":resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "ram_resource_converter",
+    srcs = [
+        "RamResourceConverter.java",
+    ],
+    deps = [
+        ":resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//third_party:guava",
     ],
 )
 
@@ -114,9 +146,7 @@ java_library(
     srcs = [
         "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
-        "BigIntegerFingerprint.java",
         "BigIntegerFingerprintUtils.java",
-        "BinaryPredicate.java",
         "CPU.java",
         "CanonicalStringIndexer.java",
         "ClassName.java",
@@ -126,11 +156,11 @@ java_library(
         "Fingerprint.java",
         "GroupedList.java",
         "JavaSleeper.java",
-        "LazyString.java",
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
         "NetUtil.java",
+        "OnDemandString.java",
         "OptionsUtils.java",
         "OrderedSetMultimap.java",
         "OsUtils.java",
@@ -150,9 +180,11 @@ java_library(
         ":os",
         ":shell_escaper",
         ":string",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -161,6 +193,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -173,6 +206,8 @@ java_library(
     deps = [
         ":string",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -213,7 +248,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -232,6 +266,7 @@ java_library(
         "ExitCode.java",
     ],
     deps = [
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -284,7 +319,6 @@ java_library(
     deps = [
         ":abrupt_exit_exception",
         ":detailed_exit_code",
-        ":exit_code",
         "//src/main/protobuf:failure_details_java_proto",
     ],
 )

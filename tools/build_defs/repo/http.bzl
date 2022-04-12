@@ -34,6 +34,7 @@ load(
     ":utils.bzl",
     "patch",
     "read_netrc",
+    "read_user_netrc",
     "update_attrs",
     "use_netrc",
     "workspace_and_buildfile",
@@ -77,21 +78,9 @@ def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "HOME" in ctx.os.environ and not ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"])
-        if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "USERPROFILE" in ctx.os.environ and ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
-        if ctx.path(netrcfile).exists:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    return {}
+    else:
+        netrc = read_user_netrc(ctx)
+    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -116,13 +105,16 @@ def _http_archive_impl(ctx):
         ctx.attr.strip_prefix,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
+        integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
-    patch(ctx)
+    patch(ctx, auth = auth)
 
-    return update_attrs(ctx.attr, _http_archive_attrs.keys(), {"sha256": download_info.sha256})
+    # We don't need to override the sha256 attribute if integrity is already specified.
+    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
+    return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
 
-_HTTP_FILE_BUILD = """
+_HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -160,20 +152,20 @@ def _http_file_impl(ctx):
 
     return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
 
-_HTTP_JAR_BUILD = """
+_HTTP_JAR_BUILD = """\
 load("@rules_java//java:defs.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
 
 java_import(
   name = 'jar',
-  jars = ['downloaded.jar'],
+  jars = ["{file_name}"],
   visibility = ['//visibility:public'],
 )
 
 filegroup(
   name = 'file',
-  srcs = ['downloaded.jar'],
+  srcs = ["{file_name}"],
   visibility = ['//visibility:public'],
 )
 
@@ -187,15 +179,16 @@ def _http_jar_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
     auth = _get_auth(ctx, all_urls)
+    downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,
-        "jar/downloaded.jar",
+        "jar/" + downloaded_file_name,
         ctx.attr.sha256,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
+    ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(file_name = downloaded_file_name))
     return update_attrs(ctx.attr, _http_jar_attrs.keys(), {"sha256": download_info.sha256})
 
 _http_archive_attrs = {
@@ -216,7 +209,10 @@ to specify alternative URLs to fetch from.
             """A list of URLs to a file that will be made available to Bazel.
 
 Each entry must be a file, http or https URL. Redirections are followed.
-Authentication is not supported.""",
+Authentication is not supported.
+
+URLs are tried in order until one succeeds, so you should list local mirrors first.
+If all downloads fail, the rule will fail.""",
     ),
     "sha256": attr.string(
         doc = """The expected SHA-256 of the file downloaded.
@@ -224,7 +220,15 @@ Authentication is not supported.""",
 This must match the SHA-256 of the file downloaded. _It is a security risk
 to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
-easier but should be set before shipping.""",
+easier but either this attribute or `integrity` should be set before shipping.""",
+    ),
+    "integrity": attr.string(
+        doc = """Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
@@ -264,8 +268,8 @@ match a directory in the archive, Bazel will return an error.""",
 
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
-following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, or `tar.bz2`.""",
+following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -275,6 +279,19 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
+    ),
+    "remote_patches": attr.string_dict(
+        default = {},
+        doc =
+            "A map of patch file URL to its integrity value, they are applied after extracting " +
+            "the archive and before applying patch files from the `patches` attribute. " +
+            "It uses the Bazel-native patch implementation, you can specify the patch strip " +
+            "number with `remote_patch_strip`",
+    ),
+    "remote_patch_strip": attr.int(
+        default = 0,
+        doc =
+            "The number of leading slashes to be stripped from the file name in the remote patches.",
     ),
     "patch_tool": attr.string(
         default = "",
@@ -290,7 +307,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "If arguments other than -p are specified, Bazel will fall back to use patch " +
             "command line tool instead of the Bazel-native patch implementation. When falling " +
             "back to patch command line tool and patch_tool attribute is not specified, " +
-            "`patch` will be used.",
+            "`patch` will be used. This only affects patch files in the `patches` attribute.",
     ),
     "patch_cmds": attr.string_list(
         default = [],
@@ -340,8 +357,9 @@ http_archive = repository_rule(
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"tar"`,
-`"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
+`"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
+or `"deb"`.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,
@@ -474,6 +492,10 @@ unless it was added to the cache by a request with the same canonical id.
     ),
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
+    ),
+    "downloaded_file_name": attr.string(
+        default = "downloaded.jar",
+        doc = "Filename assigned to the jar downloaded",
     ),
 }
 

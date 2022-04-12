@@ -28,8 +28,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Test of evaluation behavior. (Implicitly uses lexer + parser.) */
-// TODO(adonovan): separate tests of parser, resolver, Starlark core evaluator,
-// and BUILD and .bzl features.
 @RunWith(JUnit4.class)
 public final class EvaluationTest {
 
@@ -139,7 +137,9 @@ public final class EvaluationTest {
 
     class C {
       long run(int n) throws SyntaxError.Exception, EvalException, InterruptedException {
-        Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", n));
+        Module module =
+            Module.withPredeclared(
+                StarlarkSemantics.DEFAULT, ImmutableMap.of("n", StarlarkInt.of(n)));
         long steps0 = thread.getExecutedSteps();
         Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
         return thread.getExecutedSteps() - steps0;
@@ -272,10 +272,7 @@ public final class EvaluationTest {
           }
 
           @Override
-          public Object call(
-              StarlarkThread thread,
-              Tuple<Object> args,
-              Dict<String, Object> kwargs) {
+          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
             return kwargs;
           }
         };
@@ -300,22 +297,6 @@ public final class EvaluationTest {
         .testExpression("-7 % 4", StarlarkInt.of(1))
         .testExpression("-7 % -4", StarlarkInt.of(-3))
         .testIfExactError("integer modulo by zero", "5 % 0");
-  }
-
-  @Test
-  public void testMult() throws Exception {
-    ev.new Scenario()
-        .testExpression("6 * 7", StarlarkInt.of(42))
-        .testExpression("3 * 'ab'", "ababab")
-        .testExpression("0 * 'ab'", "")
-        .testExpression("'1' + '0' * 5", "100000")
-        .testExpression("'ab' * -4", "")
-        .testExpression("-1 * ''", "");
-  }
-
-  @Test
-  public void testSlashOperatorIsForbidden() throws Exception {
-    ev.new Scenario().testIfErrorContains("The `/` operator is not allowed.", "5 / 2");
   }
 
   @Test
@@ -402,29 +383,10 @@ public final class EvaluationTest {
 
   @Test
   public void testListComprehensionDefinitionOrder() throws Exception {
-    // This exercises the .bzl file behavior. This is a dynamic error.
-    // (The error message for BUILD files is slightly different (no "local")
-    // because it doesn't record the scope in the syntax tree.)
     ev.new Scenario()
         .testIfErrorContains(
-            "local variable 'y' is referenced before assignment", //
+            "local variable 'y' is referenced before assignment",
             "[x for x in (1, 2) if y for y in (3, 4)]");
-
-    // This is the corresponding test for BUILD files.
-    EvalException ex =
-        assertThrows(
-            EvalException.class, () -> execBUILD("[x for x in (1, 2) if y for y in (3, 4)]"));
-    assertThat(ex).hasMessageThat().isEqualTo("variable 'y' is referenced before assignment");
-  }
-
-  private static void execBUILD(String... lines)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    ParserInput input = ParserInput.fromLines(lines);
-    FileOptions options = FileOptions.builder().recordScope(false).build();
-    try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      Starlark.execFile(input, options, Module.create(), thread);
-    }
   }
 
   @Test
@@ -460,7 +422,7 @@ public final class EvaluationTest {
   public void testDictWithDuplicatedKey() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
+            "dictionary expression has duplicate key: \"str\"", "{'str': 1, 'x': 2, 'str': 3}");
   }
 
   @Test
@@ -504,7 +466,8 @@ public final class EvaluationTest {
 
   @Test
   public void testDictComprehensionOnNonIterable() throws Exception {
-    ev.new Scenario().testIfExactError("type 'int' is not iterable", "{k : k for k in 3}");
+    ev.new Scenario()
+        .testIfExactErrorAtLocation("type 'int' is not iterable", 1, 17, "{k : k for k in 3}");
   }
 
   @Test
@@ -544,47 +507,15 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testListMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("[1, 2, 3] * 1", "[1, 2, 3]")
-        .testEval("[1, 2] * 2", "[1, 2, 1, 2]")
-        .testEval("[1, 2] * 3", "[1, 2, 1, 2, 1, 2]")
-        .testEval("[1, 2] * 4", "[1, 2, 1, 2, 1, 2, 1, 2]")
-        .testEval("[8] * 5", "[8, 8, 8, 8, 8]")
-        .testEval("[    ] * 10", "[]")
-        .testEval("[1, 2] * 0", "[]")
-        .testEval("[1, 2] * -4", "[]")
-        .testEval("2 * [1, 2]", "[1, 2, 1, 2]")
-        .testEval("10 * []", "[]")
-        .testEval("0 * [1, 2]", "[]")
-        .testEval("-4 * [1, 2]", "[]");
-  }
-
-  @Test
-  public void testTupleMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("(1, 2, 3) * 1", "(1, 2, 3)")
-        .testEval("(1, 2) * 2", "(1, 2, 1, 2)")
-        .testEval("(1, 2) * 3", "(1, 2, 1, 2, 1, 2)")
-        .testEval("(1, 2) * 4", "(1, 2, 1, 2, 1, 2, 1, 2)")
-        .testEval("(8,) * 5", "(8, 8, 8, 8, 8)")
-        .testEval("(    ) * 10", "()")
-        .testEval("(1, 2) * 0", "()")
-        .testEval("(1, 2) * -4", "()")
-        .testEval("2 * (1, 2)", "(1, 2, 1, 2)")
-        .testEval("10 * ()", "()")
-        .testEval("0 * (1, 2)", "()")
-        .testEval("-4 * (1, 2)", "()");
-  }
-
-  @Test
   public void testListComprehensionFailsOnNonSequence() throws Exception {
-    ev.new Scenario().testIfErrorContains("type 'int' is not iterable", "[x + 1 for x in 123]");
+    ev.new Scenario()
+        .testIfExactErrorAtLocation("type 'int' is not iterable", 1, 17, "[x + 1 for x in 123]");
   }
 
   @Test
   public void testListComprehensionOnStringIsForbidden() throws Exception {
-    ev.new Scenario().testIfErrorContains("type 'string' is not iterable", "[x for x in 'abc']");
+    ev.new Scenario()
+        .testIfExactErrorAtLocation("type 'string' is not iterable", 1, 13, "[x for x in 'abc']");
   }
 
   @Test
@@ -692,20 +623,16 @@ public final class EvaluationTest {
     ev.new Scenario().testExpression("not 'a' in ['a'] or 0", StarlarkInt.of(0));
   }
 
-  private static StarlarkValue createObjWithStr() {
-    return new StarlarkValue() {
-      @Override
-      public void repr(Printer printer) {
-        printer.append("<str marker>");
-      }
-    };
-  }
-
   @Test
-  public void testPercentOnObjWithStr() throws Exception {
-    ev.new Scenario()
-        .update("obj", createObjWithStr())
-        .testExpression("'%s' % obj", "<str marker>");
+  public void testPercentOnValueWithRepr() throws Exception {
+    Object obj =
+        new StarlarkValue() {
+          @Override
+          public void repr(Printer printer) {
+            printer.append("<str marker>");
+          }
+        };
+    ev.new Scenario().update("obj", obj).testExpression("'%s' % obj", "<str marker>");
   }
 
   private static class Dummy implements StarlarkValue {}
@@ -724,8 +651,15 @@ public final class EvaluationTest {
 
   @Test
   public void testPercentOnTupleOfDummyValues() throws Exception {
+    Object obj =
+        new StarlarkValue() {
+          @Override
+          public void repr(Printer printer) {
+            printer.append("<str marker>");
+          }
+        };
     ev.new Scenario()
-        .update("obj", createObjWithStr())
+        .update("obj", obj)
         .testExpression("'%s %s' % (obj, obj)", "<str marker> <str marker>");
     ev.new Scenario()
         .update("unknown", new Dummy())
@@ -733,13 +667,6 @@ public final class EvaluationTest {
             "'%s %s' % (unknown, unknown)",
             "<unknown object net.starlark.java.eval.EvaluationTest$Dummy> <unknown"
                 + " object net.starlark.java.eval.EvaluationTest$Dummy>");
-  }
-
-  @Test
-  public void testPercOnObjectInvalidFormat() throws Exception {
-    ev.new Scenario()
-        .update("obj", createObjWithStr())
-        .testIfExactError("invalid argument <str marker> for format pattern %d", "'%d' % obj");
   }
 
   @Test
@@ -776,11 +703,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testStaticNameResolution() throws Exception {
-    ev.new Scenario().testIfErrorContains("name 'foo' is not defined", "[foo for x in []]");
-  }
-
-  @Test
   public void testExec() throws Exception {
     ParserInput input =
         ParserInput.fromLines(
@@ -803,5 +725,63 @@ public final class EvaluationTest {
                 StarlarkInt.of(1),
                 StarlarkInt.of(2),
                 "foo1"));
+  }
+
+  @Test
+  public void testLoadsBindLocally() throws Exception {
+    Module a = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("x = 1", "a.bzl"),
+        FileOptions.DEFAULT,
+        a,
+        new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT));
+
+    StarlarkThread bThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    bThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("a.bzl");
+          return a;
+        });
+    Module b = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("load('a.bzl', 'x')", "b.bzl"), FileOptions.DEFAULT, b, bThread);
+
+    StarlarkThread cThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    cThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("b.bzl");
+          return b;
+        });
+    EvalException ex =
+        assertThrows(
+            EvalException.class,
+            () ->
+                Starlark.execFile(
+                    ParserInput.fromString("load('b.bzl', 'x')", "c.bzl"),
+                    FileOptions.DEFAULT,
+                    Module.create(),
+                    cThread));
+    assertThat(ex).hasMessageThat().contains("file 'b.bzl' does not contain symbol 'x'");
+  }
+
+  @Test
+  public void testTopLevelRebinding() throws Exception {
+    FileOptions options =
+        FileOptions.DEFAULT.toBuilder()
+            .allowToplevelRebinding(true)
+            .loadBindsGlobally(true)
+            .build();
+
+    Module m1 = Module.create();
+    m1.setGlobal("x", "one");
+
+    ParserInput input = ParserInput.fromLines("load('m1', 'x'); x = 'two'");
+    Module m2 = Module.create();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      thread.setLoader((name) -> m1);
+      Starlark.execFile(input, options, m2, thread);
+    }
+    assertThat(m2.getGlobal("x")).isEqualTo("two");
   }
 }

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 syntax = "proto3";
+
 package blaze;
 
 // option java_api_version = 2;
@@ -21,6 +22,10 @@ option java_package = "com.google.devtools.build.lib.rules.android.deployinfo";
 message Artifact {
   // This path is relative to "bazel info execution_root"
   string exec_root_path = 1;
+
+  // Points to a globally valid URI whenever possible.
+  // See BuildEventStreamOptions.java
+  string canonical_uri = 2;
 }
 
 // Information about how to deploy and launch the result of an android build
@@ -37,4 +42,7 @@ message AndroidDeployInfo {
 
   // Unused
   repeated Artifact data_to_deploy = 4;
+
+  // Used by mobile-install
+  string manifest_package_name = 5;
 }

@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidResourceSupportRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
@@ -114,8 +115,8 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exported_plugins", LABEL_LIST)
-                .cfg(HostTransition.createFactory())
-                .allowedRuleClasses("java_plugin")
+                .cfg(ExecutionTransitionFactory.create())
+                .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.NO_FILE))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(neverlink) -->
@@ -183,7 +184,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         implementations of Parcelable), otherwise use <code>idl_srcs</code> for
         Android IDL definitions that need to be translated to Java interfaces and
         use <code>idl_parcelable</code>
-        for non-preprcessed AIDL files.
+        for non-preprocessed AIDL files.
         </p>
 
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

@@ -59,8 +59,7 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
               name = "pre_dex_jar",
               doc = "The jar to be dexed.",
               positional = true,
-              named = false,
-              type = FileApi.class),
+              named = false),
         },
         selfCall = true)
     @StarlarkConstructor

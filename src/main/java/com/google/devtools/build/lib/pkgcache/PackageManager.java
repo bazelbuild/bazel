@@ -25,8 +25,8 @@ public interface PackageManager extends PackageProvider, CachingPackageLocator {
   PackageManagerStatistics getAndClearStatistics();
 
   /**
-   * Dump the contents of the package manager in human-readable form.
-   * Used by 'bazel dump' and the BuildTool's unexpected exception handler.
+   * Dumps the contents of the package manager in human-readable form. Used by 'bazel dump' and the
+   * BuildTool's unexpected exception handler.
    */
   void dump(PrintStream printStream);
 
@@ -40,29 +40,11 @@ public interface PackageManager extends PackageProvider, CachingPackageLocator {
   @ThreadSafety.ThreadSafe
   PathPackageLocator getPackagePath();
 
-  /**
-   * Collects statistics of the package manager since the last sync.
-   */
+  /** Collects statistics of the package manager since the last sync. */
   interface PackageManagerStatistics {
-    public static final PackageManagerStatistics ZERO = new PackageManagerStatistics() {
-        @Override public int getPackagesLoaded() {
-          return 0;
-        }
-    };
+    PackageManagerStatistics ZERO = () -> 0;
 
-    /**
-     * Returns the number of packages loaded since the last sync.
-     */
-    int getPackagesLoaded();
+    /** Returns the number of successfully loaded packages since the last sync. */
+    int getPackagesSuccessfullyLoaded();
   }
-
-  /**
-   * Retrieve a target pattern parser that works with this package manager.
-   */
-  TargetPatternPreloader newTargetPatternPreloader();
-
-  /**
-   * Construct a new {@link TransitivePackageLoader}.
-   */
-  TransitivePackageLoader newTransitiveLoader();
 }

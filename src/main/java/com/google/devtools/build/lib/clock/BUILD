@@ -16,5 +16,6 @@ java_library(
     ]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
     ],
 )

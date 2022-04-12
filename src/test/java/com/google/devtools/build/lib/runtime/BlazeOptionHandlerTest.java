@@ -21,10 +21,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TestOptions;
 import java.util.Arrays;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,7 +42,23 @@ import org.junit.runners.JUnit4;
  * messages.
  */
 @RunWith(JUnit4.class)
-public class BlazeOptionHandlerTest extends AbstractBlazeOptionHandlerTest {
+public class BlazeOptionHandlerTest {
+
+  private StoredEventHandler eventHandler;
+  private OptionsParser parser;
+  private BlazeOptionHandler optionHandler;
+
+  @Before
+  public void setUp() throws Exception {
+    ImmutableList<Class<? extends OptionsBase>> optionsClasses =
+        ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
+
+    BlazeOptionHandlerTestHelper helper =
+        new BlazeOptionHandlerTestHelper(optionsClasses, /* allowResidue= */ true);
+    eventHandler = helper.getEventHandler();
+    parser = helper.getOptionsParser();
+    optionHandler = helper.getOptionHandler();
+  }
 
   private static ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithOnlyResidue() {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();

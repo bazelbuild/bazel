@@ -40,8 +40,7 @@ public final class RunfilesTest {
     return File.separatorChar == '\\';
   }
 
-  private void assertRlocationArg(Runfiles runfiles, String path, @Nullable String error)
-      throws Exception {
+  private void assertRlocationArg(Runfiles runfiles, String path, @Nullable String error) {
     IllegalArgumentException e =
         assertThrows(IllegalArgumentException.class, () -> runfiles.rlocation(path));
     if (error != null) {
@@ -153,7 +152,7 @@ public final class RunfilesTest {
   }
 
   @Test
-  public void testFailsToCreateManifestBasedBecauseManifestDoesNotExist() throws Exception {
+  public void testFailsToCreateManifestBasedBecauseManifestDoesNotExist() {
     IOException e =
         assertThrows(
             IOException.class,
@@ -233,7 +232,7 @@ public final class RunfilesTest {
   }
 
   @Test
-  public void testDirectoryBasedRlocation() throws Exception {
+  public void testDirectoryBasedRlocation() {
     // The DirectoryBased implementation simply joins the runfiles directory and the runfile's path
     // on a "/". DirectoryBased does not perform any normalization, nor does it check that the path
     // exists.
@@ -250,16 +249,21 @@ public final class RunfilesTest {
         new MockFile(
             ImmutableList.of(
                 "Foo/runfile1 C:/Actual Path\\runfile1",
-                "Foo/Bar/runfile2 D:\\the path\\run file 2.txt"))) {
+                "Foo/Bar/runfile2 D:\\the path\\run file 2.txt",
+                "Foo/Bar/Dir E:\\Actual Path\\Directory"))) {
       Runfiles r = Runfiles.createManifestBasedForTesting(mf.path.toString());
       assertThat(r.rlocation("Foo/runfile1")).isEqualTo("C:/Actual Path\\runfile1");
       assertThat(r.rlocation("Foo/Bar/runfile2")).isEqualTo("D:\\the path\\run file 2.txt");
+      assertThat(r.rlocation("Foo/Bar/Dir")).isEqualTo("E:\\Actual Path\\Directory");
+      assertThat(r.rlocation("Foo/Bar/Dir/File")).isEqualTo("E:\\Actual Path\\Directory/File");
+      assertThat(r.rlocation("Foo/Bar/Dir/Deeply/Nested/File"))
+          .isEqualTo("E:\\Actual Path\\Directory/Deeply/Nested/File");
       assertThat(r.rlocation("unknown")).isNull();
     }
   }
 
   @Test
-  public void testDirectoryBasedCtorArgumentValidation() throws Exception {
+  public void testDirectoryBasedCtorArgumentValidation() {
     assertThrows(
         IllegalArgumentException.class, () -> Runfiles.createDirectoryBasedForTesting(null));
 

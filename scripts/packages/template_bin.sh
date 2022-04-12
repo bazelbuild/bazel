@@ -178,9 +178,14 @@ cat <<EOF
 
 Bazel is now installed!
 
-Make sure you have "${bin}" in your path. You can also activate bash
-completion by adding the following line to your ${BASHRC}:
+Make sure you have "${bin}" in your path.
+
+For bash completion, add the following line to your ${BASHRC}:
   source ${base}/bin/bazel-complete.bash
+
+For fish shell completion, link this file into your
+${HOME}/.config/fish/completions/ directory:
+  ln -s ${base}/bin/bazel.fish ${HOME}/.config/fish/completions/bazel.fish
 
 See http://bazel.build/docs/getting-started.html to start a new project!
 EOF

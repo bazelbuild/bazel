@@ -17,12 +17,17 @@ import static com.google.devtools.build.android.ziputils.DataDescriptor.EXTCRC;
 import static com.google.devtools.build.android.ziputils.DataDescriptor.EXTLEN;
 import static com.google.devtools.build.android.ziputils.DataDescriptor.EXTSIZ;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENCRC;
+import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENHOW;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENLEN;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENSIZ;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENTIM;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCFLG;
+import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCHOW;
+import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCSIZ;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCTIM;
 import static java.util.stream.Collectors.toList;
+import static java.util.zip.ZipEntry.DEFLATED;
+import static java.util.zip.ZipEntry.STORED;
 
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.core.VariantType;
@@ -35,6 +40,8 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.io.ByteSource;
+import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AaptCommandBuilder;
 import com.google.devtools.build.android.AndroidCompiledDataDeserializer;
@@ -51,17 +58,20 @@ import com.google.devtools.build.android.ziputils.LocalFileHeader;
 import com.google.devtools.build.android.ziputils.ZipIn;
 import com.google.devtools.build.android.ziputils.ZipOut;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
@@ -70,6 +80,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 /** Performs linking of {@link CompiledResources} using aapt2. */
 public class ResourceLinker {
@@ -129,6 +143,7 @@ public class ResourceLinker {
   private List<StaticLibrary> linkAgainst = ImmutableList.of();
 
   private String customPackage;
+  private Optional<Integer> packageId = Optional.empty();
   private boolean outputAsProto;
 
   private Revision buildToolsVersion;
@@ -139,6 +154,7 @@ public class ResourceLinker {
   private List<CompiledResources> include = ImmutableList.of();
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
+  private boolean includeProguardLocationReferences = false;
 
   private ResourceLinker(
       Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
@@ -197,6 +213,11 @@ public class ResourceLinker {
 
   public ResourceLinker customPackage(String customPackage) {
     this.customPackage = customPackage;
+    return this;
+  }
+
+  public ResourceLinker packageId(Optional<Integer> packageId) {
+    this.packageId = packageId;
     return this;
   }
 
@@ -395,6 +416,10 @@ public class ResourceLinker {
             .when(debug)
             .thenAdd("--debug-mode")
             .add("--custom-package", customPackage)
+            .when(packageId.isPresent())
+            .thenAdd("--package-id", "0x" + Integer.toHexString(packageId.orElse(0x7f)))
+            .when(packageId.map(id -> id < 0x7f).orElse(false))
+            .thenAdd("--allow-reserved-package-id")
             .when(densities.size() == 1)
             .thenAddRepeated("--preferred-density", densities)
             .add("--stable-ids", compiled.getStableIds())
@@ -414,9 +439,9 @@ public class ResourceLinker {
                         ? IS_FLAT_FILE.and(USE_GENERATED)
                         : IS_FLAT_FILE.and(USE_DEFAULT)),
                 workingDirectory)
-            // Never compress apks.
-            .add("-0", ".apk")
-            // Add custom no-compress extensions.
+            // Add custom no-compress extensions. This ultimately doesn't matter - these files
+            // may be compressed during a later intermediate step, but will be decompressed again
+            // during final APK generation, in the native android_binary rule.
             .addRepeated("-0", uncompressedExtensions)
             // Filter by resource configuration type.
             .when(!resourceConfigs.isEmpty())
@@ -426,6 +451,11 @@ public class ResourceLinker {
             .add("--java", javaSourceDirectory)
             .add("--proguard", proguardConfig)
             .add("--proguard-main-dex", mainDexProguard)
+            // By default, exclude the file path location comments, since the paths
+            // include temporary directory names, which otherwise cause
+            // nondeterministic build output.
+            .when(!includeProguardLocationReferences)
+            .thenAdd("--no-proguard-location-reference")
             .when(conditionalKeepRules)
             .thenAdd("--proguard-conditional-keep-rules")
             .add("-o", linked)
@@ -434,50 +464,121 @@ public class ResourceLinker {
     return ProtoApk.readFrom(optimize(compiled, linked));
   }
 
-  private Path combineApks(Path protoApk, Path binaryApk, Path workingDirectory)
-      throws IOException {
-    // Linking against apk as a static library elides assets, among other things.
-    // So, copy the missing details to the new apk.
-    profiler.startTask("combine");
-    final Path combined = workingDirectory.resolve("combined.apk");
-    try (FileChannel nonResourceChannel = FileChannel.open(protoApk, StandardOpenOption.READ);
-        FileChannel resourceChannel = FileChannel.open(binaryApk, StandardOpenOption.READ);
-        FileChannel outChannel =
-            FileChannel.open(combined, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-      final ZipIn resourcesIn = new ZipIn(resourceChannel, binaryApk.toString());
-      final ZipIn nonResourcesIn = new ZipIn(nonResourceChannel, protoApk.toString());
-      final ZipOut zipOut = new ZipOut(outChannel, combined.toString());
+  /** Modes for overriding compression of a given file. */
+  private enum CompressionOverride {
+    DONT_CARE,
+    FORCE_DEFLATED,
+    FORCE_STORED
+  }
 
-      Set<String> skip = new LinkedHashSet<>();
-      skip.add("resources.pb");
+  /*
+   * Determine whether to override compression of given {@link DirectoryEntry}.
+   */
+  private CompressionOverride overrideCompression(DirectoryEntry entry) {
+    String filename = entry.getFilename();
+    if (filename.startsWith("assets/") && filename.endsWith(".apk")) {
+      // This is solely to preserve legacy behavior, which could not otherwise be replicated with
+      // command line flags - nested APKs are compressed in res/raw unless in
+      // uncompressedExtensions, but are *never* compressed in assets.
+      return CompressionOverride.FORCE_STORED;
+    }
+    if (filename.startsWith("res/")
+        && filename.endsWith(".xml")
+        && !uncompressedExtensions.contains(".xml")) {
+      // b/186226111 - aapt2 optimize is overeager about declaring proto XML files incompressible
+      // before conversion to binary, when their compression ratio generally gets much better.
+      return CompressionOverride.FORCE_DEFLATED;
+    }
+    return CompressionOverride.DONT_CARE;
+  }
+
+  /** Retrieve a {@link Deflater} suitable for working on raw entry data (without headers). */
+  private static Deflater getDeflater() {
+    return new Deflater(Deflater.DEFAULT_COMPRESSION, /* nowrap= */ true);
+  }
+  /** Retrieve a {@link Inflater} suitable for working on raw entry data (without headers). */
+  private static Inflater getInflater() {
+    return new Inflater(/* nowrap= */ true);
+  }
+
+  /** Fix compression in {@code apk} according to {@link overrideCompression(DirectoryEntry)}. */
+  private Path copyAndFixCompression(Path apk, Path workingDirectory) throws IOException {
+    profiler.startTask("fixcompression");
+    final Path outApk = workingDirectory.resolve("recompressed.apk");
+    try (FileChannel inChannel = FileChannel.open(apk, StandardOpenOption.READ);
+        FileChannel outChannel =
+            FileChannel.open(outApk, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE); ) {
+      final ZipIn zipIn = new ZipIn(inChannel, apk.toString());
+      final ZipOut zipOut = new ZipOut(outChannel, outApk.toString());
+
       final EntryHandler entryHandler =
           (in, header, dirEntry, data) -> {
             final String filename = dirEntry.getFilename();
-            // Make sure we aren't copying the same entry twice.
-            if (!skip.contains(filename)) {
-              skip.add(filename);
-              String comment = dirEntry.getComment();
-              byte[] extra = dirEntry.getExtraData();
-              zipOut.nextEntry(
-                  dirEntry.clone(filename, extra, comment).set(CENTIM, DosTime.EPOCHISH.time));
-              zipOut.write(header.clone(filename, extra).set(LOCTIM, DosTime.EPOCHISH.time));
-              zipOut.write(data);
-              if ((header.get(LOCFLG) & LocalFileHeader.SIZE_MASKED_FLAG) != 0) {
-                DataDescriptor desc =
-                    DataDescriptor.allocate()
-                        .set(EXTCRC, dirEntry.get(CENCRC))
-                        .set(EXTSIZ, dirEntry.get(CENSIZ))
-                        .set(EXTLEN, dirEntry.get(CENLEN));
-                zipOut.write(desc);
-              }
+
+            short how = dirEntry.get(CENHOW);
+            int siz = dirEntry.get(CENSIZ);
+            switch (overrideCompression(dirEntry)) {
+              case FORCE_DEFLATED:
+                if (how == STORED) {
+                  try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+                    try (DeflaterOutputStream deflaterOutputStream =
+                            new DeflaterOutputStream(byteStream, getDeflater());
+                        WritableByteChannel channel = Channels.newChannel(deflaterOutputStream)) {
+                      channel.write(data);
+                    }
+                    byte[] rawData = byteStream.toByteArray();
+                    how = DEFLATED;
+                    siz = rawData.length;
+                    data = ByteBuffer.wrap(rawData);
+                  }
+                }
+                break;
+              case FORCE_STORED:
+                if (how == DEFLATED) {
+                  byte[] rawData = new byte[data.remaining()];
+                  data.get(rawData);
+                  try (InputStream byteStream = ByteSource.wrap(rawData).openStream();
+                      InflaterInputStream inflaterInputStream =
+                          new InflaterInputStream(byteStream, getInflater())) {
+                    how = STORED;
+                    siz = dirEntry.get(CENLEN);
+                    data = ByteBuffer.wrap(ByteStreams.toByteArray(inflaterInputStream));
+                  }
+                }
+                break;
+              case DONT_CARE:
+                break;
+            }
+
+            String comment = dirEntry.getComment();
+            byte[] extra = dirEntry.getExtraData();
+            zipOut.nextEntry(
+                dirEntry
+                    .clone(filename, extra, comment)
+                    .set(CENHOW, how)
+                    .set(CENSIZ, siz)
+                    .set(CENTIM, DosTime.EPOCHISH.time));
+            zipOut.write(
+                header
+                    .clone(filename, extra)
+                    .set(LOCHOW, how)
+                    .set(LOCSIZ, siz)
+                    .set(LOCTIM, DosTime.EPOCHISH.time));
+            zipOut.write(data);
+            if ((header.get(LOCFLG) & LocalFileHeader.SIZE_MASKED_FLAG) != 0) {
+              DataDescriptor desc =
+                  DataDescriptor.allocate()
+                      .set(EXTCRC, dirEntry.get(CENCRC))
+                      .set(EXTSIZ, siz)
+                      .set(EXTLEN, dirEntry.get(CENLEN));
+              zipOut.write(desc);
             }
           };
-      resourcesIn.scanEntries(entryHandler);
-      nonResourcesIn.scanEntries(entryHandler);
+      zipIn.scanEntries(entryHandler);
       zipOut.close();
-      return combined;
+      return outApk;
     } finally {
-      profiler.recordEndOf("combine");
+      profiler.recordEndOf("fixcompression");
     }
   }
 
@@ -506,9 +607,9 @@ public class ResourceLinker {
     return attributes;
   }
 
-  private Path optimize(CompiledResources compiled, Path binary) throws IOException {
+  private Path optimize(CompiledResources compiled, Path protoApk) throws IOException {
     if (densities.size() < 2) {
-      return binary;
+      return protoApk;
     }
 
     profiler.startTask("optimize");
@@ -526,7 +627,7 @@ public class ResourceLinker {
             .when(densities.size() >= 2)
             .thenAdd("--target-densities", densities.stream().collect(Collectors.joining(",")))
             .add("-o", optimized)
-            .add(binary.toString())
+            .add(protoApk.toString())
             .execute(String.format("Optimizing %s", compiled.getManifest())));
     profiler.recordEndOf("optimize");
     return optimized;
@@ -544,9 +645,7 @@ public class ResourceLinker {
           linkProtoApk(
               compiled, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds)) {
         return PackagedResources.of(
-            outputAsProto
-                ? protoApk.asApkPath()
-                : link(protoApk, resourceIds), // convert proto to binary
+            outputAsProto ? protoApk.asApkPath() : convertProtoApkToBinary(protoApk),
             protoApk.asApkPath(),
             rTxt,
             proguardConfig,
@@ -562,32 +661,27 @@ public class ResourceLinker {
     }
   }
 
-  /** Link a proto apk to produce an apk. */
-  public Path link(ProtoApk protoApk, Path resourceIds) {
+  /** Convert a proto apk to binary. */
+  public Path convertProtoApkToBinary(ProtoApk protoApk) {
     try {
       final Path protoApkPath = protoApk.asApkPath();
       final Path working =
           workingDirectory
               .resolve("link-proto")
               .resolve(replaceExtension(protoApkPath.getFileName().toString(), "working"));
-      final Path manifest = protoApk.writeManifestAsXmlTo(working);
+      Files.createDirectories(working);
       final Path apk = working.resolve("binary.apk");
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.DEFAULT)
-              .add("link")
+              .add("convert")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")
-              .whenVersionIsAtLeast(new Revision(23))
-              .thenAdd("--no-version-vectors")
-              .add("--stable-ids", resourceIds)
-              .add("--manifest", manifest)
-              .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
-              .add("-R", protoApk.asApkPath())
               .add("-o", apk.toString())
-              .execute(String.format("Re-linking %s", protoApkPath)));
-      return combineApks(protoApkPath, apk, working);
+              .add(protoApk.asApkPath().toString())
+              .execute(String.format("Converting %s", protoApkPath)));
+      return copyAndFixCompression(apk, working);
     } catch (IOException e) {
       throw new LinkError(e);
     }
@@ -603,6 +697,12 @@ public class ResourceLinker {
     return this;
   }
 
+  public ResourceLinker includeProguardLocationReferences(
+      boolean includeProguardLocationReferences) {
+    this.includeProguardLocationReferences = includeProguardLocationReferences;
+    return this;
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
@@ -613,6 +713,7 @@ public class ResourceLinker {
         .add("densities", densities)
         .add("uncompressedExtensions", uncompressedExtensions)
         .add("resourceConfigs", resourceConfigs)
+        .add("includeProguardLocationReferences", includeProguardLocationReferences)
         .toString();
   }
 }

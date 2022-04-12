@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -60,21 +60,22 @@ public final class AspectResolver {
       allAspectKeys.addAll(getAspectKeys(dep).values());
     }
 
-    Map<SkyKey, ValueOrException2<AspectCreationException, NoSuchThingException>> depAspects =
-        env.getValuesOrThrow(
-            allAspectKeys, AspectCreationException.class, NoSuchThingException.class);
+    SkyframeLookupResult depAspects = env.getValuesAndExceptions(allAspectKeys);
 
     for (Dependency dep : deps) {
       Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
 
-      for (AspectCollection.AspectDeps depAspect : dep.getAspects().getVisibleAspects()) {
+      for (AspectCollection.AspectDeps depAspect : dep.getAspects().getUsedAspects()) {
         SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
 
         AspectValue aspectValue;
         try {
           // TODO(ulfjack): Catch all thrown AspectCreationException and NoSuchThingException
           // instances and merge them into a single Exception to get full root cause data.
-          aspectValue = (AspectValue) depAspects.get(aspectKey).get();
+          aspectValue =
+              (AspectValue)
+                  depAspects.getOrThrow(
+                      aspectKey, AspectCreationException.class, NoSuchThingException.class);
         } catch (NoSuchThingException e) {
           throw new AspectCreationException(
               String.format(
@@ -139,7 +140,7 @@ public final class AspectResolver {
   private static Map<AspectDescriptor, SkyKey> getAspectKeys(Dependency dep) {
     HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
     AspectCollection aspects = dep.getAspects();
-    for (AspectCollection.AspectDeps aspectDeps : aspects.getVisibleAspects()) {
+    for (AspectCollection.AspectDeps aspectDeps : aspects.getUsedAspects()) {
       buildAspectKey(aspectDeps, result, dep);
     }
     return result;
@@ -154,16 +155,12 @@ public final class AspectResolver {
     }
 
     ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
-    for (AspectCollection.AspectDeps path : aspectDeps.getDependentAspects()) {
+    for (AspectCollection.AspectDeps path : aspectDeps.getUsedAspects()) {
       dependentAspects.add(buildAspectKey(path, result, dep));
     }
     AspectKey aspectKey =
-        AspectValueKey.createAspectKey(
-            dep.getLabel(),
-            dep.getConfiguration(),
-            dependentAspects.build(),
-            aspectDeps.getAspect(),
-            dep.getAspectConfiguration(aspectDeps.getAspect()));
+        AspectKeyCreator.createAspectKey(
+            aspectDeps.getAspect(), dependentAspects.build(), dep.getConfiguredTargetKey());
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }

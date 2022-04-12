@@ -4,7 +4,7 @@
 
 Please visit the Netty web site for more information:
 
-  * http://netty.io/
+  * https://netty.io/
 
 Copyright 2014 The Netty Project
 
@@ -12,7 +12,7 @@ The Netty Project licenses this file to you under the Apache License,
 version 2.0 (the "License"); you may not use this file except in compliance
 with the License. You may obtain a copy of the License at:
 
-  http://www.apache.org/licenses/LICENSE-2.0
+  https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -42,7 +42,7 @@ Base64 Encoder and Decoder, which can be obtained at:
   * HOMEPAGE:
     * http://iharder.sourceforge.net/current/java/base64/
 
-This product contains a modified portion of 'Webbit', an event based  
+This product contains a modified portion of 'Webbit', an event based
 WebSocket and HTTP server, which can be obtained at:
 
   * LICENSE:
@@ -56,30 +56,17 @@ facade for Java, which can be obtained at:
   * LICENSE:
     * license/LICENSE.slf4j.txt (MIT License)
   * HOMEPAGE:
-    * http://www.slf4j.org/
-
-This product contains a modified portion of 'ArrayDeque', written by Josh
-Bloch of Google, Inc:
-
-  * LICENSE:
-    * license/LICENSE.deque.txt (Public Domain)
+    * https://www.slf4j.org/
 
 This product contains a modified portion of 'Apache Harmony', an open source
 Java SE, which can be obtained at:
 
+  * NOTICE:
+    * license/NOTICE.harmony.txt
   * LICENSE:
     * license/LICENSE.harmony.txt (Apache License 2.0)
   * HOMEPAGE:
-    * http://archive.apache.org/dist/harmony/
-
-This product contains a modified version of Roland Kuhn's ASL2
-AbstractNodeQueue, which is based on Dmitriy Vyukov's non-intrusive MPSC queue.
-It can be obtained at:
-
-  * LICENSE:
-    * license/LICENSE.abstractnodequeue.txt (Public Domain)
-  * HOMEPAGE:
-    * https://github.com/akka/akka/blob/wip-2.2.3-for-scala-2.11/akka-actor/src/main/java/akka/dispatch/AbstractNodeQueue.java
+    * https://archive.apache.org/dist/harmony/
 
 This product contains a modified portion of 'jbzip2', a Java bzip2 compression
 and decompression library written by Matthew J. Francis. It can be obtained at:
@@ -96,7 +83,7 @@ a constant-size alphabet written by Yuta Mori. It can be obtained at:
   * LICENSE:
     * license/LICENSE.libdivsufsort.txt (MIT License)
   * HOMEPAGE:
-    * https://code.google.com/p/libdivsufsort/
+    * https://github.com/y-256/libdivsufsort
 
 This product contains a modified portion of Nitsan Wakart's 'JCTools', Java Concurrency Tools for the JVM,
  which can be obtained at:
@@ -138,6 +125,14 @@ and decompression library, which can be obtained at:
   * HOMEPAGE:
     * https://github.com/jponge/lzma-java
 
+This product optionally depends on 'zstd-jni', a zstd-jni Java compression
+and decompression library, which can be obtained at:
+
+  * LICENSE:
+    * license/LICENSE.zstd-jni.txt (Apache License 2.0)
+  * HOMEPAGE:
+    * https://github.com/luben/zstd-jni
+
 This product contains a modified portion of 'jfastlz', a Java port of FastLZ compression
 and decompression library written by William Kinney. It can be obtained at:
 
@@ -152,7 +147,7 @@ interchange format, which can be obtained at:
   * LICENSE:
     * license/LICENSE.protobuf.txt (New BSD License)
   * HOMEPAGE:
-    * http://code.google.com/p/protobuf/
+    * https://github.com/google/protobuf
 
 This product optionally depends on 'Bouncy Castle Crypto APIs' to generate
 a temporary self-signed X.509 certificate when the JVM does not provide the
@@ -161,7 +156,7 @@ equivalent functionality.  It can be obtained at:
   * LICENSE:
     * license/LICENSE.bouncycastle.txt (MIT License)
   * HOMEPAGE:
-    * http://www.bouncycastle.org/
+    * https://www.bouncycastle.org/
 
 This product optionally depends on 'Snappy', a compression library produced
 by Google Inc, which can be obtained at:
@@ -169,15 +164,15 @@ by Google Inc, which can be obtained at:
   * LICENSE:
     * license/LICENSE.snappy.txt (New BSD License)
   * HOMEPAGE:
-    * http://code.google.com/p/snappy/
+    * https://github.com/google/snappy
 
 This product optionally depends on 'JBoss Marshalling', an alternative Java
 serialization API, which can be obtained at:
 
   * LICENSE:
-    * license/LICENSE.jboss-marshalling.txt (GNU LGPL 2.1)
+    * license/LICENSE.jboss-marshalling.txt (Apache License 2.0)
   * HOMEPAGE:
-    * http://www.jboss.org/jbossmarshalling
+    * https://github.com/jboss-remoting/jboss-marshalling
 
 This product optionally depends on 'Caliper', Google's micro-
 benchmarking framework, which can be obtained at:
@@ -185,7 +180,7 @@ benchmarking framework, which can be obtained at:
   * LICENSE:
     * license/LICENSE.caliper.txt (Apache License 2.0)
   * HOMEPAGE:
-    * http://code.google.com/p/caliper/
+    * https://github.com/google/caliper
 
 This product optionally depends on 'Apache Commons Logging', a logging
 framework, which can be obtained at:
@@ -193,7 +188,7 @@ framework, which can be obtained at:
   * LICENSE:
     * license/LICENSE.commons-logging.txt (Apache License 2.0)
   * HOMEPAGE:
-    * http://commons.apache.org/logging/
+    * https://commons.apache.org/logging/
 
 This product optionally depends on 'Apache Log4J', a logging framework, which
 can be obtained at:
@@ -201,7 +196,7 @@ can be obtained at:
   * LICENSE:
     * license/LICENSE.log4j.txt (Apache License 2.0)
   * HOMEPAGE:
-    * http://logging.apache.org/log4j/
+    * https://logging.apache.org/log4j/
 
 This product optionally depends on 'Aalto XML', an ultra-high performance
 non-blocking XML processor, which can be obtained at:
@@ -209,7 +204,7 @@ non-blocking XML processor, which can be obtained at:
   * LICENSE:
     * license/LICENSE.aalto-xml.txt (Apache License 2.0)
   * HOMEPAGE:
-    * http://wiki.fasterxml.com/AaltoHome
+    * https://wiki.fasterxml.com/AaltoHome
 
 This product contains a modified version of 'HPACK', a Java implementation of
 the HTTP/2 HPACK algorithm written by Twitter. It can be obtained at:
@@ -218,6 +213,22 @@ the HTTP/2 HPACK algorithm written by Twitter. It can be obtained at:
     * license/LICENSE.hpack.txt (Apache License 2.0)
   * HOMEPAGE:
     * https://github.com/twitter/hpack
+    
+This product contains a modified version of 'HPACK', a Java implementation of
+the HTTP/2 HPACK algorithm written by Cory Benfield. It can be obtained at:
+
+  * LICENSE:
+    * license/LICENSE.hyper-hpack.txt (MIT License)
+  * HOMEPAGE:
+    * https://github.com/python-hyper/hpack/
+
+This product contains a modified version of 'HPACK', a Java implementation of
+the HTTP/2 HPACK algorithm written by Tatsuhiro Tsujikawa. It can be obtained at:
+
+  * LICENSE:
+    * license/LICENSE.nghttp2-hpack.txt (MIT License)
+  * HOMEPAGE:
+    * https://github.com/nghttp2/nghttp2/
 
 This product contains a modified portion of 'Apache Commons Lang', a Java library
 provides utilities for the java.lang API, which can be obtained at:
@@ -227,3 +238,27 @@ provides utilities for the java.lang API, which can be obtained at:
   * HOMEPAGE:
     * https://commons.apache.org/proper/commons-lang/
 
+
+This product contains the Maven wrapper scripts from 'Maven Wrapper', that provides an easy way to ensure a user has everything necessary to run the Maven build.
+
+  * LICENSE:
+    * license/LICENSE.mvn-wrapper.txt (Apache License 2.0)
+  * HOMEPAGE:
+    * https://github.com/takari/maven-wrapper
+
+This product contains the dnsinfo.h header file, that provides a way to retrieve the system DNS configuration on MacOS.
+This private header is also used by Apple's open source
+ mDNSResponder (https://opensource.apple.com/tarballs/mDNSResponder/).
+
+ * LICENSE:
+    * license/LICENSE.dnsinfo.txt (Apple Public Source License 2.0)
+  * HOMEPAGE:
+    * https://www.opensource.apple.com/source/configd/configd-453.19/dnsinfo/dnsinfo.h
+
+This product optionally depends on 'Brotli4j', Brotli compression and
+decompression for Java., which can be obtained at:
+
+  * LICENSE:
+    * license/LICENSE.brotli4j.txt (Apache License 2.0)
+  * HOMEPAGE:
+    * https://github.com/hyperxpro/Brotli4j

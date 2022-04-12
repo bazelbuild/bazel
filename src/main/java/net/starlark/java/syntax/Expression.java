@@ -35,9 +35,11 @@ public abstract class Expression extends Node {
     DICT_EXPR,
     DOT,
     CALL,
+    FLOAT_LITERAL,
     IDENTIFIER,
     INDEX,
     INT_LITERAL,
+    LAMBDA,
     LIST_EXPR,
     SLICE,
     STRING_LITERAL,
@@ -54,15 +56,9 @@ public abstract class Expression extends Node {
    */
   public abstract Kind kind();
 
-  /** Parses an expression with the default options. */
-  public static Expression parse(ParserInput input) throws SyntaxError.Exception {
-    return parse(input, FileOptions.DEFAULT);
-  }
-
   /** Parses an expression. */
-  public static Expression parse(ParserInput input, FileOptions options)
-      throws SyntaxError.Exception {
-    return Parser.parseExpression(input, options);
+  public static Expression parse(ParserInput input) throws SyntaxError.Exception {
+    return Parser.parseExpression(input);
   }
 
 }

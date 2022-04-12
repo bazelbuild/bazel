@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Supplier;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -28,38 +28,36 @@ import javax.annotation.Nullable;
  */
 public interface ArtifactResolver {
   /**
-   * Returns the source Artifact for the specified path, creating it if not found and setting its
-   * root and execPath.
+   * Returns the {@link SourceArtifact} for the specified path, creating it if not found and setting
+   * its root and execPath.
    *
    * @param execPath the path of the source artifact relative to the source root
    * @param root the source root prefix of the path
    * @param owner the artifact owner.
    * @return the canonical source artifact for the given path
    */
-  Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
+  SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
 
   /**
-   * Returns the source Artifact for the specified path, creating it if not found and setting its
-   * root and execPath.
+   * Returns the {@link SourceArtifact} for the specified path, creating it if not found and setting
+   * its root and execPath.
    *
    * @see #getSourceArtifact(PathFragment, Root, ArtifactOwner)
    */
-  Artifact getSourceArtifact(PathFragment execPath, Root root);
+  SourceArtifact getSourceArtifact(PathFragment execPath, Root root);
 
   /**
-   * Resolves a source Artifact given an execRoot-relative path.
-   *
-   * <p>Never creates or returns derived artifacts, only source artifacts.
+   * Resolves a {@link SourceArtifact} given an execRoot-relative path.
    *
    * <p>Note: this method should only be used when the roots are unknowable, such as from the
    * post-compile .d or manifest scanning methods.
    *
    * @param execPath the exec path of the artifact to resolve
    * @param repositoryName the name of repository this artifact belongs to
-   * @return an existing or new source Artifact for the given execPath. Returns null if
-   *         the root can not be determined and the artifact did not exist before.
+   * @return an existing or new source Artifact for the given execPath. Returns null if the root can
+   *     not be determined and the artifact did not exist before.
    */
-  Artifact resolveSourceArtifact(PathFragment execPath, RepositoryName repositoryName);
+  SourceArtifact resolveSourceArtifact(PathFragment execPath, RepositoryName repositoryName);
 
   /**
    * Resolves source Artifacts given execRoot-relative paths.
@@ -77,13 +75,9 @@ public interface ArtifactResolver {
    *     are missing.
    */
   @Nullable
-  Map<PathFragment, Artifact> resolveSourceArtifacts(
-      Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException;
+  Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver)
+      throws PackageRootResolver.PackageRootException, InterruptedException;
 
   Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath);
-
-  /** Supplies an {@link ArtifactFactory} and allows for interning of derived artifacts. */
-  interface ArtifactResolverSupplier extends Supplier<ArtifactResolver> {
-    Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original);
-  }
 }

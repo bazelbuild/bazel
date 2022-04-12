@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 
 /**
- * An abstract class for adding a Starlark API for the native providers. Derived classes should
+ * An abstract class for adding a Starlark API for the built-in providers. Derived classes should
  * declare functions to be used from Starlark.
  */
 public abstract class StarlarkApiProvider {

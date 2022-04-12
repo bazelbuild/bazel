@@ -28,9 +28,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_provider",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
         "//src/main/java/com/google/devtools/build/lib/rules:core_workspace_rules",
@@ -50,26 +51,5 @@ java_test(
     runtime_deps = [
         ":BazelRuleTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-    ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/genrule:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/java:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/ninja:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:all_windows_tests",
     ],
 )

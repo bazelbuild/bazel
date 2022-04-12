@@ -34,7 +34,8 @@ public class KnownTargets extends BaseCache<Pair<String, String>, Target> {
   }
 
   @Override
-  Target createProto(Pair<String, String> targetIdentifier, int id) throws IOException {
+  Target createProto(Pair<String, String> targetIdentifier, int id)
+      throws IOException, InterruptedException {
     String labelString = targetIdentifier.getFirst();
     String ruleClassString = targetIdentifier.getSecond();
     Target.Builder targetBuilder = Target.newBuilder().setId(id).setLabel(labelString);

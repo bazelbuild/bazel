@@ -53,7 +53,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
             "On Linux/macOS: If true, %{product} tries to use the operating system's file watch "
                 + "service for local changes instead of scanning every file for a change. On "
                 + "Windows: this flag currently is a non-op but can be enabled in conjunction "
-                + "with --experimental_windows_watchfs.")
+                + "with --experimental_windows_watchfs. On any OS: The behavior is undefined "
+                + "if your workspace is on a network file system, and files are edited on a "
+                + "remote machine.")
     public boolean watchFS;
 
     @Option(
@@ -69,15 +71,15 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
   /** Factory for creating {@link LocalDiffAwareness} instances. */
   public static class Factory implements DiffAwareness.Factory {
-    private final ImmutableList<String> prefixBlacklist;
+    private final ImmutableList<String> excludedNetworkFileSystemsPrefixes;
 
     /**
      * Creates a new factory; the file system watcher may not work on all file systems, particularly
-     * for network file systems. The prefix blacklist can be used to blacklist known paths that
-     * point to network file systems.
+     * for network file systems. The prefix list can be used to exclude known paths that point to
+     * network file systems.
      */
-    public Factory(ImmutableList<String> prefixBlacklist) {
-      this.prefixBlacklist = prefixBlacklist;
+    public Factory(ImmutableList<String> excludedNetworkFileSystemsPrefixes) {
+      this.excludedNetworkFileSystemsPrefixes = excludedNetworkFileSystemsPrefixes;
     }
 
     @Override
@@ -89,9 +91,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         return null;
       }
       PathFragment resolvedPathEntryFragment = resolvedPathEntry.asFragment();
-      // There's no good way to automatically detect network file systems. We rely on a blacklist
-      // for now (and maybe add a command-line option in the future?).
-      for (String prefix : prefixBlacklist) {
+      // There's no good way to automatically detect network file systems. We rely on a list of
+      // paths to exclude for now (and maybe add a command-line option in the future?).
+      for (String prefix : excludedNetworkFileSystemsPrefixes) {
         if (resolvedPathEntryFragment.startsWith(PathFragment.create(prefix))) {
           return null;
         }

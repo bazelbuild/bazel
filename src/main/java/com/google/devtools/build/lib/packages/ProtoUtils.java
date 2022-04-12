@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
-import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
@@ -40,11 +39,8 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Disc
 
 /** Shared code used in proto buffer output for rules and rule classes. */
 public class ProtoUtils {
-  /**
-   * This map contains all attribute types that are recognized by the protocol
-   * output formatter.
-   */
-  static final ImmutableMap<Type<?>, Discriminator> TYPE_MAP =
+  /** This map contains all attribute types that are recognized by the protocol output formatter. */
+  private static final ImmutableMap<Type<?>, Discriminator> TYPE_MAP =
       new ImmutableMap.Builder<Type<?>, Discriminator>()
           .put(INTEGER, Discriminator.INTEGER)
           .put(DISTRIBUTIONS, Discriminator.DISTRIBUTION_SET)
@@ -60,7 +56,6 @@ public class ProtoUtils {
           .put(OUTPUT_LIST, Discriminator.OUTPUT_LIST)
           .put(LICENSE, Discriminator.LICENSE)
           .put(STRING_DICT, Discriminator.STRING_DICT)
-          .put(FILESET_ENTRY_LIST, Discriminator.FILESET_ENTRY_LIST)
           .put(LABEL_DICT_UNARY, Discriminator.LABEL_DICT_UNARY)
           .put(STRING_LIST_DICT, Discriminator.STRING_LIST_DICT)
           .put(BOOLEAN, Discriminator.BOOLEAN)

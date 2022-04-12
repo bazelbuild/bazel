@@ -107,7 +107,7 @@ public final class Identifier extends Expression {
   //   When it works in a single pass, it is more efficient to process bindings in order,
   //   deferring (rare) forward references until the end of the block.
   // - Eval calls boundIdentifiers for comprehensions. This can be eliminated when
-  //   recordScope is always enabled and variables are assigned frame slot indices.
+  //   variables are assigned frame slot indices.
   // - Eval calls boundIdentifiers for the 'export' hack. This can be eliminated
   //   when we switch to compilation by emitting EXPORT instructions for the necessary
   //   bindings. (Ideally we would eliminate Bazel's export hack entirely.)

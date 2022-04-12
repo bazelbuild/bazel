@@ -28,8 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public final class FdoProfile implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws RuleErrorException, ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
+      throws InterruptedException, ActionConflictException {
     FdoInputFile inputFile = FdoInputFile.fromProfileRule(ruleContext);
     if (ruleContext.hasErrors()) {
       return null;

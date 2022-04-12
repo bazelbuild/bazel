@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
+import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -53,15 +54,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public boolean mandatoryMinimumVersion;
 
   @Option(
-    name = "experimental_objc_provider_from_linked",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "Whether Apple rules which control linking should propagate objc provider at the top "
-            + "level"
-  )
-  // TODO(b/32411441): This flag should be default-off and then be removed.
+      name = "experimental_objc_provider_from_linked",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
+  // TODO(b/32411441): This flag should be removed.
   public boolean objcProviderFromLinked;
 
   @Option(
@@ -164,6 +164,17 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public DottedVersion.Option macosMinimumOs;
 
   @Option(
+      name = "host_macos_minimum_os",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Minimum compatible macOS version for host targets. "
+              + "If unspecified, uses 'macos_sdk_version'.")
+  public DottedVersion.Option hostMacosMinimumOs;
+
+  @Option(
       name = "experimental_prefer_mutual_xcode",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -187,7 +198,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public static final String DEFAULT_TVOS_CPU = "x86_64";
 
   /** The default macOS CPU value. */
-  public static final String DEFAULT_MACOS_CPU = "x86_64";
+  public static final String DEFAULT_MACOS_CPU =
+      CPU.getCurrent() == CPU.AARCH64 ? "arm64" : "x86_64";
 
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
@@ -333,15 +345,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> catalystCpus;
 
   @Option(
-    name = "default_ios_provisioning_profile",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    converter = DefaultProvisioningProfileConverter.class
-  )
-  public Label defaultProvisioningProfile;
-
-  @Option(
     name = "xcode_version_config",
     defaultValue = "@local_config_xcode//:host_xcodes",
     converter = LabelConverter.class,
@@ -353,6 +356,21 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public Label xcodeVersionConfig;
 
+  @Option(
+      name = "experimental_include_xcode_execution_requirements",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION
+      },
+      help =
+          "If set, add a \"requires-xcode:{version}\" execution requirement to every Xcode action."
+              + "  If the xcode version has a hyphenated label,  also add a"
+              + " \"requires-xcode-label:{version_label}\" execution requirement.")
+  public boolean includeXcodeExecutionRequirements;
+
   /**
    * The default label of the build-wide {@code xcode_config} configuration rule. This can be
    * changed from the default using the {@code xcode_version_config} build flag.
@@ -360,13 +378,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   // TODO(cparsons): Update all callers to reference the actual xcode_version_config flag value.
   @VisibleForTesting
   public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
-
-  /** Converter for --default_ios_provisioning_profile. */
-  public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {
-    public DefaultProvisioningProfileConverter() {
-      super("//tools/objc:default_provisioning_profile");
-    }
-  }
 
   @Option(
       name = "apple_bitcode",
@@ -383,6 +394,25 @@ public class AppleCommandLineOptions extends FragmentOptions {
               + " platforms. The mode must be 'none', 'embedded_markers', or 'embedded'. This"
               + " option may be provided multiple times.")
   public List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>> appleBitcodeMode;
+
+  @Option(
+      name = "incompatible_enable_apple_toolchain_resolution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Use toolchain resolution to select the Apple SDK for apple rules (Starlark and native)")
+  public boolean incompatibleUseToolchainResolution;
+
+  @Option(
+      name = "apple_platforms",
+      converter = LabelListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Comma-separated list of platforms to use when building Apple binaries.")
+  public List<Label> applePlatforms;
 
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
@@ -477,12 +507,22 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.watchOsSdkVersion = watchOsSdkVersion;
     host.tvOsSdkVersion = tvOsSdkVersion;
     host.macOsSdkVersion = macOsSdkVersion;
-    host.appleBitcodeMode = appleBitcodeMode;
+    host.macosMinimumOs = hostMacosMinimumOs;
     // The host apple platform type will always be MACOS, as no other apple platform type can
     // currently execute build actions. If that were the case, a host_apple_platform_type flag might
     // be needed.
     host.applePlatformType = PlatformType.MACOS;
     host.configurationDistinguisher = ConfigurationDistinguisher.UNKNOWN;
+    // Preseve Xcode selection preferences so that the same Xcode version is used throughout the
+    // build.
+    host.preferMutualXcode = preferMutualXcode;
+    host.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
+    host.appleCrosstoolTop = appleCrosstoolTop;
+    host.applePlatforms = applePlatforms;
+    host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+
+    // Save host option for further use.
+    host.hostMacosMinimumOs = hostMacosMinimumOs;
 
     return host;
   }

@@ -41,13 +41,14 @@ class IncludeScannerHelper {
   }
 
   /**
-   * Finds {@code source} in the given {@includePaths} as if it were #included as {@include}.
+   * Finds {@code source} in the given {@code includePaths} as if it were #included as {@code
+   * include}.
    *
-   * @return the index in {@includePaths} a #include_next directive should start searching from,
-   *         or -1 if the source file was not found.
+   * @return the index in {@code includePaths} a #include_next directive should start searching
+   *     from, or -1 if the source file was not found.
    */
-  private static int findContextPathPos(PathFragment include, Artifact source,
-      List<PathFragment> includePaths) {
+  private static int findContextPathPos(
+      PathFragment include, Artifact source, List<PathFragment> includePaths) {
     for (int i = 0; i < includePaths.size(); ++i) {
       PathFragment execPath = includePaths.get(i);
       if (execPath.getRelative(include).equals(source.getExecPath())) {
@@ -99,7 +100,7 @@ class IncludeScannerHelper {
         contextKind = kind;
       } else {
         // If the source was not found, #include_next behaves exactly like #include.
-        inclusion = new Inclusion(inclusion.pathFragment, kind);
+        inclusion = Inclusion.create(inclusion.pathFragment, kind);
       }
     }
     return new InclusionWithContext(inclusion, contextPathPos, contextKind);

@@ -1,0 +1,41 @@
+<p>
+<code>List of <a href="${link build-ref#labels}">labels</a>
+; optional</code>
+</p>
+
+<p>
+A list of
+<code><a href="platform.html#constraint_value">constraint_value</a></code>s
+that must be present in the target platform for this target to be considered
+<em>compatible</em>. This is in addition to any constraints already set by the
+rule type. If the target platform does not satisfy all listed constraints then
+the target is considered <em>incompatible</em>. Incompatible targets are
+skipped for building and testing when the target pattern is expanded
+(e.g. <code>//...</code>, <code>:all</code>). When explicitly specified on the
+command line, incompatible targets cause Bazel to print an error and cause a
+build or test failure.
+</p>
+
+<p>
+Targets that transitively depend on incompatible targets are themselves
+considered incompatible. They are also skipped for building and testing.
+</p>
+
+<p>
+An empty list (which is the default) signifies that the target is compatible
+with all platforms.
+<p>
+
+<p>
+All rules other than <a href="workspace.html">Workspace Rules</a> support this
+attribute.
+For some rules this attribute has no effect. For example, specifying
+<code>target_compatible_with</code> for a
+<code><a href="c-cpp.html#cc_toolchain">cc_toolchain</a></code> is not useful.
+<p>
+
+<p>
+See the
+<a href="/docs/platforms#skipping-incompatible-targets">Platforms</a>
+page for more information about incompatible target skipping.
+</p>

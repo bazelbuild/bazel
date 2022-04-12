@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.repository.RequestRepositoryInformationEvent;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -44,28 +45,19 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
   private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
       SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
-  private static final Predicate<SkyKey> IS_REPOSITORY =
-      SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY);
-
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
 
   private static final Predicate<SkyKey> IS_BZL_LOAD =
       SkyFunctions.isSkyFunction(SkyFunctions.BZL_LOAD);
 
-  private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
-      SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
-
-  private static final Predicate<SkyKey> IS_LOCAL_REPOSITORY_LOOKUP =
-      SkyFunctions.isSkyFunction(SkyFunctions.LOCAL_REPOSITORY_LOOKUP);
-
   private static void requestRepoDefinitions(
       ExtendedEventHandler eventHandler, Iterable<SkyKey> repos) {
     for (SkyKey repo : repos) {
-      if (repo instanceof RepositoryValue.Key) {
+      if (repo instanceof RepositoryDirectoryValue.Key) {
         eventHandler.post(
             new RequestRepositoryInformationEvent(
-                ((RepositoryValue.Key) repo).argument().strippedName()));
+                ((RepositoryDirectoryValue.Key) repo).argument().strippedName()));
       }
     }
   }
@@ -92,21 +84,18 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
             || IS_WORKSPACE_FILE.apply(lastPathElement))) {
 
       Function<SkyKey, String> printer =
-          new Function<SkyKey, String>() {
-            @Override
-            public String apply(SkyKey input) {
-              if (input.argument() instanceof BzlLoadValue.Key) {
-                return ((BzlLoadValue.Key) input.argument()).getLabel().toString();
-              } else if (input.argument() instanceof PackageIdentifier) {
-                return ((PackageIdentifier) input.argument()) + "/BUILD";
-              } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
-                return ((WorkspaceFileValue.WorkspaceFileKey) input.argument())
-                    .getPath()
-                    .getRootRelativePath()
-                    .toString();
-              } else {
-                throw new UnsupportedOperationException();
-              }
+          input -> {
+            if (input.argument() instanceof BzlLoadValue.Key) {
+              return ((BzlLoadValue.Key) input.argument()).getLabel().toString();
+            } else if (input.argument() instanceof PackageIdentifier) {
+              return ((PackageIdentifier) input.argument()) + "/BUILD";
+            } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
+              return ((WorkspaceFileValue.WorkspaceFileKey) input.argument())
+                  .getPath()
+                  .getRootRelativePath()
+                  .toString();
+            } else {
+              throw new UnsupportedOperationException();
             }
           };
 
@@ -130,20 +119,16 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       // BUILD file.
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
       return true;
-    } else if (Iterables.all(
-        cycle, Predicates.or(IS_PACKAGE_LOOKUP, IS_REPOSITORY, IS_REPOSITORY_DIRECTORY))) {
+    } else if (Iterables.all(cycle, Predicates.or(IS_PACKAGE_LOOKUP, IS_REPOSITORY_DIRECTORY))) {
       StringBuilder cycleMessage =
           new StringBuilder().append("Circular definition of repositories:");
-      Iterable<SkyKey> repos = Iterables.filter(cycle, IS_REPOSITORY);
+      Iterable<SkyKey> repos = Iterables.filter(cycle, IS_REPOSITORY_DIRECTORY);
       Function<SkyKey, String> printer =
-          new Function<SkyKey, String>() {
-            @Override
-            public String apply(SkyKey input) {
-              if (input instanceof RepositoryValue.Key) {
-                return ((RepositoryValue.Key) input).argument().getName();
-              } else {
-                throw new UnsupportedOperationException();
-              }
+          input -> {
+            if (input instanceof RepositoryDirectoryValue.Key) {
+              return ((RepositoryDirectoryValue.Key) input).argument().getName();
+            } else {
+              throw new UnsupportedOperationException();
             }
           };
       AbstractLabelCycleReporter.printCycle(ImmutableList.copyOf(repos), cycleMessage, printer);
@@ -152,9 +137,10 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       // repositories were defined.
       requestRepoDefinitions(eventHandler, repos);
       return true;
-    } else if (Iterables.any(cycle, IS_REPOSITORY) && Iterables.any(cycle, IS_WORKSPACE_FILE)) {
+    } else if (Iterables.any(cycle, IS_REPOSITORY_DIRECTORY)
+        && Iterables.any(cycle, IS_WORKSPACE_FILE)) {
       Iterable<SkyKey> repos =
-          Iterables.filter(Iterables.concat(pathToCycle, cycle), IS_REPOSITORY);
+          Iterables.filter(Iterables.concat(pathToCycle, cycle), IS_REPOSITORY_DIRECTORY);
 
       StringBuilder message = new StringBuilder();
 
@@ -170,18 +156,18 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
           .append(
               "The following chain of repository dependencies lead to the missing definition.\n");
       for (SkyKey repo : repos) {
-        if (repo instanceof RepositoryValue.Key) {
+        if (repo instanceof RepositoryDirectoryValue.Key) {
           message
               .append(" - ")
-              .append(((RepositoryValue.Key) repo).argument().getName())
+              .append(((RepositoryDirectoryValue.Key) repo).argument().getName())
               .append("\n");
         }
       }
       SkyKey missingRepo = Iterables.getLast(repos);
-      if (missingRepo instanceof RepositoryValue.Key) {
+      if (missingRepo instanceof RepositoryDirectoryValue.Key) {
         message
             .append("This could either mean you have to add the '")
-            .append(((RepositoryValue.Key) missingRepo).argument().getName())
+            .append(((RepositoryDirectoryValue.Key) missingRepo).argument().getName())
             .append("' repository with a statement like `http_archive` in your WORKSPACE file")
             .append(" (note that transitive dependencies are not added automatically), or move")
             .append(" an existing definition earlier in your WORKSPACE file.");
@@ -196,7 +182,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
           ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
       eventHandler.handle(
           Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));
-        return true;
+      return true;
     } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
       PackageIdentifier pkg =
           (PackageIdentifier)

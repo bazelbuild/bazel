@@ -14,15 +14,18 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Deserializer;
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -31,15 +34,15 @@ import javax.annotation.Nullable;
  * thread-safe and should only be accessed on a single thread for deserializing one serialized
  * object (that may contain other serialized objects inside it).
  */
-public class DeserializationContext {
+public class DeserializationContext implements SerializationDependencyProvider {
   private final ObjectCodecRegistry registry;
-  private final ImmutableMap<Class<?>, Object> dependencies;
-  private final Memoizer.Deserializer deserializer;
+  private final ImmutableClassToInstanceMap<Object> dependencies;
+  @Nullable private final Memoizer.Deserializer deserializer;
 
   private DeserializationContext(
       ObjectCodecRegistry registry,
-      ImmutableMap<Class<?>, Object> dependencies,
-      Deserializer deserializer) {
+      ImmutableClassToInstanceMap<Object> dependencies,
+      @Nullable Memoizer.Deserializer deserializer) {
     this.registry = registry;
     this.dependencies = dependencies;
     this.deserializer = deserializer;
@@ -47,12 +50,12 @@ public class DeserializationContext {
 
   @VisibleForTesting
   public DeserializationContext(
-      ObjectCodecRegistry registry, ImmutableMap<Class<?>, Object> dependencies) {
+      ObjectCodecRegistry registry, ImmutableClassToInstanceMap<Object> dependencies) {
     this(registry, dependencies, /*deserializer=*/ null);
   }
 
   @VisibleForTesting
-  public DeserializationContext(ImmutableMap<Class<?>, Object> dependencies) {
+  public DeserializationContext(ImmutableClassToInstanceMap<Object> dependencies) {
     this(AutoRegistry.get(), dependencies);
   }
 
@@ -105,15 +108,14 @@ public class DeserializationContext {
    * <p>This is a noop when memoization is disabled.
    */
   public <T> void registerInitialValue(T initialValue) {
-    if (deserializer == null) {
-      return;
+    if (deserializer != null) {
+      deserializer.registerInitialValue(initialValue);
     }
-    deserializer.registerInitialValue(initialValue);
   }
 
+  @Override
   public <T> T getDependency(Class<T> type) {
-    Preconditions.checkNotNull(type);
-    return type.cast(dependencies.get(type));
+    return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);
   }
 
   /**
@@ -134,14 +136,33 @@ public class DeserializationContext {
   }
 
   /**
-   * Returns a memoizing {@link DeserializationContext}, as getMemoizingContext above. Unlike
-   * getMemoizingContext, this method is not idempotent - the returned context will always be fresh.
+   * Returns a new memoizing {@link DeserializationContext}, as {@link #getMemoizingContext}. Unlike
+   * {@link #getMemoizingContext}, this method is not idempotent - the returned context will always
+   * be fresh.
    */
   public DeserializationContext getNewMemoizingContext() {
-    return new DeserializationContext(this.registry, this.dependencies, new Deserializer());
+    return new DeserializationContext(registry, dependencies, new Memoizer.Deserializer());
   }
 
-  public DeserializationContext getNewNonMemoizingContext() {
-    return new DeserializationContext(this.registry, this.dependencies, null);
+  /**
+   * Returns a new {@link DeserializationContext} mostly identical to this one, but with a
+   * dependency map composed by applying overrides to this context's dependencies.
+   *
+   * <p>The given {@code dependencyOverrides} may contain keys already present (in which case the
+   * dependency is replaced) or new keys (in which case the dependency is added).
+   *
+   * <p>Must only be called on a base context (no memoization state), since changing dependencies
+   * may change deserialization semantics.
+   */
+  @CheckReturnValue
+  public DeserializationContext withDependencyOverrides(ClassToInstanceMap<?> dependencyOverrides) {
+    checkState(deserializer == null, "Must only be called on base DeserializationContext");
+    return new DeserializationContext(
+        registry,
+        ImmutableClassToInstanceMap.builder()
+            .putAll(Maps.filterKeys(dependencies, k -> !dependencyOverrides.containsKey(k)))
+            .putAll(dependencyOverrides)
+            .build(),
+        /*deserializer=*/ null);
   }
 }

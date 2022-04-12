@@ -15,7 +15,6 @@
 package net.starlark.java.syntax;
 
 import com.google.common.base.Preconditions;
-import java.io.Serializable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -28,7 +27,7 @@ import javax.annotation.concurrent.Immutable;
  * file as a whole.
  */
 @Immutable
-public final class Location implements Serializable, Comparable<Location> {
+public final class Location implements Comparable<Location> {
 
   private final String file;
   private final int line;
@@ -88,7 +87,7 @@ public final class Location implements Serializable, Comparable<Location> {
 
   /** Returns a three-valued lexicographical comparison of two Locations. */
   @Override
-  public final int compareTo(Location that) {
+  public int compareTo(Location that) {
     int cmp = this.file().compareTo(that.file());
     if (cmp != 0) {
       return cmp;

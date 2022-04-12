@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -58,7 +59,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     Path execRoot = outputBase.getRelative("exec");
     String outSegment = "root";
     Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
     try {
       return ActionsTestUtil.createArtifact(
           root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
@@ -97,11 +98,8 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
                     ImmutableSet.of(),
                     "MOCK_LINKER_TOOL",
                     /* supportsEmbeddedRuntimes= */ true,
-                    /* supportsInterfaceSharedLibraries= */ false,
-                    /* doNotSplitLinkingCmdline= */ true))
-            .addAll(
-                CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
-                    ImmutableSet.of(), /* doNotSplitLinkingCmdline= */ true))
+                    /* supportsInterfaceSharedLibraries= */ false))
+            .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
             .build();
 
     ImmutableList<CToolchain.ActionConfig> actionConfigs =
@@ -249,7 +247,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .setLinkingMode(Link.LinkingMode.STATIC)
-            .doNotSplitLinkingCmdLine()
             .build();
     assertThat(linkConfig.getRawLinkArgv()).contains("@foo/bar.param");
   }
@@ -336,7 +333,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setLinkTargetType(LinkTargetType.DYNAMIC_LIBRARY)
             .forceToolPath("foo/bar/linker")
             .setParamFile(paramFile)
-            .doNotSplitLinkingCmdLine()
             .build();
     Pair<List<String>, List<String>> result = linkConfig.splitCommandline();
     assertThat(result.first).containsExactly("foo/bar/linker", "@some/file.params").inOrder();
@@ -392,7 +388,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(execRoot, "out"), execPath);
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"), execPath);
   }
 
   private void verifyArguments(

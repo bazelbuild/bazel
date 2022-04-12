@@ -67,28 +67,30 @@ public class RemoteRetrierTest {
 
   @Test
   public void testExponentialBackoff() throws Exception {
+    Exception e = new Exception();
     Retrier.Backoff backoff =
         new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2, 0, 6);
-    assertThat(backoff.nextDelayMillis()).isEqualTo(1000);
-    assertThat(backoff.nextDelayMillis()).isEqualTo(2000);
-    assertThat(backoff.nextDelayMillis()).isEqualTo(4000);
-    assertThat(backoff.nextDelayMillis()).isEqualTo(8000);
-    assertThat(backoff.nextDelayMillis()).isEqualTo(10000);
-    assertThat(backoff.nextDelayMillis()).isEqualTo(10000);
-    assertThat(backoff.nextDelayMillis()).isLessThan(0L);
+    assertThat(backoff.nextDelayMillis(e)).isEqualTo(1000);
+    assertThat(backoff.nextDelayMillis(e)).isEqualTo(2000);
+    assertThat(backoff.nextDelayMillis(e)).isEqualTo(4000);
+    assertThat(backoff.nextDelayMillis(e)).isEqualTo(8000);
+    assertThat(backoff.nextDelayMillis(e)).isEqualTo(10000);
+    assertThat(backoff.nextDelayMillis(e)).isEqualTo(10000);
+    assertThat(backoff.nextDelayMillis(e)).isLessThan(0L);
   }
 
   @Test
   public void testExponentialBackoffJittered() throws Exception {
+    Exception e = new Exception();
     Retrier.Backoff backoff =
         new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2, 0.1, 6);
-    assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(900L, 1100L));
-    assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(1800L, 2200L));
-    assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(3600L, 4400L));
-    assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(7200L, 8800L));
-    assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(9000L, 11000L));
-    assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(9000L, 11000L));
-    assertThat(backoff.nextDelayMillis()).isLessThan(0L);
+    assertThat(backoff.nextDelayMillis(e)).isIn(Range.closedOpen(900L, 1100L));
+    assertThat(backoff.nextDelayMillis(e)).isIn(Range.closedOpen(1800L, 2200L));
+    assertThat(backoff.nextDelayMillis(e)).isIn(Range.closedOpen(3600L, 4400L));
+    assertThat(backoff.nextDelayMillis(e)).isIn(Range.closedOpen(7200L, 8800L));
+    assertThat(backoff.nextDelayMillis(e)).isIn(Range.closedOpen(9000L, 11000L));
+    assertThat(backoff.nextDelayMillis(e)).isIn(Range.closedOpen(9000L, 11000L));
+    assertThat(backoff.nextDelayMillis(e)).isLessThan(0L);
   }
 
   @Test

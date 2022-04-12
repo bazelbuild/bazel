@@ -23,11 +23,21 @@ import javax.annotation.Nullable;
  */
 public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
 
+  /**
+   * Integer embedded in every action key.
+   *
+   * <p>The purpose of this member and associated property is to allow to easily invalidate the
+   * action cache in case we want to mitigate bugs resulting with false-sharing.
+   */
+  private static final int ACTION_KEY_UNIQUIFIER =
+      Integer.parseInt(System.getProperty("ACTION_KEY_UNIQUIFIER", "0"));
+
   @Nullable private volatile String cachedKey = null;
 
   @Override
   public final String getKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      throws InterruptedException {
     // Only cache the key when it is given all necessary information to compute a correct key.
     // Practically, most of the benefit of the cache comes from execution, which does provide the
     // artifactExpander.
@@ -46,7 +56,8 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
   }
 
   private String computeActionKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      throws InterruptedException {
     try {
       Fingerprint fp = new Fingerprint();
       computeKey(actionKeyContext, artifactExpander, fp);
@@ -59,6 +70,7 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
       }
 
       fp.addStringMap(getExecProperties());
+      fp.addInt(ACTION_KEY_UNIQUIFIER);
       // Compute the actual key and store it.
       return fp.hexDigestAndReset();
     } catch (CommandLineExpansionException e) {
@@ -78,5 +90,5 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException;
+      throws CommandLineExpansionException, InterruptedException;
 }

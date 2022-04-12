@@ -19,9 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCountAtLeast;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -31,41 +29,38 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
-import com.google.devtools.build.lib.analysis.util.ExpectedTrimmedConfigurationErrors;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
-import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -73,18 +68,15 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for the {@link BuildView}.
  */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class BuildViewTest extends BuildViewTestBase {
+
   private static final Function<AnalysisFailureEvent, Pair<String, String>>
       ANALYSIS_EVENT_TO_STRING_PAIR =
-          new Function<AnalysisFailureEvent, Pair<String, String>>() {
-    @Override
-    public Pair<String, String> apply(AnalysisFailureEvent event) {
-      return Pair.of(
-          event.getFailedTarget().getLabel().toString(), event.getLegacyFailureReason().toString());
-    }
-  };
+          event ->
+              Pair.of(
+                  event.getFailedTarget().getLabel().toString(),
+                  event.getLegacyFailureReason().toString());
 
   @Test
   public void directoryArtifactInRoot() throws Exception {
@@ -141,7 +133,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Collection<ConfiguredTarget> targets =
         new LinkedHashSet<>(ImmutableList.of(test1CT, test2CT, suiteCT));
     targets =
-        Lists.<ConfiguredTarget>newArrayList(
+        Lists.newArrayList(
             BuildView.filterTestsByTargets(
                 targets,
                 Sets.newHashSet(test1.getTarget().getLabel(), suite.getTarget().getLabel())));
@@ -170,7 +162,8 @@ public class BuildViewTest extends BuildViewTestBase {
             ctad.getConfiguration()
                 .getBinDirectory(output.getLabel().getPackageIdentifier().getRepository()));
     assertThat(outputArtifact.getExecPath())
-        .isEqualTo(ctad.getConfiguration().getBinFragment().getRelative("pkg/a.out"));
+        .isEqualTo(
+            ctad.getConfiguration().getBinFragment(RepositoryName.MAIN).getRelative("pkg/a.out"));
     assertThat(outputArtifact.getRootRelativePath()).isEqualTo(PathFragment.create("pkg/a.out"));
 
     Action action = getGeneratingAction(outputArtifact);
@@ -256,10 +249,6 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testReportsNonExistentPackageAnalysisRootCausesNoKeepGoing() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     // Regression test for b/153480748, content taken from:
     // //devtools/builddoctor/projects/invalid/java/library_invalid_dep/BUILD#2
     scratch.file(
@@ -299,10 +288,6 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testReportsNonExistentPackageAnalysisRootCausesKeepGoing() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     // Regression test for b/153480748, content taken from:
     // //devtools/builddoctor/projects/invalid/java/library_invalid_dep/BUILD#2
     scratch.file(
@@ -339,10 +324,6 @@ public class BuildViewTest extends BuildViewTestBase {
   @Test
   public void testReportsNonExistentPackageInPackageGroupKeepGoing()
       throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     // Regression test for b/155669924, a missed edge case from the fix to b/153480748.
     scratch.file(
         "java/BUILD",
@@ -523,7 +504,7 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
     Iterable<ConfiguredTarget> targets = getView().getDirectPrerequisitesForTesting(
         reporter, top, getBuildConfigurationCollection());
-    Iterable<Label> labels = Iterables.transform(targets, target -> target.getLabel());
+    Iterable<Label> labels = Iterables.transform(targets, TransitiveInfoCollection::getLabel);
     assertThat(labels)
         .containsExactly(
             Label.parseAbsolute("//package:inner", ImmutableMap.of()),
@@ -566,44 +547,10 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(targets).containsExactly(innerDependency, fileDependency);
   }
 
-  /**
-   * Tests that the {@code --output directory name} option cannot be used on
-   * the command line.
-   */
-  @Test
-  public void testConfigurationShortName() throws Exception {
-    // Check that output directory name is still the name, otherwise this test is not testing what
-    // we expect.
-    CoreOptions options = Options.getDefaults(CoreOptions.class);
-    options.outputDirectoryName = "/home/wonkaw/wonka_chocolate/factory/out";
-    assertWithMessage("The flag's name may have been changed; this test may need to be updated.")
-        .that(options.asMap().get("output directory name"))
-        .isEqualTo("/home/wonkaw/wonka_chocolate/factory/out");
-
-    OptionsParsingException e =
-        assertThrows(
-            OptionsParsingException.class, () -> useConfiguration("--output directory name=foo"));
-    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --output directory name=foo");
-  }
-
-  @Test
-  public void testFileTranslations() throws Exception {
-    scratch.file("foo/file");
-    scratch.file("foo/BUILD",
-        "exports_files(['file'])");
-    useConfiguration("--message_translations=//foo:file");
-    scratch.file("bar/BUILD",
-        "sh_library(name = 'bar')");
-    update("//bar");
-  }
-
   // Regression test: "output_filter broken (but in a different way)"
   @Test
+  @Ignore("b/182560362 Starlark java_library can't output warnings")
   public void testOutputFilterSeeWarning() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     runAnalysisWithOutputFilter(Pattern.compile(".*"));
     assertContainsEvent("please do not import '//java/a:A.java'");
   }
@@ -611,12 +558,8 @@ public class BuildViewTest extends BuildViewTestBase {
   // Regression test: "output_filter broken (but in a different way)"
   @Test
   public void testOutputFilter() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
-      return;
-    }
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
       return;
     }
     runAnalysisWithOutputFilter(Pattern.compile("^//java/c"));
@@ -625,10 +568,6 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testOutputFilterWithDebug() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     scratch.file(
         "java/a/BUILD",
         "java_library(name = 'a',",
@@ -669,7 +608,7 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCircularDependencyBelowTwoTargets() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
     }
@@ -690,7 +629,7 @@ public class BuildViewTest extends BuildViewTestBase {
   // Regression test: cycle node depends on error.
   @Test
   public void testErrorBelowCycle() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling (also b/67412276: handle cycles properly).
       return;
     }
@@ -714,7 +653,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testErrorBelowCycleKeepGoing() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
     }
@@ -805,10 +744,6 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testMultiBuildInvalidationRevalidation() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
     scratch.file("java/a/A.java", "bla1");
     scratch.file("java/a/C.java", "bla2");
     scratch.file("java/a/BUILD",
@@ -823,9 +758,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(getGeneratingAction(getBinArtifact("A_deploy.jar", ct))).isNotNull();
   }
 
-  /**
-   * Regression test: ClassCastException in SkyframeLabelVisitor.updateRootCauses.
-   */
+  /** Regression test for b/14248208. */
   @Test
   public void testDepOnGoodTargetInBadPkgAndTransitivelyBadTarget() throws Exception {
     reporter.removeHandler(failFastHandler);
@@ -852,7 +785,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_incremental() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
     }
@@ -865,7 +798,7 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCycleReporting_targetCycleWhenPackageInError() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
     }
@@ -882,7 +815,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testTransitiveLoadingDoesntShortCircuitInKeepGoing() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
@@ -1075,7 +1008,7 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testPostProcessedConfigurableAttributes() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
@@ -1083,7 +1016,7 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file(
         "conflict/BUILD",
-        "config_setting(name = 'a', values = {'test_arg': 'a'})",
+        "config_setting(name = 'a', values = {'cpu': 'unobtainiumx'})",
         "cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))",
         "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     AnalysisResult result =
@@ -1095,13 +1028,8 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testCycleDueToJavaLauncherConfiguration() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
-      return;
-    }
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // Trimmed configurations don't yet support late-bound attributes.
-      // TODO(gregce): re-enable this when ready.
       return;
     }
     scratch.file("foo/BUILD",
@@ -1109,9 +1037,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "cc_binary(name = 'cpp', data = [':java'])");
     // Everything is fine - the dependency graph is acyclic.
     update("//foo:java", "//foo:cpp");
-    if (getTargetConfiguration().trimConfigurations()) {
-      fail(ExpectedTrimmedConfigurationErrors.LATE_BOUND_ATTRIBUTES_UNSUPPORTED);
-    }
+
     // Now there will be an analysis-phase cycle because the java_binary now has an implicit dep on
     // the cc_binary launcher.
     useConfiguration("--java_launcher=//foo:cpp");
@@ -1144,7 +1070,7 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCircularDependency() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
     }
@@ -1166,7 +1092,7 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCircularDependencyWithKeepGoing() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
     }
@@ -1194,7 +1120,9 @@ public class BuildViewTest extends BuildViewTestBase {
     // and analysis-phase cycles. This was previously reported as a loading-phase cycle, as it
     // happens with any configuration (cycle is hard-coded in the BUILD files). Also see the
     // test below.
-    assertThat(Iterables.transform(analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR))
+    assertThat(
+            Iterables.transform(
+                analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR::apply))
         .containsExactly(
             Pair.of("//cycle:foo", "//cycle:foo"), Pair.of("//cycle:bat", "//cycle:bas"));
   }
@@ -1237,7 +1165,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
@@ -1254,7 +1182,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce_keepGoing() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
@@ -1271,7 +1199,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
@@ -1291,7 +1219,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener_keepGoing() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
@@ -1307,18 +1235,6 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEventWithFrequency(
         "Target '//child:b' contains an error and its package is in error and referenced "
         + "by '//parent:a'", 1);
-  }
-
-  @Test
-  public void testTopLevelTargetsAreTrimmedWithTrimmedConfigurations() throws Exception {
-    scratch.file("foo/BUILD",
-        "sh_library(name='x', ",
-        "        srcs=['x.sh'])");
-    useConfiguration("--experimental_dynamic_configs=on");
-    AnalysisResult res = update("//foo:x");
-    ConfiguredTarget topLevelTarget = Iterables.getOnlyElement(res.getTargetsToBuild());
-    assertThat(getConfiguration(topLevelTarget).getFragmentsMap().keySet())
-        .containsExactlyElementsIn(ruleClassProvider.getUniversalFragments());
   }
 
   /**
@@ -1363,7 +1279,7 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult analysisResult = update("//x:a");
 
     List<String> owners = new ArrayList<>();
-    for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
+    for (Artifact artifact : analysisResult.getArtifactsToBuild()) {
       if ("xa".equals(artifact.getExtension())) {
         owners.add(artifact.getOwnerLabel().toString());
       }
@@ -1423,7 +1339,7 @@ public class BuildViewTest extends BuildViewTestBase {
                                 Label.parseAbsoluteUnchecked("//foo:dep"))),
                     attr("$implicit2", BuildType.LABEL)
                         .defaultValue(Label.parseAbsoluteUnchecked("//bad:label")));
-              } catch (Type.ConversionException e) {
+              } catch (ConversionException e) {
                 throw new IllegalStateException(e);
               }
             });
@@ -1500,70 +1416,12 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:6: [\"foo\"]");
   }
 
-  /** Runs the same test with trimmed configurations. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithTrimmedConfigurations extends BuildViewTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
-    }
-  }
-
   /** Runs the same test with the Skyframe-based analysis prep. */
-  @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)
   public static class WithSkyframePrepareAnalysis extends BuildViewTest {
     @Override
     protected FlagBuilder defaultFlags() {
       return super.defaultFlags().with(Flag.SKYFRAME_PREPARE_ANALYSIS);
     }
-  }
-
-  /** Runs the same test with the Skyframe-based analysis prep and trimmed configurations. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithSkyframePrepareAnalysisAndTrimmedConfigurations extends BuildViewTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags()
-          .with(Flag.SKYFRAME_PREPARE_ANALYSIS)
-          .with(Flag.TRIMMED_CONFIGURATIONS);
-    }
-
-    // We can't recover from dependency cycles in TransitiveTargetFunction, so we disable the tests
-    // for now. We will likely have to fix this before we can enable the new code by default.
-    @Override
-    @Test
-    public void testCircularDependency() {
-    }
-
-    @Override
-    @Test
-    public void testErrorBelowCycleKeepGoing() {
-    }
-
-    @Override
-    @Test
-    public void testCircularDependencyBelowTwoTargets() {
-    }
-
-    @Override
-    @Test
-    public void testCycleReporting_targetCycleWhenPackageInError() {}
-
-    @Override
-    @Test
-    public void testCircularDependencyWithKeepGoing() {
-    }
-
-    @Override
-    @Test
-    public void testErrorBelowCycle() {
-    }
-
-    @Override
-    @Test
-    public void testAnalysisReportsDependencyCycle() {}
   }
 }

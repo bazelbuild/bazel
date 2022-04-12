@@ -119,7 +119,7 @@ function test_cpp_with_msys_gcc() {
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
     --compiler=msys-gcc
   assert_build_output \
-    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    ./bazel-bin/${cpp_pkg}/libhello-lib_922c518841.so ${cpp_pkg}:hello-lib\
     --compiler=msys-gcc --output_groups=dynamic_library
   assert_build ${cpp_pkg}:hello-world --compiler=msys-gcc
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
@@ -138,7 +138,7 @@ function test_cpp_with_mingw_gcc() {
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
     --compiler=mingw-gcc --experimental_strict_action_env
   assert_build_output \
-    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    ./bazel-bin/${cpp_pkg}/libhello-lib_922c518841.so ${cpp_pkg}:hello-lib\
     --compiler=mingw-gcc --output_groups=dynamic_library \
     --experimental_strict_action_env
   assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc \
@@ -270,6 +270,10 @@ function test_native_python() {
   assert_test_fails //examples/py_native:fail
 }
 
+# If this test fails on your Windows machine, ensure that you have a python3.exe
+# in your PATH. Depending on how you installed Python, this might not exist by
+# default on your system. See this pull request for an example:
+# https://github.com/bazelbuild/continuous-integration/pull/1216
 function test_native_python_with_runfiles() {
   BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
   bazel build -s --verbose_failures $BUILD_FLAGS //examples/py_native:bin \

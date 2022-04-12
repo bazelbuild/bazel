@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -164,28 +165,33 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       // Starlark as a Map<String, Label>; this special case preserves that behavior temporarily.
       if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
         // Attribute values should be type safe
-        attrBuilder.put(skyname, Starlark.fromJava(val, null));
+        attrBuilder.put(skyname, Attribute.valueToStarlark(val));
         return;
       }
       if (a.isExecutable()) {
-        // In Starlark only label (not label list) type attributes can have the Executable flag.
-        FilesToRunProvider provider =
-            context.getRuleContext().getExecutablePrerequisite(a.getName());
-        if (provider != null && provider.getExecutable() != null) {
-          Artifact executable = provider.getExecutable();
-          executableBuilder.put(skyname, executable);
-          if (!seenExecutables.contains(executable)) {
-            // todo(dslomov,laurentlb): In general, this is incorrect.
-            // We associate the first encountered FilesToRunProvider with
-            // the executable (this provider is later used to build the spawn).
-            // However ideally we should associate a provider with the attribute name,
-            // and pass the correct FilesToRunProvider to the spawn depending on
-            // what attribute is used to access the executable.
-            executableRunfilesbuilder.put(executable, provider);
-            seenExecutables.add(executable);
+        // In a Starlark-defined rule, only LABEL type attributes (not LABEL_LIST) can have the
+        // Executable flag. However, we could be here because we're creating a StarlarkRuleContext
+        // for a native rule for builtins injection, in which case we may see an executable
+        // LABEL_LIST. In that case omit the attribute as if it weren't executable.
+        if (type == BuildType.LABEL) {
+          FilesToRunProvider provider =
+              context.getRuleContext().getExecutablePrerequisite(a.getName());
+          if (provider != null && provider.getExecutable() != null) {
+            Artifact executable = provider.getExecutable();
+            executableBuilder.put(skyname, executable);
+            if (!seenExecutables.contains(executable)) {
+              // todo(dslomov,laurentlb): In general, this is incorrect.
+              // We associate the first encountered FilesToRunProvider with
+              // the executable (this provider is later used to build the spawn).
+              // However ideally we should associate a provider with the attribute name,
+              // and pass the correct FilesToRunProvider to the spawn depending on
+              // what attribute is used to access the executable.
+              executableRunfilesbuilder.put(executable, provider);
+              seenExecutables.add(executable);
+            }
+          } else {
+            executableBuilder.put(skyname, Starlark.NONE);
           }
-        } else {
-          executableBuilder.put(skyname, Starlark.NONE);
         }
       }
       if (a.isSingleArtifact()) {
@@ -199,8 +205,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       }
       filesBuilder.put(
           skyname,
-          StarlarkList.copyOf(
-              /*mutability=*/ null,
+          StarlarkList.immutableCopyOf(
               context.getRuleContext().getPrerequisiteArtifacts(a.getName()).list()));
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
@@ -214,14 +219,14 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         List<?> allPrereq = context.getRuleContext().getPrerequisites(a.getName());
         attrBuilder.put(skyname, StarlarkList.immutableCopyOf(allPrereq));
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
-        ImmutableMap.Builder<TransitiveInfoCollection, String> builder = ImmutableMap.builder();
+        Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
         List<? extends TransitiveInfoCollection> allPrereq =
             context.getRuleContext().getPrerequisites(a.getName());
         for (TransitiveInfoCollection prereq : allPrereq) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
-        attrBuilder.put(skyname, Starlark.fromJava(builder.build(), null));
+        attrBuilder.put(skyname, builder.buildImmutable());
       } else if (type == BuildType.LABEL_DICT_UNARY) {
         Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
         for (TransitiveInfoCollection target :
@@ -232,7 +237,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         for (Map.Entry<String, Label> entry : ((Map<String, Label>) val).entrySet()) {
           attrValue.put(entry.getKey(), prereqsByLabel.get(entry.getValue()));
         }
-        attrBuilder.put(skyname, attrValue.build());
+        attrBuilder.put(skyname, attrValue.buildOrThrow());
       } else {
         throw new IllegalArgumentException(
             "Can't transform attribute "
@@ -251,7 +256,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
           executableBuilder,
           fileBuilder,
           filesBuilder,
-          executableRunfilesbuilder.build());
+          executableRunfilesbuilder.buildOrThrow());
     }
   }
 }

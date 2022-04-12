@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
 import java.util.HashMap;
 import java.util.Map;
-import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -50,7 +50,7 @@ public final class ActionsProvider extends BuiltinProvider<StructImpl>
       }
     }
     ImmutableMap<String, Object> fields =
-        ImmutableMap.<String, Object>of("by_file", Starlark.fromJava(map, /*mutability=*/ null));
+        ImmutableMap.<String, Object>of("by_file", Dict.immutableCopyOf(map));
     return StarlarkInfo.create(INSTANCE, fields, Location.BUILTIN);
   }
 }

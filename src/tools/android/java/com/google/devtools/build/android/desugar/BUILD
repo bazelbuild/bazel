@@ -12,20 +12,6 @@ filegroup(
 )
 
 java_library(
-    name = "deps_collector_api",
-    srcs = ["DependencyCollector.java"],
-    visibility = [
-        "//src/test/java/com/google/devtools/build/android/desugar:__subpackages__",
-        "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
-        "//src/tools/android/java/com/google/devtools/build/android/r8:__subpackages__",
-    ],
-    deps = [
-        "//src/tools/android/java/com/google/devtools/build/android/r8:utils",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "desugar",
     srcs = glob(["*.java"]),
     visibility = [
@@ -40,7 +26,6 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
     ],
     deps = [
-        ":deps_collector_api",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -56,7 +41,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/strconcat",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/typeannotation",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/typehierarchy",
-        "//src/tools/android/java/com/google/devtools/build/android/r8:utils",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:deps_collector_api",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",
@@ -67,8 +52,18 @@ java_library(
     ],
 )
 
-java_binary(
+sh_binary(
     name = "Desugar",
+    srcs = ["desugar.sh"],
+    data = [":Desugar_java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+java_binary(
+    name = "Desugar_java",
     main_class = "com.google.devtools.build.android.desugar.Desugar",
     visibility = [
         "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",

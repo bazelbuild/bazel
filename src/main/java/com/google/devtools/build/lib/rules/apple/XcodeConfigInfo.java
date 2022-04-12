@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -49,7 +47,7 @@ public class XcodeConfigInfo extends NativeInfo
   private final DottedVersion macosMinimumOsVersion;
   @Nullable private final DottedVersion xcodeVersion;
   @Nullable private final Availability availability;
-  @Nullable private final Map<String, String> executionRequirements;
+  @Nullable private final Dict<String, String> executionRequirements; // immutable
 
   public XcodeConfigInfo(
       DottedVersion iosSdkVersion,
@@ -61,8 +59,9 @@ public class XcodeConfigInfo extends NativeInfo
       DottedVersion macosSdkVersion,
       DottedVersion macosMinimumOsVersion,
       DottedVersion xcodeVersion,
-      Availability availability) {
-    super(PROVIDER);
+      Availability availability,
+      String xcodeVersionFlagValue,
+      boolean includeXcodeReqs) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
     this.watchosSdkVersion = Preconditions.checkNotNull(watchosSdkVersion);
@@ -74,7 +73,7 @@ public class XcodeConfigInfo extends NativeInfo
     this.xcodeVersion = xcodeVersion;
     this.availability = availability;
 
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    Dict.Builder<String, String> builder = Dict.builder();
     builder.put(ExecutionRequirements.REQUIRES_DARWIN, "");
     switch (availability) {
       case LOCAL:
@@ -86,8 +85,22 @@ public class XcodeConfigInfo extends NativeInfo
       default:
         break;
     }
+    if (includeXcodeReqs) {
+      if (xcodeVersion != null && !xcodeVersion.toString().isEmpty()) {
+        builder.put(ExecutionRequirements.REQUIRES_XCODE + ":" + xcodeVersion, "");
+      }
+      if (xcodeVersionFlagValue != null && xcodeVersionFlagValue.indexOf("-") > 0) {
+        String label = xcodeVersionFlagValue.substring(xcodeVersionFlagValue.indexOf("-") + 1);
+        builder.put(ExecutionRequirements.REQUIRES_XCODE_LABEL + ":" + label, "");
+      }
+    }
     builder.put(ExecutionRequirements.REQUIREMENTS_SET, "");
-    this.executionRequirements = builder.build();
+    this.executionRequirements = builder.buildImmutable();
+  }
+
+  @Override
+  public BuiltinProvider<XcodeConfigInfo> getProvider() {
+    return PROVIDER;
   }
 
   /** Indicates the platform(s) on which an Xcode version is available. */
@@ -141,7 +154,11 @@ public class XcodeConfigInfo extends NativeInfo
             DottedVersion.fromString(macosSdkVersion),
             DottedVersion.fromString(macosMinimumOsVersion),
             DottedVersion.fromString(xcodeVersion),
-            Availability.UNKNOWN);
+            Availability.UNKNOWN,
+            /** xcodeVersionFlagValue= */
+            "",
+            /** includeXcodeReqs= */
+            false);
       } catch (DottedVersion.InvalidDottedVersionException e) {
         throw new EvalException(e);
       }
@@ -227,13 +244,13 @@ public class XcodeConfigInfo extends NativeInfo
   }
 
   /** Returns the execution requirements for actions that use this Xcode version. */
-  public Map<String, String> getExecutionRequirements() {
+  public Dict<String, String> getExecutionRequirements() {
     return executionRequirements;
   }
 
   @Override
   public Dict<String, String> getExecutionRequirementsDict() {
-    return Dict.copyOf(null, executionRequirements);
+    return executionRequirements;
   }
 
   public static XcodeConfigInfo fromRuleContext(RuleContext ruleContext) {

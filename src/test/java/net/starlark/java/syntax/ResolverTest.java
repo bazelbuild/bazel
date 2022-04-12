@@ -13,9 +13,10 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static net.starlark.java.syntax.LexerTest.assertContainsError;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.base.Joiner;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,7 +34,7 @@ public class ResolverTest {
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
-    Resolver.resolveFile(file, () -> ImmutableSet.of("pre"));
+    Resolver.resolveFile(file, Resolver.moduleWithPredeclared("pre"));
     return file;
   }
 
@@ -67,14 +68,6 @@ public class ResolverTest {
   }
 
   @Test
-  public void testAssignmentToDotExpression() throws Exception {
-    // According to the spec, this is allowed. TODO(adonovan): implement.
-    // Once it is allowed, we'll need a test (in lib.packages)
-    // that assignments to fields of a Bazel 'struct' are disallowed.
-    assertInvalid("cannot assign to 'pre.field'", "pre.field = ()");
-  }
-
-  @Test
   public void testAugmentedAssignmentWithMultipleLValues() throws Exception {
     assertInvalid(
         "cannot perform augmented assignment on a list or tuple expression", //
@@ -105,22 +98,87 @@ public class ResolverTest {
   }
 
   @Test
-  public void testLoadDuplicateSymbols() throws Exception {
+  public void testDuplicateBindingWithinALoadStatement() throws Exception {
     assertInvalid(
         "load statement defines 'x' more than once", //
         "load('module', 'x', 'x')");
     assertInvalid(
         "load statement defines 'x' more than once", //
         "load('module', 'x', x='y')");
+  }
 
-    // Eventually load bindings will be local,
-    // at which point these errors will need adjusting.
-    assertInvalid(
-        "cannot reassign global 'x'", //
-        "x=1; load('module', 'x')");
-    assertInvalid(
-        "cannot reassign global 'x'", //
-        "load('module', 'x'); x=1");
+  @Test
+  public void testConflictsAtToplevel_default() throws Exception {
+    List<SyntaxError> errors = getResolutionErrors("x=1; x=2");
+    assertContainsError(errors, ":1:6: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:1: 'x' previously declared here");
+
+    errors = getResolutionErrors("x=1; load('module', 'x')");
+    assertContainsError(errors, ":1:22: conflicting file-local declaration of 'x'");
+    assertContainsError(errors, ":1:1: 'x' previously declared as global here");
+    // Also: "loads must appear first"
+
+    errors = getResolutionErrors("load('module', 'x'); x=1");
+    assertContainsError(errors, ":1:22: conflicting global declaration of 'x'");
+    assertContainsError(errors, ":1:17: 'x' previously declared as file-local here");
+
+    errors = getResolutionErrors("load('module', 'x'); load('module', 'x')");
+    assertContainsError(errors, ":1:38: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:17: 'x' previously declared here");
+  }
+
+  @Test
+  public void testConflictsAtToplevel_loadBindsGlobally() throws Exception {
+    options.loadBindsGlobally(true);
+
+    List<SyntaxError> errors = getResolutionErrors("x=1; x=2");
+    assertContainsError(errors, ":1:6: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:1: 'x' previously declared here");
+
+    errors = getResolutionErrors("x=1; load('module', 'x')");
+    assertContainsError(errors, ":1:22: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:1: 'x' previously declared here");
+    // Also: "loads must appear first"
+
+    errors = getResolutionErrors("load('module', 'x'); x=1");
+    assertContainsError(errors, ":1:22: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:17: 'x' previously declared here");
+
+    errors = getResolutionErrors("load('module', 'x'); load('module', 'x')");
+    assertContainsError(errors, ":1:38: 'x' redeclared at top level");
+    assertContainsError(errors, ":1:17: 'x' previously declared here");
+  }
+
+  @Test
+  public void testConflictsAtToplevel_allowToplevelRebinding() throws Exception {
+    // This flag allows rebinding of globals, or of file-locals,
+    // but a given name cannot be both globally and file-locally bound.
+    options.allowToplevelRebinding(true);
+
+    assertValid("x=1; x=2");
+
+    List<SyntaxError> errors = getResolutionErrors("x=1; load('module', 'x')");
+    assertContainsError(errors, ":1:22: conflicting file-local declaration of 'x'");
+    assertContainsError(errors, ":1:1: 'x' previously declared as global here");
+    // Also: "loads must appear first"
+
+    errors = getResolutionErrors("load('module', 'x'); x=1");
+    assertContainsError(errors, ":1:22: conflicting global declaration of 'x'");
+    assertContainsError(errors, ":1:17: 'x' previously declared as file-local here");
+
+    assertValid("load('module', 'x'); load('module', 'x')");
+  }
+
+  @Test
+  public void testConflictsAtToplevel_loadBindsGlobally_allowToplevelRebinding() throws Exception {
+    options.loadBindsGlobally(true);
+    options.allowToplevelRebinding(true);
+    options.requireLoadStatementsFirst(false);
+
+    assertValid("x=1; x=2");
+    assertValid("x=1; load('module', 'x')");
+    assertValid("load('module', 'x'); x=1");
+    assertValid("load('module', 'x'); load('module', 'x')");
   }
 
   @Test
@@ -128,6 +186,11 @@ public class ResolverTest {
     assertInvalid(
         "if statements are not allowed at the top level", //
         "if pre: a = 2");
+  }
+
+  @Test
+  public void testUndefinedName() throws Exception {
+    assertInvalid("name 'foo' is not defined", "[foo for x in []]");
   }
 
   @Test
@@ -187,16 +250,18 @@ public class ResolverTest {
   }
 
   @Test
-  public void testNoGlobalReassign() throws Exception {
-    List<SyntaxError> errors = getResolutionErrors("a = 1", "a = 2");
-    assertContainsError(errors, ":2:1: cannot reassign global 'a'");
-    assertContainsError(errors, ":1:1: 'a' previously declared here");
+  public void testGlobalShadowsPredeclaredForEntireFile() throws Exception {
+    // global 'pre' shadows predeclared of same name.
+    List<SyntaxError> errors = getResolutionErrors("pre; pre = 1; pre = 2");
+    assertContainsError(errors, ":1:15: 'pre' redeclared at top level");
+    assertContainsError(errors, ":1:6: 'pre' previously declared here");
   }
 
   @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
+    // Def statements act just like an assignment statement.
     List<SyntaxError> errors = getResolutionErrors("def foo(): pass", "def foo(): pass");
-    assertContainsError(errors, ":2:5: cannot reassign global 'foo'");
+    assertContainsError(errors, ":2:5: 'foo' redeclared at top level");
     assertContainsError(errors, ":1:5: 'foo' previously declared here");
   }
 
@@ -281,16 +346,6 @@ public class ResolverTest {
     assertInvalid(
         "for loops are not allowed at the top level", //
         "for i in []: 0\n");
-  }
-
-  @Test
-  public void testNestedFunctionFails() throws Exception {
-    assertInvalid(
-        "nested functions are not allowed. Move the function to the top level", //
-        "def func(a):",
-        "  def bar(): return 0",
-        "  return bar()",
-        "");
   }
 
   @Test
@@ -392,5 +447,87 @@ public class ResolverTest {
         "pre(*0, *0)");
 
     assertValid("pre(0, a=0, *0, **0)");
+  }
+
+  @Test
+  public void testUndefError() throws Exception {
+    // Regression test for a poor error message.
+    List<SyntaxError> errors = getResolutionErrors("lambda: undef");
+    assertThat(errors.get(0).message()).isEqualTo("name 'undef' is not defined");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex() throws Exception {
+    checkBindings(
+        "xᴳ₀ = 0", //
+        "yᴳ₁ = 1",
+        "zᴳ₂ = 2",
+        "xᴳ₀(xᴳ₀, yᴳ₁, preᴾ₀)",
+        "[xᴸ₀ for xᴸ₀ in xᴳ₀ if yᴳ₁]",
+        "def fᴳ₃(xᴸ₀ = xᴳ₀):",
+        "  xᴸ₀ = yᴸ₁",
+        "  yᴸ₁ = zᴳ₂");
+
+    // Load statements create file-local bindings.
+    // Functions that reference load bindings are closures.
+    checkBindings(
+        "load('module', aᶜ₀='a', bᴸ₁='b')", //
+        "aᶜ₀, bᴸ₁",
+        "def fᴳ₀(): aᶠ₀");
+
+    // If a name is bound globally, all toplevel references
+    // resolve to it, even those that precede it.
+    checkBindings("preᴾ₀");
+    checkBindings("preᴳ₀; preᴳ₀=1; preᴳ₀");
+
+    checkBindings(
+        "aᴳ₀, bᴳ₁ = 0, 0", //
+        "def fᴳ₂(aᴸ₀=bᴳ₁):",
+        "  aᴸ₀, bᴳ₁",
+        "  [(aᴸ₁, bᴳ₁) for aᴸ₁ in aᴸ₀]");
+
+    // Nested functions have lexical scope.
+    checkBindings(
+        "def fᴳ₀(aᴸ₀, bᶜ₁):", // b is a cell: an indirect local shared with nested functions
+        "  aᴸ₀",
+        "  def gᴸ₂(cᴸ₀):",
+        "    bᶠ₀, cᴸ₀"); // b is a free var: a reference to a cell of an outer function
+
+    // Multiply nested functions.
+    checkBindings(
+        "load('module', aᶜ₀='a')",
+        "bᴳ₀ = 0",
+        "def fᴳ₁(cᶜ₀):",
+        "  aᶠ₀, bᴳ₀, cᶜ₀",
+        "  def gᶜ₁(dᶜ₀):",
+        "    aᶠ₀, bᴳ₀, cᶠ₁, dᶜ₀, fᴳ₁",
+        "    def hᶜ₁(eᴸ₀):",
+        "      aᶠ₀, bᴳ₀, cᶠ₁, dᶠ₂, eᴸ₀, fᴳ₁, gᶠ₃, hᶠ₄");
+  }
+
+  // checkBindings verifies the binding (scope and index) of each identifier.
+  // Every variable must be followed by a superscript letter (its scope)
+  // and a subscript numeral (its index). They are replaced by spaces, the
+  // file is resolved, and then the computed information is written over
+  // the spaces. The resulting string must match the input.
+  private void checkBindings(String... lines) throws Exception {
+    String src = Joiner.on("\n").join(lines);
+    StarlarkFile file = resolveFile(src.replaceAll("[₀₁₂₃₄₅₆₇₈₉ᴸᴳᶜᶠᴾᵁ]", " "));
+    if (!file.ok()) {
+      throw new AssertionError("resolution failed: " + file.errors());
+    }
+    String[] out = new String[] {src};
+    new NodeVisitor() {
+      @Override
+      public void visit(Identifier id) {
+        // Replace ...x__... with ...xᴸ₀...
+        out[0] =
+            out[0].substring(0, id.getEndOffset())
+                + "ᴸᴳᶜᶠᴾᵁ".charAt(id.getBinding().getScope().ordinal()) // follow order of enum
+                + "₀₁₂₃₄₅₆₇₈₉".charAt(id.getBinding().getIndex()) // 10 is plenty
+                + out[0].substring(id.getEndOffset() + 2);
+      }
+    }.visit(file);
+    assertThat(out[0]).isEqualTo(src);
   }
 }

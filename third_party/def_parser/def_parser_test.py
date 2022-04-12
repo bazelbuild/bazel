@@ -41,7 +41,7 @@ class DEFParserTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.o')
+    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.obj')
     self.assertTrue(os.path.isfile(objfile))
     output_def = self.Path('x.def');
     self.RunProgram([self.Rlocation('io_bazel/third_party/def_parser/def_parser.exe'), output_def, 'my_x.dll', objfile])
@@ -63,7 +63,7 @@ class DEFParserTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.o')
+    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.obj')
     self.assertTrue(os.path.isfile(objfile))
     objfilelist = self.ScratchFile('objfilelist', [objfile])
 
@@ -88,7 +88,7 @@ class DEFParserTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.o')
+    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.obj')
     self.assertTrue(os.path.isfile(objfile))
     output_def = self.Path('x.def');
     self.RunProgram([self.Rlocation('io_bazel/third_party/def_parser/def_parser.exe'), output_def, 'my_x.dll', objfile])

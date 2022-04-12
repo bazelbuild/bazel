@@ -263,7 +263,7 @@ class PlaceholderIdFieldInitializerBuilder {
         nextTypeId = nextFreeId(nextTypeId + 1, reservedTypeSlots);
       }
     }
-    // Sanity check that everything has been assigned, except STYLEABLE. There shouldn't be
+    // Check that everything has been assigned, except STYLEABLE. There shouldn't be
     // anything of type PUBLIC either (since that isn't a real resource).
     // We will need to update the list if there is a new resource type.
     for (ResourceType t : innerClasses.keySet()) {
@@ -346,13 +346,15 @@ class PlaceholderIdFieldInitializerBuilder {
       // The styleable array should be sorted by ID value.
       // Make sure that if we have android: framework attributes, their IDs are listed first.
       ImmutableMap<String, Integer> arrayInitMap =
-          arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).build();
+          arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).buildOrThrow();
       initList.add(
           IntArrayFieldInitializer.of(
               dependencyInfo,
               linkageInfo.visibility(),
               field,
-              ImmutableList.copyOf(arrayInitMap.values())));
+              arrayInitMap.values().stream()
+                  .map(IntArrayFieldInitializer.IntegerValue::new)
+                  .collect(ImmutableList.toImmutableList())));
       int index = 0;
       for (String attr : arrayInitMap.keySet()) {
         initList.add(

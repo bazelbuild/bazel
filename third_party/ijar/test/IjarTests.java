@@ -156,7 +156,7 @@ public class IjarTests {
               public boolean process(
                   Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
                 roundEnv.getElementsAnnotatedWith(java.lang.Override.class);
-                return true;
+                return false;
               }
             }));
     if (!task.call()) {
@@ -234,7 +234,7 @@ public class IjarTests {
                 .put("LocalAndAnonymous$InnerClass", "LocalAndAnonymous")
                 .put("LocalAndAnonymous$NestedClass", "LocalAndAnonymous")
                 .put("LocalAndAnonymous$PrivateInnerClass", "LocalAndAnonymous")
-                .build());
+                .buildOrThrow());
     assertThat(innerClasses(ijar.get("LocalAndAnonymous.class")))
         .containsExactly(
             "LocalAndAnonymous$InnerClass", "LocalAndAnonymous",
@@ -248,7 +248,9 @@ public class IjarTests {
       Enumeration<JarEntry> entries = jf.entries();
       while (entries.hasMoreElements()) {
         JarEntry je = entries.nextElement();
-        if (!je.getName().endsWith(".class") && !je.getName().endsWith(".kotlin_module")) {
+        if (!je.getName().endsWith(".class")
+            && !je.getName().endsWith(".kotlin_module")
+            && !je.getName().endsWith(".tasty")) {
           continue;
         }
         classes.put(je.getName(), ByteStreams.toByteArray(jf.getInputStream(je)));
@@ -289,6 +291,14 @@ public class IjarTests {
         .containsExactly("java/lang/String.class", "META-INF/bar.kotlin_module");
     // ijar passes kotlin modules through unmodified
     assertThat(new String(lib.get("META-INF/bar.kotlin_module"), UTF_8)).isEqualTo("hello");
+  }
+
+  @Test
+  public void scalaTasty() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/scala_tasty-interface.jar");
+    assertThat(lib.keySet()).containsExactly("java/lang/String.class", "Bar.tasty");
+    // ijar passes scala tasty files through unmodified
+    assertThat(new String(lib.get("Bar.tasty"), UTF_8)).isEqualTo("hello");
   }
 
   @Test
@@ -386,6 +396,57 @@ public class IjarTests {
     } finally {
       original.close();
       stripped.close();
+    }
+  }
+
+  @Test
+  public void testPreserveManifestSections() throws Exception {
+    try (JarFile original =
+            new JarFile(
+                "third_party/ijar/test/jar-with-target-label-and-manifest-sections-nostrip.jar");
+        JarFile stripped =
+            new JarFile("third_party/ijar/test/jar-with-manifest-sections-nostrip.jar")) {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+
+      Attributes sectionAttributes1 = manifest.getAttributes("foo");
+      assertThat(sectionAttributes1.getValue("Foo")).isEqualTo("bar");
+
+      Attributes sectionAttributes2 = manifest.getAttributes("baz");
+      assertThat(sectionAttributes2.getValue("Another")).isEqualTo("bar");
+    }
+  }
+
+  @Test
+  public void testPreserveManifestSectionsAndUpdateExistingTargetLabel() throws Exception {
+    try (JarFile original =
+            new JarFile(
+                "third_party/ijar/test/jar-with-target-label-and-manifest-sections-nostrip.jar");
+        JarFile stripped =
+            new JarFile(
+                "third_party/ijar/test/jar-with-target-label-and-manifest-sections-nostrip.jar")) {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+
+      Attributes sectionAttributes1 = manifest.getAttributes("foo");
+      assertThat(sectionAttributes1.getValue("Foo")).isEqualTo("bar");
+
+      Attributes sectionAttributes2 = manifest.getAttributes("baz");
+      assertThat(sectionAttributes2.getValue("Another")).isEqualTo("bar");
     }
   }
 

@@ -16,24 +16,40 @@ package com.google.devtools.build.lib.remote.logging;
 
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WriteDetails;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /** LoggingHandler for {@link google.bytestream.Write} gRPC call. */
 public class WriteHandler implements LoggingHandler<WriteRequest, WriteResponse> {
   private final WriteDetails.Builder builder = WriteDetails.newBuilder();
   private final Set<String> resources = new LinkedHashSet<>();
+  private final List<Long> offsets = new ArrayList<>();
+  private final List<Long> finishWrites = new ArrayList<>();
+  private long bytesSentInSequence = 0;
   private long numWrites = 0;
   private long bytesSent = 0;
 
   @Override
   public void handleReq(WriteRequest message) {
     resources.add(message.getResourceName());
+    long writeOffset = message.getWriteOffset();
+    if (numWrites == 0 || Iterables.getLast(offsets) + bytesSentInSequence != writeOffset) {
+      offsets.add(writeOffset);
+      bytesSentInSequence = 0;
+    }
+    int size = message.getData().size();
+    if (message.getFinishWrite()) {
+      finishWrites.add(writeOffset + size);
+    }
 
     numWrites++;
-    bytesSent += message.getData().size();
+    bytesSent += size;
+    bytesSentInSequence += size;
   }
 
   @Override
@@ -44,6 +60,8 @@ public class WriteHandler implements LoggingHandler<WriteRequest, WriteResponse>
   @Override
   public RpcCallDetails getDetails() {
     builder.addAllResourceNames(resources);
+    builder.addAllOffsets(offsets);
+    builder.addAllFinishWrites(finishWrites);
     builder.setNumWrites(numWrites);
     builder.setBytesSent(bytesSent);
     return RpcCallDetails.newBuilder().setWrite(builder).build();

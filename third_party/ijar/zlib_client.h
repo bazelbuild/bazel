@@ -17,6 +17,9 @@
 
 #include <limits.h>
 
+#include <limits>
+#include <stdexcept>
+
 #include "third_party/ijar/common.h"
 
 namespace devtools_ijar {

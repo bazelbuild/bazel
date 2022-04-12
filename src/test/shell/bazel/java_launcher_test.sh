@@ -57,6 +57,16 @@ java_binary(
     deps = [":hellolib"],
     main_class = "hello.Hello",
 )
+java_library(
+    name = "hellolib%special%lib",
+    srcs = ["HelloLib.java"],
+)
+java_binary(
+    name = "hello_special",
+    srcs = ["Hello.java"],
+    deps = [":hellolib%special%lib"],
+    main_class = "hello.Hello",
+)
 EOF
   bazel build //$pkg/java/hello:hello || fail "expected success"
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello >& "$TEST_log" || \
@@ -64,6 +74,15 @@ EOF
   expect_log "Hello World!"
 
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello --classpath_limit=0 >& "$TEST_log" || \
+    fail "expected success"
+  expect_log "Hello World!"
+
+  bazel build //$pkg/java/hello:hello_special || fail "expected success"
+  ${PRODUCT_NAME}-bin/$pkg/java/hello/hello_special >& "$TEST_log" || \
+    fail "expected success"
+  expect_log "Hello World!"
+
+  ${PRODUCT_NAME}-bin/$pkg/java/hello/hello_special --classpath_limit=0 >& "$TEST_log" || \
     fail "expected success"
   expect_log "Hello World!"
 }

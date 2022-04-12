@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 
 /**
  * Codec for {@link Rule} that throws. We expect never to serialize Rule except for in PackageCodec,
@@ -45,13 +44,13 @@ public class RuleCodec implements ObjectCodec<Rule> {
 
   @Override
   public void serialize(SerializationContext context, Rule obj, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
+      throws SerializationException {
     throw new SerializationException(String.format(SERIALIZATION_ERROR_TEMPLATE, obj));
   }
 
   @Override
   public Rule deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
+      throws SerializationException {
     throw new SerializationException(DESERIALIZATION_ERROR_TEMPLATE);
   }
 }

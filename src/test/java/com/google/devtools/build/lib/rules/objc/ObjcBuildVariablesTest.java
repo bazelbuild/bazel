@@ -55,7 +55,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Override
-  public void initializeMockClient() throws IOException {
+  protected void initializeMockClient() throws IOException {
     super.initializeMockClient();
     MockObjcSupport.setup(mockToolsConfig);
   }
@@ -112,10 +112,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         "--crosstool_top=//tools/osx/crosstool", "--xcode_version=5.8",
         "--ios_minimum_os=12.345", "--watchos_minimum_os=" + dummyMinimumOsValue,
         "--watchos_cpus=armv7k");
-
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'watchos',",
@@ -161,13 +162,15 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   public void testAppleBuildVariablesMacos() throws Exception {
     MockObjcSupport.setup(mockToolsConfig);
     String dummyMinimumOsValue = "13.579";
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
         "--cpu=darwin_x86_64",
         "--macos_minimum_os=" + dummyMinimumOsValue);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'macos',",
@@ -181,6 +184,47 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     // In order to get the set of variables that apply to the c++ actions, follow the chain of
     // actions starting at the lipobin creation.
+    Artifact lipoBin =
+        getBinArtifact(
+            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
+    Action lipoAction = getGeneratingAction(lipoBin);
+    Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
+    CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
+    Artifact archive =
+        ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
+    CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
+
+    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
+    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
+        .contains(dummyMinimumOsValue);
+  }
+
+  @Test
+  public void testAppleBuildVariablesMacosHost() throws Exception {
+    MockObjcSupport.setup(mockToolsConfig);
+    String dummyMinimumOsValue = "13.579";
+    useConfiguration(
+        "--crosstool_top=//tools/osx/crosstool",
+        "--cpu=darwin_x86_64",
+        "--host_cpu=darwin_x86_64",
+        "--macos_minimum_os=10.11",
+        "--host_macos_minimum_os=" + dummyMinimumOsValue);
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "x/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "   name = 'bin',",
+        "   deps = [':a'],",
+        "   platform_type = 'macos',",
+        ")",
+        "cc_library(",
+        "   name = 'a',",
+        "   srcs = ['a.cc'],",
+        ")");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget target = getHostConfiguredTarget("//x:bin");
     Artifact lipoBin =
         getBinArtifact(
             Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
@@ -230,9 +274,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
         "--cpu=darwin_x86_64");
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'ios',",

@@ -411,4 +411,38 @@ function test_sigint_with_graceful_termination_sandboxed() {
   do_test_sigint_with_graceful_termination sandboxed
 }
 
+function test_env_attribute() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat > $pkg/BUILD <<'EOF'
+sh_test(
+  name = 't',
+  srcs = [':t.sh'],
+  data = [':t.dat'],
+  env = {
+    "ENV_A": "not_inherited",
+    "ENV_C": "no_surprise",
+    "ENV_DATA": "$(location :t.dat)",
+  },
+  env_inherit = [
+    "ENV_B",
+  ],
+)
+EOF
+  cat > $pkg/t.sh <<'EOF'
+#!/bin/sh
+env
+exit 0
+EOF
+  touch $pkg/t.dat
+  chmod +x $pkg/t.sh
+  ENV_B=surprise ENV_C=surprise ENV_D=surprise bazel test --test_output=streamed //$pkg:t &> $TEST_log \
+      || fail "expected test to pass"
+  expect_log "ENV_A=not_inherited"
+  expect_log "ENV_B=surprise"
+  expect_log "ENV_C=no_surprise"
+  expect_not_log "ENV_D=surprise"
+  expect_log "ENV_DATA=${pkg}/t.dat"
+}
+
 run_suite "test tests"

@@ -41,6 +41,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -53,6 +54,7 @@ public final class GoogleAuthUtils {
    * @throws IOException in case the channel can't be constructed.
    */
   public static ManagedChannel newChannel(
+      @Nullable Executor executor,
       String target,
       String proxy,
       AuthAndTLSOptions options,
@@ -71,6 +73,7 @@ public final class GoogleAuthUtils {
     try {
       NettyChannelBuilder builder =
           newNettyChannelBuilder(targetUrl, proxy)
+              .executor(executor)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
       if (options.grpcKeepaliveTime != null) {
@@ -195,19 +198,11 @@ public final class GoogleAuthUtils {
     return null;
   }
 
-  public static CallCredentialsProvider newCallCredentialsProvider(AuthAndTLSOptions options)
-      throws IOException {
-    Credentials creds = newCredentials(options);
-    if (creds != null) {
-      return new GoogleAuthCallCredentialsProvider(creds);
-    }
-    return CallCredentialsProvider.NO_CREDENTIALS;
-  }
-
-  @VisibleForTesting
-  public static CallCredentialsProvider newCallCredentialsProvider(
-      @Nullable InputStream credentialsFile, List<String> authScope) throws IOException {
-    Credentials creds = newCredentials(credentialsFile, authScope);
+  /**
+   * Create a new {@link CallCredentialsProvider} object from {@link Credentials} or return {@link
+   * CallCredentialsProvider#NO_CREDENTIALS} if it is {@code null}.
+   */
+  public static CallCredentialsProvider newCallCredentialsProvider(@Nullable Credentials creds) {
     if (creds != null) {
       return new GoogleAuthCallCredentialsProvider(creds);
     }
@@ -241,7 +236,13 @@ public final class GoogleAuthUtils {
     return null;
   }
 
-  private static Credentials newCredentials(
+  /**
+   * Create a new {@link Credentials} object from credential file and given authentication scopes.
+   *
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  @VisibleForTesting
+  public static Credentials newCredentials(
       @Nullable InputStream credentialsFile, List<String> authScopes) throws IOException {
     try {
       GoogleCredentials creds =

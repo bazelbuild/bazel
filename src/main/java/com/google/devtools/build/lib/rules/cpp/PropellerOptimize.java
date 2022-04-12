@@ -26,9 +26,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 @Immutable
 public final class PropellerOptimize implements RuleConfiguredTargetFactory {
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws ActionConflictException, InterruptedException {
     PropellerOptimizeInputFile inputFile = PropellerOptimizeInputFile.fromProfileRule(ruleContext);
     if (ruleContext.hasErrors()) {
       return null;

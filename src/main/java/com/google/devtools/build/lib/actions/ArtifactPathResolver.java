@@ -37,9 +37,7 @@ public interface ArtifactPathResolver {
    */
   Path convertPath(Path path);
 
-  /**
-   * @return a resolved Rooth corresponding to the given Root.
-   */
+  /** @return a resolved {@link Root} corresponding to the given Root. */
   Root transformRoot(Root root);
 
   ArtifactPathResolver IDENTITY = new IdentityResolver(null);
@@ -107,7 +105,7 @@ public interface ArtifactPathResolver {
     @Override
     public Path toPath(ActionInput input) {
       if (input instanceof Artifact) {
-        return fileSystem.getPath(((Artifact) input).getPath().getPathString());
+        return fileSystem.getPath(((Artifact) input).getPath().asFragment());
       }
       return execRoot.getRelative(input.getExecPath());
     }

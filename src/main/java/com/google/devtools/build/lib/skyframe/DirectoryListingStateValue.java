@@ -22,12 +22,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.IOException;
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -55,19 +52,15 @@ public final class DirectoryListingStateValue implements SkyValue {
     return new DirectoryListingStateValue(dirents);
   }
 
-  public static DirectoryListingStateValue create(RootedPath dirRootedPath) throws IOException {
-    Collection<Dirent> dirents = dirRootedPath.asPath().readdir(Symlinks.NOFOLLOW);
-    return create(dirents);
-  }
-
   @ThreadSafe
   public static Key key(RootedPath rootedPath) {
     return Key.create(rootedPath);
   }
 
+  /** Key type for DirectoryListingStateValue. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<RootedPath> {
+  public static class Key extends AbstractSkyKey<RootedPath> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(RootedPath arg) {
@@ -120,7 +113,7 @@ public final class DirectoryListingStateValue implements SkyValue {
   }
 
   /** A space-efficient, sorted, immutable dirent structure. */
-  private static class CompactSortedDirents implements Dirents, Serializable {
+  private static final class CompactSortedDirents implements Dirents {
 
     private final String[] names;
     private final BitSet packedTypes;

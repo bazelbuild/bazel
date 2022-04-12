@@ -31,16 +31,11 @@ import java.util.Set;
 @ActionContextMarker(name = "SwigIncludeScanning")
 public interface SwigIncludeScanningContext extends ActionContext {
   /**
-   * Scan includes in a .swig file.
+   * Scans includes in a .swig file ({@code source}), placing the results into {@code includes}.
    *
-   * @param includes the result where the included files are put
-   * @param actionExecutionMetadata the owning action
-   * @param actionExecContext the execution context
-   * @param source the file to be scanned
-   * @param legalOutputPaths the output files that are allowed to be included
-   * @param swigIncludePaths the include paths in effect
-   * @throws IOException
-   * @throws ExecException
+   * <p>Like {@link IncludeScanner#processAsync}, may short-circuit if a skyframe restart is
+   * necessary. Callers must check {@link
+   * com.google.devtools.build.skyframe.SkyFunction.Environment#valuesMissing}.
    */
   void extractSwigIncludes(
       Set<Artifact> includes,

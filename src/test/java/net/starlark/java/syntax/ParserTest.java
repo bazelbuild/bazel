@@ -1014,6 +1014,35 @@ public final class ParserTest {
   }
 
   @Test
+  public void testLambda() throws Exception {
+    parseExpression("lambda a, b=1, *args, **kwargs: a+b");
+    parseExpression("lambda *, a, *b: 0");
+
+    // lambda has lower predecence than binary or.
+    assertThat(parseExpression("lambda: x or y").toString()).isEqualTo("lambda: (x or y)");
+
+    // This is a well known parsing ambiguity in Python.
+    // Python 2.7 accepts it but Python3 and Starlark reject it.
+    parseExpressionError("[x for x in lambda: True, lambda: False if x()]");
+
+    // ok in all dialects:
+    parseExpression("[x for x in (lambda: True, lambda: False) if x()]");
+
+    // An unparenthesized tuple is not allowed as the operand
+    // of an 'if' clause in a comprehension, but a lambda is ok.
+    assertThat(parseExpressionError("[a for b in c if 1, 2]"))
+        .contains("expected ']', 'for' or 'if'");
+    parseExpression("[a for b in c if lambda: d]");
+    // But the body of the unparenthesized lambda may not be a conditional:
+    parseExpression("[a for b in c if (lambda: d if e else f)]");
+    assertThat(parseExpressionError("[a for b in c if lambda: d if e else f]"))
+        .contains("expected ']', 'for' or 'if'");
+
+    // A lambda is not allowed as the operand of a 'for' clause.
+    assertThat(parseExpressionError("[a for b in lambda: c]")).contains("syntax error at 'lambda'");
+  }
+
+  @Test
   public void testForPass() throws Exception {
     List<Statement> statements = parseStatements("def foo():", "  pass\n");
 
@@ -1262,7 +1291,6 @@ public final class ParserTest {
     parseFile("class test(object): pass");
     assertContainsError("keyword 'class' not supported");
   }
-
 
   @Test
   public void testStringsAreDeduped() throws Exception {

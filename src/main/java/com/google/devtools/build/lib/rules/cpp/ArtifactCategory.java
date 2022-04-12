@@ -13,11 +13,7 @@
 // limitations under the License
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.syntax.Location;
 
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can
@@ -28,7 +24,7 @@ public enum ArtifactCategory {
   ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
   DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll"),
   EXECUTABLE("", "", ".exe"),
-  INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib"),
+  INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
   OBJECT_FILE("", ".o", ".obj"),
@@ -43,10 +39,6 @@ public enum ArtifactCategory {
   // A matched-clif protobuf. Typically in binary format, but could be text depending on
   // the options passed to the clif_matcher.
   CLIF_OUTPUT_PROTO("", ".opb");
-
-  private static final ArtifactCategory[] ALLOWED_FROM_STARLARK = {
-    STATIC_LIBRARY, ALWAYSLINK_STATIC_LIBRARY, DYNAMIC_LIBRARY, INTERFACE_LIBRARY
-  };
 
   private final String defaultPrefix;
   private final String defaultExtension;
@@ -72,25 +64,6 @@ public enum ArtifactCategory {
 
   public String getStarlarkName() {
     return starlarkName;
-  }
-
-  public static ArtifactCategory fromString(
-      String starlarkName, Location location, String fieldForError) throws EvalException {
-    for (ArtifactCategory registerActions : ALLOWED_FROM_STARLARK) {
-      if (registerActions.getStarlarkName().equals(starlarkName)) {
-        return registerActions;
-      }
-    }
-    throw new EvalException(
-        location,
-        String.format(
-            "Possible values for %s: %s",
-            fieldForError,
-            Joiner.on(", ")
-                .join(
-                    Arrays.stream(ALLOWED_FROM_STARLARK)
-                        .map(ArtifactCategory::getStarlarkName)
-                        .collect(ImmutableList.toImmutableList()))));
   }
 
   /** Returns the name of the category. */

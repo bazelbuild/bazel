@@ -48,7 +48,7 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
             .setHighApiVersion(current)
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(df)
+                    .addDigestFunctions(df)
                     .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.DISALLOWED)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())

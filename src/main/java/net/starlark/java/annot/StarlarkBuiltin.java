@@ -35,7 +35,7 @@ import java.lang.annotation.Target;
  * the minimum element in the partial order of all annotations defined on C and its ancestors, where
  * the order relationship is X < Y if X annotates a subtype of what Y annotates.) The lookup logic
  * for retrieving a class's {@link StarlarkBuiltin} is implemented by {@link
- * StarlarkInterfaceUtils#getStarlarkBuiltin}.
+ * StarlarkAnnotations#getStarlarkBuiltin}.
  *
  * <p>Inheriting an annotation is useful when the class is an implementation detail, such as a
  * concrete implementation of an abstract interface. Overriding an annotation is useful when the
@@ -56,7 +56,13 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StarlarkBuiltin {
 
-  /** The name of this data type, as returned by the Starlark expression {@code type(x)}. */
+  /**
+   * The name of this data type, as returned by the Starlark expression {@code type(x)}.
+   *
+   * <p>Applications should ensure that data type names are unique. This is especially important for
+   * a type that implements Comparable, as its {@code compareTo} method may be passed any value of
+   * the same Starlark type, not necessarily one of the same Java class.
+   */
   String name();
 
   /** Module documentation in HTML. May be empty only if {@code !documented()}. */

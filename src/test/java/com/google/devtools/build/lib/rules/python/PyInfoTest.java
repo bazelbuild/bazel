@@ -65,7 +65,7 @@ public class PyInfoTest extends BuildViewTestCase {
             .setHasPy2OnlySources(true)
             .setHasPy3OnlySources(true)
             .build();
-    assertThat(info.getCreationLoc()).isEqualTo(loc);
+    assertThat(info.getCreationLocation()).isEqualTo(loc);
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.COMPILE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
@@ -81,7 +81,7 @@ public class PyInfoTest extends BuildViewTestCase {
     // transitive_sources is mandatory, so create a dummy value but no need to assert on it.
     NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
     PyInfo info = PyInfo.builder().setTransitiveSources(sources).build();
-    assertThat(info.getCreationLoc()).isEqualTo(Location.BUILTIN);
+    assertThat(info.getCreationLocation()).isEqualTo(Location.BUILTIN);
     assertThat(info.getUsesSharedLibraries()).isFalse();
     assertHasOrderAndContainsExactly(info.getImports().getSet(String.class), Order.COMPILE_ORDER);
     assertThat(info.getHasPy2OnlySources()).isFalse();
@@ -99,7 +99,7 @@ public class PyInfoTest extends BuildViewTestCase {
         "    has_py3_only_sources = True,",
         ")");
     PyInfo info = (PyInfo) ev.lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
+    assertThat(info.getCreationLocation().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
@@ -113,7 +113,7 @@ public class PyInfoTest extends BuildViewTestCase {
   public void starlarkConstructorDefaults() throws Exception {
     ev.exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
     PyInfo info = (PyInfo) ev.lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
+    assertThat(info.getCreationLocation().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isFalse();

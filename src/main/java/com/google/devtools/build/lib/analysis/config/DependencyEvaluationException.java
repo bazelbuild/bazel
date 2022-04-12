@@ -14,25 +14,66 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
-/** Exception class that signals an error during the evaluation of a dependency. */
+/**
+ * Exception that signals an error during the evaluation of a configured target dependency.
+ *
+ * <p>If {@link DependencyEvaluationException#depReportedOwnError()}} is true, dependencies are
+ * assumed to have reported their own errors. So if configured target P depends on configured target
+ * D, and P fails because of a {@code DependencyEvaluationException} on D, P is responsible for
+ * reporting its error details. P should only report what contextualizes P's relationship to D.
+ *
+ * <p>If {@link DependencyEvaluationException#depReportedOwnError()}} is false, P reports both
+ * errors in consolidated form as it sees fit. For conceptual simplicity's sake, use this variation
+ * sparingly.
+ *
+ * <p>The result is essentially an error reporting stack trace, but presented with user readability
+ * in mind.
+ */
 public class DependencyEvaluationException extends Exception {
-  public DependencyEvaluationException(InvalidConfigurationException cause) {
-    super(cause);
+  /* Null denotes whatever default exit code callers choose. */
+  @Nullable private final DetailedExitCode detailedExitCode;
+  private final Location location;
+  private final boolean depReportedOwnError;
+
+  private DependencyEvaluationException(
+      Exception cause,
+      @Nullable DetailedExitCode detailedExitCode,
+      Location location,
+      boolean depReportedOwnError) {
+    super(cause.getMessage(), cause);
+    this.detailedExitCode = detailedExitCode;
+    this.location = location;
+    this.depReportedOwnError = depReportedOwnError;
   }
 
-  public DependencyEvaluationException(ConfiguredValueCreationException cause) {
-    super(cause);
+  public DependencyEvaluationException(
+      ConfiguredValueCreationException cause, boolean depReportedOwnError) {
+    this(cause, cause.getDetailedExitCode(), cause.getLocation(), depReportedOwnError);
   }
 
   public DependencyEvaluationException(InconsistentAspectOrderException cause) {
-    super(cause);
+    // Calling logic doesn't provide an opportunity for this dependency to report its own error.
+    // TODO(bazel-team): clean up the calling logic to eliminate this distinction.
+    this(cause, /*detailedExitCode=*/ null, cause.getLocation(), /*depReportedOwnError=*/ false);
   }
 
-  public DependencyEvaluationException(TransitionException cause) {
-    super(cause);
+  /** Returns the cause's {@link DetailedExitCode}. If null, the caller should choose a default. */
+  @Nullable
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
+  }
+
+  public Location getLocation() {
+    return location;
+  }
+
+  public boolean depReportedOwnError() {
+    return depReportedOwnError;
   }
 
   @Override

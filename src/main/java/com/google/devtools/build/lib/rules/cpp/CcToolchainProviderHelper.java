@@ -13,19 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,16 +33,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -67,7 +62,8 @@ public class CcToolchainProviderHelper {
   public static CcToolchainProvider getCcToolchainProvider(
       RuleContext ruleContext, CcToolchainAttributesProvider attributes)
       throws RuleErrorException, InterruptedException {
-    BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
+    BuildConfigurationValue configuration =
+        Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
 
@@ -76,11 +72,7 @@ public class CcToolchainProviderHelper {
     CcToolchainFeatures toolchainFeatures;
     PathFragment toolsDirectory =
         getToolsDirectory(
-            attributes.getCcToolchainLabel(),
-            ruleContext
-                .getAnalysisEnvironment()
-                .getStarlarkSemantics()
-                .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+            attributes.getCcToolchainLabel(), configuration.isSiblingRepositoryLayout());
     try {
       toolPaths = computeToolPaths(toolchainConfigInfo, toolsDirectory);
       toolchainFeatures = new CcToolchainFeatures(toolchainConfigInfo, toolsDirectory);
@@ -95,10 +87,9 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
-    String purposePrefix = attributes.getPurposePrefix();
     String runtimeSolibDirBase = attributes.getRuntimeSolibDirBase();
     final PathFragment runtimeSolibDir =
-        configuration.getBinFragment().getRelative(runtimeSolibDirBase);
+        ruleContext.getBinFragment().getRelative(runtimeSolibDirBase);
     String solibDirectory = "_solib_" + toolchainConfigInfo.getTargetCpu();
     PathFragment defaultSysroot =
         CppConfiguration.computeDefaultSysroot(toolchainConfigInfo.getBuiltinSysroot());
@@ -109,27 +100,17 @@ public class CcToolchainProviderHelper {
     // Static runtime inputs.
     TransitiveInfoCollection staticRuntimeLib = attributes.getStaticRuntimeLib();
     final NestedSet<Artifact> staticRuntimeLinkInputs;
-    final Artifact staticRuntimeLinkMiddleman;
-    boolean enableAggregatingMiddleman = configuration.enableAggregatingMiddleman();
 
     if (staticRuntimeLib != null) {
       staticRuntimeLinkInputs = staticRuntimeLib.getProvider(FileProvider.class).getFilesToBuild();
-      staticRuntimeLinkMiddleman =
-          getStaticRuntimeLinkMiddleman(
-              ruleContext, purposePrefix, staticRuntimeLib, staticRuntimeLinkInputs);
-      Preconditions.checkState(
-          (staticRuntimeLinkMiddleman == null)
-              == (staticRuntimeLinkInputs.isEmpty() || !enableAggregatingMiddleman));
     } else {
       staticRuntimeLinkInputs = null;
-      staticRuntimeLinkMiddleman = null;
     }
 
     // Dynamic runtime inputs.
     TransitiveInfoCollection dynamicRuntimeLib = attributes.getDynamicRuntimeLib();
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     NestedSetBuilder<Artifact> dynamicRuntimeLinkInputs = NestedSetBuilder.stableOrder();
-    Artifact dynamicRuntimeLinkMiddleman;
     if (dynamicRuntimeLib != null) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact :
@@ -151,20 +132,6 @@ public class CcToolchainProviderHelper {
       dynamicRuntimeLinkSymlinks = null;
     }
 
-    dynamicRuntimeLinkMiddleman =
-        getDynamicRuntimeLinkMiddleman(
-            ruleContext,
-            purposePrefix,
-            runtimeSolibDirBase,
-            solibDirectory,
-            dynamicRuntimeLinkInputs);
-
-    Preconditions.checkState(
-        (dynamicRuntimeLinkMiddleman == null)
-            == (dynamicRuntimeLinkSymlinks == null
-                || dynamicRuntimeLinkSymlinks.isEmpty()
-                || !enableAggregatingMiddleman));
-
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
@@ -177,7 +144,9 @@ public class CcToolchainProviderHelper {
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
     for (String s : toolchainConfigInfo.getCxxBuiltinIncludeDirectories()) {
       try {
-        builtInIncludeDirectoriesBuilder.add(resolveIncludeDir(s, sysroot, toolsDirectory));
+        builtInIncludeDirectoriesBuilder.add(
+            resolveIncludeDir(
+                s, sysroot, toolsDirectory, configuration.isSiblingRepositoryLayout()));
       } catch (InvalidConfigurationException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -192,7 +161,6 @@ public class CcToolchainProviderHelper {
         attributes.getAllowlistForLooseHeaderCheck();
 
     return new CcToolchainProvider(
-        getToolchainForStarlark(toolPaths),
         cppConfiguration,
         toolchainFeatures,
         toolsDirectory,
@@ -211,9 +179,7 @@ public class CcToolchainProviderHelper {
         attributes.getLibc(),
         attributes.getTargetLibc(),
         staticRuntimeLinkInputs,
-        staticRuntimeLinkMiddleman,
         dynamicRuntimeLinkSymlinks,
-        dynamicRuntimeLinkMiddleman,
         runtimeSolibDir,
         ccCompilationContext,
         attributes.isSupportsParamFiles(),
@@ -246,7 +212,6 @@ public class CcToolchainProviderHelper {
         // Crosstool and libc versions, you must always choose compatible ones.
         defaultSysroot,
         toolchainConfigInfo.getTargetLibc(),
-        toolchainConfigInfo.getHostSystemName(),
         ruleContext.getLabel(),
         solibDirectory,
         toolchainConfigInfo.getAbiVersion(),
@@ -254,56 +219,16 @@ public class CcToolchainProviderHelper {
         computeAdditionalMakeVariables(toolchainConfigInfo),
         computeLegacyCcFlagsMakeVariable(toolchainConfigInfo),
         allowlistForLayeringCheck,
-        allowlistForLooseHeaderCheck);
-  }
-
-  @Nullable
-  @VisibleForTesting
-  static Artifact getDynamicRuntimeLinkMiddleman(
-      RuleContext ruleContext,
-      String purposePrefix,
-      String runtimeSolibDirBase,
-      String solibDirectory,
-      NestedSetBuilder<Artifact> dynamicRuntimeLinkInputs) {
-    BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
-    boolean enableAggregatingMiddleman = configuration.enableAggregatingMiddleman();
-
-    if (dynamicRuntimeLinkInputs.isEmpty() || !enableAggregatingMiddleman) {
-      return null;
-    }
-    List<Artifact> dynamicRuntimeLinkMiddlemanSet =
-        CppHelper.getAggregatingMiddlemanForCppRuntimes(
-            ruleContext,
-            purposePrefix + "dynamic_runtime_link",
-            dynamicRuntimeLinkInputs.build(),
-            solibDirectory,
-            runtimeSolibDirBase,
-            configuration);
-    return dynamicRuntimeLinkMiddlemanSet.isEmpty()
-        ? null
-        : Iterables.getOnlyElement(dynamicRuntimeLinkMiddlemanSet);
-  }
-
-  @Nullable
-  @VisibleForTesting
-  static Artifact getStaticRuntimeLinkMiddleman(
-      RuleContext ruleContext,
-      String purposePrefix,
-      TransitiveInfoCollection staticRuntimeLib,
-      NestedSet<Artifact> staticRuntimeLinkInputs) {
-    boolean enableAggregatingMiddleman =
-        Preconditions.checkNotNull(ruleContext.getConfiguration()).enableAggregatingMiddleman();
-
-    if (staticRuntimeLinkInputs.isEmpty() || !enableAggregatingMiddleman) {
-      return null;
-    }
-
-    NestedSet<Artifact> staticRuntimeLinkMiddlemanSet =
-        CompilationHelper.getAggregatingMiddleman(
-            ruleContext, purposePrefix + "static_runtime_link", staticRuntimeLib);
-    return staticRuntimeLinkMiddlemanSet.isEmpty()
-        ? null
-        : staticRuntimeLinkMiddlemanSet.getSingleton();
+        allowlistForLooseHeaderCheck,
+        getStarlarkValueForTool(Tool.OBJCOPY, toolPaths),
+        getStarlarkValueForTool(Tool.GCC, toolPaths),
+        getStarlarkValueForTool(Tool.CPP, toolPaths),
+        getStarlarkValueForTool(Tool.NM, toolPaths),
+        getStarlarkValueForTool(Tool.OBJDUMP, toolPaths),
+        getStarlarkValueForTool(Tool.AR, toolPaths),
+        getStarlarkValueForTool(Tool.STRIP, toolPaths),
+        getStarlarkValueForTool(Tool.LD, toolPaths),
+        getStarlarkValueForTool(Tool.GCOV, toolPaths));
   }
 
   /**
@@ -328,7 +253,10 @@ public class CcToolchainProviderHelper {
    * <p>If it is absolute, it remains unchanged.
    */
   static PathFragment resolveIncludeDir(
-      String s, PathFragment sysroot, PathFragment crosstoolTopPathFragment)
+      String s,
+      PathFragment sysroot,
+      PathFragment crosstoolTopPathFragment,
+      boolean siblingRepositoryLayout)
       throws InvalidConfigurationException {
     PathFragment pathPrefix;
     String pathString;
@@ -337,7 +265,7 @@ public class CcToolchainProviderHelper {
       String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
       try {
         // TODO(jungjw): This should probably be getExecPath.
-        pathPrefix = PackageIdentifier.parse(packageString).getPackagePath();
+        pathPrefix = PackageIdentifier.parse(packageString).getPackagePath(siblingRepositoryLayout);
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
       }
@@ -373,9 +301,6 @@ public class CcToolchainProviderHelper {
       }
     }
 
-    if (!PathFragment.isNormalized(pathString)) {
-      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
-    }
     PathFragment path = PathFragment.create(pathString);
     return pathPrefix.getRelative(path);
   }
@@ -384,20 +309,6 @@ public class CcToolchainProviderHelper {
       Tool tool, ImmutableMap<String, PathFragment> toolPaths) {
     PathFragment toolPath = getToolPathFragment(toolPaths, tool);
     return toolPath != null ? toolPath.getPathString() : "";
-  }
-
-  private static ImmutableMap<String, Object> getToolchainForStarlark(
-      ImmutableMap<String, PathFragment> toolPaths) {
-    return ImmutableMap.<String, Object>builder()
-        .put("objcopy_executable", getStarlarkValueForTool(Tool.OBJCOPY, toolPaths))
-        .put("compiler_executable", getStarlarkValueForTool(Tool.GCC, toolPaths))
-        .put("preprocessor_executable", getStarlarkValueForTool(Tool.CPP, toolPaths))
-        .put("nm_executable", getStarlarkValueForTool(Tool.NM, toolPaths))
-        .put("objdump_executable", getStarlarkValueForTool(Tool.OBJDUMP, toolPaths))
-        .put("ar_executable", getStarlarkValueForTool(Tool.AR, toolPaths))
-        .put("strip_executable", getStarlarkValueForTool(Tool.STRIP, toolPaths))
-        .put("ld_executable", getStarlarkValueForTool(Tool.LD, toolPaths))
-        .build();
   }
 
   private static PathFragment calculateSysroot(Label libcTopLabel, PathFragment defaultSysroot) {
@@ -488,11 +399,12 @@ public class CcToolchainProviderHelper {
                 if (tool == CppConfiguration.Tool.DWP) {
                   // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
                   return false;
-                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA) {
+                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA || tool == Tool.LLVM_COV) {
                   // TODO(tmsriram): Fix this to check if this is a llvm crosstool
                   // and return true.  This needs changes to crosstool_config.proto.
                   return false;
                 } else if (tool == CppConfiguration.Tool.GCOVTOOL
+                    || tool == CppConfiguration.Tool.GCOV
                     || tool == CppConfiguration.Tool.OBJCOPY) {
                   // gcov-tool and objcopy are optional, don't check whether they're present
                   return false;

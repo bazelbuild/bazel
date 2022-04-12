@@ -57,7 +57,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
           <code>runfiles</code> of this <code>filegroup</code> rule. When the
           <code>filegroup</code> is referenced in the <code>data</code> attribute of
           another rule its <code>runfiles</code> will be added to the <code>runfiles</code>
-          of the depending rule. See the <a href="../build-ref.html#data">data dependencies</a>
+          of the depending rule. See the <a href="${link build-ref#data}">data dependencies</a>
           section and <a href="${link common-definitions#common.data}">general documentation of
           <code>data</code></a> for more information about how to depend on and use data files.
         </p>
@@ -75,7 +75,6 @@ public final class BazelFilegroupRule implements RuleDefinition {
             attr("path", STRING)
                 .undocumented(
                     "only used to expose FilegroupPathProvider, which is not currently used"))
-        .useToolchainResolution(false)
         .build();
   }
 
@@ -83,7 +82,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("filegroup")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Filegroup.class)
         .build();
   }

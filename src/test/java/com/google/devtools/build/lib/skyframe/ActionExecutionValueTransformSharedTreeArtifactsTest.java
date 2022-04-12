@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,45 +27,42 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
 /**
  * Tests for {@link ActionExecutionValue#transformForSharedAction} for values including tree
  * artifacts.
  */
-@RunWith(Parameterized.class)
-public class ActionExecutionValueTransformSharedTreeArtifactsTest {
+@RunWith(TestParameterInjector.class)
+public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
   private static final PathFragment DERIVED_PATH_PREFIX = PathFragment.create("bazel-out");
 
   private static final ActionLookupKey KEY_1 = mock(ActionLookupKey.class);
   private static final ActionLookupKey KEY_2 = mock(ActionLookupKey.class);
 
-  @Parameter public boolean includeArchivedRepresentationForTreeArtifacts;
-
-  @Parameters(name = "include archived tree artifacts: {0}")
-  public static ImmutableList<Boolean> archivedRepresentationOptions() {
-    return ImmutableList.of(true, false);
-  }
+  @TestParameter private boolean includeArchivedTreeArtifacts;
 
   private final Scratch scratch = new Scratch();
   private ArtifactRoot derivedRoot;
 
   @Before
   public void createDerivedRoot() throws IOException {
-    derivedRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/execroot"), DERIVED_PATH_PREFIX);
+    derivedRoot =
+        ArtifactRoot.asDerivedRoot(scratch.dir("/execroot"), RootType.Output, DERIVED_PATH_PREFIX);
   }
 
   @Test
@@ -79,7 +74,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
     SpecialArtifact tree2 = createTreeArtifact("dir", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(tree2));
+        actionExecutionValue.transformForSharedAction(new NullAction(tree2));
 
     assertThat(transformedValue.getAllFileValues()).isEmpty();
     assertThat(transformedValue.getAllTreeArtifactValues().keySet()).containsExactly(tree2);
@@ -95,7 +90,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
     SpecialArtifact tree2 = createTreeArtifact("dir", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(tree2));
+        actionExecutionValue.transformForSharedAction(new NullAction(tree2));
 
     assertThat(transformedValue.getAllFileValues()).isEmpty();
     assertThat(transformedValue.getAllTreeArtifactValues().keySet()).containsExactly(tree2);
@@ -114,7 +109,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
     SpecialArtifact sharedTree1 = createTreeArtifact("dir1", KEY_2);
     SpecialArtifact sharedTree2 = createTreeArtifact("dir2", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(sharedTree1, sharedTree2));
+        actionExecutionValue.transformForSharedAction(new NullAction(sharedTree1, sharedTree2));
 
     assertThat(transformedValue.getAllFileValues()).isEmpty();
     assertThat(transformedValue.getAllTreeArtifactValues().keySet())
@@ -139,7 +134,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
     SpecialArtifact sharedTree = createTreeArtifact("dir", KEY_2);
     DerivedArtifact sharedFile = createFileArtifact("file", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(sharedFile, sharedTree));
+        actionExecutionValue.transformForSharedAction(new NullAction(sharedFile, sharedTree));
 
     assertThat(transformedValue.getAllFileValues().keySet()).containsExactly(sharedFile);
     assertThat(transformedValue.getAllFileValues().get(sharedFile)).isSameInstanceAs(fileValue);
@@ -161,7 +156,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
     assertThat(actualValue.getChildPaths()).isEqualTo(originalValue.getChildPaths());
 
     assertThat(actualValue.getArchivedRepresentation().isPresent())
-        .isEqualTo(includeArchivedRepresentationForTreeArtifacts);
+        .isEqualTo(includeArchivedTreeArtifacts);
 
     actualValue
         .getArchivedRepresentation()
@@ -187,6 +182,8 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
                       .findAny()
                       .get();
               assertThat(artifact.getParent()).isEqualTo(expectedTree);
+              assertThat(artifact.getGeneratingActionKey())
+                  .isEqualTo(expectedTree.getGeneratingActionKey());
               assertOwnerlessEquals(originalArtifact, artifact);
               assertThat(artifact.isChildOfDeclaredDirectory())
                   .isEqualTo(originalArtifact.isChildOfDeclaredDirectory());
@@ -200,6 +197,8 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
       SpecialArtifact expectedTree,
       ArchivedRepresentation actualRepresentation) {
     assertThat(actualRepresentation.archivedTreeFileArtifact().getParent()).isEqualTo(expectedTree);
+    assertThat(actualRepresentation.archivedTreeFileArtifact().getGeneratingActionKey())
+        .isEqualTo(expectedTree.getGeneratingActionKey());
     assertOwnerlessEquals(
         expectedRepresentation.archivedTreeFileArtifact(),
         actualRepresentation.archivedTreeFileArtifact());
@@ -223,9 +222,8 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
       builder.putChild(childArtifact, FileArtifactValue.createForTesting(childArtifact));
     }
 
-    if (includeArchivedRepresentationForTreeArtifacts) {
-      ArchivedTreeArtifact archivedArtifact =
-          ArchivedTreeArtifact.create(treeArtifact, DERIVED_PATH_PREFIX);
+    if (includeArchivedTreeArtifacts) {
+      ArchivedTreeArtifact archivedArtifact = ArchivedTreeArtifact.createForTree(treeArtifact);
       createFile(archivedArtifact.getPath());
       builder.setArchivedRepresentation(
           archivedArtifact, FileArtifactValue.createForTesting(archivedArtifact));
@@ -235,12 +233,13 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
   }
 
   private DerivedArtifact createFileArtifact(String relativePath, ActionLookupKey owner) {
-    return new DerivedArtifact(derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
+    return DerivedArtifact.create(
+        derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath, ActionLookupKey owner) {
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             derivedRoot,
             DERIVED_PATH_PREFIX.getRelative(relativePath),
             owner,
@@ -257,12 +256,8 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
   private static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> fileArtifacts,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts) {
-    return ActionExecutionValue.create(
-        fileArtifacts,
-        treeArtifacts,
-        /*outputSymlinks=*/ null,
-        /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
+    return ActionExecutionValue.createForTesting(
+        fileArtifacts, treeArtifacts, /*outputSymlinks=*/ null);
   }
 
   private static void createFile(Path file) throws IOException {

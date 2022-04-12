@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import javax.annotation.Nullable;
 
 /**
@@ -39,11 +38,11 @@ public abstract class DependencyKey {
     Builder setAspects(AspectCollection aspectCollection);
 
     /**
-     * Sets the {@link ToolchainContextKey} that this dependency should use for toolchain
-     * resolution.
+     * Sets the execution platform {@link Label} that this dependency should use as an override for
+     * toolchain resolution.
      */
     @Nullable
-    Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
+    Builder setExecutionPlatformLabel(Label executionPlatformLabel);
 
     /** Returns the new instance. */
     DependencyKey build();
@@ -64,15 +63,15 @@ public abstract class DependencyKey {
   public abstract AspectCollection getAspects();
 
   /**
-   * Returns the {@link ToolchainContextKey} that this dependency should use for toolchain
-   * resolution.
+   * Returns the execution platform {@link Label} that this dependency should use as an override for
+   * toolchain resolution.
    */
   @Nullable
-  public abstract ToolchainContextKey getToolchainContextKey();
+  public abstract Label getExecutionPlatformLabel();
 
   public Dependency.Builder getDependencyBuilder() {
     return Dependency.builder()
         .setLabel(getLabel())
-        .setToolchainContextKey(getToolchainContextKey());
+        .setExecutionPlatformLabel(getExecutionPlatformLabel());
   }
 }

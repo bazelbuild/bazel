@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -56,14 +57,14 @@ public final class LinuxSandboxUtil {
   public static class CommandLineBuilder {
     private final Path linuxSandboxPath;
     private final List<String> commandArguments;
-
+    private Path hermeticSandboxPath;
     private Path workingDirectory;
     private Duration timeout;
     private Duration killDelay;
     private Path stdoutPath;
     private Path stderrPath;
     private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
-    private Set<Path> tmpfsDirectories = ImmutableSet.of();
+    private ImmutableSet<PathFragment> tmpfsDirectories = ImmutableSet.of();
     private Map<Path, Path> bindMounts = ImmutableMap.of();
     private Path statisticsPath;
     private boolean useFakeHostname = false;
@@ -76,6 +77,15 @@ public final class LinuxSandboxUtil {
     private CommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
       this.linuxSandboxPath = linuxSandboxPath;
       this.commandArguments = commandArguments;
+    }
+
+    /**
+     * Sets the sandbox path to chroot to, required for the hermetic linux sandbox to figure out
+     * where the working directory is.
+     */
+    public CommandLineBuilder setHermeticSandboxPath(Path sandboxPath) {
+      this.hermeticSandboxPath = sandboxPath;
+      return this;
     }
 
     /** Sets the working directory to use, if any. */
@@ -119,7 +129,7 @@ public final class LinuxSandboxUtil {
     }
 
     /** Sets the directories where to mount an empty tmpfs, if any. */
-    public CommandLineBuilder setTmpfsDirectories(Set<Path> tmpfsDirectories) {
+    public CommandLineBuilder setTmpfsDirectories(ImmutableSet<PathFragment> tmpfsDirectories) {
       this.tmpfsDirectories = tmpfsDirectories;
       return this;
     }
@@ -206,7 +216,7 @@ public final class LinuxSandboxUtil {
       for (Path writablePath : writableFilesAndDirectories) {
         commandLineBuilder.add("-w", writablePath.getPathString());
       }
-      for (Path tmpfsPath : tmpfsDirectories) {
+      for (PathFragment tmpfsPath : tmpfsDirectories) {
         commandLineBuilder.add("-e", tmpfsPath.getPathString());
       }
       for (Path bindMountTarget : bindMounts.keySet()) {
@@ -219,6 +229,9 @@ public final class LinuxSandboxUtil {
       }
       if (statisticsPath != null) {
         commandLineBuilder.add("-S", statisticsPath.getPathString());
+      }
+      if (hermeticSandboxPath != null) {
+        commandLineBuilder.add("-h", hermeticSandboxPath.getPathString());
       }
       if (useFakeHostname) {
         commandLineBuilder.add("-H");

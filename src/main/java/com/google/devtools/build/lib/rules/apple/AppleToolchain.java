@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -128,7 +129,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
 
   /** The default label of the build-wide {@code xcode_config} configuration rule. */
   public static LabelLateBoundDefault<AppleConfiguration> getXcodeConfigLabel(
-      String toolsRepository) {
+      RepositoryName toolsRepository) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         AppleConfiguration.class,
         Label.parseAbsoluteUnchecked(
@@ -170,9 +171,9 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
    * Base rule definition to be ancestor for rules which may require an xcode toolchain.
    */
   public static class RequiresXcodeConfigRule implements RuleDefinition {
-    private final String toolsRepository;
+    private final RepositoryName toolsRepository;
 
-    public RequiresXcodeConfigRule(String toolsRepository) {
+    public RequiresXcodeConfigRule(RepositoryName toolsRepository) {
       this.toolsRepository = toolsRepository;
     }
 

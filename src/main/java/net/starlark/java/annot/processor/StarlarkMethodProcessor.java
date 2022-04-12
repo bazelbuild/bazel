@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -159,6 +160,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
         hasFlag = true;
       }
 
+      if (annot.allowReturnNones() != (method.getAnnotation(Nullable.class) != null)) {
+        errorf(method, "Method must be annotated with @Nullable iff allowReturnNones is set.");
+      }
+
       checkParameters(method, annot);
 
       // Verify that result type, if final, might satisfy Starlark.fromJava.
@@ -237,12 +242,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
   private void checkParameters(ExecutableElement method, StarlarkMethod annot) {
     List<? extends VariableElement> params = method.getParameters();
 
-    TypeMirror objectType = getType("java.lang.Object");
-    TypeMirror voidType = getType("java.lang.Void");
-
     boolean allowPositionalNext = true;
     boolean allowPositionalOnlyNext = true;
     boolean allowNonDefaultPositionalNext = true;
+    boolean hasUndocumentedMethods = false;
 
     // Check @Param annotations match parameters.
     Param[] paramAnnots = annot.parameters();
@@ -259,7 +262,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
       VariableElement param = params.get(i);
 
-      checkParameter(param, paramAnnot, objectType, voidType);
+      checkParameter(param, paramAnnot);
 
       // Check parameter ordering.
       if (paramAnnot.positional()) {
@@ -272,7 +275,8 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
         if (!paramAnnot.named() && !allowPositionalOnlyNext) {
           errorf(
               param,
-              "Positional-only parameter '%s' is specified after one or more named parameters",
+              "Positional-only parameter '%s' is specified after one or more named or undocumented"
+                  + " parameters",
               paramAnnot.name());
         }
         if (paramAnnot.defaultValue().isEmpty()) { // There is no default value.
@@ -295,70 +299,45 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
           errorf(param, "Parameter '%s' must be either positional or named", paramAnnot.name());
         }
       }
-      if (paramAnnot.named()) {
+      if (!paramAnnot.documented()) {
+        hasUndocumentedMethods = true;
+      }
+      if (paramAnnot.named() || !paramAnnot.documented()) {
         // No positional-only parameters can come after this parameter.
         allowPositionalOnlyNext = false;
       }
     }
 
+    if (hasUndocumentedMethods && !annot.extraKeywords().name().isEmpty()) {
+      errorf(
+          method,
+          "Method '%s' has undocumented parameters but also allows extra keyword parameters",
+          annot.name());
+    }
     checkSpecialParams(method, annot);
   }
 
   // Checks consistency of a single parameter with its Param annotation.
-  private void checkParameter(
-      Element param, Param paramAnnot, TypeMirror objectType, TypeMirror voidType) {
+  private void checkParameter(Element param, Param paramAnnot) {
     TypeMirror paramType = param.asType(); // type of the Java method parameter
 
-    // A "noneable" parameter variable must accept the value None.
-    // A parameter whose default is None must be noneable.
-    if (paramAnnot.noneable()) {
-      if (!types.isSameType(paramType, objectType)) {
-        errorf(
-            param,
-            "Expected type 'Object' but got type '%s' for noneable parameter '%s'. The argument"
-                + " for a noneable parameter may be None, so the java parameter must be"
-                + " compatible with the type of None as well as possible non-None values.",
-            paramType,
-            param.getSimpleName());
-      }
-    } else if (paramAnnot.defaultValue().equals("None")) {
+    // Give helpful hint for parameter of type Integer.
+    TypeMirror integerType = getType("java.lang.Integer");
+    if (types.isSameType(paramType, integerType)) {
       errorf(
           param,
-          "Parameter '%s' has 'None' default value but is not noneable. (If this is intended"
-              + " as a mandatory parameter, leave the defaultValue field empty)",
+          "use StarlarkInt, not Integer for parameter '%s' (and see Starlark.toInt)",
           paramAnnot.name());
     }
 
-    // Check param.type.
-    if (!types.isSameType(getParamType(paramAnnot), voidType)) {
-      // Reject Param.type if not assignable to parameter variable.
-      TypeMirror t = getParamType(paramAnnot);
-      if (!types.isAssignable(t, types.erasure(paramType))) {
-        errorf(
-            param,
-            "annotated type %s of parameter '%s' is not assignable to variable of type %s",
-            t,
-            paramAnnot.name(),
-            paramType);
-      }
-
-      // Reject the combination of Param.type and Param.allowed_types.
-      if (paramAnnot.allowedTypes().length > 0) {
-        errorf(
-            param,
-            "Parameter '%s' has both 'type' and 'allowedTypes' specified. Only one may be"
-                + " specified.",
-            paramAnnot.name());
-      }
-    }
-
-    // Reject an Param.allowed_type if not assignable to parameter variable.
+    // Reject an entry of Param.allowedTypes if not assignable to the parameter variable.
     for (ParamType paramTypeAnnot : paramAnnot.allowedTypes()) {
       TypeMirror t = getParamTypeType(paramTypeAnnot);
       if (!types.isAssignable(t, types.erasure(paramType))) {
         errorf(
             param,
-            "annotated allowed_type %s of parameter '%s' is not assignable to variable of type %s",
+            "annotated allowedTypes entry %s of parameter '%s' is not assignable to variable of "
+                + "type %s",
             t,
             paramAnnot.name(),
             paramType);
@@ -411,22 +390,16 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
               : "Parameter '%s' has valueWhenDisabled set, but is always enabled",
           paramAnnot.name());
     }
+
+    // Ensure positional arguments are documented.
+    if (!paramAnnot.documented() && paramAnnot.positional()) {
+      errorf(
+          param, "Parameter '%s' must be documented because it is positional.", paramAnnot.name());
+    }
   }
 
   private static boolean hasPlusMinusPrefix(String s) {
     return s.charAt(0) == '-' || s.charAt(0) == '+';
-  }
-
-  // Returns the logical type of Param.type.
-  private static TypeMirror getParamType(Param param) {
-    // See explanation of this hack at Element.getAnnotation
-    // and at https://stackoverflow.com/a/10167558.
-    try {
-      param.type();
-      throw new IllegalStateException("unreachable");
-    } catch (MirroredTypeException ex) {
-      return ex.getTypeMirror();
-    }
   }
 
   // Returns the logical type of ParamType.type.
@@ -470,14 +443,13 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
 
     if (!annot.extraPositionals().name().isEmpty()) {
       VariableElement param = params.get(index++);
-      // Allow any supertype of Tuple<Object>.
-      TypeMirror tupleOfObjectType =
-          types.getDeclaredType(
-              elements.getTypeElement("net.starlark.java.eval.Tuple"), getType("java.lang.Object"));
-      if (!types.isAssignable(tupleOfObjectType, param.asType())) {
+      // Allow any supertype of Tuple.
+      TypeMirror tupleType =
+          types.getDeclaredType(elements.getTypeElement("net.starlark.java.eval.Tuple"));
+      if (!types.isAssignable(tupleType, param.asType())) {
         errorf(
             param,
-            "extraPositionals special parameter '%s' has type %s, to which Tuple<Object> cannot be"
+            "extraPositionals special parameter '%s' has type %s, to which a Tuple cannot be"
                 + " assigned",
             param.getSimpleName(),
             param.asType());

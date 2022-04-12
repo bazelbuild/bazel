@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -105,7 +105,7 @@ public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
 
   protected abstract Label getLabel();
 
-  protected abstract BuildConfiguration getConfiguration();
+  protected abstract BuildConfigurationValue getConfiguration();
 
   protected abstract Location getRuleLocation();
 }

@@ -15,24 +15,30 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcStarlarkApiProviderApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A class that exposes the C++ providers to Starlark. It is intended to provide a simple and stable
  * interface for Starlark users.
  */
-@AutoCodec
+@StarlarkBuiltin(
+    name = "CcStarlarkApiProvider",
+    category = DocCategory.PROVIDER,
+    doc =
+        "Provides access to information about C++ rules.  Every C++-related target provides this"
+            + " struct, accessible as a <code>cc</code> field on <a"
+            + " href=\"Target.html\">target</a>.")
 public final class CcStarlarkApiProvider extends StarlarkApiProvider
-    implements CcStarlarkApiProviderApi<Artifact> {
+    implements CcStarlarkApiProviderApi<Artifact>, StarlarkValue {
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "cc";
 
@@ -44,39 +50,25 @@ public final class CcStarlarkApiProvider extends StarlarkApiProvider
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveHeadersForStarlark() {
-    return Depset.of(Artifact.TYPE, getTransitiveHeaders());
+    return CcStarlarkApiInfo.getTransitiveHeadersForStarlark(getInfo().get(CcInfo.PROVIDER));
   }
 
   NestedSet<Artifact> getTransitiveHeaders() {
-    CcCompilationContext ccCompilationContext =
-        getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
-    return ccCompilationContext.getDeclaredIncludeSrcs();
+    return CcStarlarkApiInfo.getTransitiveHeaders(getInfo().get(CcInfo.PROVIDER));
   }
 
   @Override
   public Depset /*<Artifact>*/ getLibrariesForStarlark() {
-    return Depset.of(Artifact.TYPE, getLibraries());
+    return CcStarlarkApiInfo.getLibrariesForStarlark(getInfo().get(CcInfo.PROVIDER));
   }
 
   NestedSet<Artifact> getLibraries() {
-    NestedSetBuilder<Artifact> libs = NestedSetBuilder.linkOrder();
-    CcInfo ccInfo = getInfo().get(CcInfo.PROVIDER);
-    if (ccInfo == null) {
-      return libs.build();
-    }
-    for (Artifact lib : ccInfo.getCcLinkingContext().getStaticModeParamsForExecutableLibraries()) {
-      libs.add(lib);
-    }
-    return libs.build();
+    return CcStarlarkApiInfo.getLibraries(getInfo().get(CcInfo.PROVIDER));
   }
 
   @Override
   public ImmutableList<String> getLinkopts() {
-    CcInfo ccInfo = getInfo().get(CcInfo.PROVIDER);
-    if (ccInfo == null) {
-      return ImmutableList.of();
-    }
-    return ccInfo.getCcLinkingContext().getFlattenedUserLinkFlags();
+    return CcStarlarkApiInfo.getLinkopts(getInfo().get(CcInfo.PROVIDER));
   }
 
   @Override
@@ -85,70 +77,26 @@ public final class CcStarlarkApiProvider extends StarlarkApiProvider
         getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
     return ccCompilationContext == null
         ? ImmutableList.<String>of()
-        : ccCompilationContext.getDefines().toList();
+        : ccCompilationContext.getDefines();
   }
 
   @Override
   public ImmutableList<String> getSystemIncludeDirs() {
-    CcCompilationContext ccCompilationContext =
-        getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
-    if (ccCompilationContext == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (PathFragment path : ccCompilationContext.getSystemIncludeDirs()) {
-      builder.add(path.getSafePathString());
-    }
-    return builder.build();
+    return CcStarlarkApiInfo.getSystemIncludeDirs(getInfo().get(CcInfo.PROVIDER));
   }
 
   @Override
   public ImmutableList<String> getIncludeDirs() {
-    CcCompilationContext ccCompilationContext =
-        getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
-    if (ccCompilationContext == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (PathFragment path : ccCompilationContext.getIncludeDirs()) {
-      builder.add(path.getSafePathString());
-    }
-    return builder.build();
+    return CcStarlarkApiInfo.getIncludeDirs(getInfo().get(CcInfo.PROVIDER));
   }
 
   @Override
   public ImmutableList<String> getQuoteIncludeDirs() {
-    CcCompilationContext ccCompilationContext =
-        getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
-    if (ccCompilationContext == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (PathFragment path : ccCompilationContext.getQuoteIncludeDirs()) {
-      builder.add(path.getSafePathString());
-    }
-    return builder.build();
+    return CcStarlarkApiInfo.getQuoteIncludeDirs(getInfo().get(CcInfo.PROVIDER));
   }
 
   @Override
   public ImmutableList<String> getCcFlags() {
-    CcCompilationContext ccCompilationContext =
-        getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
-
-    ImmutableList.Builder<String> options = ImmutableList.builder();
-    for (String define : ccCompilationContext.getDefines().toList()) {
-      options.add("-D" + define);
-    }
-    for (PathFragment path : ccCompilationContext.getSystemIncludeDirs()) {
-      options.add("-isystem " + path.getSafePathString());
-    }
-    for (PathFragment path : ccCompilationContext.getIncludeDirs()) {
-      options.add("-I " + path.getSafePathString());
-    }
-    for (PathFragment path : ccCompilationContext.getQuoteIncludeDirs()) {
-      options.add("-iquote " + path.getSafePathString());
-    }
-
-    return options.build();
+    return CcStarlarkApiInfo.getCcFlags(getInfo().get(CcInfo.PROVIDER));
   }
 }

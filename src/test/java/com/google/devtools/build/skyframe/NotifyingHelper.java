@@ -20,6 +20,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -165,6 +166,7 @@ public class NotifyingHelper {
     ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,
     GET_BATCH,
+    GET_VALUES,
     GET_TEMPORARY_DIRECT_DEPS,
     SIGNAL,
     SET_VALUE,
@@ -176,6 +178,7 @@ public class NotifyingHelper {
     IS_DIRTY,
     IS_READY,
     CHECK_IF_DONE,
+    ADD_TEMPORARY_DIRECT_DEPS,
     GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE,
     RESET_FOR_RESTART_FROM_SCRATCH,
   }
@@ -214,7 +217,7 @@ public class NotifyingHelper {
             e,
             "In NotifyingGraph: "
                 + Joiner.on(", ").join(key, type, order, context == null ? "null" : context));
-        throw e;
+        throw new IllegalStateException(e);
       }
     }
   }
@@ -269,16 +272,18 @@ public class NotifyingHelper {
 
     @Override
     public boolean signalDep(Version childVersion, @Nullable SkyKey childForDebugging) {
-      graphListener.accept(myKey, EventType.SIGNAL, Order.BEFORE, childVersion);
+      graphListener.accept(myKey, EventType.SIGNAL, Order.BEFORE, childForDebugging);
       boolean result = super.signalDep(childVersion, childForDebugging);
-      graphListener.accept(myKey, EventType.SIGNAL, Order.AFTER, childVersion);
+      graphListener.accept(myKey, EventType.SIGNAL, Order.AFTER, childForDebugging);
       return result;
     }
 
     @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+    public Set<SkyKey> setValue(
+        SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
+        throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version);
+      Set<SkyKey> result = super.setValue(value, graphVersion, maxTransitiveSourceVersion);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
       return result;
     }
@@ -345,6 +350,14 @@ public class NotifyingHelper {
     }
 
     @Override
+    public Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, helper);
+      Set<SkyKey> skyKeys = super.addTemporaryDirectDeps(helper);
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, helper);
+      return skyKeys;
+    }
+
+    @Override
     public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
@@ -359,7 +372,7 @@ public class NotifyingHelper {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this).add("delegate", getThinDelegate()).toString();
+      return MoreObjects.toStringHelper(this).add("delegate", delegate).toString();
     }
   }
 

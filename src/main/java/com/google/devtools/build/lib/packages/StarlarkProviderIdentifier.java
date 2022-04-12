@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -72,6 +73,16 @@ public final class StarlarkProviderIdentifier {
   public Provider.Key getKey() {
     Preconditions.checkState(!isLegacy(), "Check !isLegacy() first");
     return key;
+  }
+
+  void fingerprint(Fingerprint fp) {
+    if (isLegacy()) {
+      fp.addBoolean(true);
+      fp.addString(legacyId);
+    } else {
+      fp.addBoolean(false);
+      key.fingerprint(fp);
+    }
   }
 
   @Override

@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+
 /**
  * An exception indication that the execution of an action has failed OR could not be attempted OR
  * could not be finished OR had something else wrong.
  *
- * <p>The five main kinds of failure are broadly defined as follows:
+ * <p>The six main kinds of failure are broadly defined as follows:
  *
  * <p>USER_INPUT which means it had something to do with what the user told us to do. This failure
  * should satisfy the invariant that it would happen identically again if all other things are
@@ -36,6 +38,8 @@ package com.google.devtools.build.lib.actions;
  * <p>LOST_INPUT which means the failure occurred because the action expected to consume some input
  * that went missing. Although this seems similar to ENVIRONMENT, Blaze may know how to fix this
  * problem.
+ *
+ * <p>MISSING_DEP which means that a skyframe restart is necessary because a dependency was missing.
  *
  * <p>The class is a catch-all for both failures of actions and failures to evaluate actions
  * properly.
@@ -61,13 +65,9 @@ public abstract class ExecException extends Exception {
     this.catastrophe = false;
   }
 
-  public ExecException(String message, Throwable cause, boolean catastrophe) {
-    super(message + ": " + cause.getMessage(), cause);
-    this.catastrophe = catastrophe;
-  }
-
   public ExecException(String message, Throwable cause) {
-    this(message, cause, false);
+    super(message + ": " + cause.getMessage(), cause);
+    this.catastrophe = false;
   }
 
   /** Catastrophic exceptions should stop the build, even if --keep_going. */
@@ -75,25 +75,9 @@ public abstract class ExecException extends Exception {
     return catastrophe;
   }
 
-  /**
-   * Returns a new ActionExecutionException without a message prefix.
-   *
-   * @param action failed action
-   * @return ActionExecutionException object describing the action failure
-   */
-  public ActionExecutionException toActionExecutionException(Action action) {
-    return toActionExecutionException("", action);
+  protected String getMessageForActionExecutionException() {
+    return getMessage();
   }
 
-  /**
-   * Returns a new ActionExecutionException given a message prefix describing the action type as a
-   * noun. When appropriate (we use some heuristics to decide), produces an abbreviated message
-   * incorporating just the termination status if available.
-   *
-   * @param messagePrefix describes the action type as noun
-   * @param action failed action
-   * @return ActionExecutionException object describing the action failure
-   */
-  public abstract ActionExecutionException toActionExecutionException(
-      String messagePrefix, Action action);
+  protected abstract FailureDetail getFailureDetail(String message);
 }

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -56,13 +55,11 @@ public class RunUnderConverter implements Converter<RunUnder> {
     }
   }
 
-  @AutoCodec
-  static final class RunUnderLabel implements RunUnder {
+  private static final class RunUnderLabel implements RunUnder {
     private final String input;
     private final Label runUnderLabel;
     private final ImmutableList<String> runUnderList;
 
-    @AutoCodec.Instantiator
     RunUnderLabel(String input, Label runUnderLabel, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderLabel = runUnderLabel;
@@ -114,13 +111,11 @@ public class RunUnderConverter implements Converter<RunUnder> {
     }
   }
 
-  @AutoCodec
-  static final class RunUnderCommand implements RunUnder {
+  private static final class RunUnderCommand implements RunUnder {
     private final String input;
     private final String runUnderCommand;
     private final ImmutableList<String> runUnderList;
 
-    @AutoCodec.Instantiator
     RunUnderCommand(String input, String runUnderCommand, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderCommand = runUnderCommand;

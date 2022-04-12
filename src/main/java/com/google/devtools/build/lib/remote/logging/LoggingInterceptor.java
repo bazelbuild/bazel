@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.bytestream.ByteStreamGrpc;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -39,6 +40,8 @@ import javax.annotation.Nullable;
 
 /** Client interceptor for logging details of certain gRPC calls. */
 public class LoggingInterceptor implements ClientInterceptor {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final AsynchronousFileOutputStream rpcLogFile;
   private final Clock clock;
 
@@ -55,8 +58,8 @@ public class LoggingInterceptor implements ClientInterceptor {
    * @param method Method to return handler for.
    */
   @SuppressWarnings("rawtypes")
-  protected <ReqT, RespT> @Nullable LoggingHandler selectHandler(
-      MethodDescriptor<ReqT, RespT> method) {
+  @Nullable
+  protected <ReqT, RespT> LoggingHandler selectHandler(MethodDescriptor<ReqT, RespT> method) {
     if (method == ExecutionGrpc.getExecuteMethod()) {
       return new ExecuteHandler(); // <ExecuteRequest, Operation>
     } else if (method == ExecutionGrpc.getWaitExecutionMethod()) {
@@ -71,6 +74,8 @@ public class LoggingInterceptor implements ClientInterceptor {
       return new ReadHandler(); // <ReadRequest, ReadResponse>
     } else if (method == ByteStreamGrpc.getWriteMethod()) {
       return new WriteHandler(); // <WriteRequest, WriteResponse>
+    } else if (method == ByteStreamGrpc.getQueryWriteStatusMethod()) {
+      return new QueryWriteStatusHandler(); // <QueryWriteStatusRequest, QueryWriteStatusResponse>
     } else if (method == CapabilitiesGrpc.getGetCapabilitiesMethod()) {
       return new GetCapabilitiesHandler(); // <GetCapabilitiesRequest, ServerCapabilities>
     }
@@ -133,12 +138,22 @@ public class LoggingInterceptor implements ClientInterceptor {
               super.onMessage(message);
             }
 
+            /**
+             * This method must not throw any exceptions! Doing so will cause the wrapped call to
+             * silently hang indefinitely: https://github.com/grpc/grpc-java/pull/6107
+             */
             @Override
             public void onClose(Status status, Metadata trailers) {
               entryBuilder.setEndTime(getCurrentTimestamp());
               entryBuilder.setStatus(makeStatusProto(status));
               entryBuilder.setDetails(handler.getDetails());
-              rpcLogFile.write(entryBuilder.build());
+              try {
+                rpcLogFile.write(entryBuilder.build());
+              } catch (RuntimeException e) {
+                // e.g. the log file is already closed.
+                logger.atWarning().withCause(e).log(
+                    "Unable to write RPC log entry for %s", entryBuilder.build());
+              }
               super.onClose(status, trailers);
             }
           },

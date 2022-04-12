@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -27,10 +28,8 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -60,7 +59,7 @@ public class RemoteOutputService implements OutputService {
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      boolean trackFailedRemoteReads) {
+      boolean rewindingEnabled) {
     Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
         sourceDelegate,
@@ -115,13 +114,6 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public boolean isRemoteFile(Artifact artifact) {
-    Path path = artifact.getPath();
-    return path.getFileSystem() instanceof RemoteActionFileSystem
-        && ((RemoteActionFileSystem) path.getFileSystem()).isRemote(path);
-  }
-
-  @Override
   public boolean supportsPathResolverForArtifactValues() {
     return actionFileSystemType() != ActionFileSystemType.DISABLED;
   }
@@ -133,7 +125,7 @@ public class RemoteOutputService implements OutputService {
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(

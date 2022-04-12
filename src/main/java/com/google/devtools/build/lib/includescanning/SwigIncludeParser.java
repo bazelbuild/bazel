@@ -43,8 +43,8 @@ class SwigIncludeParser extends IncludeParser {
     return pos;
   }
 
-  @Override
   /** See javadoc for {@link IncludeParser#getFileType()} */
+  @Override
   protected GrepIncludesFileType getFileType() {
     return GrepIncludesFileType.SWIG;
   }
@@ -90,6 +90,6 @@ class SwigIncludeParser extends IncludeParser {
     inclusionContent = CharMatcher.whitespace().trimFrom(inclusionContent);
 
     // Treat swig inclusions w/o quotes or angle brackets as quoted inclusions.
-    return inclusionContent.length() > 0 ? new Inclusion(inclusionContent, Kind.QUOTE) : null;
+    return inclusionContent.length() > 0 ? Inclusion.create(inclusionContent, Kind.QUOTE) : null;
   }
 }

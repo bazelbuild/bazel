@@ -67,7 +67,7 @@ fi
 
 #### TESTS #############################################################
 
-# Sanity test that our environment setup works.
+# Check that our environment setup works.
 function test_can_run_py_binaries() {
   mkdir -p test
 
@@ -531,13 +531,13 @@ py_library(
     # (i.e., those implemented in C) use a different loader than
     # Python-implemented ones, even though they're both part of the standard
     # distribution of the interpreter.
-    srcs = ["re.py"],
+    srcs = ["mailbox.py"],
 )
 EOF
   cat > test/main.py << EOF
-import re
+import mailbox
 EOF
-  cat > test/re.py << EOF
+  cat > test/mailbox.py << EOF
 print("I am lib!")
 EOF
 

@@ -22,6 +22,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 /** Options used by {@link BuildEventServiceModule}. */
 public class BuildEventServiceOptions extends OptionsBase {
@@ -32,10 +33,10 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Specifies the build event service (BES) backend endpoint as HOST or HOST:PORT. Disabled"
-              + " by default.The supported schemas are grpc and grpcs (grpc with TLS enabled). If"
-              + " no schema is provided bazel'll default to grpcs. Specify grpc:// schema to"
-              + " disable TLS.")
+          "Specifies the build event service (BES) backend endpoint in the form"
+              + " [SCHEME://]HOST[:PORT]. The default is to disable BES uploads. Supported schemes"
+              + " are grpc and grpcs (grpc with TLS enabled). If no scheme is provided, Bazel"
+              + " assumes grpcs.")
   public String besBackend;
 
   @Option(
@@ -52,17 +53,17 @@ public class BuildEventServiceOptions extends OptionsBase {
   public Duration besTimeout;
 
   @Option(
-      name = "bes_best_effort",
-      defaultValue = "false",
-      deprecationWarning =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.",
+      name = "bes_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.")
-  public boolean besBestEffort;
+          "Specify a header in NAME=VALUE form that will be included in BES requests. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Map.Entry<String, String>> besHeaders;
 
   @Option(
     name = "bes_lifecycle_events",
@@ -74,13 +75,15 @@ public class BuildEventServiceOptions extends OptionsBase {
   public boolean besLifecycleEvents;
 
   @Option(
-    name = "project_id",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Specifies the BES project identifier. Defaults to null."
-  )
-  public String projectId;
+      name = "bes_instance_name",
+      oldName = "project_id",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Specifies the instance name under which the BES will persist uploaded BEP. Defaults "
+              + "to null.")
+  public String instanceName;
 
   @Option(
       name = "bes_keywords",

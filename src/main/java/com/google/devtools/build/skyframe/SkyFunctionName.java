@@ -15,22 +15,20 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import java.io.Serializable;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 /** An identifier for a {@code SkyFunction}. */
-public final class SkyFunctionName implements Serializable {
-  private static final Cache<NameOnlyWrapper, SkyFunctionName> interner =
-      CacheBuilder.newBuilder().build();
+public final class SkyFunctionName {
+
+  private static final Interner<SkyFunctionName> interner = BlazeInterners.newStrongInterner();
 
   /**
    * A well-known key type intended for testing only. The associated SkyKey should have a String
    * argument.
    */
-  // Needs to be after the cache is initialized.
+  // Needs to be after the interner is initialized.
   public static final SkyFunctionName FOR_TESTING = SkyFunctionName.createHermetic("FOR_TESTING");
 
   /**
@@ -40,7 +38,7 @@ public final class SkyFunctionName implements Serializable {
    * opposed to transitively invalidated).
    */
   public static SkyFunctionName createNonHermetic(String name) {
-    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.NONHERMETIC);
+    return create(name, FunctionHermeticity.NONHERMETIC);
   }
 
   /**
@@ -48,7 +46,7 @@ public final class SkyFunctionName implements Serializable {
    * FunctionHermeticity#SEMI_HERMETIC semi-hermetic}.
    */
   public static SkyFunctionName createSemiHermetic(String name) {
-    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.SEMI_HERMETIC);
+    return create(name, FunctionHermeticity.SEMI_HERMETIC);
   }
 
   /**
@@ -56,43 +54,31 @@ public final class SkyFunctionName implements Serializable {
    * to be a deterministic function of its dependencies, not doing any external operations).
    */
   public static SkyFunctionName createHermetic(String name) {
-    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.HERMETIC);
+    return create(name, FunctionHermeticity.HERMETIC);
   }
 
-  public static SkyFunctionName create(
-      String name, ShareabilityOfValue shareabilityOfValue, FunctionHermeticity hermeticity) {
-    SkyFunctionName result = new SkyFunctionName(name, shareabilityOfValue, hermeticity);
-    SkyFunctionName cached;
-    try {
-      cached = interner.get(new NameOnlyWrapper(result), () -> result);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+  private static SkyFunctionName create(String name, FunctionHermeticity hermeticity) {
+    SkyFunctionName cached = interner.intern(new SkyFunctionName(name, hermeticity));
     Preconditions.checkState(
-        result.equals(cached),
-        "Tried to create SkyFunctionName objects with same name but different properties: %s %s",
-        result,
-        cached);
+        cached.hermeticity.equals(hermeticity),
+        "Tried to create SkyFunctionName objects with same name (%s) but different hermeticity"
+            + " (old=%s, new=%s)",
+        name,
+        cached.hermeticity,
+        hermeticity);
     return cached;
   }
 
   private final String name;
-  private final ShareabilityOfValue shareabilityOfValue;
   private final FunctionHermeticity hermeticity;
 
-  private SkyFunctionName(
-      String name, ShareabilityOfValue shareabilityOfValue, FunctionHermeticity hermeticity) {
-    this.name = name;
-    this.shareabilityOfValue = shareabilityOfValue;
-    this.hermeticity = hermeticity;
+  private SkyFunctionName(String name, FunctionHermeticity hermeticity) {
+    this.name = Preconditions.checkNotNull(name);
+    this.hermeticity = Preconditions.checkNotNull(hermeticity);
   }
 
   public String getName() {
     return name;
-  }
-
-  public ShareabilityOfValue getShareabilityOfValue() {
-    return shareabilityOfValue;
   }
 
   public FunctionHermeticity getHermeticity() {
@@ -101,7 +87,7 @@ public final class SkyFunctionName implements Serializable {
 
   @Override
   public String toString() {
-    return name + (shareabilityOfValue.equals(ShareabilityOfValue.NEVER) ? " (unshareable)" : "");
+    return name;
   }
 
   @Override
@@ -113,48 +99,26 @@ public final class SkyFunctionName implements Serializable {
       return false;
     }
     SkyFunctionName other = (SkyFunctionName) obj;
-    return name.equals(other.name) && shareabilityOfValue.equals(other.shareabilityOfValue);
+    return name.equals(other.name);
   }
 
   @Override
   public int hashCode() {
-    // Don't bother incorporating serializabilityOfValue into hashCode: should always be the same.
+    // Don't bother incorporating hermeticity into hashCode: should always be the same.
     return name.hashCode();
   }
 
   /**
    * A predicate that returns true for {@link SkyKey}s that have the given {@link SkyFunctionName}.
    */
-  public static Predicate<SkyKey> functionIs(final SkyFunctionName functionName) {
+  public static Predicate<SkyKey> functionIs(SkyFunctionName functionName) {
     return skyKey -> functionName.equals(skyKey.functionName());
   }
 
   /**
    * A predicate that returns true for {@link SkyKey}s that have the given {@link SkyFunctionName}.
    */
-  public static Predicate<SkyKey> functionIsIn(final Set<SkyFunctionName> functionNames) {
+  public static Predicate<SkyKey> functionIsIn(Set<SkyFunctionName> functionNames) {
     return skyKey -> functionNames.contains(skyKey.functionName());
-  }
-
-  private static class NameOnlyWrapper {
-    private final SkyFunctionName skyFunctionName;
-
-    private NameOnlyWrapper(SkyFunctionName skyFunctionName) {
-      this.skyFunctionName = skyFunctionName;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!(obj instanceof NameOnlyWrapper)) {
-        return false;
-      }
-      SkyFunctionName thatFunctionName = ((NameOnlyWrapper) obj).skyFunctionName;
-      return this.skyFunctionName.getName().equals(thatFunctionName.name);
-    }
-
-    @Override
-    public int hashCode() {
-      return skyFunctionName.getName().hashCode();
-    }
   }
 }

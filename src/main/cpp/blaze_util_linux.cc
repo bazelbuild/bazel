@@ -51,10 +51,10 @@ string GetOutputRoot() {
   } else {
     char buf[2048];
     struct passwd pwbuf;
-    struct passwd *pw = NULL;
+    struct passwd *pw = nullptr;
     int uid = getuid();
     int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-    if (r != -1 && pw != NULL) {
+    if (r != -1 && pw != nullptr) {
       base = pw->pw_dir;
     }
   }
@@ -80,13 +80,6 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
                        << "' is on NFS. This may lead to surprising failures "
                           "and undetermined behavior.";
   }
-}
-
-string GetSelfPath(const char* argv0) {
-  // The file to which this symlink points could change contents or go missing
-  // concurrent with execution of the Bazel client, so we don't eagerly resolve
-  // it.
-  return "/proc/self/exe";
 }
 
 uint64_t GetMillisecondsMonotonic() {
@@ -152,7 +145,7 @@ string GetSystemJavabase() {
 
   // Resolve all symlinks.
   char resolved_path[PATH_MAX];
-  if (realpath(javac_dir.c_str(), resolved_path) == NULL) {
+  if (realpath(javac_dir.c_str(), resolved_path) == nullptr) {
     return "";
   }
   javac_dir = resolved_path;

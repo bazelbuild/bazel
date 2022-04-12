@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -141,7 +141,8 @@ public abstract class TestStrategy implements TestActionContext {
    * @return the command line as string list.
    * @throws ExecException if {@link #expandedArgsFromAction} throws
    */
-  public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
+  public static ImmutableList<String> getArgs(TestRunnerAction testAction)
+      throws ExecException, InterruptedException {
     try {
       return expandedArgsFromAction(testAction);
     } catch (CommandLineExpansionException e) {
@@ -163,7 +164,7 @@ public abstract class TestStrategy implements TestActionContext {
    * @throws CommandLineExpansionException
    */
   public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): `executedOnWindows` is incorrect for remote execution, where we need to
     // consider the target configuration, not the machine Bazel happens to run on. Change this to
@@ -185,7 +186,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
-    args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
+    args.add(execSettings.getExecutable().getRunfilesPath().getCallablePathString());
     Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
   }
@@ -194,7 +195,7 @@ public abstract class TestStrategy implements TestActionContext {
       TestRunnerAction testAction, List<String> args, boolean executedOnWindows) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     if (execSettings.getRunUnderExecutable() != null) {
-      args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
+      args.add(execSettings.getRunUnderExecutable().getRunfilesPath().getCallablePathString());
     } else {
       if (execSettings.needsShell(executedOnWindows)) {
         // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
@@ -224,13 +225,13 @@ public abstract class TestStrategy implements TestActionContext {
         : getTestAttempts(action, /*defaultTestAttempts=*/ 1);
   }
 
-  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
-    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
-  }
-
   private int getTestAttempts(TestRunnerAction action, int defaultTestAttempts) {
     Label testLabel = action.getOwner().getLabel();
     return getTestAttemptsPerLabel(executionOptions, testLabel, defaultTestAttempts);
+  }
+
+  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
+    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
   }
 
   private static int getTestAttemptsPerLabel(
@@ -253,8 +254,8 @@ public abstract class TestStrategy implements TestActionContext {
    * the "categorical timeouts" which are based on the --test_timeout flag. A rule picks its timeout
    * but ends up with the same effective value as all other rules in that bucket.
    */
-  protected final Duration getTimeout(TestRunnerAction testAction) {
-    BuildConfiguration configuration = testAction.getConfiguration();
+  protected static final Duration getTimeout(TestRunnerAction testAction) {
+    BuildConfigurationValue configuration = testAction.getConfiguration();
     return configuration
         .getFragment(TestConfiguration.class)
         .getTestTimeout()

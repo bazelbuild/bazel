@@ -45,8 +45,7 @@ public class SwigIncludeScanner extends LegacyIncludeScanner {
       List<PathFragment> includePaths,
       BlazeDirectories directories,
       ArtifactFactory artifactFactory,
-      Path execRoot,
-      boolean useAsyncIncludeScanner) {
+      Path execRoot) {
     super(
         new SwigIncludeParser(),
         includePool,
@@ -58,7 +57,6 @@ public class SwigIncludeScanner extends LegacyIncludeScanner {
         directories.getOutputPath(execRoot.getBaseName()),
         execRoot,
         artifactFactory,
-        () -> spawnIncludeScanner,
-        useAsyncIncludeScanner);
+        () -> spawnIncludeScanner);
   }
 }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -24,28 +26,42 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.util.OptionalLong;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
- * A {@link PackageLoadingListener} for use in tests that a sanity check with {@link
- * BazelPackageLoader} for each loaded package, for the sake of getting pretty nice test coverage.
+ * A {@link PackageLoadingListener} for use in tests that a check with {@link BazelPackageLoader}
+ * for each loaded package, for the sake of getting pretty nice test coverage.
  */
 public class BazelPackageLoadingListenerForTesting implements PackageLoadingListener {
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BlazeDirectories directories;
+  private final ImmutableList<Injected> extraPrecomputedValues;
+  private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
   public BazelPackageLoadingListenerForTesting(
-      ConfiguredRuleClassProvider ruleClassProvider, BlazeDirectories directories) {
+      ConfiguredRuleClassProvider ruleClassProvider,
+      BlazeDirectories directories,
+      ImmutableList<Injected> extraPrecomputedValues,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions) {
     this.ruleClassProvider = ruleClassProvider;
     this.directories = directories;
+    this.extraPrecomputedValues = extraPrecomputedValues;
+    this.extraSkyFunctions = extraSkyFunctions;
   }
 
   @Override
   public void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+      Package pkg,
+      StarlarkSemantics starlarkSemantics,
+      long loadTimeNanos,
+      OptionalLong packageOverhead) {
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
 
@@ -57,6 +73,8 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
             directories.getOutputBase())
         .setStarlarkSemantics(starlarkSemantics)
         .setRuleClassProvider(ruleClassProvider)
+        .addExtraPrecomputedValues(extraPrecomputedValues)
+        .addExtraSkyFunctions(extraSkyFunctions)
         .build();
   }
 

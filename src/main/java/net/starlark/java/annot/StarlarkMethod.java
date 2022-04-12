@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  * corresponding {@code @StarlarkMethod} annotation, if it has one, by scanning all methods of the
  * same name in its class hierarchy, without worrying about complications like overloading or
  * generics. The lookup functionality is implemented by {@link
- * StarlarkInterfaceUtils#getStarlarkMethod}.
+ * StarlarkAnnotations#getStarlarkMethod}.
  *
  * <p>Methods having this annotation must satisfy the following requirements, which are enforced at
  * compile time by {@link StarlarkMethodProcessor}:
@@ -43,8 +43,8 @@ import java.lang.annotation.Target;
  *         <li>one for each {@code Param} marked {@link Param#named} but not {@link
  *             Param#positional}. These parameters must be specified by name. Again, required
  *             named-only parameters must precede optional ones.
- *         <li>one for the {@code Tuple<Object>} of extra positional arguments ({@code *args}), if
- *             {@code extraPositionals};
+ *         <li>one for the {@code Tuple} of extra positional arguments ({@code *args}), if {@code
+ *             extraPositionals};
  *         <li>a {@code Dict<String, Object>} of extra keyword arguments ({@code **kwargs}), if
  *             {@code extraKeywords};
  *         <li>a {@code StarlarkThread}, if {@code useStarlarkThread};
@@ -63,15 +63,6 @@ import java.lang.annotation.Target;
  *   <li>Noneable parameter variables must be declared with type Object, as the actual value may be
  *       either {@code None} or some other value, which do not share a superclass other than Object
  *       (or StarlarkValue, which is typically no more descriptive than Object).
- *   <li>A parameter may have type Integer, or have a {@link Param#type} or {@link
- *       Param#allowedTypes} annotation that includes Integer.class, even though Integer is not a
- *       legal Starlark value type. When called from Starlark code, such a parameter accepts
- *       StarlarkInt values, but only in the signed 32-bit value range. These values are "reboxed"
- *       to Integer. Note that reboxing will still occur in the case where the annotation-declared
- *       types include Integer.class but the parameter's type is Object. This means the parameter's
- *       value cannot be assumed to be a legal Starlark value and should not be freely passed to
- *       other functions in the Starlark API that require a legal value. To avoid the range and
- *       legality limitations of reboxing, simply use StarlarkInt in place of Integer.
  *   <li>Parameter variables whose class is generic must be declared using wildcard types. For
  *       example, {@code Sequence<?>} is allowed but {@code Sequence<String>} is forbidden. This is
  *       because the call-time dynamic checks verify the class but cannot verify the type
@@ -84,6 +75,15 @@ import java.lang.annotation.Target;
  *   <li>Each class may have up to one method annotated with {@code selfCall}, which must not be
  *       marked {@code structField=true}.
  * </ul>
+ *
+ * <p>When an annotated method is called from Starlark, it is a dynamic error if it returns null,
+ * unless the method is marked as {@link #allowReturnNones}, in which case {@link Starlark#fromJava}
+ * converts the Java null value to {@link Starlark#NONE}. This feature prevents a method whose
+ * declared (and documented) result type is T from unexpectedly returning a value of type NoneType.
+ *
+ * <p>The annotated method may throw any checked or unchecked exceptions. When it is invoked,
+ * unchecked exceptions, {@code EvalException}s, and {@code InterruptedException}s are passed
+ * through; all other (checked) exceptions are wrapped in an {@code EvalException} and thrown.
  */
 // TODO(adonovan): rename to StarlarkAttribute and factor Starlark{Method,Field} as subinterfaces.
 @Target({ElementType.METHOD})
@@ -124,12 +124,12 @@ public @interface StarlarkMethod {
    *
    * <p>If this is left as default, it is an error for the caller to pass more positional arguments
    * than are explicitly allowed by the method signature. If this is defined, all additional
-   * positional arguments are passed as elements of a {@link Tuple<Object>} to the method.
+   * positional arguments are passed as elements of a {@link Tuple} to the method.
    *
    * <p>See Python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
    * <p>If defined, the annotated method must declare a corresponding parameter to which a {@code
-   * Tuple<Object>} may be assigned. See the interface-level javadoc for details.
+   * Tuple} may be assigned. See the interface-level javadoc for details.
    */
   // TODO(adonovan): consider using a simpler type than Param here. All that's needed at run-time
   // is a boolean. The doc tools want a name and doc string, but the rest is irrelevant and
@@ -142,7 +142,7 @@ public @interface StarlarkMethod {
    *
    * <p>If this is left as default, it is an error for the caller to pass any named arguments not
    * explicitly declared by the method signature. If this is defined, all additional named arguments
-   * are passed as elements of a {@link Dict<String, Object>} to the method.
+   * are passed as elements of a {@code Dict<String, Object>} to the method.
    *
    * <p>See Python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
@@ -164,8 +164,8 @@ public @interface StarlarkMethod {
   boolean selfCall() default false;
 
   /**
-   * Set it to true if the Java method may return <code>null</code> (which will then be converted to
-   * <code>None</code>). If not set and the Java method returns null, an error will be raised.
+   * Permits the Java method to return null, which {@link Starlark#fromJava} then converts to {@link
+   * Starlark#NONE}. If false, a null result causes the Starlark call to fail.
    */
   boolean allowReturnNones() default false;
 

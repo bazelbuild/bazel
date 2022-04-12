@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning.Code;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
 public class IncludeHintsFunction implements SkyFunction {
   // TODO(b/111722810): the action cache is not sensitive to changes in the INCLUDE_HINTS file, so
   //  even though Skyframe handles changes, we may still not re-execute an affected action.
-  @AutoCodec
+  @SerializationConstant
   public static final SkyKey INCLUDE_HINTS_KEY =
       (SkyKey) () -> IncludeScanningSkyFunctions.INCLUDE_HINTS;
 
@@ -95,12 +95,6 @@ public class IncludeHintsFunction implements SkyFunction {
               createFailureDetail(
                   "could not read INCLUDE_HINTS file", Code.INCLUDE_HINTS_READ_FAILURE)));
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

@@ -16,13 +16,15 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppModuleMapApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Structure for C++ module maps. Stores the name of the module and a .cppmap artifact. */
 @Immutable
-@AutoCodec
-public final class CppModuleMap {
+public final class CppModuleMap implements CppModuleMapApi<Artifact> {
+  public static final String SEPARATE_MODULE_SUFFIX = ".sep";
+
   // NOTE: If you add a field here, you'll likely need to update CppModuleMapAction.computeKey().
   private final Artifact artifact;
   private final String name;
@@ -36,15 +38,19 @@ public final class CppModuleMap {
     this(artifact, Optional.fromNullable(umbrellaHeader), name);
   }
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  CppModuleMap(Artifact artifact, Optional<Artifact> umbrellaHeader, String name) {
+  private CppModuleMap(Artifact artifact, Optional<Artifact> umbrellaHeader, String name) {
     this.artifact = artifact;
     this.umbrellaHeader = umbrellaHeader;
     this.name = name;
   }
 
   public Artifact getArtifact() {
+    return artifact;
+  }
+
+  @Override
+  public Artifact getArtifactForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return artifact;
   }
 
@@ -60,6 +66,16 @@ public final class CppModuleMap {
    */
   public Optional<Artifact> getUmbrellaHeader() {
     return umbrellaHeader;
+  }
+
+  @Override
+  public Artifact getUmbrellaHeaderForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    if (umbrellaHeader.isPresent()) {
+      return umbrellaHeader.get();
+    } else {
+      return null;
+    }
   }
 
   @Override

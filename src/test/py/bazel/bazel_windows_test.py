@@ -289,6 +289,110 @@ class BazelWindowsTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['clean'])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testBuildJavaTargetWithClasspathJar(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'java_binary(',
+        '  name = "java_bin",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        '  deps = ["java_lib"],',
+        ')',
+        '',
+        'java_library(',
+        '  name = "java_lib",',
+        '  srcs = ["Greeting.java"],',
+        ')',
+        '',
+        'java_binary(',
+        '  name = "special_java_bin",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        '  deps = [":special%java%lib"],',
+        ')',
+        '',
+        'java_library(',
+        '  name = "special%java%lib",',
+        '  srcs = ["Greeting.java"],',
+        ')',
+        '',
+    ])
+    self.ScratchFile('Main.java', [
+        'public class Main {',
+        '  public static void main(String[] args) {',
+        '    Greeting.sayHi();',
+        '  }',
+        '}',
+    ])
+    self.ScratchFile('Greeting.java', [
+        'public class Greeting {',
+        '  public static void sayHi() {',
+        '    System.out.println("Hello World!");',
+        '  }',
+        '}',
+    ])
+    exit_code, stdout, stderr = self.RunBazel([
+        'run',
+        '//:java_bin',
+        '--',
+        '--wrapper_script_flag=--classpath_limit=0',
+    ],)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('Hello World!', '\n'.join(stdout))
+
+    exit_code, stdout, stderr = self.RunBazel([
+        'run',
+        '//:special_java_bin',
+        '--',
+        '--wrapper_script_flag=--classpath_limit=0',
+    ],)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('Hello World!', '\n'.join(stdout))
+
+  def testRunWithScriptPath(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'sh_binary(',
+        '  name = "foo_bin",',
+        '  srcs = ["foo.sh"],',
+        ')',
+        '',
+        'sh_test(',
+        '  name = "foo_test",',
+        '  srcs = ["foo.sh"],',
+        ')',
+        '',
+    ])
+    self.ScratchFile('foo.sh', [
+        'echo "Hello from $1!"',
+    ])
+
+    # Test generating a script from binary run
+    exit_code, _, stderr = self.RunBazel([
+        'run',
+        '--script_path=bin_output_script.bat',
+        '//:foo_bin',
+    ],)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        ['bin_output_script.bat', 'binary'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('Hello from binary!', '\n'.join(stdout))
+
+    # Test generating a script from test run
+    exit_code, _, stderr = self.RunBazel([
+        'run',
+        '--script_path=test_output_script.bat',
+        '//:foo_test',
+    ],)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        ['test_output_script.bat', 'test'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('Hello from test!', '\n'.join(stdout))
+
 
 if __name__ == '__main__':
   unittest.main()

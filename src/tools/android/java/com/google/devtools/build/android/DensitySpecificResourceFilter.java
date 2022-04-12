@@ -137,7 +137,7 @@ public class DensitySpecificResourceFilter {
           .put("xxhdpi", 480)
           .put("560dpi", 560)
           .put("xxxhdpi", 640)
-          .build();
+          .buildOrThrow();
 
   private static final Function<ResourceInfo, String> GET_RESOURCE_ID =
       new Function<ResourceInfo, String>() {

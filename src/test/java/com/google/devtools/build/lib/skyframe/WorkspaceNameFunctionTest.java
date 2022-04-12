@@ -19,6 +19,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -34,7 +35,8 @@ import org.junit.runners.JUnit4;
 public class WorkspaceNameFunctionTest extends BuildViewTestCase {
   private final SkyKey key = WorkspaceNameValue.key();
 
-  private EvaluationResult<WorkspaceNameValue> eval() throws InterruptedException {
+  private EvaluationResult<WorkspaceNameValue> eval()
+      throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
@@ -71,7 +73,8 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(eval())
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(FileSymlinkCycleException.class);
+        .isInstanceOf(NoSuchPackageException.class);
+    assertContainsEvent("circular symlinks detected");
   }
 
   @Test

@@ -1,0 +1,55 @@
+site_name:    ProGuard
+site_favicon: favicon.ico
+
+repo_url: http://www.guardsquare.com/proguard
+
+extra:
+    version:  6.2
+    logo:     guardsquare.png
+    palette:
+        primary: blue
+        accent:  blue
+
+use_directory_urls: false
+markdown_extensions:
+- admonition
+- attr_list
+- def_list
+
+docs_dir:  .
+site_dir:  ../docs_html
+theme_dir: ../buildscripts/mkdocs/mkdocs/themes/material-guardsquare
+extra_css:
+- style.css
+
+pages: 
+- Main:                index.md
+- Results:             results.md
+- FAQ:                 FAQ.md
+- ProGuard Manual:
+    - Introduction:    manual/index.md
+    - Usage:           manual/usage.md
+    - Attributes:      manual/attributes.md
+    - Optimizations:   manual/optimizations.md
+    - Limitations:     manual/limitations.md
+    - Examples:        manual/examples.md
+    - Troubleshooting: manual/troubleshooting.md
+    - Reference Card:  manual/refcard.md
+    - GUI:             manual/gui.md
+    - Ant Task:        manual/ant.md
+    - Gradle Task:     manual/gradle.md
+    - Gradle Plugin:   manual/gradleplugin.md
+    - JME WTK:         manual/wtk.md
+- ReTrace Manual:
+    - Introduction:    manual/retrace/index.md
+    - Usage:           manual/retrace/usage.md
+    - Mapping File:    manual/retrace/mapping.md
+    - Examples:        manual/retrace/examples.md
+- License:
+    - Overview:        license.md
+    - GPL:             GPL.md
+    - GPL Exception:   GPL_exception.md
+- Downloads:           downloads.md
+- Feedback:            feedback.md
+
+copyright: <hr/>Copyright © 2002-2019 <a href="https://www.guardsquare.com/proguard" target="_blank">Guardsquare NV</a>

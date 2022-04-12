@@ -1,3 +1,4 @@
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -13,6 +14,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh:srcs",
     ],
@@ -22,7 +24,12 @@ filegroup(
 java_library(
     name = "rules",
     srcs = glob(["*.java"]),
-    resources = glob(["*.WORKSPACE"]),
+    resources = [
+        "tools.WORKSPACE",
+        "xcode_configure.WORKSPACE",
+        ":builtins_bzl_zip",
+        ":coverage.WORKSPACE",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -34,8 +41,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
+        "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:statically_linked_marker_provider",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/common",
@@ -46,6 +56,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java/proto",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -54,6 +65,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
@@ -66,6 +78,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:test_rules",
         "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
@@ -78,6 +93,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/proto",
@@ -86,12 +102,38 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+# We need this redirect target so that the builtins zip can be packaged as a
+# resource next to the BazelBuiltins class (com/google/devtools/...). Otherwise
+# it gets placed under the package path of the original zip target.
+genrule(
+    name = "builtins_bzl_zip",
+    srcs = ["//src/main/starlark/builtins_bzl:builtins_bzl.zip"],
+    outs = ["builtins_bzl.zip"],
+    cmd = "cp $(SRCS) $@",
+    visibility = ["//:__pkg__"],
+)
+
+# To generate an updated version of CoverageOutputGenerator:
+# 1. bazel build tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_zip
+# 2. Copy and rename the zip file with a new version locally.
+# 3. Upload the file under https://mirror.bazel.build/bazel_coverage_output_generator/releases.
+# 4. Update //distdir_deps.bzl to point to the new release.
+gen_workspace_stanza(
+    name = "workspace_with_coverage_output_generator",
+    out = "coverage.WORKSPACE",
+    preamble = """
+        load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+    """,
+    repos = ["remote_coverage_tools"],
+    visibility = ["//:__pkg__"],
 )

@@ -18,34 +18,33 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Test case for apple_dyamic_library. */
 @RunWith(JUnit4.class)
-public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
-  static final RuleType RULE_TYPE = new RuleType("apple_binary") {
-    @Override
-    Iterable<String> requiredAttributes(Scratch scratch, String packageDir,
-        Set<String> alreadyAdded) throws IOException {
-      return Iterables.concat(ImmutableList.of("binary_type = 'dylib'"),
-          AppleBinaryTest.RULE_TYPE.requiredAttributes(scratch, packageDir,
-          Sets.union(alreadyAdded, ImmutableSet.of("binary_type"))));
-    }
-  };
+public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
+  static final RuleType RULE_TYPE =
+      new RuleType("apple_binary_starlark") {
+        @Override
+        Iterable<String> requiredAttributes(
+            Scratch scratch, String packageDir, Set<String> alreadyAdded) throws IOException {
+          return Iterables.concat(
+              ImmutableList.of("binary_type = 'dylib'"),
+              AppleBinaryStarlarkApiTest.RULE_TYPE.requiredAttributes(
+                  scratch, packageDir, Sets.union(alreadyAdded, ImmutableSet.of("binary_type"))));
+        }
 
-  @Before
-  public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
-    invalidatePackages();
-  }
+        @Override
+        public String starlarkLoadPrerequisites() {
+          return "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')";
+        }
+      };
 
   @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
@@ -53,23 +52,8 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testUnknownPlatformType() throws Exception {
-    checkError(
-        "package",
-        "test",
-        String.format(MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
-            "meow_meow_os"),
-        "apple_binary(name = 'test', binary_type = 'dylib', platform_type = 'meow_meow_os')");
-  }
-
-  @Test
-  public void testProtoBundlingAndLinking() throws Exception {
-    checkProtoBundlingAndLinking(RULE_TYPE);
-  }
-
-  @Test
-  public void testProtoBundlingWithTargetsWithNoDeps() throws Exception {
-    checkProtoBundlingWithTargetsWithNoDeps(RULE_TYPE);
+  public void testObjcLibraryLinkoptsArePropagatedToLinkAction() throws Exception {
+    checkObjcLibraryLinkoptsArePropagatedToLinkAction(RULE_TYPE);
   }
 
   @Test
@@ -101,7 +85,6 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   public void testObjcProviderLinkInputsInLinkAction() throws Exception {
     checkObjcProviderLinkInputsInLinkAction(RULE_TYPE);
   }
-
 
   @Test
   public void testAppleSdkVersionEnv() throws Exception {
@@ -149,8 +132,8 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testDylibDependencies() throws Exception {
-    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
+  public void testAvoidDepsDependencies() throws Exception {
+    checkAvoidDepsDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
   }
 
   @Test
@@ -161,11 +144,6 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testMinimumOs_watchos() throws Exception {
     checkMinimumOsLinkAndCompileArg_watchos(RULE_TYPE);
-  }
-
-  @Test
-  public void testMinimumOs_invalid() throws Exception {
-    checkMinimumOs_invalid_nonVersion(RULE_TYPE);
   }
 
   @Test

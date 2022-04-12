@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
@@ -50,7 +49,6 @@ import net.starlark.java.eval.Starlark;
 
 /** Action to write a parameter file for a {@link CommandLine}. */
 @Immutable // if commandLine is immutable
-@AutoCodec
 public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
   private static final String GUID = "45f678d8-e395-401e-8446-e795ccc6361f";
@@ -82,7 +80,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
    */
-  @AutoCodec.Instantiator
   public ParameterFileWriteAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
@@ -106,25 +103,25 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    *
    * <p>2019-01-10, @leba: Using this method for aquery since it's not performance-critical and the
    * includeParamFile option is flag-guarded with warning regarding output size to user.
+   *
+   * <p>TODO(b/161359171): The list of arguments will be incorrect if the arguments contain tree
+   * artifacts.
    */
-  public Iterable<String> getArguments() throws CommandLineExpansionException {
-    Preconditions.checkState(
-        !hasInputArtifactToExpand,
-        "This action contains a CommandLine with TreeArtifacts: %s, which must be expanded using "
-        + "ArtifactExpander first before we can evaluate the CommandLine.",
-        getInputs());
+  public Iterable<String> getArguments()
+      throws CommandLineExpansionException, InterruptedException {
     return commandLine.arguments();
   }
 
   @VisibleForTesting
-  public String getStringContents() throws CommandLineExpansionException, IOException {
+  public String getStringContents()
+      throws CommandLineExpansionException, InterruptedException, IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ParameterFile.writeParameterFile(out, getArguments(), type, ISO_8859_1);
     return new String(out.toByteArray(), ISO_8859_1);
   }
 
   @Override
-  public String getStarlarkContent() throws IOException, EvalException {
+  public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     if (hasInputArtifactToExpand) {
       // Tree artifact information isn't available at analysis time.
       return null;
@@ -138,7 +135,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     final Iterable<String> arguments;
     try {
       ArtifactExpander artifactExpander = Preconditions.checkNotNull(ctx.getArtifactExpander());
@@ -179,7 +176,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());
