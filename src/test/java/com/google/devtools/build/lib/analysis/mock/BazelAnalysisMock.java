@@ -223,7 +223,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_target'],",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
-        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "  ],",
         ")");
 
