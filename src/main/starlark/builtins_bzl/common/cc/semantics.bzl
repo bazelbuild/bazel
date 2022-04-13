@@ -65,6 +65,60 @@ def _get_def_parser():
 def _get_grep_includes():
     return attr.label()
 
+def _get_test_toolchain_attr():
+    return {}
+
+def _get_test_malloc_attr():
+    return {}
+
+def _get_coverage_attrs():
+    return {
+        "_lcov_merger": attr.label(
+            default = "@bazel_tools//tools/test:lcov_merger",
+            executable = True,
+            cfg = "target",
+        ),
+        "_collect_cc_coverage": attr.label(
+            default = "@bazel_tools//tools/test:collect_cc_coverage",
+            executable = True,
+            cfg = "target",
+        ),
+    }
+
+def _get_coverage_env(ctx):
+    runfiles = ctx.runfiles()
+    test_env = {}
+    if ctx.configuration.coverage_enabled:
+        # Bazel’s coverage runner
+        # (https://github.com/bazelbuild/bazel/blob/3.0.0/tools/test/collect_coverage.sh)
+        # needs a binary called “lcov_merge.”  Its location is passed in the
+        # LCOV_MERGER environmental variable.  For builtin rules, this variable
+        # is set automatically based on a magic “$lcov_merger” or
+        # “:lcov_merger” attribute, but it’s not possible to create such
+        # attributes in Starlark.  Therefore we specify the variable ourselves.
+        # Note that the coverage runner runs in the runfiles root instead of
+        # the execution root, therefore we use “path” instead of “short_path.”
+        test_env["LCOV_MERGER"] = ctx.executable._lcov_merger.path
+
+        # C/C++ coverage instrumentation needs another binary that wraps gcov;
+        # see
+        # https://github.com/bazelbuild/bazel/blob/5.0.0/tools/test/collect_coverage.sh#L199.
+        # This is normally set from a hidden “$collect_cc_coverage” attribute;
+        # see
+        # https://github.com/bazelbuild/bazel/blob/5.0.0/src/main/java/com/google/devtools/build/lib/analysis/test/TestActionBuilder.java#L253-L258.
+        test_env["CC_CODE_COVERAGE_SCRIPT"] = ctx.executable._collect_cc_coverage.path
+
+        # The test runfiles need all applicable runfiles for the tools above.
+        runfiles = runfiles.merge_all([
+            ctx.attr._lcov_merger[DefaultInfo].default_runfiles,
+            ctx.attr._collect_cc_coverage[DefaultInfo].default_runfiles,
+        ])
+
+    return runfiles, test_env
+
+def _should_use_legacy_cc_test(_):
+    return True
+
 def _get_interface_deps_allowed_attr():
     return {}
 
@@ -122,4 +176,9 @@ semantics = struct(
     should_use_interface_deps_behavior = _should_use_interface_deps_behavior,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     get_linkstatic_default = _get_linkstatic_default,
+    get_test_malloc_attr = _get_test_malloc_attr,
+    get_test_toolchain_attr = _get_test_toolchain_attr,
+    should_use_legacy_cc_test = _should_use_legacy_cc_test,
+    get_coverage_attrs = _get_coverage_attrs,
+    get_coverage_env = _get_coverage_env,
 )

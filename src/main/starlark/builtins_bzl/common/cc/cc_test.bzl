@@ -47,20 +47,30 @@ _cc_test_attrs.update(
     ),
     stamp = attr.int(values = [-1, 0, 1], default = 0),
     linkstatic = attr.bool(default = False),
-    malloc = attr.label(
-        default = Label("@//tools/cpp:cc_test_malloc"),
-        allow_rules = ["cc_library"],
-        # TODO(b/198254254): Add aspects. in progress
-        aspects = [],
-    ),
 )
+_cc_test_attrs.update(semantics.get_test_malloc_attr())
+_cc_test_attrs.update(semantics.get_test_toolchain_attr())
+_cc_test_attrs.update(semantics.get_coverage_attrs())
 
 def _cc_test_impl(ctx):
     binary_info, cc_info, providers = cc_binary_impl(ctx, [])
-    providers.append(testing.TestEnvironment(ctx.attr.env))
+    test_env = {}
+    test_env.update(ctx.attr.env)
+
+    coverage_runfiles, coverage_env = semantics.get_coverage_env(ctx)
+
+    runfiles_list = [binary_info.runfiles]
+    if coverage_runfiles:
+        runfiles_list.append(coverage_runfiles)
+
+    runfiles = ctx.runfiles()
+    runfiles = runfiles.merge_all(runfiles_list)
+
+    test_env.update(coverage_env)
+    providers.append(testing.TestEnvironment(test_env))
     providers.append(DefaultInfo(
         files = binary_info.files,
-        runfiles = binary_info.runfiles,
+        runfiles = runfiles,
         executable = binary_info.executable,
     ))
     return _handle_legacy_return(ctx, cc_info, providers)
@@ -79,12 +89,11 @@ def _handle_legacy_return(ctx, cc_info, providers):
         return providers
 
 def _impl(ctx):
-    cpp_config = ctx.fragments.cpp
-    cc_test_info = ctx.toolchains["@//tools/cpp:test_runner_toolchain_type"].cc_test_info
-
-    if not cpp_config.experimental_platform_cc_test() or cc_test_info.use_legacy_cc_test:
+    if semantics.should_use_legacy_cc_test(ctx):
         # This is the "legacy" cc_test flow
         return _cc_test_impl(ctx)
+
+    cc_test_info = ctx.attr._test_toolchain.cc_test_info
 
     binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
 
@@ -114,8 +123,7 @@ def make_cc_test(with_linkstatic = False):
             "cpp_link": exec_group(copy_from_rule = True),
         },
         toolchains = [
-            "@//tools/cpp:toolchain_type",
-            "@//tools/cpp:test_runner_toolchain_type",
+            "@" + semantics.get_repo() + "//tools/cpp:toolchain_type",
         ],
         incompatible_use_toolchain_transition = True,
         test = True,
