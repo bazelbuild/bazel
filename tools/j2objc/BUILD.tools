@@ -11,17 +11,6 @@ java_binary(
     runtime_deps = ["@bazel_j2objc//:j2objc"],
 )
 
-# TODO(b/225174999): Remove filegroups once blaze update is rolled out.
-filegroup(
-    name = "j2objc_wrapper",
-    srcs = ["j2objc_wrapper.py"],
-)
-
-filegroup(
-    name = "j2objc_header_map",
-    srcs = ["j2objc_header_map.py"],
-)
-
 py_binary(
     name = "j2objc_wrapper_binary",
     srcs = ["j2objc_wrapper_binary.py"],
