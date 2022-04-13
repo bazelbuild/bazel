@@ -65,14 +65,14 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "    # my_info.x == 2\n"
               + "    # my_info.y == 3\n"
               + "    ..." //
-              + "</pre><p>See <a href='$STARLARK_DOCS_ROOT/rules.html#providers'>Rules"
+              + "</pre><p>See <a href='https://bazel.build/rules/rules#providers'>Rules"
               + " (Providers)</a> for a comprehensive guide on how to use providers." //
               + "<p>Returns a <a href='Provider.html#Provider'><code>Provider</code></a> callable "
               + "value if <code>init</code> is not specified." //
               + "<p>If <code>init</code> is specified, returns a tuple of 2 elements: a <a"
               + " href='Provider.html#Provider'><code>Provider</code></a> callable value and a"
               + " <em>raw constructor</em> callable value. See <a"
-              + " href='$STARLARK_DOCS_ROOT/rules.html#custom-initialization-of-providers'>Rules"
+              + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>Rules"
               + " (Custom initialization of custom providers)</a> and the discussion of the"
               + " <code>init</code> parameter below for details.",
       parameters = {
@@ -109,7 +109,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " <code>provider()</code> returns a tuple of 2 elements: the normal provider"
                     + " symbol and a <em>raw constructor</em>." //
                     + "<p>A precise description follows; see <a"
-                    + " href='$STARLARK_DOCS_ROOT/rules.html#custom-initialization-of-providers'>"
+                    + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>"
                     + "Rules (Custom initialization of providers)</a>"
                     + " for an intuitive discussion and use cases." //
                     + "<p>Let <code>P</code> be the provider symbol created by calling"
@@ -209,8 +209,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " considered <a href='#rule.executable'>executable</a>; it is unnecessary"
                     + " (and discouraged) to explicitly set <code>executable = True</code> for a"
                     + " test rule. See the <a"
-                    + " href='$STARLARK_DOCS_ROOT/rules.html#executable-rules-and-test-rules'>Rules"
-                    + " page</a> for more information."),
+                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " Rules page</a> for more information."),
         @Param(
             name = "attrs",
             allowedTypes = {
@@ -248,7 +248,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " href='attr.html#output'><code>output</code></a> and <a"
                     + " href='attr.html#output_list'><code>output_list</code></a> attributes, the"
                     + " user does not specify the labels for these files. See the <a"
-                    + " href='$STARLARK_DOCS_ROOT/rules.html#files'>Rules page</a> for more on"
+                    + " href='https://bazel.build/rules/rules#files'>Rules page</a> for more on"
                     + " predeclared outputs.<p>The value of this argument is either a dictionary or"
                     + " a callback function that produces a dictionary. The callback works similar"
                     + " to computed dependency attributes: The function's parameter names are"
@@ -293,8 +293,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "Whether this rule is considered executable, that is, whether it may be the subject"
                     + " of a <code>blaze run</code> command. See the <a"
-                    + " href='$STARLARK_DOCS_ROOT/rules.html#executable-rules-and-test-rules'>Rules"
-                    + " page</a> for more information."),
+                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " Rules page</a> for more information."),
         @Param(
             name = "output_to_genfiles",
             named = true,
@@ -381,7 +381,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                 "If true, then this rule is treated as an analysis test. <p>Note: Analysis test"
                     + " rules are primarily defined using infrastructure provided in core Starlark"
                     + " libraries. See <a"
-                    + " href=\"$STARLARK_DOCS_ROOT/testing.html#for-testing-rules\">Testing</a> for"
+                    + " href=\"https://bazel.build/rules/testing#testing-rules\">Testing</a> for"
                     + " guidance. <p>If a rule is defined as an analysis test rule, it becomes"
                     + " allowed to use configuration transitions defined using <a"
                     + " href=\"#analysis_test_transition\">analysis_test_transition</a> on its"
@@ -492,7 +492,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       name = "aspect",
       doc =
           "Creates a new aspect. The result of this function must be stored in a global value."
-              + " Please see the <a href=\"$STARLARK_DOCS_ROOT/aspects.md\">introduction to"
+              + " Please see the <a href=\"https://bazel.build/rules/aspects\">introduction to"
               + " Aspects</a> for more details.",
       parameters = {
         @Param(
