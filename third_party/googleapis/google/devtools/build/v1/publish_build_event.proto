@@ -118,6 +118,14 @@ message PublishLifecycleEventRequest {
   // This should match the project used for the initial call to
   // PublishLifecycleEvent (containing a BuildEnqueued message).
   string project_id = 6;
+
+  // Whether to require a previously received matching parent lifecycle event
+  // for the current request's event before continuing processing.
+  // - InvocationAttemptStarted and BuildFinished events require a BuildEnqueued
+  //   parent event.
+  // - InvocationAttemptFinished events require an InvocationAttemptStarted
+  //   parent event.
+  bool check_preceding_lifecycle_events_present = 7;
 }
 
 // States which event has been committed. Any failure to commit will cause
@@ -161,4 +169,10 @@ message PublishBuildToolEventStreamRequest {
   // This should match the project used for the initial call to
   // PublishLifecycleEvent (containing a BuildEnqueued message).
   string project_id = 6;
+
+  // Whether to require a previously received matching InvocationAttemptStarted
+  // event before continuing event processing for the event in the current
+  // request. BES only performs this check for events with sequence_number 1
+  // i.e. the first event in the stream.
+  bool check_preceding_lifecycle_events_present = 7;
 }
