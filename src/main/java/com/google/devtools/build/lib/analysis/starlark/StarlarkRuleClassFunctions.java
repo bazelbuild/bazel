@@ -479,7 +479,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     if (compileOneFiletype instanceof Sequence) {
-      if (!bzlModule.label().getRepository().getName().equals("@_builtins")) {
+      if (!bzlModule.label().getRepository().getNameWithAt().equals("@_builtins")) {
         throw Starlark.errorf(
             "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
       }
@@ -895,7 +895,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       // TODO(b/121385274): remove when we stop allowlisting starlark transitions
       if (hasStarlarkDefinedTransition) {
-        if (!starlarkLabel.getRepository().getName().equals("@_builtins")) {
+        if (!starlarkLabel.getRepository().getNameWithAt().equals("@_builtins")) {
           if (!hasFunctionTransitionAllowlist) {
             errorf(
                 handler,

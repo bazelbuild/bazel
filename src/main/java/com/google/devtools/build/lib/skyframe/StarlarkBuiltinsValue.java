@@ -52,7 +52,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   /** Reports whether the given repository is the special builtins pseudo-repository. */
   static boolean isBuiltinsRepo(RepositoryName repo) {
     // Use String.equals(), not RepositoryName.equals(), to force case sensitivity.
-    return repo.getName().equals(BUILTINS_NAME);
+    return repo.getNameWithAt().equals(BUILTINS_NAME);
   }
 
   static {

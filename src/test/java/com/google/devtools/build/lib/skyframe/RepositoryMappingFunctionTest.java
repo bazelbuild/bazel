@@ -86,7 +86,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public static RepositoryMappingValue withMapping(
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
     return RepositoryMappingValue.withMapping(
-        RepositoryMapping.create(repositoryMapping, ownerRepo.strippedName()));
+        RepositoryMapping.create(repositoryMapping, ownerRepo.getName()));
   }
 
   public RepositoryMappingValue withMappingForRootModule(
@@ -98,7 +98,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
       allMappings.put(repoName, repoName);
     }
     return RepositoryMappingValue.withMapping(
-        RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo.strippedName()));
+        RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo.getName()));
   }
 
   @Test

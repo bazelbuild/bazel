@@ -425,7 +425,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
               + "<pre class=language-python>Label(\"@foo//bar:baz\").workspace_name"
               + " == \"foo\"</pre>")
   public String getWorkspaceName() {
-    return packageIdentifier.getRepository().strippedName();
+    return packageIdentifier.getRepository().getName();
   }
 
   /**
@@ -442,7 +442,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     if (packageIdentifier.getRepository().isMain()) {
       repository = "";
     } else {
-      repository = packageIdentifier.getRepository().getName();
+      repository = packageIdentifier.getRepository().getNameWithAt();
     }
     return repository + "//" + getPackageFragment();
   }

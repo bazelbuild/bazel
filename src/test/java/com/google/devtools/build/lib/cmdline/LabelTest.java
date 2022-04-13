@@ -54,19 +54,19 @@ public class LabelTest {
     }
     {
       Label l = Label.parseAbsolute("@foo", ImmutableMap.of());
-      assertThat(l.getRepository().getName()).isEqualTo("@foo");
+      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@foo");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("foo");
     }
     {
       Label l = Label.parseAbsolute("//@foo", ImmutableMap.of());
-      assertThat(l.getRepository().getName()).isEqualTo("@");
+      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("@foo");
       assertThat(l.getName()).isEqualTo("@foo");
     }
     {
       Label l = Label.parseAbsolute("//xyz/@foo:abc", ImmutableMap.of());
-      assertThat(l.getRepository().getName()).isEqualTo("@");
+      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("xyz/@foo");
       assertThat(l.getName()).isEqualTo("abc");
     }

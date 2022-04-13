@@ -148,7 +148,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     return repository.isMain() || siblingRepositoryLayout
         ? pkgName
         : LabelConstants.EXTERNAL_PATH_PREFIX
-            .getRelative(repository.strippedName())
+            .getRelative(repository.getName())
             .getRelative(pkgName);
   }
 

@@ -249,20 +249,20 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
     boolean needsConfiguring = false;
 
-    Path repoRoot = RepositoryFunction.getExternalRepositoryDirectory(directories)
-        .getRelative(repositoryName.strippedName());
+    Path repoRoot =
+        RepositoryFunction.getExternalRepositoryDirectory(directories)
+            .getRelative(repositoryName.getName());
 
     if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
       DigestWriter.clearMarkerFile(directories, repositoryName);
-      return setupOverride(
-          overrides.get(repositoryName), env, repoRoot, repositoryName.strippedName());
+      return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName.getName());
     }
 
     Rule rule = null;
 
     if (Preconditions.checkNotNull(ENABLE_BZLMOD.get(env))) {
       // Trys to get a repository rule instance from Bzlmod generated repos.
-      SkyKey key = BzlmodRepoRuleValue.key(repositoryName.strippedName());
+      SkyKey key = BzlmodRepoRuleValue.key(repositoryName.getName());
       BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
 
       if (env.valuesMissing()) {
@@ -410,7 +410,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     setupRepositoryRoot(repoRoot);
 
-    String repositoryName = ((RepositoryName) skyKey.argument()).getName();
+    String repositoryName = ((RepositoryName) skyKey.argument()).getNameWithAt();
     env.getListener().post(new RepositoryFetching(repositoryName, false));
 
     RepositoryDirectoryValue.Builder repoBuilder;
@@ -448,7 +448,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private Rule getRepoRuleFromWorkspace(RepositoryName repositoryName, Environment env)
       throws InterruptedException, RepositoryFunctionException, NoSuchRepositoryException {
     try {
-      return externalPackageHelper.getRuleByName(repositoryName.strippedName(), env);
+      return externalPackageHelper.getRuleByName(repositoryName.getName(), env);
     } catch (ExternalRuleNotFoundException e) {
       // This is caught and handled immediately in compute().
       throw new NoSuchRepositoryException();
@@ -526,7 +526,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         Rule rule,
         ImmutableSet<PathFragment> managedDirectories) {
       ruleKey = computeRuleKey(rule);
-      markerPath = getMarkerPath(directories, repositoryName.strippedName());
+      markerPath = getMarkerPath(directories, repositoryName.getName());
       this.rule = rule;
       markerData = Maps.newHashMap();
 
@@ -646,7 +646,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     static void clearMarkerFile(BlazeDirectories directories, RepositoryName repoName)
         throws RepositoryFunctionException {
       try {
-        getMarkerPath(directories, repoName.strippedName()).delete();
+        getMarkerPath(directories, repoName.getName()).delete();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
