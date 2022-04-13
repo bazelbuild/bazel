@@ -127,8 +127,7 @@ public final class FunctionTransitionUtil {
    *
    * <p>Transitions can also explicitly set --platforms to be clear what platform they set.
    *
-   * <p>Platform mappings:
-   * https://docs.bazel.build/versions/main/platforms-intro.html#platform-mappings.
+   * <p>Platform mappings: https://bazel.build/concepts/platforms-intro#platform-mappings.
    *
    * <p>This doesn't check that the changed value is actually different than the source (i.e.
    * setting {@code --cpu=foo} when {@code --cpu} is already {@code foo}). That could unnecessarily
@@ -151,7 +150,7 @@ public final class FunctionTransitionUtil {
     if (transition.getOutputs().contains("//command_line_option:define")) {
       throw new ValidationException(
           "Starlark transition on --define not supported - try using build settings"
-              + " (https://docs.bazel.build/skylark/config.html#user-defined-build-settings).");
+              + " (https://bazel.build/rules/config#user-defined-build-settings).");
     }
   }
 

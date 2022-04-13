@@ -111,7 +111,7 @@ def compile_action(
         compilation and not at runtime.
       strict_deps: (str) A string that specifies how to handle strict deps.
         Possible values: 'OFF', 'ERROR', 'WARN' and 'DEFAULT'. For more details
-        see https://docs.bazel.build/versions/main/bazel-user-manual.html#flag--strict_java_deps.
+        see https://bazel.build/docs/user-manual#strict-java-deps.
         By default 'ERROR'.
       enable_compile_jar_action: (bool) Enables header compilation or ijar
         creation. If set to False, it forces use of the full class jar in the

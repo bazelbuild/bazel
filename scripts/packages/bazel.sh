@@ -197,7 +197,7 @@ if [[ ! -x $BAZEL_REAL ]]; then
     echo "  sudo apt update && sudo apt install bazel-${bazel_version}"
     echo ""
     echo "If this doesn't work, check Bazel's installation instructions for help:"
-    echo "  https://docs.bazel.build/versions/main/install-ubuntu.html") 2>&1
+    echo "  https://bazel.build/install/ubuntu") 2>&1
   else
     (echo ""
     echo "Bazel binaries for all official releases can be downloaded from here:"

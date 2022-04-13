@@ -23,23 +23,23 @@ Build and test software of any size, quickly and reliably.
 
 ## Getting Started
 
-  * [Install Bazel](https://docs.bazel.build/install.html)
-  * [Get started with Bazel](https://docs.bazel.build/getting-started.html)
+  * [Install Bazel](https://bazel.build/install)
+  * [Get started with Bazel](https://bazel.build/contribute/getting-started)
   * Follow our tutorials:
 
-    - [Build C++](https://docs.bazel.build/tutorial/cpp.html)
-    - [Build Java](https://docs.bazel.build/tutorial/java.html)
-    - [Android](https://docs.bazel.build/tutorial/android-app.html)
-    - [iOS](https://docs.bazel.build/tutorial/ios-app.html)
+    - [Build C++](https://bazel.build/tutorials/cpp)
+    - [Build Java](https://bazel.build/tutorials/java)
+    - [Android](https://bazel.build/tutorials/android-app)
+    - [iOS](https://bazel.build/tutorials/ios-app)
 
 ## Documentation
 
-  * [Bazel command line](https://docs.bazel.build/user-manual.html)
-  * [Rule reference](https://docs.bazel.build/be/overview.html)
-  * [Use the query command](https://docs.bazel.build/query.html)
-  * [Extend Bazel](https://docs.bazel.build/skylark/concepts.html)
-  * [Write tests](https://docs.bazel.build/test-encyclopedia.html)
-  * [Roadmap](https://bazel.build/roadmap.html)
+  * [Bazel command line](https://bazel.build/docs/user-manual)
+  * [Rule reference](https://bazel.build/reference/be/overview)
+  * [Use the query command](https://bazel.build/reference/query)
+  * [Extend Bazel](https://bazel.build/rules/concepts)
+  * [Write tests](https://bazel.build/reference/test-encyclopedia)
+  * [Roadmap](https://bazel.build/community/roadmaps)
   * [Who is using Bazel?](https://github.com/bazelbuild/bazel/wiki/Bazel-Users)
 
 ## Reporting a Vulnerability
