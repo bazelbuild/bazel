@@ -1101,7 +1101,7 @@ public final class Profiler {
           writer.name("tid").value(CRITICAL_PATH_THREAD_ID);
           writer.name("args");
           writer.beginObject();
-          writer.name("sort_index").value(CRITICAL_PATH_SORT_INDEX);
+          writer.name("sort_index").value(String.valueof(CRITICAL_PATH_SORT_INDEX));
           writer.endObject();
           writer.endObject();
 
