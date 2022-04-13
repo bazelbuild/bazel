@@ -49,12 +49,12 @@ public interface TestingModuleApi extends StarlarkValue {
   ExecutionInfoApi executionInfo(Dict<?, ?> requirements // <String, String> expected
       ) throws EvalException;
 
-  // TODO(bazel-team): Change this function to be the actual TestEnvironmentInfo.PROVIDER.
   @StarlarkMethod(
       name = "TestEnvironment",
       doc =
-          "Creates a new test environment provider. Use this provider to specify extra"
-              + "environment variables to be made available during test execution.",
+          "<b>Deprecated: Use RunEnvironmentInfo instead.</b> Creates a new test environment "
+              + "provider. Use this provider to specify extra environment variables to be made "
+              + "available during test execution.",
       parameters = {
         @Param(
             name = "environment",

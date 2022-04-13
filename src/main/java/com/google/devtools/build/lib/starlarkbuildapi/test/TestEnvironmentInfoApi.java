@@ -14,25 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
-import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import java.util.List;
-import java.util.Map;
+import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @StarlarkBuiltin(name = "TestEnvironmentInfo", doc = "", documented = false)
-public interface TestEnvironmentInfoApi extends StructApi {
-
-  @StarlarkMethod(
-      name = "environment",
-      doc = "A dict containing environment variables which should be set on the test action.",
-      structField = true)
-  Map<String, String> getEnvironment();
-
-  @StarlarkMethod(
-      name = "inherited_environment",
-      doc = "A list of variables that the test action should inherit from the shell environment.",
-      structField = true)
-  List<String> getInheritedEnvironment();
-}
+public interface TestEnvironmentInfoApi extends RunEnvironmentInfoApi {}
