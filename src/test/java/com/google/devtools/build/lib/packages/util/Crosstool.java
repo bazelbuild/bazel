@@ -532,6 +532,7 @@ public final class Crosstool {
                     + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain',"
                     + " 'cc_toolchain_suite')",
                 "toolchain_type(name = 'toolchain_type')",
+                "toolchain_type(name = 'test_runner_toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
