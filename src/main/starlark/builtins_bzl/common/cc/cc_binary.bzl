@@ -582,9 +582,16 @@ def _malloc_for_target(ctx, cpp_config):
     return ctx.attr.malloc
 
 def _get_link_staticness(ctx, cpp_config):
+    linkstatic_attr = None
+    if hasattr(ctx.attr, "_linkstatic_explicitly_set") and not ctx.attr._linkstatic_explicitly_set:
+        # If we know that linkstatic is not explicitly set, use computed default:
+        linkstatic_attr = semantics.get_linkstatic_default(ctx)
+    else:
+        linkstatic_attr = ctx.attr.linkstatic
+
     if cpp_config.dynamic_mode() == "FULLY":
         return _LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic:
+    elif cpp_config.dynamic_mode() == "OFF" or linkstatic_attr:
         return _LINKING_STATIC
     else:
         return _LINKING_DYNAMIC

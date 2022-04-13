@@ -14,6 +14,8 @@
 
 """Semantics for Bazel cc rules"""
 
+load(":common/cc/cc_helper.bzl", "cc_helper")
+
 cc_common = _builtins.toplevel.cc_common
 
 def _should_create_empty_archive():
@@ -78,6 +80,17 @@ def _check_experimental_cc_shared_library(ctx):
     if not cc_common.check_experimental_cc_shared_library():
         fail("Pass --experimental_cc_shared_library to use cc_shared_library")
 
+def _get_linkstatic_default(ctx):
+    if ctx.attr._is_test:
+        # By default Tests do not link statically. Except on Windows.
+        if cc_helper.has_target_constraints(ctx, ctx.attr._windows_constraints):
+            return True
+        else:
+            return False
+    else:
+        # Binaries link statically.
+        return True
+
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
@@ -108,4 +121,5 @@ semantics = struct(
     get_interface_deps_allowed_attr = _get_interface_deps_allowed_attr,
     should_use_interface_deps_behavior = _should_use_interface_deps_behavior,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
+    get_linkstatic_default = _get_linkstatic_default,
 )

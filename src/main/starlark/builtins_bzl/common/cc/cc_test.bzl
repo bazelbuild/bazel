@@ -40,6 +40,11 @@ _cc_test_attrs.update(
             "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
         ],
     ),
+    _windows_constraints = attr.label_list(
+        default = [
+            "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
+        ],
+    ),
     stamp = attr.int(values = [-1, 0, 1], default = 0),
     linkstatic = attr.bool(default = False),
     malloc = attr.label(
