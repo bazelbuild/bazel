@@ -42,6 +42,8 @@
 # When running in Travis-CI, you can directly use the $TRAVIS_COMMIT_RANGE
 # environment variable.
 
+set -eu
+
 COMMIT_RANGE=${COMMIT_RANGE:-$(git merge-base origin/master HEAD)".."}
 
 # Go to the root of the repo
@@ -49,9 +51,9 @@ cd "$(git rev-parse --show-toplevel)"
 
 # Get a list of the current files in package form by querying Bazel.
 files=()
-for file in $(git diff --name-only ${COMMIT_RANGE} ); do
-  files+=($(bazel query $file))
-  echo $(bazel query $file)
+for file in $(git diff --name-only "${COMMIT_RANGE}" ); do
+  files+=("$(bazel query "$file")")
+  bazel query "$file"
 done
 
 # Query for the associated buildables
@@ -62,7 +64,7 @@ buildables=$(bazel query \
 # Run the tests if there were results
 if [[ ! -z $buildables ]]; then
   echo "Building binaries"
-  bazel build $buildables
+  bazel build "$buildables"
 fi
 
 tests=$(bazel query \
@@ -72,5 +74,5 @@ tests=$(bazel query \
 # Run the tests if there were results
 if [[ ! -z $tests ]]; then
   echo "Running tests"
-  bazel test $tests
+  bazel test "$tests"
 fi
