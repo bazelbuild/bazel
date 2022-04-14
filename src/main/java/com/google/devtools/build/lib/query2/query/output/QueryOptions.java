@@ -158,7 +158,7 @@ public class QueryOptions extends CommonQueryOptions {
 
   @Option(
     name = "strict_test_suite",
-    defaultValue = "false",
+    defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.QUERY,
     effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =

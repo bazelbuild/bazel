@@ -326,6 +326,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testNonStrictTests() throws Exception {
+    options.add("--strict_test_suite=false");
     write(
         "donut/BUILD",
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
@@ -341,7 +342,6 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testStrictTests() throws Exception {
-    options.add("--strict_test_suite=true");
     write(
         "donut/BUILD",
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
