@@ -3,33 +3,34 @@ Book: /_book.yaml
 
 # Persistent Workers
 
-This page covers how to use persistent workers, the benefits, requirements,
-and how workers affect sandboxing.
+This page covers how to use persistent workers, the benefits, requirements, and
+how workers affect sandboxing.
 
 A persistent worker is a long-running process started by the Bazel server, which
-functions as a _wrapper_ around the actual _tool_ (typically a compiler), or is
-the _tool_ itself. In order to benefit from persistent workers, the tool must
+functions as a *wrapper* around the actual *tool* (typically a compiler), or is
+the *tool* itself. In order to benefit from persistent workers, the tool must
 support doing a sequence of compilations, and the wrapper needs to translate
 between the tool's API and the request/response format described below. The same
-worker might be called with and without the `--persistent_worker` flag
-in the same build, and is responsible for appropriately starting and talking to
-the tool, as well as shutting down workers on exit. Each worker instance is
-assigned (but not chrooted to) a separate working directory under
+worker might be called with and without the `--persistent_worker` flag in the
+same build, and is responsible for appropriately starting and talking to the
+tool, as well as shutting down workers on exit. Each worker instance is assigned
+(but not chrooted to) a separate working directory under
 `<outputBase>/bazel-workers`.
 
 Using persistent workers is an
-[execution strategy](/docs/user-manual#execution-strategy)
-that decreases start-up overhead, allows more JIT compilation, and enables
-caching of for example the abstract syntax trees in the action execution. This
-strategy achieves these improvements by sending multiple requests to a
-long-running process.
+[execution strategy](/docs/user-manual#execution-strategy) that decreases
+start-up overhead, allows more JIT compilation, and enables caching of for
+example the abstract syntax trees in the action execution. This strategy
+achieves these improvements by sending multiple requests to a long-running
+process.
 
 Persistent workers are implemented for multiple languages, including Java,
 [Scala](https://github.com/bazelbuild/rules_scala){: .external},
 [Kotlin](https://github.com/bazelbuild/rules_kotlin){: .external}, and more.
 
-Programs using a NodeJS runtime can use the [@bazel/worker](https://www.npmjs.com/package/@bazel/worker)
-helper library to implement the worker protocol.
+Programs using a NodeJS runtime can use the
+[@bazel/worker](https://www.npmjs.com/package/@bazel/worker) helper library to
+implement the worker protocol.
 
 ## Using persistent workers {:#usage}
 
@@ -38,23 +39,23 @@ uses persistent workers by default when executing builds, though remote
 execution takes precedence. For actions that do not support persistent workers,
 Bazel falls back to starting a tool instance for each action. You can explicitly
 set your build to use persistent workers by setting the `worker`
-[strategy](/docs/user-manual#execution-strategy) for the applicable tool mnemonics.
-As a best practice, this example includes specifying `local` as a fallback to
-the `worker` strategy:
+[strategy](/docs/user-manual#execution-strategy) for the applicable tool
+mnemonics. As a best practice, this example includes specifying `local` as a
+fallback to the `worker` strategy:
 
 ```posix-terminal
 bazel build //{{ '<var>' }}my:target{{ '</var>' }} --strategy=Javac=worker,local
 ```
 
 Using the workers strategy instead of the local strategy can boost compilation
-speed significantly, depending on implementation. For Java, builds can be
-2–4 times faster, sometimes more for incremental compilation. Compiling
-Bazel is about 2.5 times as fast with workers. For more details, see the
+speed significantly, depending on implementation. For Java, builds can be 2–4
+times faster, sometimes more for incremental compilation. Compiling Bazel is
+about 2.5 times as fast with workers. For more details, see the
 "[Choosing number of workers](#number-of-workers)" section.
 
 If you also have a remote build environment that matches your local build
 environment, you can use the experimental
-[_dynamic_ strategy](https://blog.bazel.build/2019/02/01/dynamic-spawn-scheduler.html),
+[*dynamic* strategy](https://blog.bazel.build/2019/02/01/dynamic-spawn-scheduler.html){: .external},
 which races a remote execution and a worker execution. To enable the dynamic
 strategy, pass the
 [--experimental_spawn_scheduler](/reference/command-line-reference#flag--experimental_spawn_scheduler)
@@ -72,8 +73,8 @@ amount of JIT compilation and cache hits you get. With more workers, more
 targets will pay start-up costs of running non-JITted code and hitting cold
 caches. If you have a small number of targets to build, a single worker may give
 the best trade-off between compilation speed and resource usage (for example,
-see [issue #8586](https://github.com/bazelbuild/bazel/issues/8586){: .external}. The
-`worker_max_instances` flag sets the maximum number of worker instances per
+see [issue #8586](https://github.com/bazelbuild/bazel/issues/8586){: .external}.
+The `worker_max_instances` flag sets the maximum number of worker instances per
 mnemonic and flag set (see below), so in a mixed system you could end up using
 quite a lot of memory if you keep the default value. For incremental builds the
 benefit of multiple worker instances is even smaller.
@@ -107,9 +108,8 @@ discarded):
 
 **Figure 2.** Graph of performance improvements of incremental builds.
 
-The speed-up depends on the change being made. A speed-up of a
-factor 6 is measured in the above situation when a commonly used constant
-is changed.
+The speed-up depends on the change being made. A speed-up of a factor 6 is
+measured in the above situation when a commonly used constant is changed.
 
 ## Modifying persistent workers {:#options}
 
@@ -137,17 +137,12 @@ flag makes each worker request use a separate sandbox directory for all its
 inputs. Setting up the [sandbox](/docs/sandboxing) takes some extra time,
 especially on macOS, but gives a better correctness guarantee.
 
-You can use the `--experimental_worker_allow_json_protocol` flag to allow
-workers to communicate with Bazel through JSON instead of protocol buffers
-(protobuf). The worker and the rule that consumes it can then be modified to
-support JSON.
-
 The
 [`--worker_quit_after_build`](/reference/command-line-reference#flag--worker_quit_after_build)
 flag is mainly useful for debugging and profiling. This flag forces all workers
 to quit once a build is done. You can also pass
-[`--worker_verbose`](/reference/command-line-reference#flag--worker_verbose) to get
-more output about what the workers are doing. This flag is reflected in the
+[`--worker_verbose`](/reference/command-line-reference#flag--worker_verbose) to
+get more output about what the workers are doing. This flag is reflected in the
 `verbosity` field in `WorkRequest`, allowing worker implementations to also be
 more verbose.
 
@@ -184,6 +179,7 @@ ctx.actions.run(
         "supports-workers" : "1", "requires-worker-protocol" : "json" }
 )
 ```
+
 With this definition, the first use of this action would start with executing
 the command line `/bin/some_compiler -max_mem=4G --persistent_worker`. A request
 to compile `Foo.java` would then look like:
@@ -196,14 +192,12 @@ inputs: [
 ]
 ```
 
-The worker receives this on `stdin` in JSON format (because
-`requires-worker-protocol` is set to JSON, and
-`--experimental_worker_allow_json_protocol` is passed to the build to enable
-this option). The worker then performs the action, and sends a JSON-formatted
-`WorkResponse` to Bazel on its stdout. Bazel then parses this response and
-manually converts it to a `WorkResponse` proto. To communicate
-with the associated worker using binary-encoded protobuf instead of JSON,
-`requires-worker-protocol` would be set to `proto`, like this:
+The worker receives this on `stdin` in newline-delimited JSON format (because
+`requires-worker-protocol` is set to JSON). The worker then performs the action,
+and sends a JSON-formatted `WorkResponse` to Bazel on its stdout. Bazel then
+parses this response and manually converts it to a `WorkResponse` proto. To
+communicate with the associated worker using binary-encoded protobuf instead of
+JSON, `requires-worker-protocol` would be set to `proto`, like this:
 
 ```
   execution_requirements = {
@@ -225,21 +219,24 @@ Each worker can currently only process one request at a time. The experimental
 threads, if the underlying tool is multithreaded and the wrapper is set up to
 understand this.
 
-In [this GitHub repo](https://github.com/Ubehebe/bazel-worker-examples){: .external}, you can
-see example worker wrappers written in Java as well as in Python. If you are
-working in JavaScript or TypeScript, the [@bazel/worker
-package](https://www.npmjs.com/package/@bazel/worker){: .external} and
+In
+[this GitHub repo](https://github.com/Ubehebe/bazel-worker-examples){: .external},
+you can see example worker wrappers written in Java as well as in Python. If you
+are working in JavaScript or TypeScript, the
+[@bazel/worker package](https://www.npmjs.com/package/@bazel/worker){: .external}
+and
 [nodejs worker example](https://github.com/bazelbuild/rules_nodejs/tree/stable/examples/worker){: .external}
 might be helpful.
 
 ## How do workers affect sandboxing? {:#sandboxing}
 
 Using the `worker` strategy by default does not run the action in a
-[sandbox](/docs/sandboxing), similar to the `local` strategy. You can set
-the `--worker_sandboxing` flag to run all workers inside sandboxes, making sure
-each execution of the tool only sees the input files it's supposed to have. The
-tool may still leak information between requests internally, for instance
-through a cache. Using `dynamic` strategy [requires workers to be sandboxed](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/exec/SpawnStrategyRegistry.java){: .external}.
+[sandbox](/docs/sandboxing), similar to the `local` strategy. You can set the
+`--worker_sandboxing` flag to run all workers inside sandboxes, making sure each
+execution of the tool only sees the input files it's supposed to have. The tool
+may still leak information between requests internally, for instance through a
+cache. Using `dynamic` strategy
+[requires workers to be sandboxed](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/exec/SpawnStrategyRegistry.java){: .external}.
 
 To allow correct use of compiler caches with workers, a digest is passed along
 with each input file. Thus the compiler or the wrapper can check if the input is
@@ -259,9 +256,12 @@ and this sandboxing must be separately enabled with the
 For more information on persistent workers, see:
 
 *   [Original persistent workers blog post](https://blog.bazel.build/2015/12/10/java-workers.html)
-*   [Haskell implementation description](https://www.tweag.io/blog/2019-09-25-bazel-ghc-persistent-worker-internship/){: .external}
-*   [Blog post by Mike Morearty](https://medium.com/@mmorearty/how-to-create-a-persistent-worker-for-bazel-7738bba2cabb){: .external}
+*   [Haskell implementation description](https://www.tweag.io/blog/2019-09-25-bazel-ghc-persistent-worker-internship/)
+    {: .external}
+*   [Blog post by Mike Morearty](https://medium.com/@mmorearty/how-to-create-a-persistent-worker-for-bazel-7738bba2cabb)
+    {: .external}
 *   [Front End Development with Bazel: Angular/TypeScript and Persistent Workers
-    w/ Asana](https://www.youtube.com/watch?v=0pgERydGyqo){: .external}
-*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html)
-*   [Informative worker strategy discussion on the bazel-discuss mailing list](https://groups.google.com/forum/#!msg/bazel-discuss/oAEnuhYOPm8/ol7hf4KWJgAJ){: .external}
+    w/ Asana](https://www.youtube.com/watch?v=0pgERydGyqo) {: .external}
+*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html) {: .external}
+*   [Informative worker strategy discussion on the bazel-discuss mailing list](https://groups.google.com/forum/#!msg/bazel-discuss/oAEnuhYOPm8/ol7hf4KWJgAJ)
+    {: .external}
