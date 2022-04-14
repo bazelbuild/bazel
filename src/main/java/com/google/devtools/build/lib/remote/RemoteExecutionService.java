@@ -118,6 +118,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
+import com.google.protobuf.Duration;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
 import io.reactivex.rxjava3.annotations.NonNull;
@@ -1119,7 +1120,9 @@ public class RemoteExecutionService {
               action.getCommand(),
               outputFiles.build(),
               action.getSpawnExecutionContext().getFileOutErr(),
-              spawnResult.exitCode());
+              spawnResult.exitCode(),
+              spawnResult.getStartTime(),
+              spawnResult.getWallTime());
         });
   }
 

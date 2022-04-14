@@ -72,6 +72,7 @@ import com.google.protobuf.util.Timestamps;
 import io.grpc.Status.Code;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
@@ -376,6 +377,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
         cacheHit,
         cacheName,
         inMemoryOutput,
+        result.getExecutionMetadata().getWorkerStartTimestamp(),
+        result.getExecutionMetadata().getWorkerCompletedTimestamp(),
         spawnMetrics
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
             .setTotalTime(totalTime.elapsed())

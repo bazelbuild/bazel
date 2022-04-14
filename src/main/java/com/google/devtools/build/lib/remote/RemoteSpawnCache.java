@@ -46,6 +46,8 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.NoSuchElementException;
 
 /** A remote {@link SpawnCache} implementation. */
@@ -126,6 +128,8 @@ final class RemoteSpawnCache implements SpawnCache {
                   /*cacheHit=*/ true,
                   result.cacheName(),
                   inMemoryOutput,
+                  result.getExecutionMetadata().getWorkerStartTimestamp(),
+                  result.getExecutionMetadata().getWorkerCompletedTimestamp(),
                   spawnMetrics.build(),
                   spawn.getMnemonic());
           return SpawnCache.success(spawnResult);

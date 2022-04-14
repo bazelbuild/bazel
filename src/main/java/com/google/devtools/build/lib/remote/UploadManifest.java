@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -52,16 +54,20 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -88,7 +94,9 @@ public class UploadManifest {
       Command command,
       Collection<Path> outputFiles,
       FileOutErr outErr,
-      int exitCode)
+      int exitCode,
+      Optional<Instant> startTime,
+      Optional<Duration> wallTime)
       throws ExecException, IOException {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setExitCode(exitCode);
@@ -110,7 +118,21 @@ public class UploadManifest {
       result.setStdoutDigest(manifest.getStdoutDigest());
     }
 
+    if (startTime.isPresent() && wallTime.isPresent()) {
+      result
+          .getExecutionMetadataBuilder()
+          .setWorkerStartTimestamp(instantToTimestamp(startTime.get()))
+          .setWorkerCompletedTimestamp(instantToTimestamp(startTime.get().plus(wallTime.get())));
+    }
+
     return manifest;
+  }
+
+  private static Timestamp instantToTimestamp(Instant instant) {
+    return Timestamp.newBuilder()
+        .setSeconds(instant.getEpochSecond())
+        .setNanos(instant.getNano())
+        .build();
   }
 
   /**
