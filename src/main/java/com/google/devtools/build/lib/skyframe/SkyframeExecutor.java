@@ -2697,6 +2697,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
    *
+   * <p>At a minimum, {@link PackageOptions} and {@link BuildLanguageOptions} are expected to be
+   * present in the given {@link OptionsProvider}.
+   *
    * <p>Returns precomputed information about the workspace if it is available at this stage. This
    * is an optimization allowing implementations which have such information to make it available
    * early in the build.
@@ -2704,9 +2707,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @Nullable
   public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
-      PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
-      BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       Map<String, String> repoEnvOption,
@@ -2721,14 +2722,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     AnalysisOptions analysisOptions = options.getOptions(AnalysisOptions.class);
     keepBuildConfigurationNodesWhenDiscardingAnalysis =
         analysisOptions == null || analysisOptions.keepConfigNodes;
-    syncPackageLoading(
-        packageOptions,
-        pathPackageLocator,
-        buildLanguageOptions,
-        commandId,
-        clientEnv,
-        tsgm,
-        options);
+    syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, options);
 
     if (lastAnalysisDiscarded) {
       dropConfiguredTargetsNow(eventHandler);
@@ -2754,28 +2748,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   protected void syncPackageLoading(
-      PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
-      BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws AbruptExitException {
-    syncPackageLoadingInternal(
-        packageOptions, pathPackageLocator, buildLanguageOptions, commandId, clientEnv, tsgm);
-  }
-
-  protected final void syncPackageLoadingInternal(
-      PackageOptions packageOptions,
-      PathPackageLocator pathPackageLocator,
-      BuildLanguageOptions buildLanguageOptions,
-      UUID commandId,
-      Map<String, String> clientEnv,
-      TimestampGranularityMonitor tsgm) {
+    PackageOptions packageOptions = options.getOptions(PackageOptions.class);
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
       preparePackageLoading(
-          pathPackageLocator, packageOptions, buildLanguageOptions, commandId, clientEnv, tsgm);
+          pathPackageLocator,
+          packageOptions,
+          options.getOptions(BuildLanguageOptions.class),
+          commandId,
+          clientEnv,
+          tsgm);
     }
     try (SilentCloseable c = Profiler.instance().profile("setDeletedPackages")) {
       setDeletedPackages(packageOptions.getDeletedPackages());
