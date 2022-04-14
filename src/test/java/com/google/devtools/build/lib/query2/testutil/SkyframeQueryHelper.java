@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
+import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.AbstractSet;
@@ -254,7 +254,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   public Set<Target> evaluateQueryRaw(String query) throws QueryException, InterruptedException {
     Set<Target> result = new LinkedHashSet<>();
     ThreadSafeOutputFormatterCallback<Target> callback =
-        new ThreadSafeOutputFormatterCallback<Target>() {
+        new ThreadSafeOutputFormatterCallback<>() {
           @Override
           public synchronized void processOutput(Iterable<Target> partialResult) {
             Iterables.addAll(result, partialResult);
@@ -299,14 +299,15 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     try {
       skyframeExecutor.sync(
           getReporter(),
-          packageOptions,
           packageLocator,
-          Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),
           ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
-          OptionsProvider.EMPTY);
+          FakeOptions.builder()
+              .put(packageOptions)
+              .putDefaults(BuildLanguageOptions.class)
+              .build());
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }

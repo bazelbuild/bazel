@@ -19,6 +19,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,7 +59,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -105,6 +106,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -260,9 +263,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
-      PackageOptions packageOptions,
       PathPackageLocator packageLocator,
-      BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       Map<String, String> repoEnvOption,
@@ -277,21 +278,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     super.sync(
         eventHandler,
-        packageOptions,
         packageLocator,
-        buildLanguageOptions,
         commandId,
         clientEnv,
         repoEnvOption,
         tsgm,
         options);
     long startTime = System.nanoTime();
-    RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
-    boolean checkExternalRepositoryFiles =
-        repoOptions == null || repoOptions.checkExternalRepositoryFiles;
-    WorkspaceInfoFromDiff workspaceInfo =
-        handleDiffs(
-            eventHandler, packageOptions.checkOutputFiles, checkExternalRepositoryFiles, options);
+    WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
     long stopTime = System.nanoTime();
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
@@ -344,24 +338,35 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @VisibleForTesting
   public void handleDiffsForTesting(ExtendedEventHandler eventHandler)
       throws InterruptedException, AbruptExitException {
-    if (super.lastAnalysisDiscarded) {
+    if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
       dropConfiguredTargetsNow(eventHandler);
-      super.lastAnalysisDiscarded = false;
+      lastAnalysisDiscarded = false;
     }
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.checkOutputFiles = false;
+    ClassToInstanceMap<OptionsBase> options =
+        ImmutableClassToInstanceMap.of(PackageOptions.class, packageOptions);
     handleDiffs(
         eventHandler,
-        /*checkOutputFiles=*/ false,
-        /*checkExternalRepositoryFiles=*/ true,
-        OptionsProvider.EMPTY);
+        new OptionsProvider() {
+          @Nullable
+          @Override
+          public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
+            return options.getInstance(optionsClass);
+          }
+
+          @Override
+          public ImmutableMap<String, Object> getStarlarkOptions() {
+            return ImmutableMap.of();
+          }
+        });
   }
 
   @Nullable
   private WorkspaceInfoFromDiff handleDiffs(
       ExtendedEventHandler eventHandler,
-      boolean checkOutputFiles,
-      boolean checkExternalRepositoryFiles,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
@@ -398,17 +403,16 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
-    // but plumbing the flag through is hard.
     int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
     handleDiffsWithCompleteDiffInformation(
         tsgm, modifiedFilesByPathEntry, managedDirectoriesChanged, fsvcThreads);
+    RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
     handleDiffsWithMissingDiffInformation(
         eventHandler,
         tsgm,
         pathEntriesWithoutDiffInformation,
-        checkOutputFiles,
-        checkExternalRepositoryFiles,
+        options.getOptions(PackageOptions.class).checkOutputFiles,
+        repoOptions == null || repoOptions.checkExternalRepositoryFiles,
         managedDirectoriesChanged,
         fsvcThreads);
     handleClientEnvironmentChanges();

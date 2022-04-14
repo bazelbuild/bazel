@@ -94,7 +94,6 @@ java_test(
     deps = select({
         "//src/conditions:darwin": [
             "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
-            "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
         ],
         "//conditions:default": [],
     }) + [
@@ -294,6 +293,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
+        "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:SkyframeExecutorTestHelper",

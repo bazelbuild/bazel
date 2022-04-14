@@ -110,9 +110,9 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -136,7 +136,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.TaggedEvents;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.CodedInputStream;
@@ -189,11 +188,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     options =
         OptionsParser.builder()
             .optionsClasses(
-                ImmutableList.of(
-                    KeepGoingOption.class,
-                    BuildRequestOptions.class,
-                    AnalysisOptions.class,
-                    CoreOptions.class))
+                AnalysisOptions.class,
+                BuildLanguageOptions.class,
+                BuildRequestOptions.class,
+                CoreOptions.class,
+                KeepGoingOption.class,
+                PackageOptions.class)
             .build();
     options.parse("--jobs=20");
   }
@@ -306,16 +306,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
     scratch.overwriteFile("/external/file", "new content");
 
-    skyframeExecutor.sync(
-        NullEventHandler.INSTANCE,
-        Options.getDefaults(PackageOptions.class),
-        skyframeExecutor.getPackageLocator().get(),
-        Options.getDefaults(BuildLanguageOptions.class),
-        UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
-        new TimestampGranularityMonitor(new ManualClock()),
-        options);
+    syncSkyframeExecutor();
 
     Diff diff = getRecordedDiff();
     assertThat(diff.changedKeysWithNewValues()).containsKey(file);
@@ -334,16 +325,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
 
-    skyframeExecutor.sync(
-        NullEventHandler.INSTANCE,
-        Options.getDefaults(PackageOptions.class),
-        skyframeExecutor.getPackageLocator().get(),
-        Options.getDefaults(BuildLanguageOptions.class),
-        UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
-        new TimestampGranularityMonitor(new ManualClock()),
-        options);
+    syncSkyframeExecutor();
 
     Diff diff = getRecordedDiff();
     assertThat(diff.changedKeysWithoutNewValues()).doesNotContain(file);
@@ -372,16 +354,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
     scratch.file("/external/foo/new_file");
 
-    skyframeExecutor.sync(
-        NullEventHandler.INSTANCE,
-        Options.getDefaults(PackageOptions.class),
-        skyframeExecutor.getPackageLocator().get(),
-        Options.getDefaults(BuildLanguageOptions.class),
-        UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
-        new TimestampGranularityMonitor(new ManualClock()),
-        options);
+    syncSkyframeExecutor();
 
     Diff diff = getRecordedDiff();
     assertThat(diff.changedKeysWithoutNewValues()).containsNoneOf(dir, dirListingKey);
@@ -411,16 +384,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
 
-    skyframeExecutor.sync(
-        NullEventHandler.INSTANCE,
-        Options.getDefaults(PackageOptions.class),
-        skyframeExecutor.getPackageLocator().get(),
-        Options.getDefaults(BuildLanguageOptions.class),
-        UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
-        new TimestampGranularityMonitor(new ManualClock()),
-        options);
+    syncSkyframeExecutor();
 
     Diff diff = getRecordedDiff();
     assertThat(diff.changedKeysWithoutNewValues()).containsNoneOf(dir, dirListingKey);
@@ -1388,7 +1352,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
    * even if "top" is delayed to wait for the shared action2 to run, the assertion that the artifact
    * exists will fail, since action2's "prepare" step deleted it.
    */
-  @Ignore
+  @Ignore("b/150153544")
   @Test
   public void incrementalSharedActions() throws Exception {
     Path root = getExecRoot();
@@ -2489,5 +2453,16 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         eventCollector, Pattern.compile(".*during scanning.*\n.*Scanning.*\n.*Test dir/top.*"));
     MoreAsserts.assertNotContainsEvent(
         eventCollector, Pattern.compile(".*after scanning.*\n.*Scanning.*\n.*Test dir/top.*"));
+  }
+
+  private void syncSkyframeExecutor() throws AbruptExitException, InterruptedException {
+    skyframeExecutor.sync(
+        reporter,
+        skyframeExecutor.getPackageLocator().get(),
+        UUID.randomUUID(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*repoEnvOption=*/ ImmutableMap.of(),
+        new TimestampGranularityMonitor(BlazeClock.instance()),
+        options);
   }
 }

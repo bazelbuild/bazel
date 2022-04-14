@@ -1,3 +1,110 @@
+## Release 6.0.0-pre.20220407.1 (2022-04-14)
+
+```
+Baseline: 9db58e0656d7456e8180e90400c2c94a76bf5c8b
+```
+
+Incompatible changes:
+
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since the path would refer to a
+    netrc file inside the external repository by absolute path.
+    Migration should be straightforward.
+  - genrule switched to use exec transition instead of host. This can
+    break targets with hardcoded output paths. To avoid using
+    hardcoded paths use make variables, see
+    https://docs.bazel.build/versions/4.2.2/be/make-variables.html#pre
+    defined_label_variables
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since...
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+  - The --incompatible_existing_rules_immutable_view flag has been
+    flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/13907 for
+    migration notes.
+
+Important changes:
+
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+  - The Build Event Protocol now contains file digests and sizes
+    along with the file name and URI.
+  - Refactor system suspend event handling.
+  - alias() can now select() directly on constraint_value()
+  - Allow \a \b \f \v escape sequences in Starlark.
+  - Match remote and local xcode version by most granular version.
+  - Adds `--experimental_worker_multiplex_sandboxing` flag that
+    controls whether to sandbox multiplex workers that support it.
+  - provider() has a new parameter: init, a callback for performing
+    pre-processing and validation of field values. Iff this parameter
+    is set,
+    provider() returns a tuple of 2 elements: the usual provider
+    symbol (which,
+    when called, invokes init) and a raw constructor (which bypasses
+    init).
+  - Tests that fail to create or complete their
+    `TestAttemptContinuation` by
+    throwing an `ExecException` will report an `INCOMPLETE` status.
+    Previously, Bazel
+    would fail to report any status for the test attempt.
+  - Fixed an issue where Bazel could erroneously report a test passes
+    in coverage mode without actually running the test.
+  - Include more information about configurations in cquery proto
+    formatted output. This deprecates the configuration field of
+    AnalysisProtosV2.ConfiguredTarget, and adds a new field,
+    configuration_id, to
+    be used instead.
+  - experimental cc_library.implementation_deps inverted to
+    interface_deps
+  - In aquery and cquery proto output, indicate if a configuration is
+    a
+    tool or non-tool configuration.
+  - Include complete configurations in cquery proto output.
+  - experimental cc_library.implementation_deps inverted to
+    interface_deps
+  - Make protocOpts() publicly accessible.
+  - Add some documentation about how configuration information is
+    conveyed in cquery proto output.
+  - Introduces experimental static library linking API under
+    apple_common.link_multi_arch_static_library
+  - Further deprecation and removal of pkg_tar. Stop supporting
+    legacy use of 'files' attribute, where it could be a list of
+    labels instead of a map of paths to labels.
+  - Removed --incompatible_no_build_defs_pkg flag. It never fulfilled
+    its purpose because --all_incompatible_changes would never set
+    it. The last rule it gated (pkg_tar) is scheduled to be removed
+    in Bazel 6.x.
+  - Add coverage configuration fragment, used to expose
+    output_generator label.
+  - Bazel now no longer includes system headers on macOS in coverage
+    reports (#14969).
+  - android_sdk_repository read $ANDROID_SDK_ROOT in addition to
+    $ANDROID_HOME.
+  - The default dexer is now d8. dx can be optionally enabled using:
+      --define=android_dexmerger_tool=dx_dexmerger \
+      --define=android_incremental_dexing_tool=dx_dexbuilder \
+      --define=android_standalone_dexing_tool=dx_compat_dx \
+      --use_workers_with_dexbuilder
+  - Packaging support for deploy JAR embedded JDK files (hermetic
+    Java).
+  - Don't stamp cc_common.link actions for tool dependencies.
+  - Starlark test rules can use the new inherited_environment
+    parameter of testing.TestEnvironment to specify environment
+    variables
+    whose values should be inherited from the shell environment.
+  - Enable merging permissions during Android manifest merging with
+    the --merge_android_manifest_permissions flag.
+
+This release contains contributions from many people at Google, as well as Adam Wolf, Albert Lloveras, Alessandro Patti, Alex Eagle, Alex Scott, Andreas Herrmann, Andrew Katson, arunkumar9t2, Ast-x64, Benedek Thaler, Benjamin Lee, Benjamin Peterson, Ben Lee, Bohdan Vanieiev, Bradley Burns, Brandon Jacklyn, Brentley Jones, Brentley Jones, Chad Miller, Chris Fredrickson, Christopher Sauer, ckiffel, Cristian Hancila, crydell-ericsson, Dan Fleming, Daniel Wagner-Hall, Danny Wolf, David Ostrovsky, Denys Kurylenko, Dimi Shahbaz, divanorama, dmaclach, Ed Schouten, Fabian Meumertzheim, floriographygoth, Fredrik Medley, gkgoat1, Greg Estren, Greg, Hannes Kufler, hvadehra, Jan, Jay Bazuzi, jheaff1, Jiawen Chen, Joel Williamson, juanchoviedo, Keith Smiley, Ken Micklas, Kevin Lin, lihu, Luc Bertrand, Marek uppa, Matt Mackay, Michael P. Nitowski, Mikhail Balabin, Mostyn Bramley-Moore, Nick Korostelev, Nitesh Anandan, Niyas Sait, Noa Resare, Oscar Bonilla, Patrick Balestra, Paul Tarjan, Pras Velagapudi, Rahul Butani, Rifqi Mulya Fahmi, Ryan Schmidt, Simon Bjorklen, Son Luong Ngoc, Stiopa Koltsov, Sven Tiffe, Ted Kaplan, Tetsuo Kiso, Thi Doan, Thomas Zayouna, Timothe Peignier, Ulf Adams, Ulrik Falklof, Vasilios Pantazopoulos, William Muir, Xavier Bonaventura, Xdng Yng, Yannic Bonenberger, Yesudeep Mangalapilly, Yuval K, Zhongpeng Lin.
+
 ## Release 5.1.1 (2022-04-08)
 
 ```

@@ -141,6 +141,12 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
               jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts.build(), jspecifyPackages);
     }
 
+    JavaToolchainTool bytecodeOptimizer =
+        JavaToolchainTool.fromFilesToRunProvider(
+            ruleContext.getExecutablePrerequisite(":bytecode_optimizer"));
+    ImmutableList<Artifact> localJavaOptimizationConfiguration =
+        ruleContext.getPrerequisiteArtifacts(":local_java_optimization_configuration").list();
+
     AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
@@ -168,6 +174,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             headerCompilerDirect,
             androidLint,
             jspecifyInfo,
+            bytecodeOptimizer,
+            localJavaOptimizationConfiguration,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,

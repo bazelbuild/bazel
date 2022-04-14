@@ -57,16 +57,16 @@ public class PackageIdentifierTest {
   public void testToString() throws Exception {
     PackageIdentifier local = PackageIdentifier.create("", PathFragment.create("bar/baz"));
     assertThat(local.toString()).isEqualTo("bar/baz");
-    PackageIdentifier external = PackageIdentifier.create("@foo", PathFragment.create("bar/baz"));
+    PackageIdentifier external = PackageIdentifier.create("foo", PathFragment.create("bar/baz"));
     assertThat(external.toString()).isEqualTo("@foo//bar/baz");
   }
 
   @Test
   public void testCompareTo() throws Exception {
-    PackageIdentifier foo1 = PackageIdentifier.create("@foo", PathFragment.create("bar/baz"));
-    PackageIdentifier foo2 = PackageIdentifier.create("@foo", PathFragment.create("bar/baz"));
-    PackageIdentifier foo3 = PackageIdentifier.create("@foo", PathFragment.create("bar/bz"));
-    PackageIdentifier bar = PackageIdentifier.create("@bar", PathFragment.create("bar/baz"));
+    PackageIdentifier foo1 = PackageIdentifier.create("foo", PathFragment.create("bar/baz"));
+    PackageIdentifier foo2 = PackageIdentifier.create("foo", PathFragment.create("bar/baz"));
+    PackageIdentifier foo3 = PackageIdentifier.create("foo", PathFragment.create("bar/bz"));
+    PackageIdentifier bar = PackageIdentifier.create("bar", PathFragment.create("bar/baz"));
     assertThat(foo1.compareTo(foo2)).isEqualTo(0);
     assertThat(foo1.compareTo(foo3)).isLessThan(0);
     assertThat(foo1.compareTo(bar)).isGreaterThan(0);
@@ -75,22 +75,22 @@ public class PackageIdentifierTest {
   @Test
   public void testInvalidPackageName() throws Exception {
     // This shouldn't throw an exception, package names aren't validated.
-    PackageIdentifier.create("@foo", PathFragment.create("bar.baz"));
+    PackageIdentifier.create("foo", PathFragment.create("bar.baz"));
   }
 
   @Test
   public void testPackageFragmentEquality() throws Exception {
     // Make sure package fragments are canonicalized.
-    PackageIdentifier p1 = PackageIdentifier.create("@whatever", PathFragment.create("foo/bar"));
-    PackageIdentifier p2 = PackageIdentifier.create("@whatever", PathFragment.create("foo/bar"));
+    PackageIdentifier p1 = PackageIdentifier.create("whatever", PathFragment.create("foo/bar"));
+    PackageIdentifier p2 = PackageIdentifier.create("whatever", PathFragment.create("foo/bar"));
     assertThat(p1.getPackageFragment()).isSameInstanceAs(p2.getPackageFragment());
   }
 
   @Test
   public void testRunfilesDir() throws Exception {
-    assertThat(PackageIdentifier.create("@foo", PathFragment.create("bar/baz")).getRunfilesPath())
+    assertThat(PackageIdentifier.create("foo", PathFragment.create("bar/baz")).getRunfilesPath())
         .isEqualTo(PathFragment.create("../foo/bar/baz"));
-    assertThat(PackageIdentifier.create("@", PathFragment.create("bar/baz")).getRunfilesPath())
+    assertThat(PackageIdentifier.create("", PathFragment.create("bar/baz")).getRunfilesPath())
         .isEqualTo(PathFragment.create("bar/baz"));
   }
 }

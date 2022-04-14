@@ -95,8 +95,7 @@ public class StarlarkBazelModule implements StarlarkValue {
   static Label createModuleRootLabel(String canonicalRepoName) {
     return Label.createUnvalidated(
         PackageIdentifier.create(
-            RepositoryName.createFromValidStrippedName(canonicalRepoName),
-            PathFragment.EMPTY_FRAGMENT),
+            RepositoryName.createUnvalidated(canonicalRepoName), PathFragment.EMPTY_FRAGMENT),
         "unused_dummy_target_name");
   }
 

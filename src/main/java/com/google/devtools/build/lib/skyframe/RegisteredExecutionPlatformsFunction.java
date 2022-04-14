@@ -169,7 +169,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
-              RepositoryName.createFromValidStrippedName(module.getCanonicalRepoName()),
+              RepositoryName.createUnvalidated(module.getCanonicalRepoName()),
               bazelModuleResolutionValue.getFullRepoMapping(module.getKey()));
       for (String pattern : module.getExecutionPlatformsToRegister()) {
         try {
