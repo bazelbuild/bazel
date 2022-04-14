@@ -52,7 +52,7 @@ exported_rules = {
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
     "+cc_binary": cc_binary,
-    "-cc_test": cc_test,
+    "+cc_test": cc_test,
     "-cc_library": cc_library,
 }
 
