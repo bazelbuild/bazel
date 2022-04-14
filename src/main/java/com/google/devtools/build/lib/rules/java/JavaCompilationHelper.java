@@ -270,6 +270,20 @@ public final class JavaCompilationHelper {
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
     }
 
+    Artifact optimizedJar = null;
+    if (getJavaConfiguration().runLocalJavaOptimizations()) {
+      optimizedJar = outputs.output();
+      outputs =
+          outputs.withOutput(
+              ruleContext.getDerivedArtifact(
+                  FileSystemUtils.replaceExtension(
+                      outputs
+                          .output()
+                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
+                      "-pre-optimization.jar"),
+                  outputs.output().getRoot()));
+    }
+
     ImmutableList<String> javacopts = customJavacOpts;
     if (jspecify) {
       plugins =
@@ -294,12 +308,13 @@ public final class JavaCompilationHelper {
     builder.setCoverageArtifact(coverageArtifact);
     BootClassPathInfo bootClassPathInfo = getBootclasspathOrDefault();
     builder.setBootClassPath(bootClassPathInfo);
+    NestedSet<Artifact> classpath =
+        NestedSetBuilder.<Artifact>naiveLinkOrder()
+            .addTransitive(bootClassPathInfo.auxiliary())
+            .addTransitive(attributes.getCompileTimeClassPath())
+            .build();
     if (!bootClassPathInfo.auxiliary().isEmpty()) {
-      builder.setClasspathEntries(
-          NestedSetBuilder.<Artifact>naiveLinkOrder()
-              .addTransitive(bootClassPathInfo.auxiliary())
-              .addTransitive(attributes.getCompileTimeClassPath())
-              .build());
+      builder.setClasspathEntries(classpath);
       builder.setDirectJars(
           NestedSetBuilder.<Artifact>naiveLinkOrder()
               .addTransitive(bootClassPathInfo.auxiliary())
@@ -355,6 +370,20 @@ public final class JavaCompilationHelper {
 
     JavaCompileAction javaCompileAction = builder.build();
     ruleContext.getAnalysisEnvironment().registerAction(javaCompileAction);
+
+    if (optimizedJar != null) {
+      JavaConfiguration.NamedLabel optimizerLabel = getJavaConfiguration().getBytecodeOptimizer();
+      createLocalOptimizationAction(
+          outputs.output(),
+          optimizedJar,
+          NestedSetBuilder.<Artifact>naiveLinkOrder()
+              .addTransitive(bootClassPathInfo.bootclasspath())
+              .addTransitive(classpath)
+              .build(),
+          javaToolchain.getLocalJavaOptimizationConfiguration(),
+          javaToolchain.getBytecodeOptimizer().tool(),
+          optimizerLabel.name());
+    }
   }
 
   /**
@@ -703,6 +732,37 @@ public final class JavaCompilationHelper {
       builder.addInterfaceJarWithFullJar(jar, runtimeJar);
     }
     return jar;
+  }
+
+  public void createLocalOptimizationAction(
+      Artifact unoptimizedOutputJar,
+      Artifact optimizedOutputJar,
+      NestedSet<Artifact> classpath,
+      List<Artifact> configs,
+      FilesToRunProvider optimizer,
+      String mnemonic) {
+    CustomCommandLine.Builder command =
+        CustomCommandLine.builder()
+            .add("-runtype", "LOCAL_ONLY")
+            .addExecPath("-injars", unoptimizedOutputJar)
+            .addExecPath("-outjars", optimizedOutputJar)
+            .addExecPaths("-libraryjars", CustomCommandLine.VectorArg.join(":").each(classpath));
+    for (Artifact config : configs) {
+      command.addPrefixedExecPath("@", config);
+    }
+
+    getRuleContext()
+        .registerAction(
+            new SpawnAction.Builder()
+                .addInput(unoptimizedOutputJar)
+                .addTransitiveInputs(classpath)
+                .addInputs(configs)
+                .addOutput(optimizedOutputJar)
+                .setExecutable(optimizer)
+                .addCommandLine(command.build())
+                .setProgressMessage("Optimizing jar %{label}")
+                .setMnemonic(mnemonic)
+                .build(getRuleContext()));
   }
 
   private void addArgsAndJarsToAttributes(
