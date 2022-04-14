@@ -75,7 +75,7 @@ fi
 if [[ "$platform" != "windows" ]]; then
     JAVA_VERSIONS=`cat src/test/shell/bazel/BUILD | grep '^JAVA_VERSIONS = ' | sed -e 's/JAVA_VERSIONS = //' | sed -e 's/["(),]//g'`
     for java_version in $JAVA_VERSIONS; do
-        bazel test --verbose_failures --test_output=all --nocache_test_results \
+        bazel test --tool_java_language_version=11 --java_language_version=11 --verbose_failures --test_output=all --nocache_test_results \
             //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
             --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}" \
             --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL="${prebuilt_file_url}"
