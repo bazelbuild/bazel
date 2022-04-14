@@ -26,8 +26,8 @@ public class RepositoryNameCodecTest {
   @Test
   public void testCodec() throws Exception {
     new SerializationTester(
-            RepositoryName.create(RepositoryName.MAIN.getNameWithAt()),
-            RepositoryName.create("@externalandshouldntexistinthisworkspace"))
+            RepositoryName.create(RepositoryName.MAIN.getName()),
+            RepositoryName.create("externalandshouldntexistinthisworkspace"))
         .runTests();
   }
 }

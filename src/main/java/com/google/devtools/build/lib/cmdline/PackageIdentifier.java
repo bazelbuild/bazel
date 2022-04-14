@@ -83,7 +83,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     if (tofind.startsWith(prefix)) {
       // Using the path prefix can be either "external" or "..", depending on whether the sibling
       // repository layout is used.
-      RepositoryName repository = RepositoryName.createFromValidStrippedName(tofind.getSegment(1));
+      RepositoryName repository = RepositoryName.createUnvalidated(tofind.getSegment(1));
       return PackageIdentifier.create(repository, tofind.subFragment(2));
     } else {
       return PackageIdentifier.createInMainRepo(tofind);
@@ -116,9 +116,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     }
     LabelParser.Parts parts = LabelParser.Parts.parse(input + ":dummy_target");
     RepositoryName repoName =
-        parts.repo == null
-            ? RepositoryName.MAIN
-            : RepositoryName.createFromValidStrippedName(parts.repo);
+        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
     return create(repoName, PathFragment.create(parts.pkg));
   }
 

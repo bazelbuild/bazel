@@ -154,8 +154,8 @@ public class LocationFunctionTest {
 
   @Test
   public void locationFunctionWithMappingReplace() throws Exception {
-    RepositoryName a = RepositoryName.create("@a");
-    RepositoryName b = RepositoryName.create("@b");
+    RepositoryName a = RepositoryName.create("a");
+    RepositoryName b = RepositoryName.create("b");
     ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(a, b);
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@b//foo", "/exec/src/bar").build();
@@ -165,8 +165,8 @@ public class LocationFunctionTest {
 
   @Test
   public void locationFunctionWithMappingIgnoreRepo() throws Exception {
-    RepositoryName a = RepositoryName.create("@a");
-    RepositoryName b = RepositoryName.create("@b");
+    RepositoryName a = RepositoryName.create("a");
+    RepositoryName b = RepositoryName.create("b");
     ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(a, b);
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@potato//foo", "/exec/src/bar").build();

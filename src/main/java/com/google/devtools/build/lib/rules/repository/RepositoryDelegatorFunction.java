@@ -419,7 +419,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(new RepositoryFetching(repositoryName, true));
-      env.getListener().post(new RepositoryFailedEvent(repositoryName, e.getMessage()));
+      env.getListener()
+          .post(new RepositoryFailedEvent((RepositoryName) skyKey.argument(), e.getMessage()));
       env.getListener()
           .handle(
               Event.error(

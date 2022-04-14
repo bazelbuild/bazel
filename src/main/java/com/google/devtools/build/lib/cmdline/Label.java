@@ -89,9 +89,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     Parts parts = Parts.parse(raw);
     parts.checkPkgIsAbsolute();
     RepositoryName repoName =
-        parts.repo == null
-            ? RepositoryName.MAIN
-            : RepositoryName.createFromValidStrippedName(parts.repo);
+        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
     return createUnvalidated(
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
@@ -105,7 +103,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg) ? RepositoryName.MAIN : currentRepo;
     }
     // TODO(b/200024947): Make repo mapping take a string and return a RepositoryName.
-    return repoMapping.get(RepositoryName.createFromValidStrippedName(parts.repo));
+    return repoMapping.get(RepositoryName.createUnvalidated(parts.repo));
   }
 
   // TODO(b/200024947): Make this public.
@@ -277,9 +275,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     }
     // TODO(b/200024947): This method will eventually need to take a repo mapping too.
     RepositoryName repoName =
-        parts.repo == null
-            ? RepositoryName.MAIN
-            : RepositoryName.createFromValidStrippedName(parts.repo);
+        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
     return create(PackageIdentifier.create(repoName, pathFragment), parts.target);
   }
 

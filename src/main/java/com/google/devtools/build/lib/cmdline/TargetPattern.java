@@ -912,7 +912,7 @@ public abstract class TargetPattern {
               "Couldn't find package in target " + pattern, TargetPatterns.Code.PACKAGE_NOT_FOUND);
         }
         try {
-          repository = repoMapping.get(RepositoryName.create(pattern.substring(0, pkgStart)));
+          repository = repoMapping.get(RepositoryName.create(pattern.substring(1, pkgStart)));
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }

@@ -178,12 +178,12 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
             "local_repository(name = 'a', path = '../a', repo_mapping = {'@x' : '@y'})",
             "load('//:b.bzl', 'b')",
             "local_repository(name = 'b', path = '../b', repo_mapping = {'@x' : '@y'})");
-    RepositoryName a = RepositoryName.create("@a");
-    RepositoryName b = RepositoryName.create("@b");
-    RepositoryName x = RepositoryName.create("@x");
-    RepositoryName y = RepositoryName.create("@y");
-    RepositoryName good = RepositoryName.create("@good");
-    RepositoryName main = RepositoryName.create("@");
+    RepositoryName a = RepositoryName.create("a");
+    RepositoryName b = RepositoryName.create("b");
+    RepositoryName x = RepositoryName.create("x");
+    RepositoryName y = RepositoryName.create("y");
+    RepositoryName good = RepositoryName.create("good");
+    RepositoryName main = RepositoryName.create("");
 
     SkyKey key0 = WorkspaceFileValue.key(workspace, 0);
     EvaluationResult<WorkspaceFileValue> result0 = eval(key0);
@@ -205,9 +205,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       TestManagedDirectoriesListener listener = new TestManagedDirectoriesListener();
       ManagedDirectoriesKnowledgeImpl knowledge = new ManagedDirectoriesKnowledgeImpl(listener);
 
-      RepositoryName one = RepositoryName.create("@repo1");
-      RepositoryName two = RepositoryName.create("@repo2");
-      RepositoryName three = RepositoryName.create("@repo3");
+      RepositoryName one = RepositoryName.create("repo1");
+      RepositoryName two = RepositoryName.create("repo2");
+      RepositoryName three = RepositoryName.create("repo3");
 
       PathFragment pf1 = PathFragment.create("dir1");
       PathFragment pf2 = PathFragment.create("dir2");
@@ -316,9 +316,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     assertThat(managedDirectories).hasSize(3);
     assertThat(managedDirectories)
         .containsExactly(
-            PathFragment.create("dir1"), RepositoryName.create("@repo1"),
-            PathFragment.create("dir2"), RepositoryName.create("@repo1"),
-            PathFragment.create("dir3"), RepositoryName.create("@repo2"));
+            PathFragment.create("dir1"), RepositoryName.create("repo1"),
+            PathFragment.create("dir2"), RepositoryName.create("repo1"),
+            PathFragment.create("dir3"), RepositoryName.create("repo2"));
     return workspaceFileValue;
   }
 
@@ -550,9 +550,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
     EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
     WorkspaceFileValue value1 = result1.get(key1);
-    RepositoryName good = RepositoryName.create("@good");
-    RepositoryName main = RepositoryName.create("@");
-    RepositoryName secondary = RepositoryName.create("@secondary");
+    RepositoryName good = RepositoryName.create("good");
+    RepositoryName main = RepositoryName.create("");
+    RepositoryName secondary = RepositoryName.create("secondary");
     assertThat(value1.getRepositoryMapping()).containsEntry(secondary, ImmutableMap.of(good, main));
     assertNoEvents();
   }
