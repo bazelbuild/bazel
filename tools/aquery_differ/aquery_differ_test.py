@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
