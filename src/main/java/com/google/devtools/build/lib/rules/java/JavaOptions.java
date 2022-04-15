@@ -321,6 +321,31 @@ public class JavaOptions extends FragmentOptions {
   public Map<String, Label> bytecodeOptimizers;
 
   /**
+   * If true, the bytecode optimizer will be used to incrementally optimize each compiled Java
+   * artifact.
+   */
+  @Option(
+      name = "experimental_local_java_optimizations",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use.")
+  public boolean runLocalJavaOptimizations;
+
+  /**
+   * Configuration for the bytecode optimizer if --experimental_local_java_optimizations is enabled.
+   */
+  @Option(
+      name = "experimental_local_java_optimization_configuration",
+      allowMultiple = true,
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use.")
+  public List<Label> localJavaOptimizationConfiguration;
+
+  /**
    * If true, the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
    * actions.
    */
@@ -552,6 +577,24 @@ public class JavaOptions extends FragmentOptions {
   public boolean requireJavaPluginInfo;
 
   @Option(
+      name = "incompatible_multi_release_deploy_jars",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "When enabled, java_binary creates Multi-Release deploy jars.")
+  public boolean multiReleaseDeployJars;
+
+  @Option(
+      name = "incompatible_disallow_java_import_exports",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "When enabled, java_import.exports is not supported.")
+  public boolean disallowJavaImportExports;
+
+  @Option(
       name = "experimental_enable_jspecify",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -617,6 +660,10 @@ public class JavaOptions extends FragmentOptions {
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     host.requireJavaPluginInfo = requireJavaPluginInfo;
+
+    host.multiReleaseDeployJars = multiReleaseDeployJars;
+
+    host.disallowJavaImportExports = disallowJavaImportExports;
 
     return host;
   }

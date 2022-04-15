@@ -1,6 +1,6 @@
 workspace(name = "io_bazel")
 
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file", "http_jar")
 load("//:distdir.bzl", "dist_http_archive", "dist_http_file", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 
@@ -44,12 +44,12 @@ bind(
 # //external:guava
 bind(
     name = "grpc-java-plugin",
-    actual = "//third_party/grpc:grpc-java-plugin",
+    actual = "//third_party/grpc-java:grpc-java-plugin",
 )
 
 bind(
     name = "grpc-jar",
-    actual = "//third_party/grpc:grpc-jar",
+    actual = "//third_party/grpc-java:grpc-jar",
 )
 
 bind(
@@ -119,15 +119,21 @@ distdir_tar(
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
         "android_tools_pkg-0.23.0.tar.gz",
+        # for android_gmaven_r8
+        "r8-3.3.28.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.23.0.tar.gz": "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",
+        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
     },
     urls = {
         "android_tools_pkg-0.23.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
+        ],
+        "r8-3.3.28.jar": [
+            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
         ],
     },
 )
@@ -346,15 +352,20 @@ distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
         "android_tools_pkg-0.23.0.tar.gz",
+        "r8-3.3.28.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.23.0.tar.gz": "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",
+        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
     },
     urls = {
         "android_tools_pkg-0.23.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
+        ],
+        "r8-3.3.28.jar": [
+            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
         ],
     },
 )
@@ -395,6 +406,13 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
     url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+http_jar(
+    name = "android_gmaven_r8_for_testing",
+    sha256 = "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
+    url = "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
 )
 
 dist_http_archive(
@@ -457,44 +475,18 @@ dist_http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-
 )
 
-dist_http_archive(
-    name = "remotejdk17_linux_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_macos_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_macos_aarch64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_win_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_win_arm64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-
-)
+[
+    dist_http_archive(
+        name = "remotejdk%s_%s_for_testing" % (version, os),
+        build_file = "@local_jdk//:BUILD.bazel",
+        patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+        patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    )
+    for version in ("17", "18")
+    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
@@ -597,49 +589,17 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_linux_archive",
-    build_file_content = """
+[
+    dist_http_archive(
+        name = "openjdk%s_%s_archive" % (version, os),
+        build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_darwin_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_darwin_aarch64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_windows_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_windows_arm64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
+    )
+    for version in ("17", "18")
+    for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
+]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
@@ -681,6 +641,12 @@ register_toolchains("//src/main/res:empty_rc_toolchain")
 
 dist_http_archive(
     name = "com_github_grpc_grpc",
+)
+
+# Override the abseil-cpp version defined in grpc_deps(), which doesn't work on latest macOS
+# Fixes https://github.com/bazelbuild/bazel/issues/15168
+dist_http_archive(
+    name = "com_google_absl",
 )
 
 # Projects using gRPC as an external dependency must call both grpc_deps() and

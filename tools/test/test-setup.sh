@@ -54,8 +54,10 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_DIR" ||
   TEST_UNDECLARED_OUTPUTS_DIR="$PWD/$TEST_UNDECLARED_OUTPUTS_DIR"
 is_absolute "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ||
   TEST_UNDECLARED_OUTPUTS_MANIFEST="$PWD/$TEST_UNDECLARED_OUTPUTS_MANIFEST"
-is_absolute "$TEST_UNDECLARED_OUTPUTS_ZIP" ||
-  TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]]; then
+  is_absolute "$TEST_UNDECLARED_OUTPUTS_ZIP" ||
+    TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+fi
 is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" ||
   TEST_UNDECLARED_OUTPUTS_ANNOTATIONS="$PWD/$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
 is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
@@ -414,7 +416,8 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR";
     # If * found nothing, echo printed the literal *.
     # Otherwise echo printed the top-level files and directories.
     # Pass files to zip with *, so paths with spaces aren't broken up.
-    zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>/dev/null || \
+    # Remove original files after zipping them.
+    zip -qrm "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>/dev/null || \
         echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": zip not found or failed"
   fi
 fi

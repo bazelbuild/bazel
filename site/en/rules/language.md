@@ -39,6 +39,7 @@ types are supported:
 * [None](lib/globals#None)
 * [bool](lib/bool)
 * [dict](lib/dict)
+* [tuple](lib/globals#tuple)
 * function
 * [int](lib/int)
 * [list](lib/list)

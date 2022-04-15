@@ -91,6 +91,7 @@ public class JavaStarlarkCommon
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
+      boolean createOutputSourceJar,
       Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -131,6 +132,7 @@ public class JavaStarlarkCommon
     // checks for private API access
     if (!enableCompileJarAction
         || !enableJSpecify
+        || !createOutputSourceJar
         || !classpathResources.isEmpty()
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
@@ -166,6 +168,7 @@ public class JavaStarlarkCommon
             enableAnnotationProcessing,
             enableCompileJarAction,
             enableJSpecify,
+            createOutputSourceJar,
             javaSemantics,
             injectingRuleKind,
             thread);
@@ -225,15 +228,19 @@ public class JavaStarlarkCommon
   @Override
   public JavaInfo mergeJavaProviders(
       Sequence<?> providers, /* <JavaInfo> expected. */
+      Sequence<?> exports, /* <JavaInfo> expected. */
       Sequence<?> runtimeDeps, /* <JavaInfo> expected. */
+      boolean includeSourceJarsFromExports,
       StarlarkThread thread)
       throws EvalException {
-    if (!runtimeDeps.isEmpty()) {
+    if (!exports.isEmpty() || !runtimeDeps.isEmpty() || includeSourceJarsFromExports) {
       checkPrivateAccess(thread);
     }
     return JavaInfo.merge(
         Sequence.cast(providers, JavaInfo.class, "providers"),
-        Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"));
+        Sequence.cast(exports, JavaInfo.class, "exports"),
+        Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
+        includeSourceJarsFromExports);
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.
@@ -376,7 +383,6 @@ public class JavaStarlarkCommon
         .addProvider(
             JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
-        .addTransitiveOnlyRuntimeJars(javaInfo.getTransitiveOnlyRuntimeJars())
         .build();
   }
 

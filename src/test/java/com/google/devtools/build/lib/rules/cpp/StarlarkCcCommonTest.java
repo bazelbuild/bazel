@@ -7080,12 +7080,19 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testExpandedCcCompilationContextApiBlocked() throws Exception {
     scratch.file(
         "b/BUILD",
-        "load('//my_rules:rule.bzl', 'method_rule', 'param_2_rule')",
+        "load('//my_rules:rule.bzl', 'method_rule', 'param_2_rule', 'additional_inputs_rule',"
+            + " 'transitive_modules_rule')",
         "param_2_rule(",
         "  name = 'p2',",
         ")",
         "method_rule(",
         "  name = 'm',",
+        ")",
+        "additional_inputs_rule(",
+        "  name = 'ai',",
+        ")",
+        "transitive_modules_rule(",
+        "  name = 'tm',",
         ")");
     scratch.file("my_rules/BUILD");
     scratch.file(
@@ -7097,15 +7104,29 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "def _p2_impl(ctx):",
         "  comp_context = cc_common.create_compilation_context(purpose = 'testing')",
         "  return [CcInfo(compilation_context = comp_context)]",
+        "def _additional_inputs_impl(ctx):",
+        "  comp_context = cc_common.create_compilation_context()",
+        "  comp_context.additional_inputs()",
+        "def _transitive_modules_impl(ctx):",
+        "  comp_context = cc_common.create_compilation_context()",
+        "  comp_context.transitive_modules(use_pic = True)",
         "method_rule = rule(",
         "  implementation = _m_impl,",
         ")",
         "param_2_rule = rule(",
-        "  implementation = _p2_impl,",
+        "  implementation = _p2_impl)",
+        "additional_inputs_rule = rule(",
+        "  implementation = _additional_inputs_impl)",
+        "transitive_modules_rule = rule(",
+        "  implementation = _transitive_modules_impl",
         ")");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:m"));
     assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:p2"));
+    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:ai"));
+    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:tm"));
     assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
   }
 

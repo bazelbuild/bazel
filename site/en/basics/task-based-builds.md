@@ -211,5 +211,5 @@ correctly. To solve the problem, we need to take some power out of the hands of
 engineers and put it back in the hands of the system and reconceptualize the
 role of the system not as running tasks, but as producing artifacts.
 
-This approach led to the creation of artifact-based build systems, like Bazel
+This approach led to the creation of artifact-based build systems, like Blaze
 and Bazel.

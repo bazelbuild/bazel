@@ -80,6 +80,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
+    Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
@@ -140,6 +141,12 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
               jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts.build(), jspecifyPackages);
     }
 
+    JavaToolchainTool bytecodeOptimizer =
+        JavaToolchainTool.fromFilesToRunProvider(
+            ruleContext.getExecutablePrerequisite(":bytecode_optimizer"));
+    ImmutableList<Artifact> localJavaOptimizationConfiguration =
+        ruleContext.getPrerequisiteArtifacts(":local_java_optimization_configuration").list();
+
     AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
@@ -167,6 +174,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             headerCompilerDirect,
             androidLint,
             jspecifyInfo,
+            bytecodeOptimizer,
+            localJavaOptimizationConfiguration,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,
@@ -174,6 +183,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             oneVersion,
             oneVersionAllowlist,
             genClass,
+            depsChecker,
             resourceJarBuilder,
             timezoneData,
             ijar,

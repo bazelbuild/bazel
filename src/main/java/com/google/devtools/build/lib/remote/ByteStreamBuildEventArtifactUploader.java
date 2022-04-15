@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.Step;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -256,7 +257,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
-    RemoteActionExecutionContext context = RemoteActionExecutionContext.createForBES(metadata);
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
+    context.setStep(Step.UPLOAD_BES_FILES);
 
     return Single.using(
         remoteCache::retain,

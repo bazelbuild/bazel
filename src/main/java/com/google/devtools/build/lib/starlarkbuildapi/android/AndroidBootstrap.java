@@ -54,7 +54,8 @@ public class AndroidBootstrap implements Bootstrap {
           androidLibraryResourceClassJarProviderApiProvider,
       AndroidFeatureFlagSetProviderApi.Provider androidFeatureFlagSetProviderApiProvider,
       ProguardMappingProviderApi.Provider<?> proguardMappingProviderApiProvider,
-      AndroidBinaryDataInfoApi.Provider<?, ?, ?, ?> androidBinaryDataInfoProvider) {
+      AndroidBinaryDataInfoApi.Provider<?, ?, ?, ?> androidBinaryDataInfoProvider,
+      BaselineProfileProviderApi.Provider<?> baselineProfileProvider) {
 
     this.androidCommon = androidCommon;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
@@ -80,6 +81,7 @@ public class AndroidBootstrap implements Bootstrap {
     builder.put(AndroidFeatureFlagSetProviderApi.NAME, androidFeatureFlagSetProviderApiProvider);
     builder.put(ProguardMappingProviderApi.NAME, proguardMappingProviderApiProvider);
     builder.put(AndroidBinaryDataInfoApi.NAME, androidBinaryDataInfoProvider);
+    builder.put(BaselineProfileProviderApi.NAME, baselineProfileProvider);
     providers = builder.build();
   }
 

@@ -1001,6 +1001,63 @@ EOF
            || fail "Failed to run //a:starlark_output_dir_test with remote execution"
 }
 
+function generate_empty_treeartifact_build() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load(":output_dir.bzl", "gen_output_dir")
+gen_output_dir(
+    name = "output-dir",
+    outdir = "dir",
+)
+EOF
+  cat > a/output_dir.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+    ctx.actions.run_shell(
+        outputs = [output_dir],
+        inputs = [],
+        command = "",
+        arguments = [output_dir.path],
+    )
+    return [
+        DefaultInfo(files = depset(direct = [output_dir])),
+    ]
+
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+}
+
+function test_empty_treeartifact_works_with_remote_execution() {
+  # Test that empty tree artifact works with remote execution
+  generate_empty_treeartifact_build
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+}
+
+function test_empty_treeartifact_works_with_remote_cache() {
+  # Test that empty tree artifact works with remote cache
+  generate_empty_treeartifact_build
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+
+  expect_log "remote cache hit"
+}
+
 function test_downloads_minimal() {
   # Test that genrule outputs are not downloaded when using
   # --remote_download_minimal
@@ -2141,7 +2198,6 @@ function test_combined_disk_remote_exec_with_flag_combinations() {
      # Should be some disk cache hits, just not remote.
      "--noremote_accept_cached --incompatible_remote_results_ignore_disk"
   )
-  #
 
   for flags in "${testcases[@]}"; do
     genrule_combined_disk_remote_exec "$flags"
@@ -2165,15 +2221,13 @@ function genrule_combined_disk_remote_exec() {
 
   # if exist in disk cache or  remote cache, don't run remote exec, don't update caches.
   # [CASE]disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
-  #   1)     notexist     notexist   run OK      -   ,    update
+  #   1)     notexist     notexist   run OK    update,    update
   #   2)     notexist     exist      no run    update,    no update
   #   3)     exist        notexist   no run    no update, no update
   #   4)     exist        exist      no run    no update, no update
   #   5)  another rule that depends on 4, but run before 5
   # Our setup ensures the first 2 columns, our validation checks the last 3.
-  # NOTE that remote_exec will NOT update the disk cache, we expect the remote
-  # execution to update the remote_cache and when we pull from the remote cache
-  # we will then mirror to the disk cache.
+  # NOTE that remote_exec will UPDATE the disk cache.
   #
   # We measure if it was run remotely via the "1 remote." in the output and caches
   # from the cache hit on the same line.
@@ -2203,7 +2257,7 @@ EOF
   echo "INFO: RUNNING testcase($testcase_flags)"
   # Case 1)
   #     disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
-  #       notexist     notexist   run OK      -   ,    update
+  #       notexist     notexist   run OK       update,     update
   #
   # Do a build to populate the disk and remote cache.
   # Then clean and do another build to validate nothing updates.
@@ -2218,10 +2272,13 @@ EOF
   disk_action_cache_files="$(count_disk_ac_files "$cache")"
   remote_action_cache_files="$(count_remote_ac_files)"
 
-  [[ "$disk_action_cache_files" == 0 ]] || fail "Expected 0 disk action cache entries, not $disk_action_cache_files"
+  [[ "$disk_action_cache_files" == 1 ]] || fail "CASE 1: Expected 1 disk action cache entries, not $disk_action_cache_files"
   # Even though bazel isn't writing the remote action cache, we expect the worker to write one or the
   # the rest of our tests will fail.
-  [[ "$remote_action_cache_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_action_cache_files"
+  [[ "$remote_action_cache_files" == 1 ]] || fail "CASE 1: Expected 1 remote action cache entries, not $remote_action_cache_files"
+
+  rm -rf $cache
+  mkdir $cache
 
   # Case 2)
   #     disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
@@ -2238,10 +2295,8 @@ EOF
   # ensure disk and remote cache populated
   disk_action_cache_files="$(count_disk_ac_files "$cache")"
   remote_action_cache_files="$(count_remote_ac_files)"
-  if [[ "$testcase_flags" != --noremote_accept_cached* ]]; then
-    [[ "$disk_action_cache_files" == 1 ]] || fail "Expected 1 disk action cache entries, not $disk_action_cache_files"
-    [[ "$remote_action_cache_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_action_cache_files"
-  fi
+  [[ "$disk_action_cache_files" == 1 ]] || fail "CASE 2: Expected 1 disk action cache entries, not $disk_action_cache_files"
+  [[ "$remote_action_cache_files" == 1 ]] || fail "CASE 2: Expected 1 remote action cache entries, not $remote_action_cache_files"
 
   # Case 3)
   #     disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
@@ -2258,7 +2313,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "CASE 3 failed to build"
-  if [[ "$testcase_flags" == --noremote_accept_cached* ]]; then
+  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
     expect_log "2 processes: 1 internal, 1 remote." "CASE 3: unexpected action line [[$(grep processes $TEST_log)]]"
   else
     expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 3: unexpected action line [[$(grep processes $TEST_log)]]"
@@ -2272,7 +2327,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "CASE 4 failed to build"
-  if [[ "$testcase_flags" == --noremote_accept_cached* ]]; then
+  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
     expect_log "2 processes: 1 internal, 1 remote." "CASE 4: unexpected action line [[$(grep processes $TEST_log)]]"
   else
     expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 4: unexpected action line [[$(grep processes $TEST_log)]]"
@@ -2291,7 +2346,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
         || fail "CASE 5 failed to build //a:test2"
-  if [[ "$testcase_flags" == --noremote_accept_cached* ]]; then
+  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
     expect_log "3 processes: 1 internal, 2 remote." "CASE 5: unexpected action line [[$(grep processes $TEST_log)]]"
   else
     expect_log "3 processes: 1 disk cache hit, 1 internal, 1 remote." "CASE 5: unexpected action line [[$(grep processes $TEST_log)]]"
@@ -2299,6 +2354,7 @@ EOF
 }
 
 function test_combined_disk_remote_exec_nocache_tag() {
+  rm -rf ${TEST_TMPDIR}/test_expected
   local cache="${TEST_TMPDIR}/disk_cache"
   local flags=("--disk_cache=$cache"
                "--remote_cache=grpc://localhost:${worker_port}"
@@ -2463,13 +2519,24 @@ EOF
   rm -rf $cache
 }
 
-function test_combined_cache_with_no_remote_cache_tag() {
+function test_combined_cache_with_no_remote_cache_tag_remote_cache() {
   # Test that actions with no-remote-cache tag can hit disk cache of a combined cache but
   # remote cache is disabled.
 
+  combined_cache_with_no_remote_cache_tag "--remote_cache=grpc://localhost:${worker_port}"
+}
+
+function test_combined_cache_with_no_remote_cache_tag_remote_execution() {
+  # Test that actions with no-remote-cache tag can hit disk cache of a combined cache but
+  # remote cache is disabled.
+
+  combined_cache_with_no_remote_cache_tag "--remote_executor=grpc://localhost:${worker_port}"
+}
+
+function combined_cache_with_no_remote_cache_tag() {
   local cache="${TEST_TMPDIR}/cache"
   local disk_flags="--disk_cache=$cache"
-  local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
+  local grpc_flags="$@"
 
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -2503,9 +2570,37 @@ EOF
   bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
-  expect_log "1 .*-sandbox" "Rebuild target failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Rebuilt target generated different result"
+}
+
+function test_combined_cache_with_no_remote_tag() {
+  # Test that outputs of actions tagged with no-remote should not be uploaded
+  # to remote cache when remote execution is enabled. See
+  # https://github.com/bazelbuild/bazel/issues/14900.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+genrule(
+name = 'test',
+cmd = 'echo "Hello world" > \$@',
+outs = [ 'test.txt' ],
+tags = ['no-remote'],
+)
+EOF
+
+  cache_dir=$(mktemp -d)
+  bazel build \
+    --disk_cache=${cache_dir} \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --incompatible_remote_results_ignore_disk=true \
+    //a:test &> $TEST_log \
+    || fail "Failed to build //a:test"
+
+  remote_ac_files="$(count_remote_ac_files)"
+  [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+  remote_cas_files="$(count_remote_cas_files)"
+  [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
 }
 
 function test_repo_remote_exec() {
@@ -3332,6 +3427,40 @@ EOF
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
+function test_download_top_level_remote_execution_after_local_fetches_inputs() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+  mkdir a
+  cat > a/BUILD <<'EOF'
+genrule(name="dep", srcs=["not_used"], outs=["dep.c"], cmd="touch $@")
+cc_library(name="foo", srcs=["dep.c"])
+EOF
+  echo hello > a/not_used
+  bazel build \
+      --experimental_ui_debug_all_events \
+      --remote_executor=grpc://localhost:"${worker_port}" \
+      --remote_download_toplevel \
+      --genrule_strategy=local \
+      //a:dep >& "${TEST_log}" || fail "Expected success"
+  expect_log "START.*: \[.*\] Executing genrule //a:dep"
+
+  echo there > a/not_used
+  # Local compilation requires now remote dep.c to successfully download.
+  bazel build \
+      --experimental_ui_debug_all_events \
+      --remote_executor=grpc://localhost:"${worker_port}" \
+      --remote_download_toplevel \
+      --genrule_strategy=remote \
+      --strategy=CppCompile=local \
+      //a:foo >& "${TEST_log}" || fail "Expected success"
+
+  expect_log "START.*: \[.*\] Executing genrule //a:dep"
+}
+
 function test_uploader_respect_no_cache() {
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -3556,6 +3685,25 @@ EOF
   [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
   remote_ac_files="$(count_remote_ac_files)"
   [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+}
+
+function test_failed_action_dont_check_declared_outputs() {
+  # Test that if action failed, outputs are not checked
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "exit 1",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log && fail "Should failed to build"
+
+  expect_log "Executing genrule .* failed: (Exit 1):"
 }
 
 run_suite "Remote execution and remote cache tests"

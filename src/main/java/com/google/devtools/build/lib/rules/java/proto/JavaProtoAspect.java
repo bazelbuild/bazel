@@ -25,10 +25,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -48,12 +50,14 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
+import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -96,12 +100,13 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       return aspect.build();
     }
 
-    ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
+    ConfiguredTarget protoTarget = ctadBase.getConfiguredTarget();
 
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
     try {
-      Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport, additionalProtocOpts);
+      Impl impl =
+          new Impl(ruleContext, protoTarget, aspectCommon, rpcSupport, additionalProtocOpts);
       impl.addProviders(aspect);
       return aspect.build();
     } catch (RuleErrorException e) {
@@ -161,7 +166,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
   private static class Impl {
 
     private final RuleContext ruleContext;
-    private final ProtoInfo protoInfo;
+    private final ConfiguredTarget protoTarget;
 
     private final RpcSupport rpcSupport;
     private final JavaProtoAspectCommon aspectCommon;
@@ -181,12 +186,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     Impl(
         RuleContext ruleContext,
-        ProtoInfo protoInfo,
+        ConfiguredTarget protoTarget,
         JavaProtoAspectCommon aspectCommon,
         RpcSupport rpcSupport,
         Iterable<String> additionalProtocOpts) {
       this.ruleContext = ruleContext;
-      this.protoInfo = protoInfo;
+      this.protoTarget = protoTarget;
       this.rpcSupport = rpcSupport;
       this.aspectCommon = aspectCommon;
       this.additionalProtocOpts = ImmutableList.copyOf(additionalProtocOpts);
@@ -216,7 +221,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         transitiveOutputJars.addTransitive(provider.getJars());
       }
 
-      if (aspectCommon.shouldGenerateCode(protoInfo, "java_proto_library")) {
+      if (ProtoCommon.shouldGenerateCode(
+          ruleContext,
+          protoTarget,
+          aspectCommon.getProtoToolchainProvider(),
+          "java_proto_library")) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
         Artifact outputJar = aspectCommon.getOutputJarArtifact();
@@ -283,21 +292,42 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     private void createProtoCompileAction(Artifact sourceJar)
         throws RuleErrorException, InterruptedException {
-      ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
-      invocations.add(
-          new ToolchainInvocation(
-              "java",
-              aspectCommon.getProtoToolchainProvider(),
-              sourceJar.getExecPathString(),
-              additionalProtocOpts));
-      invocations.addAll(rpcSupport.getToolchainInvocation(ruleContext, sourceJar));
-      ProtoCompileActionBuilder.registerActions(
+      StarlarkThread thread = ruleContext.getStarlarkThread();
+      Args additionalArgs = Args.newArgs(thread.mutability(), thread.getSemantics());
+      try {
+        additionalArgs.addArgument(
+            sourceJar,
+            Starlark.UNBOUND,
+            aspectCommon.getProtoToolchainProvider().outReplacementFormatFlag(),
+            ruleContext.getStarlarkThread());
+        rpcSupport.populateAdditionalArgs(ruleContext, sourceJar, additionalArgs);
+        additionalArgs.addAll(
+            StarlarkList.immutableCopyOf(additionalProtocOpts),
+            /*values=*/ Starlark.UNBOUND,
+            /*mapEach=*/ Starlark.NONE,
+            /*formatEach=*/ Starlark.NONE,
+            /*beforeEach=*/ Starlark.NONE,
+            /*omitIfEmpty=*/ true,
+            /*uniquify=*/ false,
+            /*expandDirectories=*/ true,
+            /*terminateWith=*/ Starlark.NONE,
+            /*allowClosure=*/ false,
+            thread);
+      } catch (EvalException e) {
+        throw ruleContext.throwWithRuleError(e);
+      }
+
+      ProtoCommon.compile(
           ruleContext,
-          invocations.build(),
-          protoInfo,
+          protoTarget,
+          aspectCommon.getProtoToolchainProvider(),
           ImmutableList.of(sourceJar),
-          "Generating Java (Immutable) proto_library %{label}",
-          rpcSupport.allowServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
+          /* pluginOutput= */ null,
+          additionalArgs,
+          /* additionalTools= */ rpcSupport.getAdditionalTools(ruleContext),
+          /* additionalInputs= */ ImmutableList.of(),
+          /* resourceSet= */ null,
+          "Generating Java (Immutable) proto_library %{label}");
     }
   }
 }

@@ -156,6 +156,11 @@ public class SpawnLogContext implements ActionContext {
     }
     builder.setMnemonic(spawn.getMnemonic());
     builder.setWalltime(Durations.fromNanos(result.getMetrics().executionWallTime().toNanos()));
+
+    if (spawn.getTargetLabel() != null) {
+      builder.setTargetLabel(spawn.getTargetLabel());
+    }
+
     executionLog.write(builder.build());
   }
 

@@ -147,7 +147,10 @@ def _build_link_once_static_libs_map(merged_shared_library_infos):
     return link_once_static_libs_map
 
 def _is_dynamic_only(library_to_link):
-    if library_to_link.static_library == None and library_to_link.pic_static_library == None:
+    if (library_to_link.static_library == None and
+        library_to_link.pic_static_library == None and
+        (library_to_link.objects == None or len(library_to_link.objects) == 0) and
+        (library_to_link.pic_objects == None or len(library_to_link.pic_objects) == 0)):
         return True
     return False
 
@@ -356,7 +359,7 @@ def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
             libs_message.append(str(unaccounted_lib))
 
     if len(unaccounted_for_libs) > 10:
-        libs_message = "(and " + str(len(unaccounted_for_libs) - 10) + " others)\n"
+        libs_message.append("(and " + str(len(unaccounted_for_libs) - 10) + " others)\n")
 
     static_deps_message = []
     for repo in different_repos:
@@ -394,10 +397,7 @@ def _cc_shared_library_impl(ctx):
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
-        # This features enables behavior which creates a def file automatically
-        # for exporting all the symbols in a shared libary on Windows. If a
-        # custom def file is passed, this behavior doesn't apply.
-        requested_features = ctx.features + ["windows_export_all_symbols"],
+        requested_features = ctx.features,
         unsupported_features = ctx.disabled_features,
     )
 
@@ -501,7 +501,10 @@ def _cc_shared_library_impl(ctx):
 
     precompiled_only_dynamic_libraries_runfiles = []
     for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
-        precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+        # precompiled_dynamic_library.dynamic_library could be None if the library to link just contains
+        # an interface library which is valid if the actual library is obtained from the system.
+        if precompiled_dynamic_library.dynamic_library != None:
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
         if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
             precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
 

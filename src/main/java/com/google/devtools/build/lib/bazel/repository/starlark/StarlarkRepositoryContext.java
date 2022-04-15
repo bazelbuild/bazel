@@ -825,7 +825,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " By default, the archive type is determined from the file extension of"
                     + " the URL."
                     + " If the file has no extension, you can explicitly specify either \"zip\","
-                    + " \"jar\", \"war\", \"aar\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\""
+                    + " \"jar\", \"war\", \"aar\", \"tar\", \"tar.gz\", \"tgz\", \"tar.xz\","
+                    + " \"txz\", \".tar.zst\", \".tzst\", \"tar.bz2\", \".ar\", or \".deb\""
                     + " here."),
         @Param(
             name = "stripPrefix",

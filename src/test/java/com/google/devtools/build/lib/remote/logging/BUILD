@@ -29,7 +29,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
         "@googleapis//:google_bytestream_bytestream_java_proto",

@@ -120,7 +120,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * The grouped list of values requested during this build as dependencies. On a subsequent build,
    * if this value is dirty, all deps in the same dependency group can be checked in parallel for
    * changes. In other words, if dep1 and dep2 are in the same group, then dep1 will be checked in
-   * parallel with dep2. See {@link SkyFunction.Environment#getValues} for more.
+   * parallel with dep2. See {@link SkyFunction.Environment#getValuesAndExceptions} for more.
    */
   private final GroupedListHelper<SkyKey> newlyRequestedDeps = new GroupedListHelper<>();
 

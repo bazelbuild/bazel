@@ -45,8 +45,9 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
     """
 
     # assuming that linting is enabled for all java rules i.e.
-    # --experimental_run_android_lint_on_java_rules=true and
     # --experimental_limit_android_lint_to_android_constrained_java=false
+
+    # --experimental_run_android_lint_on_java_rules= is checked in java_common.bzl
 
     if not (source_files or source_jars):
         return None

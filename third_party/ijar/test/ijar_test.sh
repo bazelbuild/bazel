@@ -576,11 +576,6 @@ function test_keep_for_compile() {
     grep -c "// Method kotlin/jvm/internal/Intrinsics.checkParameterIsNotNull" ||
     true)
   check_eq 2 $lines "Output jar should have kept method body"
-  attr=$($JAVAP -classpath $TEST_TMPDIR/keep.jar -v -p \
-    functions.car.CarInlineUtilsKt |
-    strings |
-    grep -c "com.google.devtools.ijar.KeepForCompile" || true)
-  check_eq 2 $attr "Output jar should have kept KeepForCompile attribute."
 }
 
 function test_central_dir_largest_regular() {

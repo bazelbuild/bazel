@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -63,7 +64,6 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -602,6 +602,7 @@ public class RemoteSpawnCacheTest {
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(CachedActionResult.remote(success));
+    doReturn(null).when(cache.getRemoteExecutionService()).downloadOutputs(any(), any());
 
     // act
     CacheHandle cacheHandle = cache.lookup(simpleSpawn, simplePolicy);

@@ -313,7 +313,7 @@ function get_java_version() {
 
 # Return the target that a bind point to, using Bazel query.
 function get_bind_target() {
-  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc ${BAZEL_DIR_STARTUP_OPTIONS} \
+  $BAZEL --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} \
     query "deps($1, 1) - $1"
 }
 

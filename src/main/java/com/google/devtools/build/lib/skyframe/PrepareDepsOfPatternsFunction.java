@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyException;
@@ -99,7 +100,9 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
       try {
         SkyValue value =
             tokensByKey.nextOrThrow(
-                TargetParsingException.class, ProcessPackageDirectoryException.class);
+                TargetParsingException.class,
+                ProcessPackageDirectoryException.class,
+                InconsistentFilesystemException.class);
         if (value == null) {
           BugReport.sendBugReport(
               new IllegalStateException(
@@ -109,7 +112,7 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
       } catch (TargetParsingException e) {
         // If a target pattern can't be evaluated, notify the user of the problem and keep going.
         handleTargetParsingException(eventHandler, key, e);
-      } catch (ProcessPackageDirectoryException e) {
+      } catch (ProcessPackageDirectoryException | InconsistentFilesystemException e) {
         // ProcessPackageDirectoryException indicates a catastrophic
         // InconsistentFilesystemException, which will be handled later by a caller.
         return null;

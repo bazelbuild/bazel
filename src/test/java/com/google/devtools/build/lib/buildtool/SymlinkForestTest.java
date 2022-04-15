@@ -138,7 +138,8 @@ public class SymlinkForestTest {
   @Test
   public void testDeleteTreesBelowNotPrefixed() throws IOException {
     createTestDirectoryTree();
-    new SymlinkForest(ImmutableMap.of(), topDir, "").deleteTreesBelowNotPrefixed(topDir, "file-");
+    SymlinkForest.deleteTreesBelowNotPrefixed(
+        topDir, "file-", /*notSymlinkedInExecrootDirectories=*/ ImmutableSortedSet.of());
     assertThat(file1.exists()).isTrue();
     assertThat(file2.exists()).isTrue();
     assertThat(aDir.exists()).isFalse();
@@ -167,7 +168,7 @@ public class SymlinkForestTest {
       repoRoot.getRelative(pkg).createDirectoryAndParents();
       FileSystemUtils.createEmptyFile(repoRoot.getRelative(pkg).getChild("file"));
     }
-    return PackageIdentifier.create(RepositoryName.create("@" + repo), PathFragment.create(pkg));
+    return PackageIdentifier.create(RepositoryName.create("" + repo), PathFragment.create(pkg));
   }
 
   // Create package for main repo
@@ -177,7 +178,7 @@ public class SymlinkForestTest {
       repoRoot.getRelative(pkg).createDirectoryAndParents();
       FileSystemUtils.createEmptyFile(repoRoot.getRelative(pkg).getChild("file"));
     }
-    return PackageIdentifier.create(RepositoryName.create("@"), PathFragment.create(pkg));
+    return PackageIdentifier.create(RepositoryName.create(""), PathFragment.create(pkg));
   }
 
   private static void assertLinksTo(Path fromRoot, Root toRoot, String relpart) throws IOException {

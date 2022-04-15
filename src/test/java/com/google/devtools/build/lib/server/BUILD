@@ -39,7 +39,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "@com_google_protobuf//:protobuf_java",
     ],

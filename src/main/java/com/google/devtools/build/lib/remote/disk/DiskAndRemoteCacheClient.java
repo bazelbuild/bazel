@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.Step;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,7 +56,11 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ListenableFuture<Void> future = diskCache.uploadActionResult(context, actionKey, actionResult);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    // Only upload action result to remote cache if we are uploading local outputs. This method
+    // could be called when we are downloading outputs from remote executor if disk cache is enabled
+    // because we want to upload the action result to it.
+    if (context.getStep() == Step.UPLOAD_OUTPUTS
+        && shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
               future,
@@ -74,15 +79,20 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    // For BES upload, we only upload to the remote cache.
-    if (context.getType() == RemoteActionExecutionContext.Type.BUILD_EVENT_SERVICE) {
+    RemoteActionExecutionContext.Step step = context.getStep();
+
+    // For UPLOAD_INPUTS, only upload to remote cache.
+    if (step == Step.UPLOAD_INPUTS) {
+      return remoteCache.uploadFile(context, digest, file);
+    }
+
+    // For UPLOAD_BES_FILES, only upload to remote cache.
+    if (step == Step.UPLOAD_BES_FILES) {
       return remoteCache.uploadFile(context, digest, file);
     }
 
     ListenableFuture<Void> future = diskCache.uploadFile(context, digest, file);
-
-    if (options.isRemoteExecutionEnabled()
-        || shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadFile(context, digest, file), directExecutor());
@@ -93,9 +103,20 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    RemoteActionExecutionContext.Step step = context.getStep();
+
+    // For UPLOAD_INPUTS, only upload to remote cache.
+    if (step == Step.UPLOAD_INPUTS) {
+      return remoteCache.uploadBlob(context, digest, data);
+    }
+
+    // For BES upload, only upload to the remote cache.
+    if (step == Step.UPLOAD_BES_FILES) {
+      return remoteCache.uploadBlob(context, digest, data);
+    }
+
     ListenableFuture<Void> future = diskCache.uploadBlob(context, digest, data);
-    if (options.isRemoteExecutionEnabled()
-        || shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadBlob(context, digest, data), directExecutor());
@@ -106,17 +127,19 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
-    // If remote execution, find missing digests should only look at
+    RemoteActionExecutionContext.Step step = context.getStep();
+
+    // For UPLOAD_INPUTS, find missing digests should only look at
     // the remote cache, not the disk cache because the remote executor only
     // has access to the remote cache, not the disk cache.
     // Also, the DiskCache always returns all digests as missing
     // and we don't want to transfer all the files all the time.
-    if (options.isRemoteExecutionEnabled()) {
+    if (step == Step.UPLOAD_INPUTS) {
       return remoteCache.findMissingDigests(context, digests);
     }
 
-    // For BES upload, we only check the remote cache.
-    if (context.getType() == RemoteActionExecutionContext.Type.BUILD_EVENT_SERVICE) {
+    // For UPLOAD_BES_FILES, we only check the remote cache.
+    if (step == Step.UPLOAD_BES_FILES) {
       return remoteCache.findMissingDigests(context, digests);
     }
 
@@ -169,7 +192,8 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     final OutputStream tempOut;
     tempOut = new LazyFileOutputStream(tempPath);
 
-    if (options.isRemoteExecutionEnabled()
+    // Always download outputs for just remotely executed action.
+    if (context.getExecuteResponse() != null
         || shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
       ListenableFuture<Void> download =
           closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);

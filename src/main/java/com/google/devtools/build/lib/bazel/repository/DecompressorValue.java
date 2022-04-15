@@ -103,13 +103,17 @@ public class DecompressorValue implements SkyValue {
       return TarGzFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.xz") || baseName.endsWith(".txz")) {
       return TarXzFunction.INSTANCE;
+    } else if (baseName.endsWith(".tar.zst") || baseName.endsWith(".tzst")) {
+      return TarZstFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.bz2")) {
       return TarBz2Function.INSTANCE;
+    } else if (baseName.endsWith(".ar") || baseName.endsWith(".deb")) {
+      return ArFunction.INSTANCE;
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
-              "Expected a file with a .zip, .jar, .war, .aar, .tar, .tar.gz, .tgz, .tar.xz, .txz, "
-                  + "or .tar.bz2 suffix (got %s)",
+              "Expected a file with a .zip, .jar, .war, .aar, .tar, .tar.gz, .tgz, .tar.xz, .txz,"
+                  + " .tar.zst, .tzst, .tar.bz2, .ar or .deb suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }

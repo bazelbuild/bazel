@@ -70,8 +70,8 @@ to the terminal. Only one command can be running at the same time. This is
 implemented using an elaborate locking mechanism with parts in C++ and parts in
 Java. There is some infrastructure for running multiple commands in parallel,
 since the inability to run `bazel version` in parallel with another command
-is somewhat embarrassing. The main blocker is the life cycle of `BazelModule`s
-and some state in `BazelRuntime`.
+is somewhat embarrassing. The main blocker is the life cycle of `BlazeModule`s
+and some state in `BlazeRuntime`.
 
 At the end of a command, the Bazel server transmits the exit code the client
 should return. An interesting wrinkle is the implementation of `bazel run`: the
@@ -86,7 +86,7 @@ third Ctrl-C, the client sends a SIGKILL to the server instead.
 The source code of the client is under `src/main/cpp` and the protocol used to
 communicate with the server is in `src/main/protobuf/command_server.proto` .
 
-The main entry point of the server is `BazelRuntime.main()` and the gRPC calls
+The main entry point of the server is `BlazeRuntime.main()` and the gRPC calls
 from the client are handled by `GrpcServerImpl.run()`.
 
 ## Directory layout {:#directory-layout}
@@ -128,15 +128,15 @@ The output directory contains, among other things:
 Once the Bazel server gets control and is informed about a command it needs to
 execute, the following sequence of events happens:
 
-1.  `BazelCommandDispatcher` is informed about the new request. It decides
+1.  `BlazeCommandDispatcher` is informed about the new request. It decides
     whether the command needs a workspace to run in (almost every command except
     for ones that don't have anything to do with source code, such as version or
     help) and whether another command is running.
 
 2.  The right command is found. Each command must implement the interface
-    `BazelCommand` and must have the `@Command` annotation (this is a bit of an
+    `BlazeCommand` and must have the `@Command` annotation (this is a bit of an
     antipattern, it would be nice if all the metadata a command needs was
-    described by methods on `BazelCommand`)
+    described by methods on `BlazeCommand`)
 
 3.  The command line options are parsed. Each command has different command line
     options, which are described in the `@Command` annotation.
@@ -218,7 +218,7 @@ rules.
 ### Repositories {:#repositories}
 
 A "repository" is a source tree on which a developer works; it usually
-represents a single project. Bazel's ancestor, Bazel, operated on a monorepo,
+represents a single project. Bazel's ancestor, Blaze, operated on a monorepo,
 that is, a single source tree that contains all source code used to run the build.
 Bazel, in contrast, supports projects whose source code spans multiple
 repositories. The repository from which Bazel is invoked is called the “main
@@ -246,7 +246,7 @@ it)
 Every repository is composed of packages, a collection of related files and
 a specification of the dependencies. These are specified by a file called
 `BUILD` or `BUILD.bazel`. If both exist, Bazel prefers `BUILD.bazel`; the reason
-why BUILD files are still accepted is that Bazel’s ancestor, Bazel, used this
+why BUILD files are still accepted is that Bazel’s ancestor, Blaze, used this
 file name. However, it turned out to be a commonly used path segment, especially
 on Windows, where file names are case-insensitive.
 
@@ -1102,15 +1102,15 @@ successfully went only halfway with a rename...)
 
 The life cycle of an action context is as follows:
 
-1.  When the execution phase is started, `BazelModule` instances are asked what
+1.  When the execution phase is started, `BlazeModule` instances are asked what
     action contexts they have. This happens in the constructor of
     `ExecutionTool`. Action context types are identified by a Java `Class`
     instance that refers to a sub-interface of `ActionContext` and which
     interface the action context must implement.
 2.  The appropriate action context is selected from the available ones and is
-    forwarded to `ActionExecutionContext` and `BazelExecutor` .
+    forwarded to `ActionExecutionContext` and `BlazeExecutor` .
 3.  Actions request contexts using `ActionExecutionContext.getContext()` and
-    `BazelExecutor.getStrategy()` (there should really be only one way to do
+    `BlazeExecutor.getStrategy()` (there should really be only one way to do
     it…)
 
 Strategies are free to call other strategies to do their jobs; this is used, for
@@ -1376,7 +1376,7 @@ are provided:
 *   `bazel cquery` is used to investigate the configured target graph
 *   `bazel aquery` is used to investigate the action graph
 
-Each of these is implemented by subclassing `AbstractBazelQueryEnvironment`.
+Each of these is implemented by subclassing `AbstractBlazeQueryEnvironment`.
 Additional additional query functions can be done by subclassing `QueryFunction`
 . In order to allow streaming query results, instead of collecting them to some
 data structure, a `query2.engine.Callback` is passed to `QueryFunction`, which
@@ -1398,8 +1398,8 @@ and it would be very nice to lift this requirement.
 ## The module system {:#module-system}
 
 Bazel can be extended by adding modules to it. Each module must subclass
-`BazelModule` (the name is a relic of the history of Bazel when it used to be
-called Bazel) and gets information about various events during the execution of
+`BlazeModule` (the name is a relic of the history of Bazel when it used to be
+called Blaze) and gets information about various events during the execution of
 a command.
 
 They are mostly used to implement various pieces of "non-core" functionality
@@ -1408,12 +1408,12 @@ that only some versions of Bazel (such as the one we use at Google) need:
 *   Interfaces to remote execution systems
 *   New commands
 
-The set of extension points `BazelModule` offers is somewhat haphazard. Don't
+The set of extension points `BlazeModule` offers is somewhat haphazard. Don't
 use it as an example of good design principles.
 
 ## The event bus {:#event-bus}
 
-The main way BazelModules communicate with the rest of Bazel is by an event bus
+The main way BlazeModules communicate with the rest of Bazel is by an event bus
 (`EventBus`): a new instance is created for every build, various parts of Bazel
 can post events to it and modules can register listeners for the events they are
 interested in. For example, the following things are represented as events:
@@ -1427,7 +1427,7 @@ interested in. For example, the following things are represented as events:
 
 Some of these events are represented outside of Bazel in the
 [Build Event Protocol](/docs/build-event-protocol)
-(they are `BuildEvent`s). This allows not only `BazelModule`s, but also things
+(they are `BuildEvent`s). This allows not only `BlazeModule`s, but also things
 outside the Bazel process to observe the build. They are accessible either as a
 file that contains protocol messages or Bazel can connect to a server (called
 the Build Event Service) to stream events.
@@ -1581,7 +1581,7 @@ instances are created (for stdout and stderr) that forward the data printed into
 them to the client. These are then wrapped in an `OutErr` (an (stdout, stderr)
 pair). Anything that needs to be printed on the console goes through these
 streams. Then these streams are handed over to
-`BazelCommandDispatcher.execExclusively()`.
+`BlazeCommandDispatcher.execExclusively()`.
 
 Output is by default printed with ANSI escape sequences. When these are not
 desired (`--color=no`), they are stripped by an `AnsiStrippingOutputStream`. In
@@ -1637,8 +1637,8 @@ they are supposed to be neatly nested within each other. Each Java thread gets
 its own task stack. **TODO:** How does this work with actions and
 continuation-passing style?
 
-The profiler is started and stopped in `BazelRuntime.initProfiler()` and
-`BazelRuntime.afterCommand()` respectively and attempts to be live for as long
+The profiler is started and stopped in `BlazeRuntime.initProfiler()` and
+`BlazeRuntime.afterCommand()` respectively and attempts to be live for as long
 as possible so that we can profile everything. To add something to the profile,
 call `Profiler.instance().profile()`. It returns a `Closeable`, whose closure
 represents the end of the task. It's best used with try-with-resources

@@ -79,7 +79,7 @@ Take a look at the source files for the app.
                         ├── MainActivity.java
                         └── res
                             ├── layout
-                            │   └── activity_main.xml
+                            │   └── activity_main.xml
                             └── values
                                 ├── colors.xml
                                 └── strings.xml
@@ -88,6 +88,7 @@ Take a look at the source files for the app.
 The key files and directories are:
 
 | Name                    | Location                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
 | Android manifest files  | `src/main/AndroidManifest.xml` and `src/main/java/com/example/bazel/AndroidManifest.xml` |
 | Android source files    | `src/main/java/com/example/bazel/MainActivity.java` and `Greeter.java`                   |
 | Resource file directory | `src/main/java/com/example/bazel/res/`                                                   |
@@ -105,7 +106,8 @@ The `WORKSPACE` file may be empty or may contain references to [external
 dependencies](/docs/external) required to build your project.
 
 First, run the following command to create an empty `WORKSPACE` file:
-
+|          OS              |              Command                |
+| ------------------------ | ----------------------------------- |
 | Linux, macOS             | `touch WORKSPACE`                   |
 | Windows (Command Prompt) | `type nul > WORKSPACE`              |
 | Windows (PowerShell)     | `New-Item WORKSPACE -ItemType file` |
@@ -148,6 +150,8 @@ Manager](https://developer.android.com/studio/intro/update#sdk-manager){: .exter
 Assuming the SDK is installed to default locations, you can use the following
 commands to set the `ANDROID_HOME` variable:
 
+|          OS              |               Command                               |
+| ------------------------ | --------------------------------------------------- |
 | Linux                    | `export ANDROID_HOME=$HOME/Android/Sdk/`            |
 | macOS                    | `export ANDROID_HOME=$HOME/Library/Android/sdk`     |
 | Windows (Command Prompt) | `set ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk`       |
@@ -156,6 +160,8 @@ commands to set the `ANDROID_HOME` variable:
 The above commands set the variable only for the current shell session. To make
 them permanent, run the following commands:
 
+|          OS              |               Command                               |
+| ------------------------ | --------------------------------------------------- |
 | Linux                    | `echo "export ANDROID_HOME=$HOME/Android/Sdk/" >> ~/.bashrc`                                                                              |
 | macOS                    | `echo "export ANDROID_HOME=$HOME/Library/Android/Sdk/" >> ~/.bashrc`                                                                              |
 | Windows (Command Prompt) | `setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`                                                                                          |
@@ -356,6 +362,8 @@ derived from the name of the Bazel package.
 At a command prompt, list the contents of this directory and find the `app.apk`
 file:
 
+|          OS              |          Command         |
+| ------------------------ | ------------------------ |
 | Linux, macOS             | `ls bazel-bin/src/main`  |
 | Windows (Command Prompt) | `dir bazel-bin\src\main` |
 | Windows (PowerShell)     | `ls bazel-bin\src\main`  |

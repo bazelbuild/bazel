@@ -85,7 +85,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     // 1. Get repo spec for some special repos
     // Keep this in sync with {@RepositoryMappingFunction}
     // @bazel_tools is a special repo that we pull from the extracted install dir.
-    if (repositoryName.equals(RepositoryName.BAZEL_TOOLS.strippedName())) {
+    if (repositoryName.equals(RepositoryName.BAZEL_TOOLS.getName())) {
       RepoSpec repoSpec =
           RepoSpec.builder()
               .setRuleClassName("local_repository")
@@ -108,7 +108,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     //   - It can't be starlarkified yet because we can't access the cpu value in repository_ctx.
     //   - The canonical name "local_config_platform" is hardcoded in Bazel code.
     //     See {@link PlatformOptions}
-    if (repositoryName.equals(RepositoryName.LOCAL_CONFIG_PLATFORM.strippedName())) {
+    if (repositoryName.equals(RepositoryName.LOCAL_CONFIG_PLATFORM.getName())) {
       RepoSpec repoSpec =
           RepoSpec.builder()
               .setRuleClassName("local_config_platform")

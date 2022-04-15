@@ -947,7 +947,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     BuildConfigurationValue configuration =
         BuildConfigurationValue.create(
             defaultBuildOptions,
-            RepositoryName.createFromValidStrippedName("workspace"),
+            RepositoryName.createUnvalidated("workspace"),
             /*siblingRepositoryLayout=*/ false,
             /*transitionDirectoryNameFragment=*/ "",
             new BlazeDirectories(

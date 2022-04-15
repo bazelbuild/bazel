@@ -108,8 +108,7 @@ public class CommandLineEventTest {
         OptionsParser.builder()
             .optionsClasses(BlazeServerStartupOptions.class, Options.class)
             .build();
-    fakeStartupOptions.parse(
-        "--bazelrc=/some/path", "--master_bazelrc", "--bazelrc", "/some/other/path");
+    fakeStartupOptions.parse("--bazelrc=/some/path", "--bazelrc", "/some/other/path");
     OptionsParser fakeCommandOptions =
         OptionsParser.builder().optionsClasses(TestOptions.class).build();
 
@@ -128,12 +127,10 @@ public class CommandLineEventTest {
 
     // Expect the provided rc-related startup options are correctly listed
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
-    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(3);
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
     assertThat(line.getSections(1).getOptionList().getOption(0).getCombinedForm())
         .isEqualTo("--bazelrc=/some/path");
     assertThat(line.getSections(1).getOptionList().getOption(1).getCombinedForm())
-        .isEqualTo("--master_bazelrc");
-    assertThat(line.getSections(1).getOptionList().getOption(2).getCombinedForm())
         .isEqualTo("--bazelrc /some/other/path");
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(0);
@@ -189,8 +186,7 @@ public class CommandLineEventTest {
         OptionsParser.builder()
             .optionsClasses(BlazeServerStartupOptions.class, Options.class)
             .build();
-    fakeStartupOptions.parse(
-        "--bazelrc=/some/path", "--master_bazelrc", "--bazelrc", "/some/other/path");
+    fakeStartupOptions.parse("--bazelrc=/some/path", "--bazelrc", "/some/other/path");
     OptionsParser fakeCommandOptions =
         OptionsParser.builder().optionsClasses(TestOptions.class).build();
 

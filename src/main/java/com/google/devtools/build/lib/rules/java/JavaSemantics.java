@@ -26,16 +26,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -85,7 +82,6 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy-src.jar");
 
   SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE = fromTemplates("%{name}_classpaths_file");
-  String TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER = "%test_runtime_classpath_file%";
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -188,10 +184,23 @@ public interface JavaSemantics {
                 attributes.has("proguard_specs")
                     && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
             JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
-            if (!hasProguardSpecs || !optimizer.label().isPresent()) {
+            if ((!hasProguardSpecs && !javaConfig.runLocalJavaOptimizations())
+                || !optimizer.label().isPresent()) {
               return null;
             }
             return optimizer.label().get();
+          });
+
+  @SerializationConstant
+  LabelListLateBoundDefault<JavaConfiguration> LOCAL_JAVA_OPTIMIZATION_CONFIGURATION =
+      LabelListLateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          (rule, attributes, javaConfig) -> {
+            // Don't bother adding the configuration dep if we're not going to use it.
+            if (!javaConfig.runLocalJavaOptimizations()) {
+              return ImmutableList.of();
+            }
+            return javaConfig.getLocalJavaOptimizationConfiguration();
           });
 
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
@@ -270,7 +279,8 @@ public interface JavaSemantics {
       Artifact launcher,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
-      Artifact sharedArchive);
+      Artifact sharedArchive,
+      boolean multiReleaseDeployJars);
 
   /**
    * Creates the action that writes the Java executable stub script.
@@ -328,38 +338,7 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
-  /**
-   * Returns true if target is a test target, has TestConfiguration, and persistent test runner set.
-   *
-   * <p>Note that no TestConfiguration implies the TestConfiguration was pruned in some parent of
-   * the rule. Therefore, TestTarget not currently being analyzed as part of top-level and thus
-   * persistent test runner is not especially relevant.
-   */
-  static boolean isTestTargetAndPersistentTestRunner(RuleContext ruleContext) {
-    if (!ruleContext.isTestTarget()) {
-      return false;
-    }
-    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
-    return testConfiguration != null && testConfiguration.isPersistentTestRunner();
-  }
 
-  static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {
-    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
-    if (testSupport == null) {
-      return Runfiles.EMPTY;
-    }
-
-    RunfilesProvider testSupportRunfilesProvider = testSupport.getProvider(RunfilesProvider.class);
-    return testSupportRunfilesProvider.getDefaultRunfiles();
-  }
-
-  static NestedSet<Artifact> getTestSupportRuntimeClasspath(RuleContext ruleContext) {
-    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
-    if (testSupport == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return JavaInfo.getProvider(JavaCompilationArgsProvider.class, testSupport).getRuntimeJars();
-  }
 
   static TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {

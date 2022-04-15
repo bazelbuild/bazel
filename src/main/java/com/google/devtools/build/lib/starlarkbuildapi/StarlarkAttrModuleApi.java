@@ -45,8 +45,8 @@ import net.starlark.java.eval.StarlarkValue;
             + " objects are used as the values of the <code>attrs</code> dictionary argument of <a"
             + " href=\"globals.html#rule\"><code>rule()</code></a> and <a"
             + " href=\"globals.html#aspect\"><code>aspect()</code></a>.<p>See the Rules page for"
-            + " more on <a href='$STARLARK_DOCS_ROOT/rules.html#attributes'>defining</a> and <a"
-            + " href='$STARLARK_DOCS_ROOT/rules.html#implementation-function'>using</a>"
+            + " more on <a href='https://bazel.build/rules/rules#attributes'>defining</a> and <a"
+            + " href='https://bazel.build/rules/rules#implementation_function'>using</a>"
             + " attributes.")
 public interface StarlarkAttrModuleApi extends StarlarkValue {
 
@@ -92,8 +92,13 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
       "<a href=\"https://bazel.build/rules/rules#configurations\">"
-          + "Configuration</a> of the attribute. It can be either <code>\"host\"</code>, "
-          + "<code>\"exec\"</code>, or <code>\"target\"</code>.";
+          + "Configuration</a> of the attribute. It can be either <code>\"exec\"</code>, which "
+          + "indicates that the dependency is built for the <code>execution platform</code>, or "
+          + "<code>\"target\"</code>, which indicates that the dependency is build for the "
+          + "<code>target platform</code>. A typical example of the difference is when building "
+          + "mobile apps, where the <code>target platform</code> is <code>Android</code> or "
+          + "<code>iOS</code> while the <code>execution platform</code> is <code>Linux</code>, "
+          + "<code>macOS</code>, or <code>Windows</code>.";
 
   String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
@@ -233,7 +238,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + " attribute. If you also want to prevent users from overriding this default, you"
               + " can make the attribute private by giving it a name that starts with an"
               + " underscore. See the <a"
-              + " href='$STARLARK_DOCS_ROOT/rules.html#private-attributes'>Rules</a> page for more"
+              + " href='https://bazel.build/rules/rules#private-attributes'>Rules</a> page for more"
               + " information.",
       parameters = {
         @Param(

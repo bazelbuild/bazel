@@ -51,15 +51,6 @@ pkg_tar(
     srcs = ["//tools:package-srcs"],
     mode = "0644",
 )
-
-pkg_tar(
-    name = "bazel-all",
-    extension = "tar.gz",
-    deps = [
-        ":bazel-bin",
-        ":bazel-tools",
-    ],
-)
 ```
 
 Here, a package is built from three `pkg_tar` targets:
@@ -69,9 +60,6 @@ Here, a package is built from three `pkg_tar` targets:
  - `bazel-tools` create a tarball with the base workspace (mode `0644`) to
    `/usr/share/bazel/tools` ; the `modes` attribute let us specifies executable
    files,
- - `bazel-all` creates a gzip-compressed tarball that merge the two previous
-   tarballs.
-
 
 <a name="pkg_tar"></a>
 ## pkg_tar
@@ -164,25 +152,6 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
     <tr>
-      <td><code>mtime</code></td>
-      <td>
-        <code>int, seconds since Jan 1, 1970, default to -1 (ignored)</code>
-        <p>
-          Set the mod time of files added by the <code>files</code> attribute.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>portable_mtime</code></td>
-      <td>
-        <code>bool, default True</code>
-        <p>
-          Set the mod time of files added by the <code>files</code> attribute
-          to a 2000-01-01.
-        </p>
-      </td>
-    </tr>
-    <tr>
       <td><code>modes</code></td>
       <td>
         <code>Dictionary, default to '{}'</code>
@@ -203,34 +172,31 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
     <tr>
+      <td><code>mtime</code></td>
+      <td>
+        <code>int, seconds since Jan 1, 1970, default to -1 (ignored)</code>
+        <p>
+          Set the mod time of files added by the <code>files</code> attribute.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>portable_mtime</code></td>
+      <td>
+        <code>bool, default True</code>
+        <p>
+          Set the mod time of files added by the <code>files</code> attribute
+          to a 2000-01-01.
+        </p>
+      </td>
+    </tr>
+    <tr>
       <td><code>owner</code></td>
       <td>
         <code>String, default to '0.0'</code>
         <p>
           <code>UID.GID</code> to set the default numeric owner for all files
           provided in <code>files</code>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>owners</code></td>
-      <td>
-        <code>Dictionary, default to '{}'</code>
-        <p>
-          A string dictionary to change default owner of specific files from
-          <code>files</code>. Each key should be a path to a file before
-          appending the prefix <code>package_dir</code> and the corresponding
-          value the <code>UID.GID</code> numeric string for the owner of the
-          file. When determining owner ids, this attribute is looked first then
-          <code>owner</code>.
-        </p>
-        <p>
-          <code>
-          owners = {
-           "tools/py/2to3.sh": "42.24",
-           ...
-          },
-          </code>
         </p>
       </td>
     </tr>

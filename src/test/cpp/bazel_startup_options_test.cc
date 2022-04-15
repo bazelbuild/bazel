@@ -102,7 +102,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "host_jvm_debug");
   ExpectValidNullaryOption(options, "autodetect_server_javabase");
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
-  ExpectValidNullaryOption(options, "master_bazelrc");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectValidNullaryOption(options, "system_rc");
   ExpectValidNullaryOption(options, "watchfs");
@@ -190,7 +189,7 @@ TEST_F(BazelStartupOptionsTest, IgnoredNoMasterBazelrcDoesNotWarn) {
   // Warning for nomaster would feel pretty spammy - it's redundant, but the
   // behavior is as one would expect, so warning is unnecessary.
   ParseStartupOptionsAndExpectWarning(
-      startup_options_.get(), {"--ignore_all_rc_files", "--nomaster_bazelrc"},
+      startup_options_.get(), {"--ignore_all_rc_files"},
       "");
 }
 
@@ -207,7 +206,7 @@ TEST_F(BazelStartupOptionsTest, NonIgnoredOptionDoesNotWarn) {
 TEST_F(BazelStartupOptionsTest, FinalValueOfIgnoreIsUsedForWarning) {
   ParseStartupOptionsAndExpectWarning(
       startup_options_.get(),
-      {"--ignore_all_rc_files", "--master_bazelrc", "--noignore_all_rc_files"},
+      {"--ignore_all_rc_files", "--noignore_all_rc_files"},
       "");
 }
 

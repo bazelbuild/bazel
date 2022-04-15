@@ -864,7 +864,6 @@ public class CompilationSupport implements StarlarkValue {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
     NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
-    Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner");
     NestedSet<Artifact> j2ObjcDependencyMappingFiles =
         j2ObjcMappingFileProvider.getDependencyMappingFiles();
     NestedSet<Artifact> j2ObjcHeaderMappingFiles =
@@ -903,9 +902,8 @@ public class CompilationSupport implements StarlarkValue {
                   XcodeConfigInfo.fromRuleContext(ruleContext),
                   appleConfiguration.getSingleArchPlatform())
               .setMnemonic("DummyPruner")
-              .setExecutable(pruner)
+              .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_dead_code_pruner"))
               .addInput(dummyArchive)
-              .addInput(pruner)
               .addInput(j2objcArchive)
               .addInput(xcrunwrapper(ruleContext).getExecutable())
               .addTransitiveInputs(j2ObjcDependencyMappingFiles)

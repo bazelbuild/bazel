@@ -236,6 +236,12 @@ public interface JavaCommonApi<
             defaultValue = "True",
             documented = false),
         @Param(
+            name = "create_output_source_jar",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            documented = false),
+        @Param(
             name = "injecting_rule_kind",
             documented = false,
             positional = false,
@@ -272,6 +278,7 @@ public interface JavaCommonApi<
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
+      boolean createOutputSourceJar,
       Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -451,16 +458,29 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
         @Param(
+            name = "exports",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "A list of exports. Optional."),
+        @Param(
             name = "runtime_deps",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             named = true,
             defaultValue = "[]",
             doc = "A list of runtime dependencies. Optional."),
+        @Param(
+            name = "include_source_jars_from_exports",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
   JavaInfoT mergeJavaProviders(
       Sequence<?> providers /* <JavaInfoT> expected. */,
+      Sequence<?> exports /* <JavaInfoT> expected. */,
       Sequence<?> runtimeDeps /* <JavaInfoT> expected. */,
+      boolean includeSourceJarsFromExports,
       StarlarkThread thread)
       throws EvalException;
 

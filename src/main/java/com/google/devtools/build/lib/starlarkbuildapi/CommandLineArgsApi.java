@@ -49,7 +49,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "manipulating the data. <code>Args</code> objects do not process the depsets they "
             + "encapsulate until the execution phase, when it comes time to calculate the command "
             + "line. This helps defer any expensive copying until after the analysis phase is "
-            + "complete. See the <a href='$STARLARK_DOCS_ROOT/performance.html'>Optimizing "
+            + "complete. See the <a href='https://bazel.build/rules/performance'>Optimizing "
             + "Performance</a> page for more information."
             + ""
             + "<p><code>Args</code> are constructed by calling <a href='actions.html#args'><code>"

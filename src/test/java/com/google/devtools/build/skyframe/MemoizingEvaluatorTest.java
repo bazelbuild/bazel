@@ -1132,7 +1132,7 @@ public abstract class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getValues(ImmutableList.of(leafKey, bKey));
+                env.getOrderedValuesAndExceptions(ImmutableList.of(leafKey, bKey));
                 return null;
               }
             });
@@ -1243,8 +1243,8 @@ public abstract class MemoizingEvaluatorTest {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 // The order here is important -- 2 before 1.
-                Map<SkyKey, SkyValue> result =
-                    env.getValues(ImmutableList.of(cycleKey2, cycleKey1));
+                SkyframeIterableResult result =
+                    env.getOrderedValuesAndExceptions(ImmutableList.of(cycleKey2, cycleKey1));
                 Preconditions.checkState(env.valuesMissing(), result);
                 return null;
               }
@@ -1581,7 +1581,7 @@ public abstract class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getValues(ImmutableList.of(topKey, depKey));
+                env.getOrderedValuesAndExceptions(ImmutableList.of(topKey, depKey));
                 assertThat(env.valuesMissing()).isTrue();
                 return null;
               }
@@ -2114,7 +2114,7 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(topKey)
         .setBuilder(
             (skyKey, env) -> {
-              env.getValues(ImmutableList.of(errorKey, midKey, mid2Key));
+              env.getOrderedValuesAndExceptions(ImmutableList.of(errorKey, midKey, mid2Key));
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2153,7 +2153,8 @@ public abstract class MemoizingEvaluatorTest {
             (skyKey, env) -> {
               SkyKeyValue val =
                   ((SkyKeyValue)
-                      env.getValues(ImmutableList.of(groupDepA, groupDepB)).get(groupDepA));
+                      env.getOrderedValuesAndExceptions(ImmutableList.of(groupDepA, groupDepB))
+                          .next());
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2519,7 +2520,8 @@ public abstract class MemoizingEvaluatorTest {
               if (dep1 == null) {
                 return null;
               }
-              env.getValues(ImmutableList.of(newlyRequestedDoneDep, newlyRequestedNotDoneDep));
+              env.getOrderedValuesAndExceptions(
+                  ImmutableList.of(newlyRequestedDoneDep, newlyRequestedNotDoneDep));
               if (numFunctionCalls.get() < 4) {
                 return Restart.SELF;
               } else if (numFunctionCalls.get() == 4) {
@@ -2606,7 +2608,7 @@ public abstract class MemoizingEvaluatorTest {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 if (sameGroup) {
-                  env.getValues(ImmutableSet.of(presentChild, missingChild));
+                  env.getOrderedValuesAndExceptions(ImmutableSet.of(presentChild, missingChild));
                 } else {
                   env.getValue(presentChild);
                   if (env.valuesMissing()) {
@@ -2691,14 +2693,14 @@ public abstract class MemoizingEvaluatorTest {
               // Request the first group, [leaf0, leaf1, leaf2].
               // In the first build, it has values ["leaf2", "leaf3", "leaf4"].
               // In the second build it has values ["leaf2", "leaf3", "leaf5"]
-              Map<SkyKey, SkyValue> values = env.getValues(leaves);
+              SkyframeLookupResult values = env.getValuesAndExceptions(leaves);
               if (env.valuesMissing()) {
                 return null;
               }
 
               // Request the second group. In the first build it's [leaf2, leaf4].
               // In the second build it's [leaf2, leaf5]
-              env.getValues(
+              env.getOrderedValuesAndExceptions(
                   ImmutableList.of(
                       leaves.get(2),
                       GraphTester.toSkyKey(((StringValue) values.get(leaves.get(2))).getValue())));

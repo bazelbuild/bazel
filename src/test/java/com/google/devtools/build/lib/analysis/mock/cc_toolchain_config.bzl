@@ -112,7 +112,10 @@ _FEATURE_NAMES = struct(
     disable_pbh = "disable_pbh",
     optional_cc_flags_feature = "optional_cc_flags_feature",
     cpp_compile_with_requirements = "cpp_compile_with_requirements",
+    no_copts_tokenization = "no_copts_tokenization",
 )
+
+_no_copts_tokenization_feature = feature(name = _FEATURE_NAMES.no_copts_tokenization)
 
 _disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
 
@@ -1356,6 +1359,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.def_feature: _def_feature,
     _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
     _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
+    _FEATURE_NAMES.no_copts_tokenization: _no_copts_tokenization_feature,
     _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
     _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
     _FEATURE_NAMES.generate_pdb_file: _generate_pdb_file_feature,

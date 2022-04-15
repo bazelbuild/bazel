@@ -147,10 +147,7 @@ def basic_java_library(
         _direct_source_jars = java_info.source_jars,
     )
 
-    # TODO(b/131760365): This is a hack, since the Starlark APIs don't have
-    # an explicit test for "host" or "tool" configuration.
-    if not (ctx.configuration == ctx.host_configuration or
-            ctx.bin_dir.path.find("-exec-") >= 0) and not neverlink:
+    if ctx.fragments.java.run_android_lint:
         generated_source_jars = [
             output.generated_source_jar
             for output in java_info.java_outputs

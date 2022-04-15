@@ -150,7 +150,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
      * <p>If null/unset, the V4 signing flag should not be passed to apksigner. This extra level of
      * control is needed to support environments where older build tools may be used.
      */
-    public @Nullable Boolean signV4() {
+    @Nullable
+    public Boolean signV4() {
       return signV4;
     }
   }
@@ -530,7 +531,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "use_workers_with_dexbuilder",
-        defaultValue = "true",
+        // TODO(b/226226799): Set this back to true once
+        // https://github.com/bazelbuild/bazel/issues/10241 is addressed
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.EXECUTION},
         help = "Whether dexbuilder supports being run in local worker mode.")
@@ -1291,7 +1294,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public @Nullable Boolean apkSigningMethodV4() {
+  @Nullable
+  public Boolean apkSigningMethodV4() {
     return apkSigningMethod.signV4();
   }
 

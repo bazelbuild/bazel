@@ -66,7 +66,7 @@ Community:
 
 Build health and Best practices:
 
-* Allow targets to track their macro call stack, for exporting via bazel query
+* Allow targets to track their macro call stack, for exporting via `bazel query`
 * Implement `--incompatible_no_implicit_file_export`
 * Remove the deprecated depset APIs (#5817, #10313, #9017).
 * Add a cross file analyzer in Buildifier, implement a check for deprecated

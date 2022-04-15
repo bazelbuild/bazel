@@ -40,8 +40,22 @@ function test_starlark_rule_without_lcov_merger() {
     cat <<EOF > rules.bzl
 def _impl(ctx):
     output = ctx.actions.declare_file(ctx.attr.name)
-    ctx.actions.write(output, "", is_executable = True)
-    return [DefaultInfo(executable=output)]
+    ctx.actions.write(output, """\
+#!/bin/bash
+
+if [[ ! -r extra ]]; then
+  echo "extra file not found" >&2
+  exit 1
+fi
+
+if [[ -z \$COVERAGE ]]; then
+  echo "COVERAGE environment variable not set, coverage not run."
+  exit 1
+fi
+""", is_executable = True)
+    extra_file = ctx.actions.declare_file("extra")
+    ctx.actions.write(extra_file, "extra")
+    return [DefaultInfo(executable=output, runfiles=ctx.runfiles(files=[extra_file]))]
 
 custom_test = rule(
     implementation = _impl,

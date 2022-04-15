@@ -308,7 +308,7 @@ class OptionsUsage {
                               tag, Ascii.toLowerCase(tag.name()))))
               .collect(Collectors.joining(", "));
       if (!tagList.isEmpty()) {
-        usage.append("<br>Tags: \n").append(tagList);
+        usage.append("<br>Tags:\n").append(tagList);
       }
     }
 

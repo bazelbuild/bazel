@@ -27,7 +27,7 @@ public final class BuiltinRestriction {
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
   }

@@ -120,6 +120,10 @@ public class AndroidIdlHelper {
     return hasExplicitlySpecifiedIdlImportRoot(ruleContext) ? getIdlImportRoot(ruleContext) : null;
   }
 
+  private static String getIdlImportRoot(RuleContext ruleContext) {
+    return ruleContext.attributes().get("idl_import_root", Type.STRING);
+  }
+
   /** Returns the raw (non-processed) idl_srcs, not including parcelable marker files. */
   public Collection<Artifact> getIdlSources() {
     return translatedIdlSources.keySet();
@@ -130,9 +134,30 @@ public class AndroidIdlHelper {
     return getIdlParcelables(ruleContext);
   }
 
+  /** Returns the idl_parcelables defined on the given rule. */
+  private static ImmutableList<Artifact> getIdlParcelables(RuleContext ruleContext) {
+    return ruleContext.getRule().isAttrDefined("idl_parcelables", BuildType.LABEL_LIST)
+        ? ImmutableList.copyOf(
+            ruleContext
+                .getPrerequisiteArtifacts("idl_parcelables")
+                .filter(AndroidRuleClasses.ANDROID_IDL)
+                .list())
+        : ImmutableList.<Artifact>of();
+  }
+
   /** Returns the idl_preprocessed. */
   public Collection<Artifact> getIdlPreprocessed() {
     return getIdlPreprocessed(ruleContext);
+  }
+
+  /** Returns the idl_preprocessed defined on the given rule. */
+  private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
+    return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
+        ? ruleContext
+            .getPrerequisiteArtifacts("idl_preprocessed")
+            .filter(AndroidRuleClasses.ANDROID_IDL)
+            .list()
+        : ImmutableList.<Artifact>of();
   }
 
   /** Returns the generated Java sources created from the idl_srcs. */
@@ -203,17 +228,6 @@ public class AndroidIdlHelper {
                 ruleContext.getConfiguration().isSiblingRepositoryLayout()),
             suffix),
         baseArtifact.getRoot());
-  }
-
-  /** Returns the idl_parcelables defined on the given rule. */
-  private static ImmutableList<Artifact> getIdlParcelables(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttrDefined("idl_parcelables", BuildType.LABEL_LIST)
-        ? ImmutableList.copyOf(
-            ruleContext
-                .getPrerequisiteArtifacts("idl_parcelables")
-                .filter(AndroidRuleClasses.ANDROID_IDL)
-                .list())
-        : ImmutableList.<Artifact>of();
   }
 
   /** Returns the idl_srcs defined on the given rule. */
@@ -497,19 +511,5 @@ public class AndroidIdlHelper {
   private static boolean hasExplicitlySpecifiedIdlSrcsOrParcelables(RuleContext ruleContext) {
     return ruleContext.getRule().isAttributeValueExplicitlySpecified("idl_srcs")
         || ruleContext.getRule().isAttributeValueExplicitlySpecified("idl_parcelables");
-  }
-
-  private static String getIdlImportRoot(RuleContext ruleContext) {
-    return ruleContext.attributes().get("idl_import_root", Type.STRING);
-  }
-
-  /** Returns the idl_preprocessed defined on the given rule. */
-  private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
-    return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
-        ? ruleContext
-            .getPrerequisiteArtifacts("idl_preprocessed")
-            .filter(AndroidRuleClasses.ANDROID_IDL)
-            .list()
-        : ImmutableList.<Artifact>of();
   }
 }

@@ -736,8 +736,13 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     List<String> matches =
         runGlobOperation(
             context, thread, includes, excludes, Globber.Operation.SUBPACKAGES, allowEmpty);
-    matches.sort(naturalOrder());
-
+    if (!matches.isEmpty()) {
+      try {
+        matches.sort(naturalOrder());
+      } catch (UnsupportedOperationException e) {
+        matches = ImmutableList.sortedCopyOf(naturalOrder(), matches);
+      }
+    }
     return StarlarkList.copyOf(thread.mutability(), matches);
   }
 

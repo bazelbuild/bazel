@@ -112,7 +112,9 @@ public class SymlinkForest {
    */
   @VisibleForTesting
   @ThreadSafety.ThreadSafe
-  void deleteTreesBelowNotPrefixed(Path dir, String prefix) throws IOException {
+  static void deleteTreesBelowNotPrefixed(
+      Path dir, String prefix, ImmutableSortedSet<String> notSymlinkedInExecrootDirectories)
+      throws IOException {
 
     for (Path p : dir.getDirectoryEntries()) {
 
@@ -337,7 +339,7 @@ public class SymlinkForest {
    * @return the symlinks that have been planted
    */
   public ImmutableList<Path> plantSymlinkForest() throws IOException, AbruptExitException {
-    deleteTreesBelowNotPrefixed(execroot, prefix);
+    deleteTreesBelowNotPrefixed(execroot, prefix, notSymlinkedInExecrootDirectories);
 
     if (siblingRepositoryLayout) {
       // Delete execroot/../<symlinks> to directories representing external repositories.
@@ -417,6 +419,38 @@ public class SymlinkForest {
 
     logger.atInfo().log("Planted symlink forest in %s", execroot);
     return plantedSymlinks.build();
+  }
+
+  /**
+   * Eagerly plant the symlinks from execroot to the source root provided by the single package path
+   * of the current build. Only works with a single package path. Before planting the new symlinks,
+   * remove all existing symlinks in execroot which don't match certain criteria.
+   */
+  public static void eagerlyPlantSymlinkForestSinglePackagePath(
+      Path execroot,
+      Path sourceRoot,
+      String prefix,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories,
+      boolean siblingRepositoryLayout)
+      throws IOException {
+    deleteTreesBelowNotPrefixed(execroot, prefix, notSymlinkedInExecrootDirectories);
+
+    // Plant everything under the single source root.
+    for (Path target : sourceRoot.getDirectoryEntries()) {
+
+      String baseName = target.getBaseName();
+      if (notSymlinkedInExecrootDirectories.contains(baseName)) {
+        continue;
+      }
+      Path execPath = execroot.getRelative(baseName);
+      // Create any links that don't start with bazel-, and ignore external/ directory if
+      // user has it in the source tree because it conflicts with external repository location.
+      if (!baseName.startsWith(prefix)
+          && (siblingRepositoryLayout
+              || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()))) {
+        execPath.createSymbolicLink(target);
+      }
+    }
   }
 
   private static DetailedExitCode detailedSymlinkForestExitCode(String message, Code code) {

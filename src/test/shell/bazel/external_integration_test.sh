@@ -205,6 +205,22 @@ function test_http_archive_tar_xz() {
   http_archive_helper tar_xz_up
 }
 
+function test_http_archive_tar_zstd() {
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = 'test_zstd_repo',
+    url = 'file://$(rlocation io_bazel/src/test/shell/bazel/testdata/zstd_test_archive.tar.zst)',
+    sha256 = '12b0116f2a3c804859438e102a8a1d5f494c108d1b026da9f6ca55fb5107c7e9',
+    build_file_content = 'filegroup(name="x", srcs=glob(["*"]))',
+)
+EOF
+  bazel build @test_zstd_repo//...
+
+  base_external_path=bazel-out/../external/test_zstd_repo
+  assert_contains "test content" "${base_external_path}/test_dir/test_file"
+}
+
 function test_http_archive_no_server() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

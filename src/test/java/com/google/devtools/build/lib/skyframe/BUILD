@@ -12,19 +12,14 @@ filegroup(
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
-# Tests for Windows-specific functionality that can run cross-platform.
-# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
-CROSS_PLATFORM_WINDOWS_TESTS = [
-    "PathCasingLookupFunctionTest.java",
-]
-
 # Tests that are broken out from the SkyframeTests target into separate targets.
 EXCLUDED_FROM_SKYFRAME_TESTS = [
     "LocalDiffAwarenessTest.java",
     "LocalDiffAwarenessIntegrationTest.java",
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
     "SkyframeErrorProcessorTest.java",
-] + CROSS_PLATFORM_WINDOWS_TESTS
+    "BuildDriverFunctionTest.java",
+]
 
 java_library(
     name = "testutil",
@@ -99,7 +94,6 @@ java_test(
     deps = select({
         "//src/conditions:darwin": [
             "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
-            "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
         ],
         "//conditions:default": [],
     }) + [
@@ -247,6 +241,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:runfiles_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
@@ -298,6 +293,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
+        "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:SkyframeExecutorTestHelper",
@@ -320,56 +316,6 @@ java_test(
     ],
 )
 
-# Tests that exercise Windows-specific (or case-insensitive-filesystem specific) functionality.
-# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
-java_test(
-    name = "windows_test",
-    srcs = CROSS_PLATFORM_WINDOWS_TESTS,
-    jvm_flags = [
-        "-Dblaze.os=Windows",
-        "-Dbazel.windows_unix_root=C:/fake/msys",
-    ],
-    tags = ["skyframe"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:path_casing_lookup_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:path_casing_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
 # TODO(b/179148968): This used to be part of SkyframeTests but was broken off because it has some
 # non-hermetic interaction with another test, depending on how the tests get sharded.
 java_test(
@@ -377,6 +323,8 @@ java_test(
     srcs = ["PrepareDepsOfTargetsUnderDirectoryFunctionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:collect_packages_under_directory_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:prepare_deps_of_targets_under_directory_value",
@@ -467,5 +415,22 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "@com_google_testparameterinjector//:testparameterinjector",
+    ],
+)
+
+java_test(
+    name = "BuildDriverFunctionTest",
+    srcs = ["BuildDriverFunctionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_artifact_conflict_finder",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
     ],
 )

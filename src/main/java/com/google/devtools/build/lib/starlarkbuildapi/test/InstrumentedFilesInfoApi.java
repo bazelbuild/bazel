@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + " targets matched by <a"
             + " href=\"https://bazel.build/reference/command-line-reference#flag--instrumentation_filter\"><code>--instrumentation_filter</code></a>"
             + " for purposes of <a"
-            + " href=\"$STARLARK_DOCS_ROOT/rules.html#code-coverage-instrumentation\">code coverage"
+            + " href=\"https://bazel.build/rules/rules#code_coverage\">code coverage"
             + " data collection</a>. When coverage data collection is enabled, a manifest"
             + " containing the combined paths in <a"
             + " href=\"#instrumented_files\"><code>instrumented_files</code></a> and <a"
@@ -37,7 +37,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + " action as inputs, with the manifest's path noted in the environment variable"
             + " <code>COVERAGE_MANIFEST</code>. The metadata files, but not the source files, are"
             + " also passed to the test action as inputs. When <code>InstrumentedFilesInfo</code>"
-            + " is returned by an <a href=\"$STARLARK_DOCS_ROOT/aspects.html\">aspect</a>'s"
+            + " is returned by an <a href=\"https://bazel.build/rules/aspects\">aspect</a>'s"
             + " implementation function, any <code>InstrumentedFilesInfo</code> from the base rule"
             + " target is ignored.")
 public interface InstrumentedFilesInfoApi extends StructApi {

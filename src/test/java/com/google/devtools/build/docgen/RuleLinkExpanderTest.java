@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
@@ -44,7 +45,9 @@ public class RuleLinkExpanderTest {
                 "make-variables",
                 "make-variables.html",
                 "common-definitions",
-                "common-definitions.html"));
+                "common-definitions.html",
+                "standalone",
+                "standalone.html"));
     multiPageExpander = new RuleLinkExpander(index, false, linkMap);
     singlePageExpander = new RuleLinkExpander(index, true, linkMap);
   }
@@ -111,7 +114,8 @@ public class RuleLinkExpanderTest {
         "<a href=\"#cc_binary_implicit_outputs\">args</a>");
   }
 
-  @Test public void testStaticPageRef() {
+  @Test
+  public void testStaticPageRef_pageReplacedBySinglePageBE() {
     checkExpandMulti(
         "<a href=\"${link common-definitions}\">Common Definitions</a>",
         "<a href=\"common-definitions.html\">Common Definitions</a>");
@@ -120,16 +124,34 @@ public class RuleLinkExpanderTest {
         "<a href=\"#common-definitions\">Common Definitions</a>");
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testRefNotFound() {
-    String docs = "<a href=\"${link foo.bar}\">bar</a>";
-    multiPageExpander.expand(docs);
+  @Test
+  public void testStaticPageRef_separatePage() {
+    checkExpandMulti(
+        "<a href=\"${link standalone}\">standalone</a>",
+        "<a href=\"standalone.html\">standalone</a>");
+    checkExpandSingle(
+        "<a href=\"${link standalone}\">standalone</a>",
+        "<a href=\"standalone.html\">standalone</a>");
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  public void testRefNotFound() {
+    String docs = "<a href=\"${link foo.bar}\">bar</a>";
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          multiPageExpander.expand(docs);
+        });
+  }
+
+  @Test
   public void testIncorrectStaticPageHeadingLink() {
     String docs = "<a href=\"${link common-definitions.label-expansion}\">Label Expansion</a>";
-    multiPageExpander.expand(docs);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          multiPageExpander.expand(docs);
+        });
   }
 
   @Test public void testRuleHeadingLink() {
@@ -141,13 +163,24 @@ public class RuleLinkExpanderTest {
         "<a href=\"#alwayslink_lib_example\">examples</a>");
   }
 
-  @Test public void testStaticPageHeadingLink() {
+  @Test
+  public void testStaticPageHeadingLink_pageReplacedBySinglePageBE() {
     checkExpandMulti(
         "<a href=\"${link make-variables#predefined_variables.genrule.cmd}\">genrule cmd</a>",
         "<a href=\"make-variables.html#predefined_variables.genrule.cmd\">genrule cmd</a>");
     checkExpandSingle(
         "<a href=\"${link make-variables#predefined_variables.genrule.cmd}\">genrule cmd</a>",
         "<a href=\"#predefined_variables.genrule.cmd\">genrule cmd</a>");
+  }
+
+  @Test
+  public void testStaticPageHeadingLink_separatePage() {
+    checkExpandMulti(
+        "<a href=\"${link standalone#foobar}\">standalone</a>",
+        "<a href=\"standalone.html#foobar\">standalone</a>");
+    checkExpandSingle(
+        "<a href=\"${link standalone#foobar}\">standalone</a>",
+        "<a href=\"standalone.html#foobar\">standalone</a>");
   }
 
   @Test public void testExpandRef() {

@@ -22,6 +22,7 @@
 load(":common/java/java_semantics.bzl", "semantics")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
+PROTO_JAVACOPTS_KEY = "proto"
 JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 
 java_common = _builtins.toplevel.java_common
@@ -44,12 +45,16 @@ def _rule_impl(ctx):
 
     # Merging the retrieved list of aspect providers from the dependencies and runtime JavaInfo providers.
     java_info = java_common.merge(
-        [dep[JavaInfo] for dep in ctx.attr.deps],
+        [],
+        exports = [dep[JavaInfo] for dep in ctx.attr.deps],
         runtime_deps = runtime_deps_java_info,
+        include_source_jars_from_exports = True,
     )
 
     # Collect the aspect output files.
     files_to_build = depset(transitive = [dep[_JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
+
+    java_info = semantics.add_constraints(java_info, ["android"])
 
     return [
         DefaultInfo(
@@ -111,15 +116,17 @@ def _aspect_impl(target, ctx):
             injecting_rule_kind = "java_lite_proto_library",
             source_jars = [source_jar],
             output = output_jar,
+            output_source_jar = source_jar,
             deps = deps,
             exports = exports,
             java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+            javac_opts = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].compatible_javacopts(PROTO_JAVACOPTS_KEY),
             enable_jspecify = False,
+            create_output_source_jar = False,
         )
-        java_info = semantics.add_constraints(java_info, ["android"])
     else:
         # If there are no proto sources just pass along the compilation dependencies.
-        java_info = java_common.merge(deps)
+        java_info = java_common.merge([], exports = deps + exports)
 
     return [
         java_info,

@@ -126,8 +126,8 @@ public class BazelJavaRuleClasses {
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the target.
           See general comments about <code>deps</code> at
-          <a href="common-definitions.html#common-attributes">Attributes common to all build rules
-          </a>.
+          <a href="common-definitions.html#typical-attributes">Typical attributes defined by
+          most build rules</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(
               builder
@@ -197,7 +197,9 @@ public class BazelJavaRuleClasses {
             (a "src" directory followed by a "resources" directory grandchild). If that is not
             found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
             example, if a resource is at <code>&lt;workspace root&gt;/x/java/y/java/z</code>, the
-            path of the resource will be <code>y/java/z</code>. This heuristic cannot be overridden.
+            path of the resource will be <code>y/java/z</code>. This heuristic cannot be overridden,
+            however, the <code>resource_strip_prefix</code> attribute can be used to specify a
+            specific alternative directory for resource files.
           </p>
 
           <p>

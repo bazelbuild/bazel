@@ -213,14 +213,19 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void finalValueIgnoreOverrides_setFlagWithExpansion_setsExpandedValues() throws Exception {
+  public void setFlagWithExpansion_finalValueIgnoreOverrides_setsExpandedValuesAsFinal(
+      @TestParameter({"null", "", "some value"}) String value) throws Exception {
     InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
-    invocationPolicy
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_expansion")
-        // SetValue must have no values for a Void flag.
-        .getSetValueBuilder()
-        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES);
+    SetValue.Builder setValue =
+        invocationPolicy
+            .addFlagPoliciesBuilder()
+            .setFlagName("test_expansion")
+            // SetValue must have no values for a Void flag.
+            .getSetValueBuilder()
+            .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES);
+    if (value != null) {
+      setValue.addFlagValue(value);
+    }
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     // Unrelated flag, but --test_expansion is not set
