@@ -314,6 +314,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:rewindable_graph_inconsistency_receiver",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",

@@ -11,11 +11,19 @@ filegroup(
 )
 
 java_library(
+    name = "action_rewound_event",
+    srcs = ["ActionRewoundEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
+    ],
+)
+
+java_library(
     name = "rewinding",
     srcs = [
         "ActionRewindStrategy.java",
         "ActionRewindingStats.java",
-        "ActionRewoundEvent.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -37,5 +45,36 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "rewindable_graph_inconsistency_receiver",
+    srcs = ["RewindableGraphInconsistencyReceiver.java"],
+    deps = [
+        ":rewinding_inconsistency_utils",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "rewinding_inconsistency_utils",
+    srcs = ["RewindingInconsistencyUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_nested_set_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_completion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:fileset_entry_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_filesystem_traversal",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:target_completion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:test_completion_value",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )

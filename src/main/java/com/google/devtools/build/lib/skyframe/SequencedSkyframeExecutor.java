@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -166,6 +167,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
+  private GraphInconsistencyReceiver inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
 
   private SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
@@ -230,7 +232,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         skyFunctions,
         recordingDiffer,
         progressReceiver,
-        GraphInconsistencyReceiver.THROWING,
+        inconsistencyReceiver,
         eventFilter,
         emittedEventState,
         trackIncrementalState);
@@ -271,6 +273,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     if (evaluatorNeedsReset) {
+      // Rewinding is only supported with no incremental state and no action cache.
+      inconsistencyReceiver =
+          trackIncrementalState || useActionCache(options)
+              ? GraphInconsistencyReceiver.THROWING
+              : new RewindableGraphInconsistencyReceiver();
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
@@ -291,6 +298,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
     return workspaceInfo;
+  }
+
+  private static boolean useActionCache(OptionsProvider options) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    return buildRequestOptions != null && buildRequestOptions.useActionCache;
   }
 
   /**
