@@ -91,6 +91,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final Label proguardBinary;
   private final ImmutableList<Label> extraProguardSpecs;
   private final NamedLabel bytecodeOptimizer;
+  private final boolean runLocalJavaOptimizations;
+  private final ImmutableList<Label> localJavaOptimizationConfiguration;
   private final boolean splitBytecodeOptimizationPass;
   private final boolean enforceProguardFileExtension;
   private final boolean runAndroidLint;
@@ -125,6 +127,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
+    this.runLocalJavaOptimizations = javaOptions.runLocalJavaOptimizations;
+    this.localJavaOptimizationConfiguration =
+        ImmutableList.copyOf(javaOptions.localJavaOptimizationConfiguration);
     this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
@@ -148,7 +153,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     if (optimizers.size() > 1) {
       throw new InvalidConfigurationException(
           String.format(
-              "--experimental_bytecode_optimizers can only accept up to one mapping, but %s"
+              "--experimental_bytecode_optimizers can only accept up to one mapping, but %d"
                   + " mappings were provided.",
               optimizers.size()));
     }
@@ -159,6 +164,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
     }
     this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
+    if (runLocalJavaOptimizations && optimizerLabel == null) {
+      throw new InvalidConfigurationException(
+          "--experimental_local_java_optimizations cannot be provided without "
+              + "--experimental_bytecode_optimizers.");
+    }
 
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.experimentalTurbineAnnotationProcessing =
@@ -312,9 +322,20 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     public abstract Optional<Label> label();
   }
 
-  /** Returns ordered list of optimizers to run. */
+  /** Returns bytecode optimizer to run. */
+  @Nullable
   public NamedLabel getBytecodeOptimizer() {
     return bytecodeOptimizer;
+  }
+
+  /** Returns true if the bytecode optimizer should incrementally optimize all Java artifacts. */
+  public boolean runLocalJavaOptimizations() {
+    return runLocalJavaOptimizations;
+  }
+
+  /** Returns the optimization configuration for local Java optimizations if they are enabled. */
+  public ImmutableList<Label> getLocalJavaOptimizationConfiguration() {
+    return localJavaOptimizationConfiguration;
   }
 
   /**

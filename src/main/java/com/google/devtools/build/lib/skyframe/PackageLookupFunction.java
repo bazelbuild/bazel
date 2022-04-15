@@ -376,7 +376,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
     if (!repositoryValue.repositoryExists()) {
       return new PackageLookupValue.NoRepositoryPackageLookupValue(
-          id.getRepository().getName(), repositoryValue.getErrorMsg());
+          id.getRepository().getNameWithAt(), repositoryValue.getErrorMsg());
     }
 
     // Check .bazelignore file after fetching the external repository.

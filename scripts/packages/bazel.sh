@@ -34,7 +34,9 @@ set -eu
 # In addition, if an executable called "tools/bazel" is found in the current
 # workspace, this script will not directly execute Bazel, but instead store
 # the path to the real Bazel executable in the environment variable BAZEL_REAL
-# and then execute the "tools/bazel" wrapper script.
+# and then execute the "tools/bazel" wrapper script. The location of the wrapper
+# script relative to the workspace can be changed with the $BAZEL_WRAPPER
+# environment variable.
 #
 # In contrast to Bazelisk, this script does not download anything from the
 # internet and instead relies on the local system to provide Bazel binaries.
@@ -166,11 +168,12 @@ if [[ ! -x ${BAZEL_REAL} && -x ${bazel_real_path} ]]; then
   fi
 fi
 
-# If the repository contains a checked-in executable called tools/bazel, we
-# assume that they know what they're doing and have their own way of versioning
-# Bazel. Thus, we don't have to print our helpful messages or error out in case
-# we couldn't find a binary.
-readonly wrapper="${workspace_dir}/tools/bazel"
+# If the repository contains a checked-in executable set by $BAZEL_WRAPPER
+# (defaults to tools/bazel), we assume that they know what they're doing and
+# have their own way of versioning Bazel. Thus, we don't have to print our
+# helpful messages or error out in case we couldn't find a binary.
+BAZEL_WRAPPER=${BAZEL_WRAPPER:-"tools/bazel"}
+readonly wrapper="${workspace_dir}/${BAZEL_WRAPPER}"
 if [[ -x "$wrapper" && -f "$wrapper" ]]; then
   export BAZEL_REAL
   exec -a "$0" "${wrapper}" "$@"
@@ -194,7 +197,7 @@ if [[ ! -x $BAZEL_REAL ]]; then
     echo "  sudo apt update && sudo apt install bazel-${bazel_version}"
     echo ""
     echo "If this doesn't work, check Bazel's installation instructions for help:"
-    echo "  https://docs.bazel.build/versions/main/install-ubuntu.html") 2>&1
+    echo "  https://bazel.build/install/ubuntu") 2>&1
   else
     (echo ""
     echo "Bazel binaries for all official releases can be downloaded from here:"

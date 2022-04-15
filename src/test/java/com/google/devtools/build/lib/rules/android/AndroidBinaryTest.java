@@ -2279,6 +2279,9 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(deployInfo.getMergedManifest().getExecRootPath()).endsWith("/AndroidManifest.xml");
     assertThat(deployInfo.getAdditionalMergedManifestsList()).isEmpty();
     assertThat(deployInfo.getApksToDeploy(0).getExecRootPath()).endsWith("/app.apk");
+    Artifact mergedManifest =
+        ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, "/AndroidManifest.xml");
+    assertThat(mergedManifest).isNotNull();
   }
 
   /**

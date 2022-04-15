@@ -6,7 +6,7 @@ Book: /_book.yaml
 A **rule** defines a series of [**actions**](#actions) that Bazel performs on
 inputs to produce a set of outputs, which are referenced in
 [**providers**](#providers) returned by the rule's
-[**implementation function**](#implementation-function). For example, a C++
+[**implementation function**](#implementation_function). For example, a C++
 binary rule might:
 
 1.  Take a set of `.cpp` source files (inputs).
@@ -51,7 +51,7 @@ needed.
 In a `.bzl` file, use the [rule](lib/globals#rule) function to define a new
 rule, and store the result in a global variable. The call to `rule` specifies
 [attributes](#attributes) and an
-[implementation function](#implementation-function):
+[implementation function](#implementation_function):
 
 ```python
 example_library = rule(
@@ -97,7 +97,7 @@ files are evaluated to instantiate targets.
 ## Attributes
 
 An *attribute* is a rule argument. Attributes can provide specific values to a
-target's [implementation](#implementation-function), or they can refer to other
+target's [implementation](#implementation_function), or they can refer to other
 targets, creating a graph of dependencies.
 
 Rule-specific attributes, such as `srcs` or `deps`, are defined by passing a map
@@ -233,7 +233,7 @@ one output attribute, it is typically named `out` or `outs`.
 
 Output attributes are the preferred way of creating *predeclared outputs*, which
 can be specifically depended upon or
-[requested at the command line](#requesting-output-files).
+[requested at the command line](#requesting_output_files).
 
 ## Implementation function
 
@@ -269,7 +269,7 @@ return [ExampleInfo(headers = depset(...))]
 ```
 
 Those can be accessed using index notation (`[]`), with the type of provider as
-a key. These can be [custom providers](#custom-providers) defined in Starlark or
+a key. These can be [custom providers](#custom_providers) defined in Starlark or
 [providers for native rules](/rules/lib/starlark-provider) available as Starlark
 global variables.
 
@@ -297,7 +297,7 @@ transitive_headers = [dep.example_info.headers for dep in ctx.attr.deps]
 ```
 
 This style is strongly discouraged and rules should be
-[migrated away from it](#migrating-from-legacy-providers).
+[migrated away from it](#migrating_from_legacy_providers).
 
 ### Files
 
@@ -346,7 +346,7 @@ def _example_library_impl(ctx):
 ```
 
 For *predeclared outputs*, like those created for
-[output attributes](#output-attributes), `File` objects instead can be retrieved
+[output attributes](#output_attributes), `File` objects instead can be retrieved
 from the corresponding fields of [`ctx.outputs`](lib/ctx#outputs).
 
 ### Actions
@@ -440,7 +440,7 @@ the implementation function.
 Old implementation functions can also be written in a legacy style where the
 implementation function returns a [`struct`](lib/struct) instead of list of
 provider objects. This style is strongly discouraged and rules should be
-[migrated away from it](#migrating-from-legacy-providers).
+[migrated away from it](#migrating_from_legacy_providers).
 
 #### Default outputs
 
@@ -463,8 +463,8 @@ def _example_library_impl(ctx):
 
 If `DefaultInfo` is not returned by a rule implementation or the `files`
 parameter is not specified, `DefaultInfo.files` defaults to all
-[*predeclared outputs*](#predeclared-outputs) (generally, those created by
-[output attributes](#output-attributes)).
+*predeclared outputs* (generally, those created by [output
+attributes](#output_attributes)).
 
 Rules that perform actions should provide default outputs, even if those outputs
 are not expected to be directly used. Actions that are not in the graph of the
@@ -681,7 +681,7 @@ a [`ctx.actions.run`](lib/actions#run) or
 by the underlying tool that is invoked by the action. For a
 [`ctx.actions.write`](lib/actions#write) action, pass `is_executable=True`.
 
-As [legacy behavior](#deprecated-predeclared-outputs), executable rules have a
+As [legacy behavior](#deprecated_predeclared_outputs), executable rules have a
 special `ctx.outputs.executable` predeclared output. This file serves as the
 default executable if you do not specify one using `DefaultInfo`; it must not be
 used otherwise. This output mechanism is deprecated because it does not support
@@ -745,13 +745,13 @@ directly or indirectly depend on. (In terms of the action graph, Bazel only
 executes the actions that are reachable as transitive dependencies of the
 requested files.)
 
-In addition to [default outputs](#default-outputs), any *predeclared output* can
+In addition to [default outputs](#default_outputs), any *predeclared output* can
 be explicitly requested on the command line. Rules can specify predeclared
-outputs via [output attributes](#output-attributes). In that case, the user
+outputs via [output attributes](#output_attributes). In that case, the user
 explicitly chooses labels for outputs when they instantiate the rule. To obtain
 [`File`](lib/File) objects for output attributes, use the corresponding
 attribute of [`ctx.outputs`](lib/ctx#outputs). Rules can
-[implicitly define predeclared outputs](#deprecated-predeclared-outputs) based
+[implicitly define predeclared outputs](#deprecated_predeclared_outputs) based
 on the target name as well, but this feature is deprecated.
 
 In addition to default outputs, there are *output groups*, which are collections
@@ -790,7 +790,7 @@ providers are merged.
 
 Note that `OutputGroupInfo` generally shouldn't be used to convey specific sorts
 of files from a target to the actions of its consumers. Define
-[rule-specific providers](#custom-providers) for that instead.
+[rule-specific providers](#custom_providers) for that instead.
 
 ### Configurations
 
@@ -997,7 +997,7 @@ def _example_library_impl(ctx):
 ```
 
 If `InstrumentedFilesInfo` is not returned, a default one is created with each
-non-tool [dependency attribute](#dependency-attributes) that doesn't set
+non-tool [dependency attribute](#dependency_attributes) that doesn't set
 [`cfg`](#configuration) to `"host"` or `"exec"` in the attribute schema) in
 `dependency_attributes`. (This isn't ideal behavior, since it puts attributes
 like `srcs` in `dependency_attributes` instead of `source_attributes`, but it

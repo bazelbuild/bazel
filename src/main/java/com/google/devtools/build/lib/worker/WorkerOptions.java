@@ -46,16 +46,6 @@ public class WorkerOptions extends OptionsBase {
       })
   public Void experimentalPersistentJavac;
 
-  @Option(
-      name = "experimental_worker_allow_json_protocol",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help =
-          "Allows workers to use the JSON worker protocol until it is determined to be"
-              + " stable.")
-  public boolean experimentalJsonWorkerProtocol;
-
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),

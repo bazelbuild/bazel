@@ -18,7 +18,7 @@ echo. 1>&2
 echo The target you are compiling requires Visual C++ build tools. 1>&2
 echo Bazel couldn't find a valid Visual C++ build tools installation on your machine. 1>&2
 %{vc_error_message}
-echo Please check your installation following https://docs.bazel.build/versions/main/windows.html#using 1>&2
+echo Please check your installation following https://bazel.build/docs/windows#using 1>&2
 echo. 1>&2
 
 exit /b 1

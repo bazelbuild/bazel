@@ -144,7 +144,8 @@ public class ObjectCodecRegistry {
    *
    * <p>Also checks if there are codecs for a superclass of the given type.
    */
-  private @Nullable CodecDescriptor getCodecDescriptor(Class<?> type) {
+  @Nullable
+  private CodecDescriptor getCodecDescriptor(Class<?> type) {
     for (Class<?> nextType = type; nextType != null; nextType = nextType.getSuperclass()) {
       CodecDescriptor result = classMappedCodecs.get(nextType);
       if (result != null) {

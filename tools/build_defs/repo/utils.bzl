@@ -219,7 +219,7 @@ def maybe(repo_rule, name, **kwargs):
     """Utility function for only adding a repository if it's not already present.
 
     This is to implement safe repositories.bzl macro documented in
-    https://docs.bazel.build/versions/main/skylark/deploying.html#dependencies.
+    https://bazel.build/rules/deploying#dependencies.
 
     Args:
         repo_rule: repository rule function.

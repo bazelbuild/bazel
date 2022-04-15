@@ -100,6 +100,8 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable JavaToolchainTool headerCompilerDirect,
       @Nullable AndroidLintTool androidLint,
       JspecifyInfo jspecifyInfo,
+      @Nullable JavaToolchainTool bytecodeOptimizer,
+      ImmutableList<Artifact> localJavaOptimizationConfiguration,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -126,6 +128,8 @@ public final class JavaToolchainProvider extends NativeInfo
         headerCompilerDirect,
         androidLint,
         jspecifyInfo,
+        bytecodeOptimizer,
+        localJavaOptimizationConfiguration,
         headerCompilerBuiltinProcessors,
         reducedClasspathIncompatibleProcessors,
         forciblyDisableHeaderCompilation,
@@ -158,6 +162,8 @@ public final class JavaToolchainProvider extends NativeInfo
   @Nullable private final JavaToolchainTool headerCompilerDirect;
   @Nullable private final AndroidLintTool androidLint;
   @Nullable private final JspecifyInfo jspecifyInfo;
+  @Nullable private final JavaToolchainTool bytecodeOptimizer;
+  private final ImmutableList<Artifact> localJavaOptimizationConfiguration;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
@@ -190,6 +196,8 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable JavaToolchainTool headerCompilerDirect,
       @Nullable AndroidLintTool androidLint,
       @Nullable JspecifyInfo jspecifyInfo,
+      @Nullable JavaToolchainTool bytecodeOptimizer,
+      ImmutableList<Artifact> localJavaOptimizationConfiguration,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -221,6 +229,8 @@ public final class JavaToolchainProvider extends NativeInfo
     this.headerCompilerDirect = headerCompilerDirect;
     this.androidLint = androidLint;
     this.jspecifyInfo = jspecifyInfo;
+    this.bytecodeOptimizer = bytecodeOptimizer;
+    this.localJavaOptimizationConfiguration = localJavaOptimizationConfiguration;
     this.headerCompilerBuiltinProcessors = headerCompilerBuiltinProcessors;
     this.reducedClasspathIncompatibleProcessors = reducedClasspathIncompatibleProcessors;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
@@ -288,6 +298,15 @@ public final class JavaToolchainProvider extends NativeInfo
   @Nullable
   public JspecifyInfo jspecifyInfo() {
     return jspecifyInfo;
+  }
+
+  @Nullable
+  public JavaToolchainTool getBytecodeOptimizer() {
+    return bytecodeOptimizer;
+  }
+
+  public ImmutableList<Artifact> getLocalJavaOptimizationConfiguration() {
+    return localJavaOptimizationConfiguration;
   }
 
   /** Returns class names of annotation processors that are built in to the header compiler. */

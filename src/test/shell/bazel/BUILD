@@ -226,7 +226,7 @@ sh_test(
 
 JAVA_VERSIONS = ("11", "17")
 
-JAVA_VERSIONS_COVERAGE = ("11",)
+JAVA_VERSIONS_COVERAGE = ("11", "17")
 
 [
     sh_test(
@@ -512,8 +512,7 @@ sh_test(
         ],
         tags = ["no_windows"],
     )
-    # TODO: Update JAVA_VERSIONS_COVERAGE on the next java_tools release.
-    for java_version in JAVA_VERSIONS_COVERAGE + ("17",)
+    for java_version in JAVA_VERSIONS_COVERAGE
 ]
 
 sh_test(

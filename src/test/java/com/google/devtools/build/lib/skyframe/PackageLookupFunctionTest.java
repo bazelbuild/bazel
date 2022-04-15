@@ -376,7 +376,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
 
     // First, use the correct label.
     PackageLookupValue packageLookupValue =
-        lookupPackage(PackageIdentifier.create("@local", PathFragment.EMPTY_FRAGMENT));
+        lookupPackage(PackageIdentifier.create("local", PathFragment.EMPTY_FRAGMENT));
     assertThat(packageLookupValue.packageExists()).isTrue();
 
     // Then, use the incorrect label.

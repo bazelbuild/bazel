@@ -47,7 +47,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + " addition to declaring a file, you must separately create an action that emits the"
               + " file. Creating that action will require passing the returned <code>File</code>"
               + " object to the action's construction function.<p>Note that <a"
-              + " href='$STARLARK_DOCS_ROOT/rules.html#files'>predeclared output files</a> do not"
+              + " href='https://bazel.build/rules/rules#files'>predeclared output files</a> do not"
               + " need to be (and cannot be) declared using this function. You can obtain their"
               + " <code>File</code> objects from <a"
               + " href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"

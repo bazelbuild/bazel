@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
@@ -54,7 +55,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -310,14 +310,12 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     skyframeExecutor.sync(
         reporter,
-        packageOptions,
         pathPackageLocator,
-        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         /*clientEnv=*/ ImmutableMap.of(),
         /*repoEnvOption=*/ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
-        OptionsProvider.EMPTY);
+        FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build());
     evaluator = skyframeExecutor.getEvaluator();
   }
 
