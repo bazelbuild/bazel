@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.mockito.ArgumentMatchers.any;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.github.luben.zstd.Zstd;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
-import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -31,7 +29,6 @@ import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.Arrays;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 /** Extra tests for {@link GrpcCacheClient} that are not tested internally. */
 public class GrpcCacheClientTestExtra extends GrpcCacheClientTest {
@@ -39,30 +36,43 @@ public class GrpcCacheClientTestExtra extends GrpcCacheClientTest {
   @Test
   public void compressedDownloadBlobIsRetriedWithProgress()
       throws IOException, InterruptedException {
-    Backoff mockBackoff = Mockito.mock(Backoff.class);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.cacheCompression = true;
-    final GrpcCacheClient client = newClient(options, () -> mockBackoff);
+    final GrpcCacheClient client = newClient(options);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
-    ByteString blob = ByteString.copyFrom(Zstd.compress("abcdefg".getBytes(UTF_8)));
+    ByteString chunk1 = ByteString.copyFrom(Zstd.compress("abc".getBytes(UTF_8)));
+    ByteString chunk2 = ByteString.copyFrom(Zstd.compress("def".getBytes(UTF_8)));
+    ByteString chunk3 = ByteString.copyFrom(Zstd.compress("g".getBytes(UTF_8)));
     serviceRegistry.addService(
         new ByteStreamImplBase() {
+          private boolean first = true;
+
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
             assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
-            int off = (int) request.getReadOffset();
-            // Zstd header size is 9 bytes
-            ByteString data = off == 0 ? blob.substring(0, 9 + 1) : blob.substring(9 + off);
-            responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
-            if (off == 0) {
+            if (first) {
+              first = false;
               responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
-            } else {
-              responseObserver.onCompleted();
+              return;
             }
+            switch (Math.toIntExact(request.getReadOffset())) {
+              case 0:
+                responseObserver.onNext(ReadResponse.newBuilder().setData(chunk1).build());
+                break;
+              case 3:
+                responseObserver.onNext(ReadResponse.newBuilder().setData(chunk2).build());
+                break;
+              case 6:
+                responseObserver.onNext(ReadResponse.newBuilder().setData(chunk3).build());
+                responseObserver.onCompleted();
+                return;
+              default:
+                throw new IllegalStateException("unexpected offset " + request.getReadOffset());
+            }
+            responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
           }
         });
     assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
   }
 
   @Test

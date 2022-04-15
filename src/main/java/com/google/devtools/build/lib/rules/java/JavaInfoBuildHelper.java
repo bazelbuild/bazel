@@ -257,6 +257,7 @@ final class JavaInfoBuildHelper {
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       boolean enableJSpecify,
+      boolean createOutputSourceJar,
       JavaSemantics javaSemantics,
       Object injectingRuleKind,
       StarlarkThread thread)
@@ -317,7 +318,7 @@ final class JavaInfoBuildHelper {
             javaSemantics,
             toolchainProvider,
             outputJarsBuilder,
-            /*createOutputSourceJar=*/ true,
+            createOutputSourceJar,
             outputSourceJar,
             enableCompileJarAction,
             javaInfoBuilder,
@@ -352,9 +353,6 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
-        .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)
-        .addTransitiveOnlyRuntimeJarsToJavaInfo(exports)
-        .addTransitiveOnlyRuntimeJarsToJavaInfo(runtimeDeps)
         .setNeverlink(neverlink)
         .build();
   }
@@ -407,7 +405,7 @@ final class JavaInfoBuildHelper {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
     // ijar doubles as a stamping tool
-    FilesToRunProvider ijarTarget = (javaToolchain).getIjar();
+    FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath(inputJar)

@@ -31,7 +31,7 @@ public interface StarlarkBuildApiGlobals {
           "References a late-bound default value for an attribute of type <a"
               + " href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires the"
               + " configuration to be built before determining the value. Any attribute using this"
-              + " as a value must <a href=\"$STARLARK_DOCS_ROOT/rules.html#private-attributes\">be"
+              + " as a value must <a href=\"https://bazel.build/rules/rules#private-attributes\">be"
               + " private</a>. <p>Example usage: <p>Defining a rule attribute: <br><pre"
               + " class=language-python>'_foo':"
               + " attr.label(default=configuration_field(fragment='java', "

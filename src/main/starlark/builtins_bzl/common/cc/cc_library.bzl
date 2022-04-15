@@ -22,14 +22,13 @@ cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
-    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library")
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
     common = cc_internal.create_common(ctx = ctx)
     common.report_invalid_options(ctx = ctx)
 
     cc_toolchain = common.toolchain
 
-    cc_internal.init_make_variables(ctx = ctx, cc_toolchain = cc_toolchain)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
@@ -54,12 +53,15 @@ def _cc_library_impl(ctx):
     if not _is_stl(ctx.attr.tags) and ctx.attr._stl != None:
         interface_deps.append(ctx.attr._stl[CcInfo].compilation_context)
 
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, common, cc_toolchain))
+
     (compilation_context, srcs_compilation_outputs) = cc_common.compile(
         actions = ctx.actions,
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = common.copts,
+        user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
         local_defines = common.local_defines,
         loose_includes = common.loose_include_dirs,
@@ -136,7 +138,7 @@ def _cc_library_impl(ctx):
             feature_configuration = feature_configuration,
             feature_name = "targets_windows",
         ):
-            dll_name_suffix = cc_helper.dll_hash_suffix(ctx = ctx, feature_configuration = feature_configuration)
+            dll_name_suffix = cc_helper.dll_hash_suffix(ctx, feature_configuration, ctx.fragments.cpp)
             generated_def_file = None
 
             def_parser = ctx.file._def_parser
@@ -234,9 +236,9 @@ def _cc_library_impl(ctx):
 
     linking_context_for_runfiles = _build_linking_context_from_library(ctx, libraries_to_link)
 
-    cc_native_library_info = cc_internal.collect_native_cc_libraries(
+    cc_native_library_info = cc_helper.collect_native_cc_libraries(
         deps = ctx.attr.deps,
-        libraries_to_link = libraries_to_link,
+        libraries = libraries_to_link,
     )
 
     files_builder = []

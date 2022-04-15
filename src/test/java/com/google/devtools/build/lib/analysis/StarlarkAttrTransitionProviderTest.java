@@ -2664,4 +2664,140 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         new EventBus());
     assertNoEvents();
   }
+
+  @Test
+  public void testTransitionPreservesAllowMultipleDefault() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "P = provider(fields = ['value'])",
+        "def _s_impl(ctx):",
+        "    return [P(value = ctx.build_setting_value)]",
+        "def _t_impl(settings, attr):",
+        "    if 'foo' in settings['//test/starlark:a']:",
+        "        return {'//test/starlark:b': ['bar']}",
+        "    else:",
+        "        return {'//test/starlark:b': ['baz']}",
+        "def _r_impl(ctx):",
+        "    pass",
+        "s = rule(",
+        "    implementation = _s_impl,",
+        "    build_setting = config.string(allow_multiple = True, flag = True),",
+        ")",
+        "t = transition(",
+        "    implementation = _t_impl,",
+        "    inputs = ['//test/starlark:a'],",
+        "    outputs = ['//test/starlark:b'],",
+        ")",
+        "r = rule(",
+        "    implementation = _r_impl,",
+        "    attrs = {",
+        "        'setting': attr.label(cfg = t),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load(':rules.bzl', 's', 'r')",
+        "s(",
+        "  name = 'a',",
+        "  build_setting_default = '',",
+        ")",
+        "s(",
+        "  name = 'b',",
+        "  build_setting_default = '',",
+        ")",
+        "r(",
+        "  name = 'c',",
+        "  setting = ':b',",
+        ")");
+    update(
+        ImmutableList.of("//test/starlark:c"),
+        /*keepGoing=*/ false,
+        LOADING_PHASE_THREADS,
+        /*doAnalysis=*/ true,
+        new EventBus());
+    assertNoEvents();
+  }
+
+  @Test
+  public void testTransitionPreservesNonDefaultInputOnlySetting() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "def _string_impl(ctx):",
+        "    return []",
+        "string_flag = rule(",
+        "    implementation = _string_impl,",
+        "    build_setting = config.string(flag = True),",
+        ")",
+        "def _transition_impl(settings, attr):",
+        "    return {",
+        "        '//test/starlark:output_only': settings['//test/starlark:input_only'],",
+        "    }",
+        "_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [",
+        "        '//test/starlark:input_only',",
+        "    ],",
+        "    outputs = [",
+        "        '//test/starlark:output_only',",
+        "    ],",
+        ")",
+        "def _apply_transition_impl(ctx):",
+        "    ctx.actions.symlink(",
+        "        output = ctx.outputs.out,",
+        "        target_file = ctx.file.target,",
+        "    )",
+        "    return [DefaultInfo(executable = ctx.outputs.out)]",
+        "apply_transition = rule(",
+        "    implementation = _apply_transition_impl,",
+        "    attrs = {",
+        "        'target': attr.label(",
+        "            cfg = _transition,",
+        "            allow_single_file = True,",
+        "        ),",
+        "        'out': attr.output(),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        "    executable = False,",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'apply_transition', 'string_flag')",
+        "",
+        "string_flag(",
+        "    name = 'input_only',",
+        "    build_setting_default = 'input_only_default',",
+        ")",
+        "string_flag(",
+        "    name = 'output_only',",
+        "    build_setting_default = 'output_only_default',",
+        ")",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        ")",
+        "apply_transition(",
+        "    name = 'transitioned_main',",
+        "    target = ':main',",
+        "    out = 'main_out',",
+        ")");
+
+    useConfiguration(ImmutableMap.of("//test/starlark:input_only", "not_the_default"));
+    Label inputOnlySetting = Label.parseAbsoluteUnchecked("//test/starlark:input_only");
+    ConfiguredTarget transitionedDep =
+        getDirectPrerequisite(
+            getConfiguredTarget("//test/starlark:transitioned_main"), "//test/starlark:main");
+    assertThat(
+            getConfiguration(transitionedDep)
+                .getOptions()
+                .getStarlarkOptions()
+                .get(inputOnlySetting))
+        .isEqualTo("not_the_default");
+  }
 }

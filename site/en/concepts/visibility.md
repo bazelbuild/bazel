@@ -138,10 +138,15 @@ package_group(
 )
 ```
 
-## Visibility of a file target {:#file-target-visibility}
+## Visibility of a generated file target {:#generated-file-visibility}
 
-By default, file targets are visible only from the same package. To make a file
-accessible from another package, use
+A generated file target has the same visibility as the rule target that
+generates it.
+
+## Visibility of a source file target {:#source-file-visibility}
+
+By default, source file targets are visible only from the same package. To make
+a source file accessible from another package, use
 [`exports_files`](/reference/be/functions#exports_files).
 
 If the call to `exports_files` specifies the visibility attribute, that
@@ -153,7 +158,7 @@ source file. For example, declare a `java_library` instead of exporting a
 `.java` file. It's good form for a rule target to only directly include sources
 in its own package.
 
-### Example {:#file-target-visibility-example}
+### Example {:#source-file-visibility-example}
 
 File `//frobber/data/BUILD`:
 

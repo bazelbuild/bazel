@@ -87,7 +87,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // Check that the number of toolchains created for this test is correct.
     assertThat(
             value.registeredToolchains().stream()
-                .filter(toolchain -> toolchain.toolchainType().equals(testToolchainType))
+                .filter(toolchain -> toolchain.toolchainType().equals(testToolchainTypeInfo))
                 .collect(Collectors.toList()))
         .hasSize(2);
 
@@ -95,7 +95,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             value.registeredToolchains().stream()
                 .anyMatch(
                     toolchain ->
-                        toolchain.toolchainType().equals(testToolchainType)
+                        toolchain.toolchainType().equals(testToolchainTypeInfo)
                             && toolchain.execConstraints().get(setting).equals(linuxConstraint)
                             && toolchain.targetConstraints().get(setting).equals(macConstraint)
                             && toolchain
@@ -108,7 +108,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             value.registeredToolchains().stream()
                 .anyMatch(
                     toolchain ->
-                        toolchain.toolchainType().equals(testToolchainType)
+                        toolchain.toolchainType().equals(testToolchainTypeInfo)
                             && toolchain.execConstraints().get(setting).equals(macConstraint)
                             && toolchain.targetConstraints().get(setting).equals(linuxConstraint)
                             && toolchain

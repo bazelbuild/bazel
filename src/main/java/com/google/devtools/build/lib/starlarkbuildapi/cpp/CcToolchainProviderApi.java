@@ -257,4 +257,10 @@ public interface CcToolchainProviderApi<
       })
   String getArtifactNameForCategory(String category, String outputName, StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "legacy_cc_flags_make_variable",
+      documented = false,
+      useStarlarkThread = true)
+  String getLegacyCcFlagsMakeVariableForStarlark(StarlarkThread thread) throws EvalException;
 }

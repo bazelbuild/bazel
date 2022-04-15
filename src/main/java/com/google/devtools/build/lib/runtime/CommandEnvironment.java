@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -697,9 +696,7 @@ public class CommandEnvironment {
         getSkyframeExecutor()
             .sync(
                 reporter,
-                options.getOptions(PackageOptions.class),
                 packageLocator,
-                options.getOptions(BuildLanguageOptions.class),
                 getCommandId(),
                 clientEnv,
                 repoEnvFromOptions,

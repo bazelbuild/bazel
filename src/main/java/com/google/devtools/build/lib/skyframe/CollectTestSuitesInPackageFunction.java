@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -67,11 +68,9 @@ public class CollectTestSuitesInPackageFunction implements SkyFunction {
           CollectTestSuitesInPackageValue.key(label.getPackageIdentifier()));
     }
     collectTestSuiteInPkgDeps.remove(skyKey);
-    env.getValues(collectTestSuiteInPkgDeps);
-
-    if (env.valuesMissing()) {
-      return null;
-    }
-    return CollectTestSuitesInPackageValue.INSTANCE;
+    return GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, collectTestSuiteInPkgDeps)
+        ? null
+        : CollectTestSuitesInPackageValue.INSTANCE;
   }
 }

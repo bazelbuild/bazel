@@ -18,7 +18,7 @@ echo. 1>&2
 echo The target you are compiling requires the Clang compiler. 1>&2
 echo Bazel couldn't find a valid Clang installation on your machine. 1>&2
 %{clang_error_message}
-echo Please check your installation following https://docs.bazel.build/versions/main/windows.html#using 1>&2
+echo Please check your installation following https://bazel.build/docs/windows#using 1>&2
 echo. 1>&2
 
 exit /b 1

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
@@ -55,7 +54,9 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -90,16 +91,17 @@ public final class TestActionBuilder {
   private final RuleContext ruleContext;
   private final ImmutableList.Builder<Artifact> additionalTools;
   private RunfilesSupport runfilesSupport;
-  private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
   private ExecutionInfo executionRequirements;
   private InstrumentedFilesInfo instrumentedFiles;
   private int explicitShardCount;
   private final Map<String, String> extraEnv;
+  private final Set<String> extraInheritedEnv;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.extraEnv = new TreeMap<>();
+    this.extraInheritedEnv = new TreeSet<>();
     this.additionalTools = new ImmutableList.Builder<>();
   }
 
@@ -128,11 +130,6 @@ public final class TestActionBuilder {
     return this;
   }
 
-  public TestActionBuilder setPersistentTestRunnerRunfiles(Runfiles runfiles) {
-    this.persistentTestRunnerRunfiles = runfiles;
-    return this;
-  }
-
   public TestActionBuilder addTools(List<Artifact> tools) {
     this.additionalTools.addAll(tools);
     return this;
@@ -154,20 +151,17 @@ public final class TestActionBuilder {
     return this;
   }
 
+  public TestActionBuilder addExtraInheritedEnv(List<String> extraInheritedEnv) {
+    this.extraInheritedEnv.addAll(extraInheritedEnv);
+    return this;
+  }
+
   /**
    * Set the explicit shard count. Note that this may be overridden by the sharding strategy.
    */
   public TestActionBuilder setShardCount(int explicitShardCount) {
     this.explicitShardCount = explicitShardCount;
     return this;
-  }
-
-  private boolean isPersistentTestRunner() {
-    return ruleContext
-            .getConfiguration()
-            .getFragment(TestConfiguration.class)
-            .isPersistentTestRunner()
-        && persistentTestRunnerRunfiles != null;
   }
 
   private ActionOwner getOwner() {
@@ -207,7 +201,7 @@ public final class TestActionBuilder {
       inputsBuilder.addTransitive(testRuntime);
     }
     TestTargetProperties testProperties =
-        new TestTargetProperties(ruleContext, executionRequirements, isPersistentTestRunner());
+        new TestTargetProperties(ruleContext, executionRequirements);
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
@@ -320,7 +314,6 @@ public final class TestActionBuilder {
               runfilesSupport,
               executable,
               instrumentedFileManifest,
-              /* persistentTestRunnerFlagFile= */ null,
               shards,
               runsPerTest);
       inputsBuilder.add(instrumentedFileManifest);
@@ -330,16 +323,9 @@ public final class TestActionBuilder {
         extraTestEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
       }
     } else {
-      Artifact flagFile = null;
-      // The worker spawn runner expects a flag file containing the worker's flags.
-      if (isPersistentTestRunner()) {
-        flagFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + "_flag_file.txt");
-        inputsBuilder.add(flagFile);
-      }
-
       executionSettings =
           new TestTargetExecutionSettings(
-              ruleContext, runfilesSupport, executable, null, flagFile, shards, runsPerTest);
+              ruleContext, runfilesSupport, executable, null, shards, runsPerTest);
     }
 
     extraTestEnv.putAll(extraEnv);
@@ -359,17 +345,7 @@ public final class TestActionBuilder {
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
     SingleRunfilesSupplier testRunfilesSupplier;
-    if (isPersistentTestRunner()) {
-      // Create a RunfilesSupplier from the persistent test runner's runfiles. Pass only the test
-      // runner's runfiles to avoid using a different worker for every test run.
-      testRunfilesSupplier =
-          new SingleRunfilesSupplier(
-              /*runfilesDir=*/ persistentTestRunnerRunfiles.getSuffix(),
-              /*runfiles=*/ persistentTestRunnerRunfiles,
-              /*manifest=*/ null,
-              /*buildRunfileLinks=*/ false,
-              /*runfileLinksEnabled=*/ false);
-    } else if (shardRuns > 1 || runsPerTest > 1) {
+    if (shardRuns > 1 || runsPerTest > 1) {
       // When creating multiple test actions, cache the runfiles mappings across test actions. This
       // saves a lot of garbage when shard_count and/or runs_per_test is high.
       testRunfilesSupplier =
@@ -421,13 +397,6 @@ public final class TestActionBuilder {
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
 
-
-        ImmutableList.Builder<Artifact> tools = new ImmutableList.Builder<>();
-        if (isPersistentTestRunner()) {
-          tools.add(testActionExecutable);
-          tools.add(executionSettings.getExecutable());
-          tools.addAll(additionalTools.build());
-        }
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
@@ -442,7 +411,9 @@ public final class TestActionBuilder {
                 coverageArtifact,
                 coverageDirectory,
                 testProperties,
-                runfilesSupport.getActionEnvironment().addFixedVariables(extraTestEnv),
+                runfilesSupport
+                    .getActionEnvironment()
+                    .withAdditionalVariables(extraTestEnv, extraInheritedEnv),
                 executionSettings,
                 shard,
                 run,
@@ -453,7 +424,6 @@ public final class TestActionBuilder {
                     ? ShToolchain.getPathOrError(ruleContext)
                     : null,
                 cancelConcurrentTests,
-                tools.build(),
                 splitCoveragePostProcessing,
                 lcovMergerFilesToRun,
                 lcovMergerRunfilesSupplier,

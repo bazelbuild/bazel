@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -22,12 +24,12 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -46,12 +48,13 @@ class TopLevelActionLookupConflictFindingFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-
-    env.getValues(
-        ActionLookupConflictFindingFunction.convertArtifacts(
-                valueAndArtifactsToBuild.second.getAllArtifacts())
-            .collect(Collectors.toList()));
-    return env.valuesMissing() ? null : ActionLookupConflictFindingValue.INSTANCE;
+    return GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+            env,
+            ActionLookupConflictFindingFunction.convertArtifacts(
+                    valueAndArtifactsToBuild.second.getAllArtifacts())
+                .collect(toImmutableList()))
+        ? null
+        : ActionLookupConflictFindingValue.INSTANCE;
   }
 
   @Nullable

@@ -90,7 +90,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -240,7 +239,7 @@ final class AspectFunction implements SkyFunction {
     } else {
       LinkedHashSet<AspectKey> orderedKeys = new LinkedHashSet<>();
       collectAspectKeysInTopologicalOrder(key.getBaseKeys(), orderedKeys);
-      Map<SkyKey, SkyValue> aspectValues = env.getValues(orderedKeys);
+      SkyframeLookupResult aspectValues = env.getValuesAndExceptions(orderedKeys);
       if (env.valuesMissing()) {
         return null;
       }
@@ -248,6 +247,12 @@ final class AspectFunction implements SkyFunction {
           ImmutableList.builderWithExpectedSize(orderedKeys.size() + 1);
       for (AspectKey aspectKey : orderedKeys) {
         AspectValue aspectValue = (AspectValue) aspectValues.get(aspectKey);
+        if (aspectValue == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "aspectValue " + aspectKey + " was missing, this should never happen"));
+          return null;
+        }
         topologicalAspectPathBuilder.add(aspectValue.getAspect());
       }
       topologicalAspectPath = topologicalAspectPathBuilder.add(aspect).build();
@@ -391,7 +396,7 @@ final class AspectFunction implements SkyFunction {
     }
   }
 
-  static SkyKey bzlLoadKeyForStarlarkAspect(StarlarkAspectClass starlarkAspectClass) {
+  static BzlLoadValue.Key bzlLoadKeyForStarlarkAspect(StarlarkAspectClass starlarkAspectClass) {
     Label extensionLabel = starlarkAspectClass.getExtensionLabel();
     return StarlarkBuiltinsValue.isBuiltinsRepo(extensionLabel.getRepository())
         ? BzlLoadValue.keyForBuiltins(extensionLabel)
@@ -410,7 +415,7 @@ final class AspectFunction implements SkyFunction {
     SkyKey basePackageKey =
         PackageValue.key(key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier());
     SkyKey configurationKey = key.getConfigurationKey();
-    SkyKey bzlLoadKey;
+    BzlLoadValue.Key bzlLoadKey;
 
     if (key.getAspectClass() instanceof NativeAspectClass) {
       NativeAspectClass nativeAspectClass = (NativeAspectClass) key.getAspectClass();
@@ -446,9 +451,8 @@ final class AspectFunction implements SkyFunction {
           bzlLoadvalue =
               (BzlLoadValue) initialValues.getOrThrow(bzlLoadKey, BzlLoadFailedException.class);
           if (bzlLoadvalue == null) {
-            BugReport.sendBugReport(
-                new IllegalStateException(
-                    "bzlLoadValue " + bzlLoadKey + " was missing, this should never happen"));
+            BugReport.logUnexpected(
+                "Unexpected exception with %s and AspectKey %s", bzlLoadKey, key);
             return null;
           }
         } catch (BzlLoadFailedException e) {
@@ -482,12 +486,8 @@ final class AspectFunction implements SkyFunction {
               initialValues.getOrThrow(
                   baseConfiguredTargetKey, ConfiguredValueCreationException.class);
       if (baseConfiguredTargetValue == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "BzlLoadFailedException should have been processed by ConfiguredTargetFunction for "
-                    + baseConfiguredTargetKey
-                    + " and "
-                    + key));
+        BugReport.logUnexpected(
+            "Unexpected exception with %s and AspectKey %s", baseConfiguredTargetKey, key);
         return null;
       }
     } catch (ConfiguredValueCreationException e) {

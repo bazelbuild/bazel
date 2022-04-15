@@ -14,7 +14,7 @@ program. `BUILD` files are evaluated using an imperative language,
 They are interpreted as a sequential list of statements.
 
 In general, order does matter: variables must be defined before they are
-used, for example. However, most `BUILD` files consist only declarations of
+used, for example. However, most `BUILD` files consist only of declarations of
 build rules, and the relative order of these statements is immaterial; all
 that matters is _which_ rules were declared, and with what values, by the
 time package evaluation completes.

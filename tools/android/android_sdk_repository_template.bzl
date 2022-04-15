@@ -87,6 +87,7 @@ def create_android_sdk_rules(
         name = "files",
         srcs = [
             "build-tools/%s/lib/apksigner.jar" % build_tools_directory,
+            "build-tools/%s/lib/d8.jar" % build_tools_directory,
             "build-tools/%s/lib/dx.jar" % build_tools_directory,
             "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
         ] + [
@@ -136,7 +137,7 @@ def create_android_sdk_rules(
             dx = select({
                 "d8_standalone_dexer": ":d8_compat_dx",
                 "dx_standalone_dexer": ":dx_binary",
-                "//conditions:default": ":dx_binary",
+                "//conditions:default": ":d8_compat_dx",
             }),
             main_dex_list_creator = ":main_dex_list_creator",
             adb = select({
@@ -297,12 +298,14 @@ def create_android_sdk_rules(
     )
     java_binary(
         name = "d8_compat_dx",
-        main_class = "com.android.tools.r8.compatdx.CompatDx",
-        runtime_deps = [":d8_jar_import"],
+        main_class = "com.google.devtools.build.android.r8.CompatDx",
+        runtime_deps = [
+            "@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:r8",
+        ],
     )
-    java_import(
+    native.alias(
         name = "d8_jar_import",
-        jars = ["build-tools/%s/lib/d8.jar" % build_tools_directory],
+        actual = "@android_gmaven_r8//jar",
     )
 
 TAGDIR_TO_TAG_MAP = {

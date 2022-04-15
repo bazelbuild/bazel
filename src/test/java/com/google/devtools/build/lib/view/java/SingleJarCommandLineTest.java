@@ -54,7 +54,8 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 UNCOMPRESSED,
                 null,
                 OneVersionEnforcementLevel.OFF,
-                null)
+                null,
+                /* multiReleaseDeployJars= */ false)
             .build();
 
     assertThat(command.arguments()).doesNotContain("--exclude_build_data");
@@ -77,7 +78,8 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 UNCOMPRESSED,
                 null,
                 OneVersionEnforcementLevel.OFF,
-                null)
+                null,
+                /* multiReleaseDeployJars= */ false)
             .build();
 
     assertThat(command.arguments()).contains("--exclude_build_data");
@@ -100,7 +102,8 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 UNCOMPRESSED,
                 dummy,
                 OneVersionEnforcementLevel.OFF,
-                null)
+                null,
+                /* multiReleaseDeployJars= */ false)
             .build();
     assertThat(command.arguments()).contains("--java_launcher");
   }
@@ -122,7 +125,8 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 COMPRESSED,
                 dummy,
                 OneVersionEnforcementLevel.OFF,
-                null)
+                null,
+                /* multiReleaseDeployJars= */ false)
             .build();
     assertThat(command.arguments()).contains("--compression");
   }
@@ -144,7 +148,8 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 UNCOMPRESSED,
                 dummy,
                 OneVersionEnforcementLevel.OFF,
-                null)
+                null,
+                /* multiReleaseDeployJars= */ false)
             .build();
     assertThat(command.arguments()).doesNotContain("--compression");
   }
@@ -170,7 +175,8 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 UNCOMPRESSED,
                 dummy,
                 OneVersionEnforcementLevel.WARNING,
-                dummyOneVersion)
+                dummyOneVersion,
+                /* multiReleaseDeployJars= */ false)
             .build();
     assertThat(command.arguments())
         .containsAtLeast("--enforce_one_version", "--succeed_on_found_violations");

@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -133,4 +135,20 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       doc = "Returns the set of validation artifacts.",
       structField = true)
   Depset getStarlarkValidationArtifacts();
+
+  @StarlarkMethod(name = "additional_inputs", documented = false, useStarlarkThread = true)
+  Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "transitive_modules",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "use_pic",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class)})
+      })
+  Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread) throws EvalException;
 }

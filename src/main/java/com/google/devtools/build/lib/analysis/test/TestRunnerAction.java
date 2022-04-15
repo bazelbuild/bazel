@@ -209,14 +209,13 @@ public class TestRunnerAction extends AbstractAction
       String workspaceName,
       @Nullable PathFragment shExecutable,
       boolean cancelConcurrentTestsOnSuccess,
-      Iterable<Artifact> tools,
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       RunfilesSupplier lcovMergerRunfilesSupplier,
       PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         runfilesSupplier,
         nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
@@ -348,7 +347,11 @@ public class TestRunnerAction extends AbstractAction
     outputs.add(ActionInputHelper.fromPath(getSplitLogsPath()));
     outputs.add(ActionInputHelper.fromPath(getUnusedRunfilesLogPath()));
     outputs.add(ActionInputHelper.fromPath(getInfrastructureFailureFile()));
-    outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsZipPath()));
+    if (testConfiguration.getZipUndeclaredTestOutputs()) {
+      outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsZipPath()));
+    } else {
+      outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsDir()));
+    }
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPbPath()));
@@ -392,11 +395,19 @@ public class TestRunnerAction extends AbstractAction
         builder.add(
             Pair.of(TestFileNameConstants.TEST_WARNINGS, resolvedPaths.getTestWarningsPath()));
       }
-      if (resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
+      if (testConfiguration.getZipUndeclaredTestOutputs()
+          && resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
         builder.add(
             Pair.of(
                 TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
                 resolvedPaths.getUndeclaredOutputsZipPath()));
+      }
+      if (!testConfiguration.getZipUndeclaredTestOutputs()
+          && resolvedPaths.getUndeclaredOutputsDir().exists()) {
+        builder.add(
+            Pair.of(
+                TestFileNameConstants.UNDECLARED_OUTPUTS_DIR,
+                resolvedPaths.getUndeclaredOutputsDir()));
       }
       if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
         builder.add(
@@ -466,6 +477,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addInt(runNumber);
     fp.addInt(executionSettings.getTotalRuns());
     fp.addBoolean(configuration.isCodeCoverageEnabled());
+    fp.addBoolean(testConfiguration.getZipUndeclaredTestOutputs());
     fp.addStringMap(getExecutionInfo());
   }
 
@@ -689,7 +701,10 @@ public class TestRunnerAction extends AbstractAction
 
     env.put("TEST_LOGSPLITTER_OUTPUT_FILE", getSplitLogsPath().getPathString());
 
-    env.put("TEST_UNDECLARED_OUTPUTS_ZIP", getUndeclaredOutputsZipPath().getPathString());
+    if (testConfiguration.getZipUndeclaredTestOutputs()) {
+      env.put("TEST_UNDECLARED_OUTPUTS_ZIP", getUndeclaredOutputsZipPath().getPathString());
+    }
+
     env.put("TEST_UNDECLARED_OUTPUTS_DIR", getUndeclaredOutputsDir().getPathString());
     env.put("TEST_UNDECLARED_OUTPUTS_MANIFEST", getUndeclaredOutputsManifestPath().getPathString());
     env.put(
@@ -712,11 +727,6 @@ public class TestRunnerAction extends AbstractAction
     if (!isEnableRunfiles()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
       env.put("RUNFILES_MANIFEST_ONLY", "1");
-    }
-
-    if (testProperties.isPersistentTestRunner()) {
-      // Let the test runner know it runs persistently within a worker.
-      env.put("PERSISTENT_TEST_RUNNER", "true");
     }
 
     if (isCoverageMode()) {
@@ -1051,7 +1061,7 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
-    return getEnvironment().getFixedEnv().toMap();
+    return getEnvironment().getFixedEnv();
   }
 
   @Override

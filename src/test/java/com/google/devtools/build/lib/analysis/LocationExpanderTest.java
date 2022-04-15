@@ -130,9 +130,8 @@ public class LocationExpanderTest {
         .add("@bar//a", "/exec/src/a")
         .build();
 
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(
-        RepositoryName.create("@foo"),
-        RepositoryName.create("@bar"));
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
+        ImmutableMap.of(RepositoryName.create("foo"), RepositoryName.create("bar"));
 
     LocationExpander locationExpander =
         new LocationExpander(

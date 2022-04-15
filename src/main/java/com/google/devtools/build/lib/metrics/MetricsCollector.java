@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsEvent;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -95,6 +96,7 @@ class MetricsCollector {
   private final List<WorkerMetrics> workerMetricsList = new ArrayList<>();
   private final SpawnStats spawnStats = new SpawnStats();
 
+  @CanIgnoreReturnValue
   private MetricsCollector(
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;

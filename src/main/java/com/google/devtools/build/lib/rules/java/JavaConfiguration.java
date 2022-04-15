@@ -91,6 +91,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final Label proguardBinary;
   private final ImmutableList<Label> extraProguardSpecs;
   private final NamedLabel bytecodeOptimizer;
+  private final boolean runLocalJavaOptimizations;
+  private final ImmutableList<Label> localJavaOptimizationConfiguration;
   private final boolean splitBytecodeOptimizationPass;
   private final boolean enforceProguardFileExtension;
   private final boolean runAndroidLint;
@@ -103,6 +105,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean experimentalTurbineAnnotationProcessing;
   private final boolean experimentalEnableJspecify;
   private final boolean requireJavaPluginInfo;
+  private final boolean multiReleaseDeployJars;
+  private final boolean disallowJavaImportExports;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -123,6 +127,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
+    this.runLocalJavaOptimizations = javaOptions.runLocalJavaOptimizations;
+    this.localJavaOptimizationConfiguration =
+        ImmutableList.copyOf(javaOptions.localJavaOptimizationConfiguration);
     this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
@@ -139,12 +146,14 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.runAndroidLint = javaOptions.runAndroidLint;
     this.limitAndroidLintToAndroidCompatible = javaOptions.limitAndroidLintToAndroidCompatible;
     this.requireJavaPluginInfo = javaOptions.requireJavaPluginInfo;
+    this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
+    this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
     if (optimizers.size() > 1) {
       throw new InvalidConfigurationException(
           String.format(
-              "--experimental_bytecode_optimizers can only accept up to one mapping, but %s"
+              "--experimental_bytecode_optimizers can only accept up to one mapping, but %d"
                   + " mappings were provided.",
               optimizers.size()));
     }
@@ -155,6 +164,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
     }
     this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
+    if (runLocalJavaOptimizations && optimizerLabel == null) {
+      throw new InvalidConfigurationException(
+          "--experimental_local_java_optimizations cannot be provided without "
+              + "--experimental_bytecode_optimizers.");
+    }
 
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.experimentalTurbineAnnotationProcessing =
@@ -308,9 +322,20 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     public abstract Optional<Label> label();
   }
 
-  /** Returns ordered list of optimizers to run. */
+  /** Returns bytecode optimizer to run. */
+  @Nullable
   public NamedLabel getBytecodeOptimizer() {
     return bytecodeOptimizer;
+  }
+
+  /** Returns true if the bytecode optimizer should incrementally optimize all Java artifacts. */
+  public boolean runLocalJavaOptimizations() {
+    return runLocalJavaOptimizations;
+  }
+
+  /** Returns the optimization configuration for local Java optimizations if they are enabled. */
+  public ImmutableList<Label> getLocalJavaOptimizationConfiguration() {
+    return localJavaOptimizationConfiguration;
   }
 
   /**
@@ -338,6 +363,15 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
    */
   public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
     return enforceOneVersion;
+  }
+
+  @Override
+  public boolean multiReleaseDeployJars() {
+    return multiReleaseDeployJars;
+  }
+
+  public boolean disallowJavaImportExports() {
+    return disallowJavaImportExports;
   }
 
   @Override
@@ -373,6 +407,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return addTestSupportToCompileTimeDeps;
   }
 
+  @Override
   public boolean runAndroidLint() {
     return runAndroidLint;
   }

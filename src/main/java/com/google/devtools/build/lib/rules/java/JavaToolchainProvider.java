@@ -100,6 +100,8 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable JavaToolchainTool headerCompilerDirect,
       @Nullable AndroidLintTool androidLint,
       JspecifyInfo jspecifyInfo,
+      @Nullable JavaToolchainTool bytecodeOptimizer,
+      ImmutableList<Artifact> localJavaOptimizationConfiguration,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -107,6 +109,7 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable Artifact oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
+      @Nullable Artifact depsChecker,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
@@ -125,6 +128,8 @@ public final class JavaToolchainProvider extends NativeInfo
         headerCompilerDirect,
         androidLint,
         jspecifyInfo,
+        bytecodeOptimizer,
+        localJavaOptimizationConfiguration,
         headerCompilerBuiltinProcessors,
         reducedClasspathIncompatibleProcessors,
         forciblyDisableHeaderCompilation,
@@ -132,6 +137,7 @@ public final class JavaToolchainProvider extends NativeInfo
         oneVersion,
         oneVersionAllowlist,
         genClass,
+        depsChecker,
         resourceJarBuilder,
         timezoneData,
         ijar,
@@ -156,6 +162,8 @@ public final class JavaToolchainProvider extends NativeInfo
   @Nullable private final JavaToolchainTool headerCompilerDirect;
   @Nullable private final AndroidLintTool androidLint;
   @Nullable private final JspecifyInfo jspecifyInfo;
+  @Nullable private final JavaToolchainTool bytecodeOptimizer;
+  private final ImmutableList<Artifact> localJavaOptimizationConfiguration;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
@@ -163,6 +171,7 @@ public final class JavaToolchainProvider extends NativeInfo
   @Nullable private final Artifact oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
+  @Nullable private final Artifact depsChecker;
   @Nullable private final Artifact resourceJarBuilder;
   @Nullable private final Artifact timezoneData;
   private final FilesToRunProvider ijar;
@@ -187,6 +196,8 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable JavaToolchainTool headerCompilerDirect,
       @Nullable AndroidLintTool androidLint,
       @Nullable JspecifyInfo jspecifyInfo,
+      @Nullable JavaToolchainTool bytecodeOptimizer,
+      ImmutableList<Artifact> localJavaOptimizationConfiguration,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -194,6 +205,7 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable Artifact oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
+      @Nullable Artifact depsChecker,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
@@ -217,6 +229,8 @@ public final class JavaToolchainProvider extends NativeInfo
     this.headerCompilerDirect = headerCompilerDirect;
     this.androidLint = androidLint;
     this.jspecifyInfo = jspecifyInfo;
+    this.bytecodeOptimizer = bytecodeOptimizer;
+    this.localJavaOptimizationConfiguration = localJavaOptimizationConfiguration;
     this.headerCompilerBuiltinProcessors = headerCompilerBuiltinProcessors;
     this.reducedClasspathIncompatibleProcessors = reducedClasspathIncompatibleProcessors;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
@@ -224,6 +238,7 @@ public final class JavaToolchainProvider extends NativeInfo
     this.oneVersion = oneVersion;
     this.oneVersionAllowlist = oneVersionAllowlist;
     this.genClass = genClass;
+    this.depsChecker = depsChecker;
     this.resourceJarBuilder = resourceJarBuilder;
     this.timezoneData = timezoneData;
     this.ijar = ijar;
@@ -285,6 +300,15 @@ public final class JavaToolchainProvider extends NativeInfo
     return jspecifyInfo;
   }
 
+  @Nullable
+  public JavaToolchainTool getBytecodeOptimizer() {
+    return bytecodeOptimizer;
+  }
+
+  public ImmutableList<Artifact> getLocalJavaOptimizationConfiguration() {
+    return localJavaOptimizationConfiguration;
+  }
+
   /** Returns class names of annotation processors that are built in to the header compiler. */
   public ImmutableSet<String> getHeaderCompilerBuiltinProcessors() {
     return headerCompilerBuiltinProcessors;
@@ -335,6 +359,12 @@ public final class JavaToolchainProvider extends NativeInfo
   /** Returns the {@link Artifact} of the GenClass deploy jar */
   public Artifact getGenClass() {
     return genClass;
+  }
+
+  /** Returns the {@link Artifact} of the ImportDepsChecker deploy jar */
+  @Nullable
+  public Artifact depsChecker() {
+    return depsChecker;
   }
 
   @Nullable
@@ -479,6 +509,13 @@ public final class JavaToolchainProvider extends NativeInfo
   public Artifact getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     return getTimezoneData();
+  }
+
+  @Override
+  public ImmutableList<String> getCompatibleJavacOptionsForStarlark(
+      String key, StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getCompatibleJavacOptions(key);
   }
 
   @AutoValue

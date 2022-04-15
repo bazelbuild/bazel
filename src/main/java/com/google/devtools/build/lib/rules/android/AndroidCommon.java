@@ -683,7 +683,7 @@ public class AndroidCommon {
 
     filesToBuild = filesBuilder.build();
 
-    if ((attributes.hasSources()) && jar != null) {
+    if ( attributes.hasSources() && jar != null) {
       iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
     }
 

@@ -22,7 +22,6 @@ java_library(
         ":common_runner_java_files",
     ],
     deps = [
-        ":persistent_test_runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
@@ -30,19 +29,6 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//third_party:guava",
         "//third_party:junit4",
-    ],
-)
-
-java_binary(
-    name = "persistent_test_runner",
-    srcs = [
-        "PersistentTestRunner.java",
-        "SuiteTestRunner.java",
-    ],
-    deps = [
-        "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

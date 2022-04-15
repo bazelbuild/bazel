@@ -70,6 +70,7 @@ cc_binary_attrs_with_aspects = {
         aspects = [graph_structure_aspect],
     ),
     "stamp": attr.int(
+        values = [-1, 0, 1],
         default = -1,
     ),
     "linkshared": attr.bool(

@@ -64,6 +64,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    name = 'cc_toolchain',",
         "    command_line = '--cpp_out=$(OUT)',",
         "    blacklisted_protos = [':any_proto'],",
+        "    progress_message = 'Generating C++ proto_library %{label}',",
         ")");
     scratch.appendFile(
         "WORKSPACE",

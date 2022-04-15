@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -31,12 +33,15 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /** A {@link RemoteCacheClient} that stores its contents in memory. */
 public final class InMemoryCacheClient implements RemoteCacheClient {
 
+  private final ListeningExecutorService executorService =
+      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(100));
   private final ConcurrentMap<Digest, Exception> downloadFailures = new ConcurrentHashMap<>();
   private final ConcurrentMap<ActionKey, ActionResult> ac = new ConcurrentHashMap<>();
   private final ConcurrentMap<Digest, byte[]> cas;
@@ -142,16 +147,19 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
-    ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
-    for (Digest digest : digests) {
-      numFindMissingDigests
-          .computeIfAbsent(digest, (key) -> new AtomicInteger(0))
-          .incrementAndGet();
-      if (!cas.containsKey(digest)) {
-        missingBuilder.add(digest);
-      }
-    }
-    return Futures.immediateFuture(missingBuilder.build());
+    return executorService.submit(
+        () -> {
+          ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
+          for (Digest digest : digests) {
+            numFindMissingDigests
+                .computeIfAbsent(digest, (key) -> new AtomicInteger(0))
+                .incrementAndGet();
+            if (!cas.containsKey(digest)) {
+              missingBuilder.add(digest);
+            }
+          }
+          return missingBuilder.build();
+        });
   }
 
   @Override

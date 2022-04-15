@@ -38,13 +38,13 @@ import net.starlark.java.eval.StarlarkThread;
             + " rule's implementation function. Each <code>DefaultInfo</code> instance has the"
             + " following fields: <ul><li><code>files</code><li><code>files_to_run</code>"
             + "<li><code>data_runfiles</code><li><code>default_runfiles</code></ul>See the <a"
-            + " href='$STARLARK_DOCS_ROOT/rules.html'>rules</a> page for extensive guides on how to"
-            + " use this provider.")
+            + " href='https://bazel.build/rules/rules'>rules</a> page for extensive guides on"
+            + " how to use this provider.")
 public interface DefaultInfoApi extends StructApi {
 
   static final String DEPRECATED_RUNFILES_PARAMETER_WARNING =
       "<p><b>It is recommended that you avoid using this parameter (see "
-          + "<a href='$STARLARK_DOCS_ROOT/rules.html#runfiles-features-to-avoid'>"
+          + "<a href='https://bazel.build/rules/rules#runfiles_features_to_avoid'>"
           + "\"runfiles features to avoid\"</a>)</b></p> ";
 
   @StarlarkMethod(
@@ -75,7 +75,7 @@ public interface DefaultInfoApi extends StructApi {
           "runfiles descriptor describing the files that this target needs when run in the "
               + "condition that it is a <code>data</code> dependency attribute. Under most "
               + "circumstances, use the <code>default_runfiles</code> parameter instead. "
-              + "See <a href='$STARLARK_DOCS_ROOT/rules.html#runfiles-features-to-avoid'>"
+              + "See <a href='https://bazel.build/rules/rules#runfiles_features_to_avoid'>"
               + "\"runfiles features to avoid\"</a> for details. ",
       structField = true,
       allowReturnNones = true)

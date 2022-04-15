@@ -50,8 +50,8 @@ system around the tenets of functional programming.
 
 ## Understanding artifact-based build systems
 
-Google's build system, Bazel, was the first artifact-based build system. Bazel
-is the open-sourced version of Bazel.
+Google's build system, Blaze, was the first artifact-based build system. Bazel
+is the open-sourced version of Blaze.
 
 Here’s what a buildfile (normally named `BUILD`) looks like in Bazel:
 

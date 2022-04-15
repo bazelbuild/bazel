@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -154,7 +155,7 @@ final class TestExpansionFunction implements SkyFunction {
           labels.add(label);
           pkgIdentifiers.add(label.getPackageIdentifier());
         });
-    List<SkyKey> skyKeys = PackageValue.keys(pkgIdentifiers);
+    ImmutableList<SkyKey> skyKeys = PackageValue.keys(pkgIdentifiers);
     SkyframeIterableResult packages = env.getOrderedValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return false;

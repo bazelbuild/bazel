@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +46,11 @@ public class RuleLinkExpander {
           .put("glob", FUNCTIONS_PAGE)
           .put("select", FUNCTIONS_PAGE)
           .buildOrThrow();
+
+  // These static pages only exist in the multi-page BE. In the single-page BE
+  // their content is part of the BE.
+  private static final ImmutableSet<String> STATIC_PAGES_REPLACED_BY_SINGLE_PAGE_BE =
+      ImmutableSet.<String>of("common-definitions", "make-variables");
 
   private final DocLinkMap linkMap;
   private final Map<String, String> ruleIndex = new HashMap<>();
@@ -125,7 +131,10 @@ public class RuleLinkExpander {
       // common-definitions. Generate a link to that page.
       String mapping = linkMap.values.get(name);
       if (mapping != null) {
-        String link = singlePage ? "#" + name : mapping;
+        String link =
+            singlePage && STATIC_PAGES_REPLACED_BY_SINGLE_PAGE_BE.contains(name)
+                ? "#" + name
+                : mapping;
         // For referencing headings on a static page, use the following syntax:
         // ${link static_page_name#heading_name}, example: ${link make-variables#gendir}
         String pageHeading = matcher.group(4);
@@ -191,9 +200,11 @@ public class RuleLinkExpander {
 
       if (headingMapping != null || pageMapping != null) {
         String link;
-        if (singlePage) {
-          // Special case: For the single-page BE we don't use the value of the mapping, we just
-          // need to know that there is one (since that means `name` is a legitimate BE page).
+        if (singlePage && STATIC_PAGES_REPLACED_BY_SINGLE_PAGE_BE.contains(name)) {
+          // Special case: Some of the stand-alone files in the multi-page BE are made redundant
+          // by the BE in the single-page case. Consequently, we ignore the value of the mapping
+          // in this case (we only need to know that the mapping exists, since this means it is
+          // a legitimate reference).
           link = "#" + heading;
         } else if (headingMapping != null) {
           // Multi-page BE where page#heading has to be redirected.

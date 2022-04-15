@@ -169,6 +169,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(deps_checker) -->
+        Label of the ImportDepsChecker deploy jar.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("deps_checker", LABEL_LIST)
+                .singleArtifact()
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(resourcejar) -->
         Label of the resource jar builder executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -360,6 +369,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .allowedFileTypes()
                 .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id()))
                 .undocumented("experimental"))
+        .add(
+            attr(":bytecode_optimizer", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(JavaSemantics.BYTECODE_OPTIMIZER)
+                .exec())
+        .add(
+            attr(":local_java_optimization_configuration", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(JavaSemantics.LOCAL_JAVA_OPTIMIZATION_CONFIGURATION))
         .build();
   }
 

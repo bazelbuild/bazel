@@ -114,7 +114,7 @@ def _http_archive_impl(ctx):
     sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
     return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
 
-_HTTP_FILE_BUILD = """
+_HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -152,7 +152,7 @@ def _http_file_impl(ctx):
 
     return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
 
-_HTTP_JAR_BUILD = """
+_HTTP_JAR_BUILD = """\
 load("@rules_java//java:defs.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -269,7 +269,7 @@ match a directory in the archive, Bazel will return an error.""",
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
 following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, or `tar.bz2`.""",
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -357,8 +357,9 @@ http_archive = repository_rule(
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`,
-`"tar"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
+`"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
+or `"deb"`.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,

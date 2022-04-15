@@ -27,7 +27,8 @@ message Input {
   string path = 1;
 
   // A hash-value of the contents. The format of the contents is unspecified and
-  // the digest should be treated as an opaque token.
+  // the digest should be treated as an opaque token. This can be empty in some
+  // cases.
   bytes digest = 2;
 }
 

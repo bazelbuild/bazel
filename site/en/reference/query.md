@@ -80,10 +80,11 @@ tokens:
   begins and ends with a double-quote "), it is a word. If a character sequence
   is not quoted, it may still be parsed as a word. Unquoted words are sequences
   of characters drawn from the alphabet characters A-Za-z, the numerals 0-9,
-  and the special characters `*/@.-_:$~` (asterisk, forward slash, at, period,
-  hyphen, underscore, colon, dollar sign, tilde). However, unquoted words may
-  not start with a hyphen `-` or asterisk `*` even though relative
-  [target names][(/concepts/labels#target-names) may start with those characters.
+  and the special characters `*/@.-_:$~[]` (asterisk, forward slash, at, period,
+  hyphen, underscore, colon, dollar sign, tilde, left square brace, right square
+  brace). However, unquoted words may not start with a hyphen `-` or asterisk `*`
+  even though relative [target names][(/concepts/labels#target-names) may start
+  with those characters.
 
   Unquoted words also may not include the characters plus sign `+` or equals
   sign `=`, even though those characters are permitted in target names. When

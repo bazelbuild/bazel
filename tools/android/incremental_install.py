@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # pylint: disable=g-bad-file-header
 # Copyright 2015 The Bazel Authors. All rights reserved.

@@ -351,7 +351,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * SkyFunction} last build, meaning independently of the values of any other deps in this group
    * (although possibly depending on deps in earlier groups). Thus the caller may check all the deps
    * in this group in parallel, since the deps in all previous groups are verified unchanged. See
-   * {@link SkyFunction.Environment#getValues} for more on dependency groups.
+   * {@link SkyFunction.Environment#getOrderedValuesAndExceptions} for more on dependency groups.
    *
    * <p>The caller should register these as deps of this entry using {@link #addTemporaryDirectDeps}
    * before checking them.

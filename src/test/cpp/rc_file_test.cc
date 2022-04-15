@@ -311,37 +311,6 @@ TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
   EXPECT_THAT(output, HasSubstr(binary_rc));
 }
 
-TEST_F(
-    GetRcFileTest,
-    GetRcFilesDoesNotWarnAboutIgnoredMasterRcFilesWhenNoMasterBazelrcIsPassed) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileInWorkspace("", &workspace_rc));
-  std::string binary_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileAlongsideBinary("", &binary_rc));
-
-  const CommandLine cmd_line =
-      CommandLine(binary_path_, {"--nomaster_bazelrc"}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-
-  testing::internal::CaptureStderr();
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  const std::string output = testing::internal::GetCapturedStderr();
-
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // Expect that nothing is logged to stderr about ignored rc files when these
-  // files are disabled.
-  EXPECT_THAT(
-      output,
-      Not(HasSubstr("The following rc files are no longer being read")));
-  EXPECT_THAT(output, Not(HasSubstr(workspace_rc)));
-  EXPECT_THAT(output, Not(HasSubstr(binary_rc)));
-}
-
 TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
@@ -350,7 +319,7 @@ TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
   ASSERT_TRUE(blaze_util::WriteFile("", cmdline_rc_path, 0755));
 
   const CommandLine cmd_line = CommandLine(
-      binary_path_, {"--nomaster_bazelrc", "--bazelrc=" + cmdline_rc_path},
+      binary_path_, {"--bazelrc=" + cmdline_rc_path},
       "build", {});
   std::string error = "check that this string is not modified";
   std::vector<std::unique_ptr<RcFile>> parsed_rcs;
@@ -502,7 +471,7 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasUnknownOption) {
       blaze_util::MakeDirectories(blaze_util::Dirname(cmdline_rc_path), 0755));
   ASSERT_TRUE(blaze_util::WriteFile("startup --foo", cmdline_rc_path, 0755));
 
-  const std::vector<std::string> args = {binary_path_, "--nomaster_bazelrc",
+  const std::vector<std::string> args = {binary_path_,
                                          "--bazelrc=" + cmdline_rc_path,
                                          "build"};
   const std::string expected_error =

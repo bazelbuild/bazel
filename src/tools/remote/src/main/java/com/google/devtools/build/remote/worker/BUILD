@@ -40,7 +40,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@googleapis//:google_bytestream_bytestream_java_grpc",

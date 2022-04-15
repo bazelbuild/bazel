@@ -153,7 +153,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
     for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
       String bestName =
-          id.getBzlFileLabel().getRepository().strippedName() + "." + id.getExtensionName();
+          id.getBzlFileLabel().getRepository().getName() + "." + id.getExtensionName();
       if (extensionUniqueNames.putIfAbsent(bestName, id) == null) {
         continue;
       }

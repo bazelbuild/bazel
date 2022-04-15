@@ -42,7 +42,7 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   private final Supplier<PathPackageLocator> pkgLocator;
   private final AtomicInteger numPackagesSuccessfullyLoaded;
 
-  public SkyframePackageManager(
+  SkyframePackageManager(
       SkyframePackageLoader packageLoader,
       SyscallCache syscallCache,
       Supplier<PathPackageLocator> pkgLocator,

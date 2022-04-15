@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -148,5 +149,75 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError(
         "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
     events.assertContainsError("rule '//foo:missing' does not exist");
+  }
+
+  @Test
+  public void symlinkPlantedLocalAction_success() throws Exception {
+    addOptions("--spawn_strategy=standalone");
+    write(
+        "foo/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cp $< $@'",
+        ")");
+    write("foo/foo.in");
+
+    BuildResult result = buildTarget("//foo:foo");
+
+    assertThat(result.getSuccess()).isTrue();
+    assertSingleOutputBuilt("//foo:foo");
+  }
+
+  @Test
+  public void symlinksPlanted() throws Exception {
+    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    writeMyRuleBzl();
+    Path fooDir =
+        write(
+                "foo/BUILD",
+                "load('//foo:my_rule.bzl', 'my_rule')",
+                "my_rule(name = 'foo', srcs = ['foo.in'])")
+            .getParentDirectory();
+    write("foo/foo.in");
+    Path unusedDir = write("unused/dummy").getParentDirectory();
+
+    // Before the build: no symlink.
+    assertThat(execroot.getRelative("foo").exists()).isFalse();
+
+    buildTarget("//foo:foo");
+
+    // After the build: symlinks to the source directory, even unused packages.
+    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
+    assertThat(execroot.getRelative("unused").resolveSymbolicLinks()).isEqualTo(unusedDir);
+  }
+
+  @Test
+  public void symlinksReplantedEachBuild() throws Exception {
+    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    writeMyRuleBzl();
+    Path fooDir =
+        write(
+                "foo/BUILD",
+                "load('//foo:my_rule.bzl', 'my_rule')",
+                "my_rule(name = 'foo', srcs = ['foo.in'])")
+            .getParentDirectory();
+    write("foo/foo.in");
+    Path unusedDir = write("unused/dummy").getParentDirectory();
+
+    buildTarget("//foo:foo");
+
+    // After the 1st build: symlinks to the source directory, even unused packages.
+    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
+    assertThat(execroot.getRelative("unused").resolveSymbolicLinks()).isEqualTo(unusedDir);
+
+    unusedDir.deleteTree();
+
+    buildTarget("//foo:foo");
+
+    // After the 2nd build: symlink to unusedDir is gone, since the package itself was deleted.
+    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
+    assertThat(execroot.getRelative("unused").exists()).isFalse();
   }
 }
