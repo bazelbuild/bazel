@@ -37,8 +37,6 @@
  *    system are invisible.
  */
 
-#include "src/main/tools/linux-sandbox.h"
-
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -63,11 +61,12 @@
 
 #include "src/main/tools/linux-sandbox-options.h"
 #include "src/main/tools/linux-sandbox-pid1.h"
+#include "src/main/tools/linux-sandbox.h"
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
-int global_outer_uid;
-int global_outer_gid;
+uid_t global_outer_uid;
+gid_t global_outer_gid;
 
 // The PID of our child process, for use in signal handlers.
 static std::atomic<pid_t> global_child_pid{0};
