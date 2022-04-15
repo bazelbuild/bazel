@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
+import javax.annotation.Nullable;
 
 /** An implementation of the {@code android_host_service_fixture} rule. */
 public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
@@ -36,6 +37,7 @@ public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     androidSemantics.checkForMigrationTag(ruleContext);

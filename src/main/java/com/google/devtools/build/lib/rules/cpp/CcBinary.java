@@ -87,6 +87,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -308,6 +309,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(context);

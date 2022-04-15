@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /** Helper class to provide a RuleClassProvider for tests. */
@@ -176,6 +177,7 @@ public class TestRuleClassProvider {
   public static final class MakeVariableTester implements RuleConfiguredTargetFactory {
 
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
       Map<String, String> variables = ruleContext.attributes().get("variables", Type.STRING_DICT);

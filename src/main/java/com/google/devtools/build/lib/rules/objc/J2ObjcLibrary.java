@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the "j2objc_library" rule, which exports ObjC source files translated from
@@ -59,6 +60,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     checkAttributes(ruleContext);

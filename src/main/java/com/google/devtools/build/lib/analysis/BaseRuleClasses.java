@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
 /**
@@ -522,6 +523,7 @@ public class BaseRuleClasses {
    */
   public static class EmptyRuleConfiguredTargetFactory implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext) {
       return null;
     }

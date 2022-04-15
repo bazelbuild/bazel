@@ -87,6 +87,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);

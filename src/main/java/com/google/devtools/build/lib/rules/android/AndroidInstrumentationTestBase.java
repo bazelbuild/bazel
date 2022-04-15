@@ -68,6 +68,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     androidSemantics.checkForMigrationTag(ruleContext);

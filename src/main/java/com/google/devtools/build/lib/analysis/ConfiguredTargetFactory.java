@@ -347,19 +347,21 @@ public final class ConfiguredTargetFactory {
       }
 
       try {
+        ConfiguredTarget target;
         if (ruleClass.isStarlark()) {
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-          ConfiguredTarget target =
+          target =
               StarlarkRuleConfiguredTargetUtil.buildRule(
                   ruleContext, ruleClass.getAdvertisedProviders());
-
-          return target != null ? target : erroredConfiguredTarget(ruleContext);
+        } else {
+          target =
+              Preconditions.checkNotNull(
+                      ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
+                      "No configured target factory for %s",
+                      ruleClass)
+                  .create(ruleContext);
         }
-        return Preconditions.checkNotNull(
-                ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
-                "No configured target factory for %s",
-                ruleClass)
-            .create(ruleContext);
+        return target != null ? target : erroredConfiguredTarget(ruleContext);
       } finally {
         ruleContext.close();
       }
