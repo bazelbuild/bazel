@@ -26,19 +26,20 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Tests verifying analysis failure propagation via {@link AnalysisFailureInfo} when {@code
  * --allow_analysis_failures=true}.
  */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class AnalysisFailureInfoTest extends BuildViewTestCase {
 
   @Before
@@ -64,18 +65,20 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     return Starlark.getattr(/*mu=*/ null, StarlarkSemantics.DEFAULT, x, name, null);
   }
 
-  // Regression test for b/154007057
+  /** Regression test for b/154007057 (rule name) and b/186685477 (output file). */
   @Test
-  public void nativeRuleExpanderFailure() throws Exception {
+  public void nativeRuleExpanderFailure(
+      @TestParameter({"//test:bad_variable", "//test:bad_variable.out"}) String targetToRequest)
+      throws Exception {
     scratch.file(
-        "test/BUILD", //
+        "test/BUILD",
         "genrule(",
         "    name = 'bad_variable',",
-        "    outs = ['bad.out'],",
+        "    outs = ['bad_variable.out'],",
         "    cmd = 'cp $< $@',  # Error to use $< with no srcs",
         ")");
 
-    ConfiguredTarget target = getConfiguredTarget("//test:bad_variable");
+    ConfiguredTarget target = getConfiguredTarget(targetToRequest);
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
@@ -83,11 +86,11 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:bad_variable"));
   }
 
-  // Regression test for b/154007057
+  /** Regression test for b/154007057. */
   @Test
   public void nativeRuleConfiguredTargetFactoryCreateReturningNull() throws Exception {
     scratch.file(
-        "test/BUILD", //
+        "test/BUILD",
         "native_rule_with_failing_configured_target_factory(",
         "    name = 'bad_factory',",
         ")");
