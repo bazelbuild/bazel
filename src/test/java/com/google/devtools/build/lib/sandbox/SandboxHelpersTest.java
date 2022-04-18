@@ -24,14 +24,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -66,9 +63,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SandboxHelpersTest {
 
-  private static final ArtifactExpander EMPTY_EXPANDER = (ignored1, ignored2) -> {};
-  private static final Spawn SPAWN = new SpawnBuilder().build();
-
   private final Scratch scratch = new Scratch();
   private Path execRoot;
   @Nullable private ExecutorService executorToCleanup;
@@ -99,7 +93,7 @@ public class SandboxHelpersTest {
             UTF_8);
 
     SandboxInputs inputs =
-        sandboxHelpers.processInputFiles(inputMap(paramFile), SPAWN, EMPTY_EXPANDER, execRoot);
+        sandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
@@ -119,7 +113,7 @@ public class SandboxHelpersTest {
             PathFragment.create("_bin/say_hello"));
 
     SandboxInputs inputs =
-        sandboxHelpers.processInputFiles(inputMap(tool), SPAWN, EMPTY_EXPANDER, execRoot);
+        sandboxHelpers.processInputFiles(inputMap(tool), execRoot);
 
     assertThat(inputs.getFiles())
         .containsExactly(
@@ -143,7 +137,7 @@ public class SandboxHelpersTest {
             UTF_8);
 
     SandboxInputs inputs =
-        sandboxHelpers.processInputFiles(inputMap(paramFile), SPAWN, EMPTY_EXPANDER, execRoot);
+        sandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
 
     assertThat(inputs.getFiles()).isEmpty();
     assertThat(inputs.getSymlinks()).isEmpty();
@@ -165,7 +159,7 @@ public class SandboxHelpersTest {
             scratch.file("tool", "tool_code"), PathFragment.create("tools/tool"));
     SandboxInputs inputs =
         sandboxHelpers.processInputFiles(
-            inputMap(paramFile, tool), SPAWN, EMPTY_EXPANDER, execRoot);
+            inputMap(paramFile, tool), execRoot);
 
     inputs.materializeVirtualInputs(scratch.dir("/sandbox"));
 
@@ -213,13 +207,13 @@ public class SandboxHelpersTest {
             () -> {
               try {
                 sandboxHelpers.processInputFiles(
-                    inputMap(input), SPAWN, EMPTY_EXPANDER, customExecRoot);
+                    inputMap(input), customExecRoot);
                 finishProcessingSemaphore.release();
               } catch (IOException e) {
                 throw new IllegalArgumentException(e);
               }
             });
-    sandboxHelpers.processInputFiles(inputMap(input), SPAWN, EMPTY_EXPANDER, customExecRoot);
+    sandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
     finishProcessingSemaphore.release();
     future.get();
 
