@@ -193,10 +193,9 @@ public class ZipDecompressor implements Decompressor {
     if ((windowsPermission & WINDOWS_FILE_ATTRIBUTE_DIRECTORY) == WINDOWS_FILE_ATTRIBUTE_DIRECTORY) {
       // Directory.
       return S_IFDIR | EXECUTABLE_MASK;
-    } else if (permissions == 0 || (windowsPermission & WINDOWS_FILE_ATTRIBUTE_ARCHIVE) == WINDOWS_FILE_ATTRIBUTE_ARCHIVE) {
-      // File.
-      return S_IFREG | EXECUTABLE_MASK;
-    } else if (permissions == 0 || (windowsPermission & WINDOWS_FILE_ATTRIBUTE_NORMAL) == WINDOWS_FILE_ATTRIBUTE_NORMAL) {
+    } else if (permissions == 0 || 
+        (windowsPermission & WINDOWS_FILE_ATTRIBUTE_ARCHIVE) == WINDOWS_FILE_ATTRIBUTE_ARCHIVE ||
+        (windowsPermission & WINDOWS_FILE_ATTRIBUTE_NORMAL) == WINDOWS_FILE_ATTRIBUTE_NORMAL) {
       // File.
       return S_IFREG | EXECUTABLE_MASK;
     }
