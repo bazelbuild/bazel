@@ -45,6 +45,8 @@ _cc_test_attrs.update(
             "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
         ],
     ),
+    # Starlark tests don't get `env_inherit` by default.
+    env_inherit = attr.string_list(),
     stamp = attr.int(values = [-1, 0, 1], default = 0),
     linkstatic = attr.bool(default = False),
 )
@@ -67,7 +69,10 @@ def _cc_test_impl(ctx):
     runfiles = runfiles.merge_all(runfiles_list)
 
     test_env.update(coverage_env)
-    providers.append(testing.TestEnvironment(test_env))
+    providers.append(testing.TestEnvironment(
+        environment = test_env,
+        inherited_environment = ctx.attr.env_inherit,
+    ))
     providers.append(DefaultInfo(
         files = binary_info.files,
         runfiles = runfiles,
