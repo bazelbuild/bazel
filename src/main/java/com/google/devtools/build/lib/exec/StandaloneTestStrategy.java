@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -499,6 +500,30 @@ public class StandaloneTestStrategy extends TestStrategy {
     if (spawnResult.getExecutorHostName() != null) {
       executionInfo.setHostname(spawnResult.getExecutorHostName());
     }
+
+    BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.Builder tbd =
+        BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder();
+    tbd.setName("totalTime");
+    SpawnMetrics sm = spawnResult.getMetrics();
+    tbd.setTimeMillis(sm.totalTime().toMillis());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+        .setName("parseTime").setTimeMillis(sm.parseTime().toMillis()).build());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+        .setName("fetchTime").setTimeMillis(sm.fetchTime().toMillis()).build());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder().
+        setName("queueTime").setTimeMillis(sm.queueTime().toMillis()).build());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder().
+        setName("uploadTime").setTimeMillis(sm.uploadTime().toMillis()).build());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder().
+        setName("setupTime").setTimeMillis(sm.setupTime().toMillis()).build());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder().
+        setName("executionWallTime").setTimeMillis(sm.executionWallTime().toMillis()).build());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder().
+        setName("processOutputsTime").setTimeMillis(sm.processOutputsTime().toMillis()).build());
+    tbd.addChild(BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder().
+        setName("networkTime").setTimeMillis(sm.networkTime().toMillis()).build());
+    tbd.setTimeMillis(spawnResult.getMetrics().totalTime().toMillis());
+    executionInfo.setTimingBreakdown(tbd.build());
     return executionInfo.build();
   }
 
