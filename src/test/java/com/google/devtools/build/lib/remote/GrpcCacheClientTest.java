@@ -39,7 +39,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.api.client.json.GenericJson;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
@@ -214,7 +214,7 @@ public class GrpcCacheClientTest {
     json.put("client_secret", "foo");
     json.put("refresh_token", "bar");
     Scratch scratch = new Scratch();
-    scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
+    scratch.file(authTlsOptions.googleCredentials, new GsonFactory().toString(json));
 
     CallCredentialsProvider callCredentialsProvider;
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
