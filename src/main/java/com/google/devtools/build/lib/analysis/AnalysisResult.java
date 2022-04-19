@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
 public class AnalysisResult {
   private final BuildConfigurationCollection configurations;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
-  @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
+  @Nullable private final ImmutableSet<ConfiguredTarget> targetsToTest;
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
   @Nullable private final FailureDetail failureDetail;
   private final ActionGraph actionGraph;
@@ -50,7 +49,7 @@ public class AnalysisResult {
       BuildConfigurationCollection configurations,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
-      @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
+      @Nullable ImmutableSet<ConfiguredTarget> targetsToTest,
       ImmutableSet<ConfiguredTarget> targetsToSkip,
       @Nullable FailureDetail failureDetail,
       ActionGraph actionGraph,
@@ -105,7 +104,7 @@ public class AnalysisResult {
    * (e.g. "build" command rather than "test" command).
    */
   @Nullable
-  public ImmutableList<ConfiguredTarget> getTargetsToTest() {
+  public ImmutableSet<ConfiguredTarget> getTargetsToTest() {
     return targetsToTest;
   }
 

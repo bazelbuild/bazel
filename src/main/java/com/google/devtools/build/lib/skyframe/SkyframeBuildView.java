@@ -479,7 +479,7 @@ public final class SkyframeBuildView {
           /*hasLoadingError=*/ false,
           /*hasAnalysisError=*/ false,
           foundActionConflictInLatestCheck,
-          ImmutableList.copyOf(cts),
+          ImmutableSet.copyOf(cts),
           result.getWalkableGraph(),
           ImmutableMap.copyOf(aspects),
           packageRoots);
@@ -597,7 +597,7 @@ public final class SkyframeBuildView {
         errorProcessingResult.hasLoadingError(),
         result.hasError() || foundActionConflictInLatestCheck,
         foundActionConflictInLatestCheck,
-        ImmutableList.copyOf(cts),
+        ImmutableSet.copyOf(cts),
         result.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
         packageRoots);
@@ -713,13 +713,13 @@ public final class SkyframeBuildView {
     }
 
     if (!evaluationResult.hasError() && detailedExitCodes.isEmpty()) {
-      Map<AspectKey, ConfiguredAspect> successfulAspects =
+      ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
           getSuccessfulAspectMap(
               topLevelAspectsKeys.size(),
               evaluationResult,
               buildDriverAspectKeys,
               /*topLevelActionConflictReport=*/ null);
-      Set<ConfiguredTarget> successfulConfiguredTargets =
+      ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
           getSuccessfulConfiguredTargets(
               ctKeys.size(),
               evaluationResult,
@@ -727,7 +727,7 @@ public final class SkyframeBuildView {
               /*topLevelActionConflictReport=*/ null);
 
       return SkyframeAnalysisAndExecutionResult.success(
-          ImmutableList.copyOf(successfulConfiguredTargets),
+          successfulConfiguredTargets,
           evaluationResult.getWalkableGraph(),
           ImmutableMap.copyOf(successfulAspects),
           /*packageRoots=*/ null);
@@ -759,13 +759,13 @@ public final class SkyframeBuildView {
                 errorProcessingResult)
             : null;
 
-    Map<AspectKey, ConfiguredAspect> successfulAspects =
+    ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
         getSuccessfulAspectMap(
             topLevelAspectsKeys.size(),
             evaluationResult,
             buildDriverAspectKeys,
             topLevelActionConflictReport);
-    Set<ConfiguredTarget> successfulConfiguredTargets =
+    ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
         getSuccessfulConfiguredTargets(
             ctKeys.size(), evaluationResult, buildDriverCTKeys, topLevelActionConflictReport);
 
@@ -773,7 +773,7 @@ public final class SkyframeBuildView {
         /*hasLoadingError=*/ errorProcessingResult.hasLoadingError(),
         /*hasAnalysisError=*/ errorProcessingResult.hasAnalysisError(),
         /*hasActionConflicts=*/ foundActionConflictInLatestCheck,
-        ImmutableList.copyOf(successfulConfiguredTargets),
+        successfulConfiguredTargets,
         evaluationResult.getWalkableGraph(),
         ImmutableMap.copyOf(successfulAspects),
         /*packageRoots=*/ null,
@@ -949,12 +949,12 @@ public final class SkyframeBuildView {
     return aspectKeysBuilder.build();
   }
 
-  private static Set<ConfiguredTarget> getSuccessfulConfiguredTargets(
+  private static ImmutableSet<ConfiguredTarget> getSuccessfulConfiguredTargets(
       int expectedSize,
       EvaluationResult<BuildDriverValue> evaluationResult,
       List<BuildDriverKey> buildDriverCTKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
-    Set<ConfiguredTarget> cts = Sets.newHashSetWithExpectedSize(expectedSize);
+    ImmutableSet.Builder<ConfiguredTarget> cts = ImmutableSet.builderWithExpectedSize(expectedSize);
     for (BuildDriverKey bdCTKey : buildDriverCTKeys) {
       if (topLevelActionConflictReport != null
           && !topLevelActionConflictReport.isErrorFree(bdCTKey.getActionLookupKey())) {
@@ -968,15 +968,17 @@ public final class SkyframeBuildView {
 
       cts.add(ctValue.getConfiguredTarget());
     }
-    return cts;
+    return cts.build();
   }
 
-  private Map<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
+  private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<BuildDriverValue> evaluationResult,
       List<BuildDriverKey> buildDriverAspectKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
-    Map<AspectKey, ConfiguredAspect> aspects = Maps.newHashMapWithExpectedSize(expectedSize);
+    // There can't be duplicate Aspects after resolving --aspects, so this is safe.
+    ImmutableMap.Builder<AspectKey, ConfiguredAspect> aspects =
+        ImmutableMap.builderWithExpectedSize(expectedSize);
     for (BuildDriverKey bdAspectKey : buildDriverAspectKeys) {
       if (topLevelActionConflictReport != null
           && !topLevelActionConflictReport.isErrorFree(bdAspectKey.getActionLookupKey())) {
@@ -993,7 +995,7 @@ public final class SkyframeBuildView {
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
       }
     }
-    return aspects;
+    return aspects.buildOrThrow();
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
