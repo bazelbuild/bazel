@@ -34,9 +34,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/**
- * A mutable action graph. Implementations of this interface must be thread-safe.
- */
+/** A mutable action graph. Implementations of this interface must be thread-safe. */
 public interface MutableActionGraph extends ActionGraph {
 
   /**
@@ -78,9 +76,7 @@ public interface MutableActionGraph extends ActionGraph {
       super(
           String.format(
               "for %s, previous action: %s, attempted action: %s",
-              artifact.prettyPrint(),
-              previousAction.prettyPrint(),
-              attemptedAction.prettyPrint()));
+              artifact.prettyPrint(), previousAction.prettyPrint(), attemptedAction.prettyPrint()));
       this.artifact = artifact;
       this.suffix = debugSuffix(actionKeyContext, attemptedAction, previousAction);
     }
@@ -190,15 +186,29 @@ public interface MutableActionGraph extends ActionGraph {
       boolean aNull = aOwner == null;
       boolean bNull = bOwner == null;
 
-      addStringDetail(sb, "Label", aNull ? null : Label.print(aOwner.getLabel()),
+      addStringDetail(
+          sb,
+          "Label",
+          aNull ? null : Label.print(aOwner.getLabel()),
           bNull ? null : Label.print(bOwner.getLabel()));
       if ((!aNull && !aOwner.getAspectDescriptors().isEmpty())
           || (!bNull && !bOwner.getAspectDescriptors().isEmpty())) {
         addStringDetail(sb, "Aspects", aspectDescriptor(aOwner), aspectDescriptor(bOwner));
       }
-      addStringDetail(sb, "RuleClass", aNull ? null : aOwner.getTargetKind(),
+      addStringDetail(
+          sb,
+          "RuleClass",
+          aNull ? null : aOwner.getTargetKind(),
           bNull ? null : bOwner.getTargetKind());
-      addStringDetail(sb, "Configuration", aNull ? null : aOwner.getConfigurationChecksum(),
+      addStringDetail(
+          sb,
+          "JavaActionClass",
+          aNull ? null : a.getClass().toString(),
+          bNull ? null : b.getClass().toString());
+      addStringDetail(
+          sb,
+          "Configuration",
+          aNull ? null : aOwner.getConfigurationChecksum(),
           bNull ? null : bOwner.getConfigurationChecksum());
       addStringDetail(sb, "Mnemonic", a.getMnemonic(), b.getMnemonic());
       try {
@@ -219,6 +229,11 @@ public interface MutableActionGraph extends ActionGraph {
             "Progress message",
             ((ActionExecutionMetadata) a).getProgressMessage(),
             ((ActionExecutionMetadata) b).getProgressMessage());
+        addStringDetail(
+            sb,
+            "Action describeKey",
+            ((ActionExecutionMetadata) a).describeKey(),
+            ((ActionExecutionMetadata) b).describeKey());
       }
 
       Artifact aPrimaryInput = a.getPrimaryInput();
