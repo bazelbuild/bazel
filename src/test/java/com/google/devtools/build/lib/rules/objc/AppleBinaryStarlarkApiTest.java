@@ -54,10 +54,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test cases for the Starlark Apple Linking API, {@code apple_common.link_multi_arch_binary}. These
- * tests verify that the API has parity with the native {@code apple_binary} rule.
- */
+/** Test cases for the Starlark Apple Linking API, {@code apple_common.link_multi_arch_binary}. */
 @RunWith(JUnit4.class)
 public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   static final RuleType RULE_TYPE =
