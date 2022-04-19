@@ -92,7 +92,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -334,7 +333,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         reducedCommandLine.expand(
             actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
-            stripOutputPaths ? PathStripper::strip : Function.identity(),
+            PathStripper.CommandAdjuster.create(
+                stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
             configuration.getCommandLineLimits());
     NestedSet<Artifact> inputs =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -358,7 +358,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .expand(
                 actionExecutionContext.getArtifactExpander(),
                 getPrimaryOutput().getExecPath(),
-                stripOutputPaths ? PathStripper::strip : Function.identity(),
+                PathStripper.CommandAdjuster.create(
+                    stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
         expandedCommandLines,

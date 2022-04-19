@@ -33,12 +33,15 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -91,8 +94,10 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
    * @param mnemonic the mnemonic that is reported in the master log
    * @param unusedInputsList file containing the list of inputs that were not used by the action.
    * @param shadowedAction the action to use its inputs and environment during execution
+   * @param stripOutputPaths should this action strip config prefixes from output paths? See {@link
+   *     PathStripper} for details.
    */
-  public StarlarkAction(
+  private StarlarkAction(
       ActionOwner owner,
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
@@ -108,7 +113,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       Optional<Artifact> unusedInputsList,
-      Optional<Action> shadowedAction) {
+      Optional<Action> shadowedAction,
+      boolean stripOutputPaths) {
     super(
         owner,
         tools,
@@ -129,7 +135,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         /* executeUnconditionally */ false,
         /* extraActionInfoSupplier */ null,
         /* resultConsumer */ null,
-        /* stripOutputPaths */ false);
+        stripOutputPaths);
 
     this.allStarlarkActionInputs = inputs;
     this.unusedInputsList = unusedInputsList;
@@ -405,7 +411,50 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           runfilesSupplier,
           mnemonic,
           unusedInputsList,
-          shadowedAction);
+          shadowedAction,
+          stripOutputPaths(mnemonic, inputsAndTools, primaryOutput, configuration));
+    }
+
+    /**
+     * Should we strip output paths for this action?
+     *
+     * <p>Since we don't currently have a proper Starlark API for this, we hard-code support for
+     * specific actions we're interested in.
+     *
+     * <p>The difference between this and {@link
+     * PathStripper.CommandAdjuster#stripCustomStarlarkArgs} is this triggers Bazel's standard path
+     * stripping logic for chosen mnemonics while {@link
+     * PathStripper.CommandAdjuster#stripCustomStarlarkArgs} custom-adjusts certain command line
+     * parameters the standard logic can't handle. For example, Starlark rules that only set {@code
+     * ctx.actions.args().add(file_handle)} need an entry here but not in {@link
+     * PathStripper.CommandAdjuster#stripCustomStarlarkArgs} because standard path stripping logic
+     * handles that interface.
+     */
+    private static boolean stripOutputPaths(
+        String mnemonic,
+        NestedSet<Artifact> inputs,
+        Artifact primaryOutput,
+        BuildConfigurationValue configuration) {
+      ImmutableList<String> qualifyingMnemonics =
+          ImmutableList.of(
+              "AndroidLint",
+              "ParseAndroidResources",
+              "MergeAndroidAssets",
+              "LinkAndroidResources",
+              "CompileAndroidResources",
+              "StarlarkMergeCompiledAndroidResources",
+              "MergeManifests",
+              "StarlarkRClassGenerator",
+              "StarlarkAARGenerator",
+              "Desugar",
+              "Jetify",
+              "DeJetify",
+              "JetifySrcs",
+              "DejetifySrcs");
+      CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+      return coreOptions.outputPathsMode == OutputPathsMode.STRIP
+          && qualifyingMnemonics.contains(mnemonic)
+          && PathStripper.isPathStrippable(inputs, primaryOutput.getExecPath().subFragment(0, 1));
     }
   }
 }
