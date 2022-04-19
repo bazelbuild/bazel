@@ -715,8 +715,8 @@ tree_art_rule = rule(implementation = _tree_art_impl,
 
 def _actions_test_impl(target, ctx):
     action = target.actions[1]
-    if action.mnemonic != "CppLink":
-      fail("Expected the second action to be CppLink.")
+    if action.mnemonic != "CppArchive":
+      fail("Expected the second action to be CppArchive.")
     aspect_out = ctx.actions.declare_file('aspect_out')
     ctx.actions.run_shell(inputs = action.inputs,
                           outputs = [aspect_out],
@@ -849,7 +849,7 @@ def _actions_test_impl(target, ctx):
     for action in target.actions:
       if action.mnemonic == "CppCompile":
         compile_action = action
-      if action.mnemonic == "CppLink" and not archive_action:
+      if action.mnemonic == "CppArchive":
         archive_action = action
       if action.mnemonic == "CppLink":
         link_action = action
@@ -1305,7 +1305,7 @@ def _actions_test_impl(target, ctx):
     for action in target.actions:
       if action.mnemonic == "CppCompile":
         compile_action = action
-      if action.mnemonic == "CppLink" and not archive_action:
+      if action.mnemonic == "CppArchive":
         archive_action = action
       if action.mnemonic == "CppLink":
         link_action = action
