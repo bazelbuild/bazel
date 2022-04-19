@@ -1188,13 +1188,6 @@ class BaseEnv(CommandBuilder):
 
     def update(self, bazel):
         env_dict = dict(  # noqa: C408
-                # Disable the automatic local toolchain configuration
-                # We should set BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN here, but because because of an
-                # error in @bazel_tools repository rules, setting it results in a skylark exception.
-                # Se'll use BAZEL_USE_CPP_ONLY_TOOLCHAIN; this will not raise an exception, and it
-                # is effectively slightly different, but because we have our own toolchains anyway,
-                # this should be ok temporarily.
-                BAZEL_USE_CPP_ONLY_TOOLCHAIN='1',
                 BAZEL_WORKSPACE_ARTIFACTORY_LOCAL_PATH=os.environ.get(
                     'BAZEL_WORKSPACE_ARTIFACTORY_LOCAL_PATH', ''),
                 BAZEL_WORKSPACE_ARTIFACTORY_REMOTE_PATH=os.environ.get(
