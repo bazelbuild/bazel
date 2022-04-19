@@ -1307,11 +1307,9 @@ def _actions_test_impl(target, ctx):
         compile_action = action
       if action.mnemonic == "CppArchive":
         archive_action = action
-      if action.mnemonic == "CppLink":
-        link_action = action
 
-    if not compile_action or not archive_action or not link_action:
-      fail("Couln't find compile, archive, or link action")
+    if not compile_action or not archive_action:
+      fail("Couln't find compile or archive action")
 
     compile_action_outputs = compile_action.outputs.to_list()
     compile_args = ctx.actions.declare_file("compile_args")
@@ -1359,33 +1357,11 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    link_args = ctx.actions.declare_file("link_args")
-    ctx.actions.run_shell(
-        outputs = [link_args],
-        command = "echo \$@ > " + link_args.path,
-        arguments = link_action.args,
-    )
-
-    link_out = ctx.actions.declare_file("link_out.so")
-    ctx.actions.run_shell(
-        inputs = [link_args],
-        shadowed_action = link_action,
-        mnemonic = "RecreatedCppLink",
-        outputs = [link_out],
-        command = "\$(cat %s | sed 's|%s|%s|g')" % (
-            link_args.path,
-            link_action.outputs.to_list()[0].path,
-            link_out.path,
-        ),
-    )
-
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
         archive_args,
         archive_out,
-        link_args,
-        link_out,
     ])]
 
 actions_test_aspect = aspect(implementation = _actions_test_impl)
