@@ -357,9 +357,9 @@ public interface AppleCommonApi<
       name = "link_multi_arch_binary",
       doc =
           "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
-              + "method comprises a bulk of the logic of the <code>apple_binary</code> rule, and "
-              + "is exposed as an API to iterate on migration of <code>apple_binary</code> to "
-              + "Starlark.\n"
+              + "method comprises a bulk of the logic of the Starlark <code>apple_binary</code> "
+              + "rule in the rules_apple domain and exists to aid in the migration of its "
+              + "linking logic to Starlark in rules_apple.\n"
               + "<p>This API is <b>highly experimental</b> and subject to change at any time. Do "
               + "not depend on the stability of this function at this time.",
       parameters = {
