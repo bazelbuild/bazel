@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
@@ -90,6 +89,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     // Find the right one.
     return resolveConstraints(
         key.toolchainType(),
+        key.toolchainTypeInfo(),
         key.availableExecutionPlatformKeys(),
         key.targetPlatformKey(),
         toolchains.registeredToolchains(),
@@ -105,6 +105,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
   @Nullable
   private static SingleToolchainResolutionValue resolveConstraints(
       ToolchainTypeRequirement toolchainType,
+      ToolchainTypeInfo toolchainTypeInfo,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
       ConfiguredTargetKey targetPlatformKey,
       ImmutableList<DeclaredToolchainInfo> toolchains,
@@ -136,7 +137,6 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     // check whether a platform has already been seen during processing.
     Set<ConfiguredTargetKey> platformKeysSeen = new HashSet<>();
     ImmutableMap.Builder<ConfiguredTargetKey, Label> builder = ImmutableMap.builder();
-    ToolchainTypeInfo toolchainTypeInfo = null;
 
     // Pre-filter for the correct toolchain type. This simplifies the loop and makes debugging
     // toolchain resolution much, much easier.
@@ -202,20 +202,18 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             targetPlatform.label(),
             executionPlatformKey.getLabel(),
             toolchain.toolchainLabel());
-        toolchainTypeInfo = toolchain.toolchainType();
         builder.put(executionPlatformKey, toolchain.toolchainLabel());
         platformKeysSeen.add(executionPlatformKey);
       }
     }
 
     ImmutableMap<ConfiguredTargetKey, Label> resolvedToolchainLabels = builder.buildOrThrow();
-    if (toolchainType == null || resolvedToolchainLabels.isEmpty()) {
+    if (resolvedToolchainLabels.isEmpty()) {
       debugMessage(
           eventHandler,
           "  Type %s: target platform %s: No toolchains found.",
           toolchainType.toolchainType(),
           targetPlatform.label());
-      throw new ToolchainResolutionFunctionException(new NoToolchainFoundException(toolchainType));
     }
 
     return SingleToolchainResolutionValue.create(toolchainTypeInfo, resolvedToolchainLabels);
@@ -296,30 +294,10 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     return mismatchSettingsWithDefault.isEmpty();
   }
 
-  /** Used to indicate that a toolchain was not found for the current request. */
-  public static final class NoToolchainFoundException extends NoSuchThingException {
-    private final ToolchainTypeRequirement missingToolchainType;
-
-    public NoToolchainFoundException(ToolchainTypeRequirement missingToolchainType) {
-      super(
-          String.format(
-              "no matching toolchain found for %s", missingToolchainType.toolchainType()));
-      this.missingToolchainType = missingToolchainType;
-    }
-
-    public ToolchainTypeRequirement missingToolchainType() {
-      return missingToolchainType;
-    }
-  }
-
   /**
    * Used to indicate errors during the computation of an {@link SingleToolchainResolutionValue}.
    */
   private static final class ToolchainResolutionFunctionException extends SkyFunctionException {
-    ToolchainResolutionFunctionException(NoToolchainFoundException e) {
-      super(e, Transience.PERSISTENT);
-    }
-
     ToolchainResolutionFunctionException(InvalidToolchainLabelException e) {
       super(e, Transience.PERSISTENT);
     }
