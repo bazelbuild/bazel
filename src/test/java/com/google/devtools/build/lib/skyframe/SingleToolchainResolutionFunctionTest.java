@@ -78,7 +78,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void testResolution_singleExecutionPlatform() throws Exception {
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey, testToolchainTypeLabel, linuxCtkey, ImmutableList.of(macCtkey));
+            targetConfigKey, testToolchainType, linuxCtkey, ImmutableList.of(macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
@@ -104,10 +104,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey,
-            testToolchainTypeLabel,
-            linuxCtkey,
-            ImmutableList.of(linuxCtkey, macCtkey));
+            targetConfigKey, testToolchainType, linuxCtkey, ImmutableList.of(linuxCtkey, macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
@@ -128,7 +125,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey, testToolchainTypeLabel, linuxCtkey, ImmutableList.of(macCtkey));
+            targetConfigKey, testToolchainType, linuxCtkey, ImmutableList.of(macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result)

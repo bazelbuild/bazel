@@ -985,6 +985,7 @@ java_library(
     name = "resolved_toolchain_context",
     srcs = ["ResolvedToolchainContext.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         ":template_variable_info",
         ":toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -1091,6 +1092,7 @@ java_library(
     name = "toolchain_context",
     srcs = ["ToolchainContext.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
@@ -2296,6 +2298,7 @@ java_library(
     name = "starlark/starlark_toolchain_context",
     srcs = ["starlark/StarlarkToolchainContext.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         ":resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

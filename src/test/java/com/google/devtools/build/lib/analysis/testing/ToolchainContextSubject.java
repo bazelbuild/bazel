@@ -13,17 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.testing;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertAbout;
 
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
+import com.google.common.truth.MapSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import java.util.stream.Collectors;
 
 /** A Truth {@link Subject} for {@link ToolchainContext}. */
 public class ToolchainContextSubject extends Subject {
@@ -42,10 +44,18 @@ public class ToolchainContextSubject extends Subject {
   // Instance fields.
 
   private final ToolchainContext actual;
+  private final ImmutableMap<Label, ToolchainTypeRequirement> toolchainTypesMap;
 
   protected ToolchainContextSubject(FailureMetadata failureMetadata, ToolchainContext subject) {
     super(failureMetadata, subject);
     this.actual = subject;
+    this.toolchainTypesMap = makeToolchainTypesMap(subject);
+  }
+
+  private static ImmutableMap<Label, ToolchainTypeRequirement> makeToolchainTypesMap(
+      ToolchainContext subject) {
+    return subject.toolchainTypes().stream()
+        .collect(toImmutableMap(ToolchainTypeRequirement::toolchainType, Functions.identity()));
   }
 
   public void hasExecutionPlatform(String platformLabel) throws LabelSyntaxException {
@@ -66,20 +76,26 @@ public class ToolchainContextSubject extends Subject {
     check("targetPlatform()").that(actual.targetPlatform().label()).isEqualTo(platform);
   }
 
-  public void hasToolchainType(String toolchainTypeLabel) throws LabelSyntaxException {
-    hasToolchainType(Label.parseAbsolute(toolchainTypeLabel, ImmutableMap.of()));
+  public MapSubject toolchainTypes() {
+    return check("toolchainTypes()").that(toolchainTypesMap);
+  }
+
+  public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {
+    return toolchainType(Label.parseAbsoluteUnchecked(toolchainTypeLabel));
+  }
+
+  public ToolchainTypeRequirementSubject toolchainType(Label toolchainType) {
+    return check("toolchainType(%s)", toolchainType)
+        .about(ToolchainTypeRequirementSubject.toolchainTypeRequirements())
+        .that(toolchainTypesMap.get(toolchainType));
+  }
+
+  public void hasToolchainType(String toolchainTypeLabel) {
+    toolchainType(toolchainTypeLabel).isNotNull();
   }
 
   public void hasToolchainType(Label toolchainType) {
-    toolchainTypeLabels().contains(toolchainType);
-  }
-
-  public IterableSubject toolchainTypeLabels() {
-    return check("requiredToolchainTypes()")
-        .that(
-            actual.requiredToolchainTypes().stream()
-                .map(ToolchainTypeInfo::typeLabel)
-                .collect(Collectors.toList()));
+    toolchainType(toolchainType).isNotNull();
   }
 
   public void hasResolvedToolchain(String resolvedToolchainLabel) throws LabelSyntaxException {
