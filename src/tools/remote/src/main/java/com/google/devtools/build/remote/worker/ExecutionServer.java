@@ -331,7 +331,7 @@ final class ExecutionServer extends ExecutionImplBase {
             String.format(
                 "Command:\n%s\nexceeded deadline of %f seconds.",
                 Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
-        logger.atWarning().log(errMessage);
+        logger.atWarning().log("%s", errMessage);
         errStatus =
             Status.newBuilder()
                 .setCode(Code.DEADLINE_EXCEEDED.getNumber())

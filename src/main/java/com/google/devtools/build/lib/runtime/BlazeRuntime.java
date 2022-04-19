@@ -947,7 +947,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     try {
       logger.atInfo().log(
-          SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
+          "%s", SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
       BlazeCommandResult result =
           dispatcher.exec(
               policy,

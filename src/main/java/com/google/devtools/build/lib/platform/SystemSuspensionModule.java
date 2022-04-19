@@ -59,7 +59,7 @@ public final class SystemSuspensionModule extends BlazeModule {
       String logString = event.logString();
       reporter.handle(Event.info(logString));
       reporter.post(event);
-      logger.atInfo().log(logString);
+      logger.atInfo().log("%s", logString);
     }
   }
 }

@@ -545,7 +545,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
             .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
-        logger.atInfo().log(SafeRequestLogging.getRequestLogString(args));
+        logger.atInfo().log("%s", SafeRequestLogging.getRequestLogString(args));
         result =
             dispatcher.exec(
                 policy,
