@@ -155,6 +155,7 @@ public final class Utils {
             .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
             .setSpawnMetrics(spawnMetrics)
+            .setWallTime(spawnMetrics.executionWallTime())
             .setRemote(true);
     if (exitCode != 0) {
       builder.setFailureDetail(
