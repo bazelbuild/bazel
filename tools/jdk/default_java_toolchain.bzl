@@ -40,11 +40,7 @@ BASE_JDK9_JVM_OPTS = [
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
 
-JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS + [
-    # override the javac in the JDK.
-    "--patch-module=java.compiler=$(location @remote_java_tools//:java_compiler_jar)",
-    "--patch-module=jdk.compiler=$(location @remote_java_tools//:jdk_compiler_jar)",
-]
+JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS
 
 DEFAULT_JAVACOPTS = [
     "-XDskipDuplicateBridges=true",
@@ -94,10 +90,6 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
         # Turbine is not a worker and parallel GC is faster for short-lived programs.
         "-XX:+UseParallelOldGC",
     ],
-    tools = [
-        "@remote_java_tools//:java_compiler_jar",
-        "@remote_java_tools//:jdk_compiler_jar",
-    ],
     java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
@@ -133,10 +125,6 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
         # Turbine is not a worker and parallel GC is faster for short-lived programs.
         "-XX:+UseParallelOldGC",
     ],
-    tools = [
-        "@remote_java_tools//:java_compiler_jar",
-        "@remote_java_tools//:jdk_compiler_jar",
-    ],
     ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
     singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
     java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
@@ -151,10 +139,6 @@ NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
     turbine_jvm_opts = [
         # Turbine is not a worker and parallel GC is faster for short-lived programs.
         "-XX:+UseParallelOldGC",
-    ],
-    tools = [
-        "@remote_java_tools//:java_compiler_jar",
-        "@remote_java_tools//:jdk_compiler_jar",
     ],
     ijar = ["@remote_java_tools//:ijar_cc_binary"],
     singlejar = ["@remote_java_tools//:singlejar_cc_bin"],

@@ -198,12 +198,10 @@ default_java_toolchain(
       "-XX:+UseParallelOldGC",
       "-XX:-CompactStrings",
       # override the javac in the JDK.
-      "--patch-module=java.compiler=\$(location @remote_java_tools//:java_compiler_jar)",
-      "--patch-module=jdk.compiler=\$(location @remote_java_tools//:jdk_compiler_jar)",
+      "-Xbootclasspath/p:\$(location @remote_java_tools//:javac_jar)",
   ] + JDK9_JVM_OPTS,
   tools = [
-      "@remote_java_tools//:java_compiler_jar",
-      "@remote_java_tools//:jdk_compiler_jar",
+      "@remote_java_tools//:javac_jar",
     ],
 )
 EOF
@@ -211,8 +209,8 @@ EOF
   bazel build //:toolchain || fail "default_java_toolchain target failed to build"
   bazel cquery --output=build //:toolchain >& $TEST_log || fail "failed to query //:toolchain"
 
-  expect_log 'jvm_opts = \["-XX:+UseParallelOldGC", "-XX:-CompactStrings", "--patch-module=java.compiler=$(location @remote_java_tools//:java_compiler_jar)", "--patch-module=jdk.compiler=$(location @remote_java_tools//:jdk_compiler_jar)",'
-  expect_log 'tools = \["@remote_java_tools//:java_compiler_jar", "@remote_java_tools//:jdk_compiler_jar"\]'
+  expect_log 'jvm_opts = \["-XX:+UseParallelOldGC", "-XX:-CompactStrings", "-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)",'
+  expect_log 'tools = \["@remote_java_tools//:javac_jar"\]'
 }
 
 # JVM8_TOOLCHAIN_CONFIGURATION shall override Java 8 internal compiler classes.
@@ -230,8 +228,6 @@ EOF
 
   expect_log ":JavaBuilder"
   expect_log ":javac_jar"
-  expect_not_log ":java_compiler_jar"
-  expect_not_log ":jdk_compiler_jar"
   expect_not_log ":VanillaJavaBuilder"
 }
 
@@ -249,8 +245,6 @@ EOF
   bazel cquery 'deps(//:javabuilder_toolchain)' >& $TEST_log || fail "failed to query //:javabuilder_toolchain"
 
   expect_log ":JavaBuilder"
-  expect_log ":java_compiler_jar"
-  expect_log ":jdk_compiler_jar"
   expect_not_log ":VanillaJavaBuilder"
   expect_not_log ":javac_jar"
 }
@@ -271,8 +265,6 @@ EOF
 
   expect_log ":VanillaJavaBuilder"
   expect_not_log ":JavaBuilder"
-  expect_not_log ":java_compiler_jar"
-  expect_not_log ":jdk_compiler_jar"
   expect_not_log ":javac_jar"
 }
 
