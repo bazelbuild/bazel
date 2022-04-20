@@ -70,6 +70,7 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -402,7 +403,9 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             command,
             outputs,
             outErr,
-            0);
+            /* exitCode= */ 0,
+            /* startTime= */ Optional.empty(),
+            /* wallTime= */ Optional.empty());
     return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
   }
 

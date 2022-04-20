@@ -3735,4 +3735,40 @@ EOF
   expect_log "Executing genrule .* failed: (Exit 1):"
 }
 
+
+function test_local_test_execution_with_disk_cache() {
+  # Tests that the wall time for a locally executed test is correctly cached.
+  # If not, the generate-xml.sh action, which embeds the wall time, will be
+  # considered stale on a cache hit.
+  # Regression test for https://github.com/bazelbuild/bazel/issues/14426.
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+  name = 'test',
+  srcs = ['test.sh'],
+)
+EOF
+  cat > a/test.sh <<EOF
+sleep 1
+EOF
+  chmod +x a/test.sh
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel test \
+    --disk_cache=$CACHEDIR \
+    //a:test >& $TEST_log || "Failed to build //a:test"
+
+  expect_log "5 processes: 3 internal, 2 .*-sandbox"
+
+  bazel clean
+
+  bazel test \
+    --disk_cache=$CACHEDIR \
+    //a:test >& $TEST_log || "Failed to build //a:test"
+
+  expect_log "5 processes: 2 disk cache hit, 3 internal"
+}
+
 run_suite "Remote execution and remote cache tests"

@@ -1119,7 +1119,9 @@ public class RemoteExecutionService {
               action.getCommand(),
               outputFiles.build(),
               action.getSpawnExecutionContext().getFileOutErr(),
-              spawnResult.exitCode());
+              spawnResult.exitCode(),
+              spawnResult.getStartTime(),
+              spawnResult.getWallTime());
         });
   }
 
