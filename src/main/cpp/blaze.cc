@@ -80,7 +80,9 @@
 
 using blaze_util::GetLastErrorString;
 
+#if !defined(_WIN32)
 extern char **environ;
+#endif
 
 namespace blaze {
 
