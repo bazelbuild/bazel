@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.InputStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -170,6 +171,14 @@ public interface SpawnResult {
   String getRunnerSubtype();
 
   /**
+   * Returns the start time for the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Instant> getStartTime();
+
+  /**
    * Returns the wall time taken by the {@link Spawn}'s execution.
    *
    * @return the measurement, or empty in case of execution errors or when the measurement is not
@@ -270,6 +279,7 @@ public interface SpawnResult {
     private final String runnerName;
     private final String runnerSubtype;
     private final SpawnMetrics spawnMetrics;
+    private final Optional<Instant> startTime;
     private final Optional<Duration> wallTime;
     private final Optional<Duration> userTime;
     private final Optional<Duration> systemTime;
@@ -296,6 +306,7 @@ public interface SpawnResult {
       this.spawnMetrics = builder.spawnMetrics != null
           ? builder.spawnMetrics
           : SpawnMetrics.forLocalExecution(builder.wallTime.orElse(Duration.ZERO));
+      this.startTime = builder.startTime;
       this.wallTime = builder.wallTime;
       this.userTime = builder.userTime;
       this.systemTime = builder.systemTime;
@@ -345,6 +356,11 @@ public interface SpawnResult {
     @Override
     public SpawnMetrics getMetrics() {
       return spawnMetrics;
+    }
+
+    @Override
+    public Optional<Instant> getStartTime() {
+      return startTime;
     }
 
     @Override
@@ -451,6 +467,7 @@ public interface SpawnResult {
     private String runnerName = "";
     private String runnerSubtype = "";
     private SpawnMetrics spawnMetrics;
+    private Optional<Instant> startTime = Optional.empty();
     private Optional<Duration> wallTime = Optional.empty();
     private Optional<Duration> userTime = Optional.empty();
     private Optional<Duration> systemTime = Optional.empty();
@@ -532,6 +549,11 @@ public interface SpawnResult {
 
     public Builder setSpawnMetrics(SpawnMetrics spawnMetrics) {
       this.spawnMetrics = spawnMetrics;
+      return this;
+    }
+
+    public Builder setStartTime(Instant startTime) {
+      this.startTime = Optional.of(startTime);
       return this;
     }
 

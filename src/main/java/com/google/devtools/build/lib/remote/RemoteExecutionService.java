@@ -1178,8 +1178,10 @@ public class RemoteExecutionService {
               action.action,
               action.command,
               outputFiles.build(),
-              action.spawnExecutionContext.getFileOutErr(),
-              spawnResult.exitCode());
+              action.getSpawnExecutionContext().getFileOutErr(),
+              spawnResult.exitCode(),
+              spawnResult.getStartTime(),
+              spawnResult.getWallTime());
         });
   }
 
