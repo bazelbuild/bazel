@@ -14,10 +14,6 @@
 
 """Bazel rules for creating Java toolchains."""
 
-JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)",
-]
-
 # JVM options, without patching java.compiler and jdk.compiler modules.
 BASE_JDK9_JVM_OPTS = [
     # Allow JavaBuilder to access internal javac APIs.

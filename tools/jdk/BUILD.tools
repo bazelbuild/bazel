@@ -128,11 +128,6 @@ alias(
 )
 
 alias(
-    name = "javac",
-    actual = "@local_jdk//:javac",
-)
-
-alias(
     name = "javadoc",
     actual = "@local_jdk//:javadoc",
 )
@@ -264,10 +259,6 @@ alias(
     actual = "@remote_java_tools//:VanillaJavaBuilder",
 )
 
-alias(
-    name = "javac_jar",
-    actual = "@remote_java_tools//:javac_jar",
-)
 
 alias(
     name = "JacocoCoverageRunner",

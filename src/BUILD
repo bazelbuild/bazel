@@ -528,7 +528,6 @@ genrule(
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
         "//third_party/java/proguard:srcs",
-        "@java_tools_langtools_javac11//:srcs",
     ],
     outs = ["java_tools_dist.zip"],
     cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
@@ -548,9 +547,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
 
 release_archive(
     name = "jars_java_tools_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS + [
-        "@java_tools_langtools_javac11//:javac_jar",
-    ],
+    srcs = JAVA_TOOLS_DEPLOY_JARS,
     package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )

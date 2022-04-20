@@ -94,11 +94,9 @@ if [[ $PLATFORM =~ msys ]]; then
 else
   jdk_dir="${TEST_SRCDIR}/local_jdk"
 fi
-langtools="$(rlocation io_bazel/src/test/shell/bazel/langtools.jar)"
 
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
-langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUILD))"
 
 # Platforms
 default_host_platform="@local_config_platform//:host"
@@ -135,14 +133,6 @@ function copy_tools_directory() {
   if [ -f tools/build_defs/repo/BUILD.repo ]; then
       cp tools/build_defs/repo/BUILD.repo tools/build_defs/repo/BUILD
   fi
-  # To support custom langtools
-  cp ${langtools} tools/jdk/langtools.jar
-  cat >>tools/jdk/BUILD <<'EOF'
-filegroup(name = "test-langtools", srcs = ["langtools.jar"])
-EOF
-
-  mkdir -p third_party/java/jdk/langtools
-  cp -R ${langtools_dir}/* third_party/java/jdk/langtools
 
   chmod -R +w .
 }
@@ -606,12 +596,8 @@ function create_new_workspace() {
   workspaces+=(${new_workspace_dir})
   cd ${new_workspace_dir}
   mkdir tools
-  mkdir -p third_party/java/jdk/langtools
 
   copy_tools_directory
-
-  [ -e third_party/java/jdk/langtools/javac-9+181-r4173-1.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
   write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
 
