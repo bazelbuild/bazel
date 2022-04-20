@@ -31,7 +31,7 @@ import java.util.Arrays;
 import org.junit.Test;
 
 /** Extra tests for {@link GrpcCacheClient} that are not tested internally. */
-public class GrpcCacheClientTestExtra extends GrpcCacheClientTest {
+public class GrpcCacheClientTestExtra extends GrpcCacheClientTestBase {
 
   @Test
   public void compressedDownloadBlobIsRetriedWithProgress()
