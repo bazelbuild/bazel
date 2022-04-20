@@ -27,6 +27,7 @@ java_library(
     data = [
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",
+        "test_files.ar",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
