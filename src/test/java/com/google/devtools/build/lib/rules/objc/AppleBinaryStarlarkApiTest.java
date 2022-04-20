@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.starlark.java.eval.Dict;
@@ -382,7 +381,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testProvider_executable() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -394,7 +392,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
         "   return MyInfo(",
         "      binary = provider.binary,",
         "      objc = provider.objc,",
-        "      dep_dir = dir(dep),",
         "   )",
         "test_rule = rule(implementation = _test_rule_impl,",
         "   attrs = {",
@@ -427,10 +424,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
 
     assertThat(myInfo.getValue("binary")).isInstanceOf(Artifact.class);
     assertThat(myInfo.getValue("objc")).isInstanceOf(ObjcProvider.class);
-
-    List<String> depProviders = (List<String>) myInfo.getValue("dep_dir");
-    assertThat(depProviders).doesNotContain("AppleDylibBinary");
-    assertThat(depProviders).doesNotContain("AppleLoadableBundleBinary");
   }
 
   @Test

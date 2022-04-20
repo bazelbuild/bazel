@@ -143,18 +143,6 @@ public interface AppleCommonApi<
   ProviderApi getAppleDynamicFrameworkConstructor();
 
   @StarlarkMethod(
-      name = "AppleDylibBinary",
-      doc =
-          "The constructor/key for the <code>AppleDylibBinary</code> provider.<p>If a target"
-              + " propagates the <code>AppleDylibBinary</code> provider, use this as the key with"
-              + " which to retrieve it. Example:<br><pre class='language-python'>\n"
-              + "dep = ctx.attr.deps[0]\n"
-              + "p = dep[apple_common.AppleDylibBinary]\n"
-              + "</pre>",
-      structField = true)
-  ProviderApi getAppleDylibBinaryConstructor();
-
-  @StarlarkMethod(
       name = "AppleExecutableBinary",
       doc =
           "The constructor/key for the <code>AppleExecutableBinary</code> provider.<p>"
@@ -191,19 +179,6 @@ public interface AppleCommonApi<
               + "</pre>",
       structField = true)
   ProviderApi getAppleDebugOutputsConstructor();
-
-  @StarlarkMethod(
-      name = "AppleLoadableBundleBinary",
-      doc =
-          "The constructor/key for the <code>AppleLoadableBundleBinary</code> provider.<p>"
-              + "If a target propagates the <code>AppleLoadableBundleBinary</code> provider, "
-              + "use this as the key with which to retrieve it. Example:<br>"
-              + "<pre class='language-python'>\n"
-              + "dep = ctx.attr.deps[0]\n"
-              + "p = dep[apple_common.AppleLoadableBundleBinary]\n"
-              + "</pre>",
-      structField = true)
-  ProviderApi getAppleLoadableBundleBinaryConstructor();
 
   @StarlarkMethod(
       name = "apple_host_system_env",
