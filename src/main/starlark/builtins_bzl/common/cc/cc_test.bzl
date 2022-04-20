@@ -78,12 +78,13 @@ def _cc_test_impl(ctx):
         runfiles = runfiles,
         executable = binary_info.executable,
     ))
-    return _handle_legacy_return(ctx, cc_info, providers)
 
-def _handle_legacy_return(ctx, cc_info, providers):
     if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
         # When built for Apple platforms, require the execution to be on a Mac.
         providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
+    return _handle_legacy_return(ctx, cc_info, providers)
+
+def _handle_legacy_return(ctx, cc_info, providers):
     if ctx.fragments.cpp.enable_legacy_cc_provider():
         # buildifier: disable=rule-impl-return
         return struct(
