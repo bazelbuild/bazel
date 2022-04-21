@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
@@ -38,7 +40,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -58,7 +59,7 @@ public class TransitionResolver {
   @Immutable
   public abstract static class ResolvedTransition {
 
-    static ResolvedTransition create(Label label, Collection<BuildOptions> configurationChecksum, String attributeName, String transitionName) {
+    static ResolvedTransition create(Label label, ImmutableCollection<BuildOptions> configurationChecksum, String attributeName, String transitionName) {
       return new AutoValue_TransitionResolver_ResolvedTransition(label, configurationChecksum, attributeName, transitionName);
     }
 
@@ -76,7 +77,7 @@ public class TransitionResolver {
      *
      * If no transition was applied to an attribute, this collection will be empty.
      */
-    abstract Collection<BuildOptions> options();
+    abstract ImmutableCollection<BuildOptions> options();
 
     /**
      * The name of the attribute via which the dependency was requested.
@@ -170,10 +171,10 @@ public class TransitionResolver {
       // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
       // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition
       // for an example of the required logic.
-      Collection<BuildOptions> toOptions =
-          dep.getTransition()
+      ImmutableCollection<BuildOptions> toOptions =
+          ImmutableSet.copyOf(dep.getTransition()
               .apply(TransitionUtil.restrict(dep.getTransition(), fromOptions), eventHandler)
-              .values();
+              .values());
       resolved.add(ResolvedTransition.create(dep.getLabel(), toOptions, dependencyName, dep.getTransition().getName()));
     }
     return resolved;
