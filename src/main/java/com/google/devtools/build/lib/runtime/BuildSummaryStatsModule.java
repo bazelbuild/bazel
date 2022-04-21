@@ -63,10 +63,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionEndMillis;
   private SpawnStats spawnStats;
   private Path profilePath;
-  private static final long UNKNOWN = -1;
+  private static final long UNKNOWN_CPU_TIME = -1;
+  //If anyone of the CPU time below is UNKNOWN, the total CPU time will be UNKNOWN. 
   private long cpuUserTimeForActions = 0;
   private long cpuSystemTimeForActions = 0;
-  private long cpuTimeForBazelJvm = UNKNOWN;
+  private long cpuTimeForBazelJvm = UNKNOWN_CPU_TIME;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -118,16 +119,16 @@ public class BuildSummaryStatsModule extends BlazeModule {
     spawnStats.countActionResult(event.getActionResult());
     Optional<Duration> cpuUserTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionUserTime();
 
-    if(cpuUserTimeForActionsDuration.isPresent() &&  (cpuUserTimeForActions != UNKNOWN)) {
-      cpuUserTimeForActions = cpuUserTimeForActions + cpuUserTimeForActionsDuration.get().toMillis();
+    if(cpuUserTimeForActionsDuration.isPresent() && cpuUserTimeForActions != UNKNOWN_CPU_TIME) {
+      cpuUserTimeForActions += cpuUserTimeForActionsDuration.get().toMillis();
     } else {
-      cpuUserTimeForActions  =  UNKNOWN;
+      cpuUserTimeForActions = UNKNOWN_CPU_TIME;
     }
     Optional<Duration> cpuSystemTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionSystemTime();
-    if(cpuSystemTimeForActionsDuration.isPresent() &&  (cpuSystemTimeForActions != UNKNOWN)){
-      cpuSystemTimeForActions = cpuSystemTimeForActions + cpuSystemTimeForActionsDuration.get().toMillis();
+    if(cpuSystemTimeForActionsDuration.isPresent() && cpuSystemTimeForActions != UNKNOWN_CPU_TIME){
+      cpuSystemTimeForActions += cpuSystemTimeForActionsDuration.get().toMillis();
     } else {
-      cpuSystemTimeForActions = UNKNOWN;
+      cpuSystemTimeForActions = UNKNOWN_CPU_TIME;
     }
  }
 
@@ -239,23 +240,23 @@ public class BuildSummaryStatsModule extends BlazeModule {
       profilePath = null;
       cpuUserTimeForActions = 0;
       cpuSystemTimeForActions = 0;
-      cpuTimeForBazelJvm = UNKNOWN;
+      cpuTimeForBazelJvm = UNKNOWN_CPU_TIME;
     }
   }
 
   private static String formatCpuTime(long milliseconds) {
-    if (milliseconds == UNKNOWN) {
+    if (milliseconds == UNKNOWN_CPU_TIME) {
       return "???s";
     } else {
       return String.format("%.2fs", milliseconds / 1000.0);
     }
   }
 
-  private static long sumCpuTimes(long a, long b, long c) {
-    if ((a == UNKNOWN) || (b == UNKNOWN) || (c == UNKNOWN)) {
-      return UNKNOWN;
+  private static long sumCpuTimes(long cpuUserTimeActions, long cpuSystemTimeActions, long cpuTimeBazelJvm) {
+    if ((cpuUserTimeActions == UNKNOWN_CPU_TIME) || (cpuSystemTimeActions == UNKNOWN_CPU_TIME) || (cpuTimeBazelJvm == UNKNOWN_CPU_TIME)) {
+      return UNKNOWN_CPU_TIME;
     } else {
-      return a + b + c;
+      return cpuUserTimeActions + cpuSystemTimeActions + cpuTimeBazelJvm;
     }
   }
 }
