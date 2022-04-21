@@ -729,41 +729,6 @@ def _impl(ctx):
         ],
     )
 
-    llvm_coverage_map_format_feature = feature(
-        name = "llvm_coverage_map_format",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = [
-                            "-fprofile-instr-generate",
-                            "-fcoverage-mapping",
-                        ],
-                    ),
-                ],
-            ),
-            flag_set(
-                actions = all_link_actions + lto_index_actions + [
-                    "objc-executable",
-                    "objc++-executable",
-                ],
-                flag_groups = [
-                    flag_group(flags = ["-fprofile-instr-generate"]),
-                ],
-            ),
-        ],
-        requires = [feature_set(features = ["coverage"])],
-        provides = ["profile"],
-    )
-
     strip_debug_symbols_feature = feature(
         name = "strip_debug_symbols",
         flag_sets = [
@@ -950,36 +915,6 @@ def _impl(ctx):
         ],
     )
 
-    gcc_coverage_map_format_feature = feature(
-        name = "gcc_coverage_map_format",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                    "objc-executable",
-                    "objc++-executable",
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = ["-fprofile-arcs", "-ftest-coverage"],
-                        expand_if_available = "gcov_gcno_file",
-                    ),
-                ],
-            ),
-            flag_set(
-                actions = all_link_actions + lto_index_actions,
-                flag_groups = [flag_group(flags = ["--coverage"])],
-            ),
-        ],
-        requires = [feature_set(features = ["coverage"])],
-        provides = ["profile"],
-    )
-
     archiver_flags_feature = feature(
         name = "archiver_flags",
         flag_sets = [
@@ -1066,7 +1001,6 @@ def _impl(ctx):
         ],
     )
 
-    dynamic_library_linker_tool_path = tool_paths
     dynamic_library_linker_tool_feature = feature(
         name = "dynamic_library_linker_tool",
         flag_sets = [
