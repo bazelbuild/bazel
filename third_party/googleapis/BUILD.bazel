@@ -204,6 +204,7 @@ proto_library(
     deps = [
         ":google_api_annotations_proto",
         "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
@@ -226,10 +227,13 @@ proto_library(
     deps = [
         ":google_api_annotations_proto",
         ":google_api_auth_proto",
+        ":google_api_client_proto",
+        ":google_api_field_behavior_proto",
         ":google_devtools_build_v1_build_events_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
@@ -241,6 +245,19 @@ proto_library(
         "@com_google_protobuf//:descriptor_proto",
     ],
 )
+
+proto_library(
+    name = "google_api_client_proto",
+    srcs = ["google/api/client.proto"],
+    deps = ["@com_google_protobuf//:descriptor_proto"],
+)
+
+proto_library(
+    name = "google_api_field_behavior_proto",
+    srcs = ["google/api/field_behavior.proto"],
+    deps = ["@com_google_protobuf//:descriptor_proto"],
+)
+
 
 proto_library(
     name = "google_api_http_proto",
