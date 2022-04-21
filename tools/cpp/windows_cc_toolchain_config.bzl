@@ -1247,10 +1247,6 @@ def _impl(ctx):
                 name = "supports_pic",
                 enabled = True,
             )
-            supports_start_end_lib_feature = feature(
-                name = "supports_start_end_lib",
-                enabled = True,
-            )
 
             sysroot_feature = feature(
                 name = "sysroot",
