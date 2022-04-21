@@ -1,6 +1,6 @@
 workspace(name = "io_bazel")
 
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file", "http_jar")
 load("//:distdir.bzl", "dist_http_archive", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 
@@ -129,16 +129,22 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.23.0.tar.gz",
+        "android_tools_pkg-0.24.0.tar.gz",
+        # for android_gmaven_r8
+        "r8-3.3.28.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.23.0.tar.gz": "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",
+        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
     },
     urls = {
         "android_tools_pkg-0.23.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
+        ],
+        "r8-3.3.28.jar": [
+            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
         ],
     },
 )
@@ -387,6 +393,7 @@ distdir_tar(
         "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
         "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz",
         "android_tools_pkg-0.23.0.tar.gz",
+        "r8-3.3.28.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
@@ -397,6 +404,7 @@ distdir_tar(
         "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz": "e908a0b4c0da08d41c3e19230f819b364ff2e5f1dafd62d2cf991a85a34d3a17",
         "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz": "42ae65e75d615a3f06a674978e1fa85fdf078cad94e553fee3e779b2b42bb015",
         "android_tools_pkg-0.23.0.tar.gz": "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",
+        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
     },
     urls = {
         "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz"],
@@ -406,6 +414,9 @@ distdir_tar(
         "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
         "android_tools_pkg-0.23.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
+        ],
+        "r8-3.3.28.jar": [
+            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
         ],
     },
 )
@@ -470,6 +481,13 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
     url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+http_jar(
+    name = "android_gmaven_r8_for_testing",
+    sha256 = "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
+    url = "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
 )
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/coverage.WORKSPACE.
@@ -1122,3 +1140,4 @@ debian_deps()
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 bazel_skylib_workspace()
+
