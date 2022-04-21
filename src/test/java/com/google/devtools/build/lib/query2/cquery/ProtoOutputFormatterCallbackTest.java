@@ -219,8 +219,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(fileTargetProto.getConfigurationId()).isEqualTo(0);
 
     // Targets whose deps have no transitions should appear without configuration information.
-    assertThat(Iterables.getOnlyElement(parentRuleProto.getTarget().getRule().getConfiguredRuleInputList()))
-        .isEqualTo(ConfiguredRuleInput.newBuilder().setLabel("//test:transition_rule").build());
+    assertThat(parentRuleProto.getTarget().getRule().getConfiguredRuleInputList())
+        .containsExactly(
+            ConfiguredRuleInput.newBuilder().setLabel("//test:transition_rule").build());
 
     // Targets with deps with transitions should show them.
     ConfiguredRuleInput patchedConfiguredRuleInput = ConfiguredRuleInput.newBuilder()

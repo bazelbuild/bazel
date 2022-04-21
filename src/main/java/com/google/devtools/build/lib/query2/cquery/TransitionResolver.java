@@ -128,7 +128,6 @@ public class TransitionResolver {
     BuildConfigurationValue config =
         cqueryThreadsafeCallback.getConfiguration(keyedConfiguredTarget.getConfigurationKey());
 
-    OrderedSetMultimap<DependencyKind, DependencyKey> deps;
     ImmutableMap<Label, ConfigMatchingProvider> configConditions =
         keyedConfiguredTarget.getConfigConditions();
 
@@ -138,7 +137,7 @@ public class TransitionResolver {
     // We don't actually use fromOptions in our implementation of
     // DependencyResolver but passing to avoid passing a null and since we have the information
     // anyway.
-    deps =
+    OrderedSetMultimap<DependencyKind, DependencyKey> deps =
         dependencyResolver
             .dependentNodeMap(
                 new TargetAndConfiguration(target, config),
