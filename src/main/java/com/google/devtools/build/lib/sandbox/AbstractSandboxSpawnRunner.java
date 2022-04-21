@@ -62,7 +62,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
 
   private static final String SANDBOX_DEBUG_SUGGESTION =
-      "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
+      "\n\nUse --sandbox_debug to see verbose messages from the sandbox "
+          + "and retain the sandbox build root for debugging";
 
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
