@@ -27,7 +27,6 @@ import java.util.Properties;
 import java.util.Optional;
 import java.lang.reflect.Field;
 import java.time.Duration;
-import java.text.DecimalFormatSymbols;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +41,6 @@ public class BuildSummaryStatsModuleTest {
   private Reporter reporterMock;
   private ActionKeyContext actionKeyContextMock;
   private Class tBSSM;
-  private boolean Comma = false;
 
   @Before
   public void setUp() throws Exception {
@@ -62,32 +60,12 @@ public class BuildSummaryStatsModuleTest {
     Field field0 = tBSSM.getDeclaredField("statsSummary");
     field0.setAccessible(true);
     field0.setBoolean(buildSummaryStatsModule, true);
-    DecimalFormatSymbols dfs = new DecimalFormatSymbols();
-    if(dfs.getDecimalSeparator() == ','){
-      Comma = true;
-    }
-    else{
-      Comma = false;
-    }
   }
 
   private ActionResultReceivedEvent createActionEvent(Duration userTime, Duration systemTime) {
     ActionResult result = mock(ActionResult.class);
-
-    if(userTime == null){
-      when(result.cumulativeCommandExecutionUserTime()).thenReturn(Optional.empty());
-    }
-    else{
-      when(result.cumulativeCommandExecutionUserTime()).thenReturn(Optional.of(userTime));
-    }
-
-    if(systemTime == null){
-      when(result.cumulativeCommandExecutionSystemTime()).thenReturn(Optional.empty());
-    }
-    else{
-      when(result.cumulativeCommandExecutionSystemTime()).thenReturn(Optional.of(systemTime));
-    }
-
+    when(result.cumulativeCommandExecutionUserTime()).thenReturn(Optional.ofNullable(userTime));
+    when(result.cumulativeCommandExecutionSystemTime()).thenReturn(Optional.ofNullable(systemTime));
     when(result.spawnResults()).thenReturn(ImmutableList.of());
     return new ActionResultReceivedEvent(null, result);
   }
@@ -108,12 +86,7 @@ public class BuildSummaryStatsModuleTest {
     field1.setAccessible(true);
     field1.setLong(buildSummaryStatsModule, 11000);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(Comma) {
-      verify(reporterMock).handle(Event.info("CPU time 88,00s (user 55,00s, system 22,00s, bazel 11,00s)"));
-    }
-    else{
-      verify(reporterMock).handle(Event.info("CPU time 88.00s (user 55.00s, system 22.00s, bazel 11.00s)"));
-    }
+    verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel %.2fs)",88.00, 55.00, 22.00, 11.00)));
   }
 
   @Test
@@ -133,12 +106,7 @@ public class BuildSummaryStatsModuleTest {
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50), null);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(Comma) {
-      verify(reporterMock).handle(Event.info("CPU time ???s (user 50,00s, system ???s, bazel ???s)"));
-    }
-    else{
-      verify(reporterMock).handle(Event.info("CPU time ???s (user 50.00s, system ???s, bazel ???s)"));
-    }
+    verify(reporterMock).handle(Event.info(String.format("CPU time ???s (user %.2fs, system ???s, bazel ???s)", 50.00)));
   }
 
   @Test
@@ -150,19 +118,9 @@ public class BuildSummaryStatsModuleTest {
     field1.setAccessible(true);
     field1.setLong(buildSummaryStatsModule, 10000);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(Comma) {
-      verify(reporterMock).handle(Event.info("CPU time 80,00s (user 50,00s, system 20,00s, bazel 10,00s)"));
-    }
-    else{
-      verify(reporterMock).handle(Event.info("CPU time 80.00s (user 50.00s, system 20.00s, bazel 10.00s)"));
-    }
+    verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel %.2fs)",80.00, 50.00, 20.00, 10.00)));
     // One more build, and verify that previous values are not preserved.
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(Comma) {
-      verify(reporterMock).handle(Event.info("CPU time ???s (user 0,00s, system 0,00s, bazel ???s)"));
-    }
-    else{
-      verify(reporterMock).handle(Event.info("CPU time ???s (user 0.00s, system 0.00s, bazel ???s)"));
-    }
+    verify(reporterMock).handle(Event.info(String.format("CPU time ???s (user %.2fs, system %.2fs, bazel ???s)",0.00, 0.00)));
   }
 }
