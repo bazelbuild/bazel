@@ -548,7 +548,7 @@ Hello, World!
 EOF
 
   bazel build //a:a >& $TEST_log && fail "build succeeded"
-  expect_log "failed to create symbolic link 'a/a.link': file 'a/foo.txt' is not executable"
+  expect_log "failed to create symbolic link 'bazel-out/[^/]*/bin/a/a.link': file 'a/foo.txt' is not executable"
 }
 
 function test_symlink_cycle() {
