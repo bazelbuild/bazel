@@ -219,7 +219,7 @@ java_library(
         "TestPackageFactoryBuilderFactory.java",
     ],
     deps = [
-        ":PackageFactoryBuilderFactoryForBazelUnitTests",
+        ":PackageFactoryBuilderFactoryForBazelUnitTests",  # unuseddeps: keep
         "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
     ],
 )
