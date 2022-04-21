@@ -62,6 +62,9 @@ public abstract class ToolchainTypeRequirement implements StarlarkToolchainTypeR
    */
   public abstract boolean mandatory();
 
+  /** Returns a new Builder to copy this ToolchainTypeRequirement. */
+  public abstract Builder toBuilder();
+
   /** A builder for a new {@link ToolchainTypeRequirement}. */
   @AutoValue.Builder
   public interface Builder {

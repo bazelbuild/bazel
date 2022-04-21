@@ -162,6 +162,7 @@ public class TestAspects {
    */
   public static class DummyRuleFactory implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
 

@@ -3606,6 +3606,35 @@ EOF
   [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote cas entries, not $remote_cas_files"
 }
 
+function test_remote_exec_convert_remote_file() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "test",
+  srcs = ["test.sh"],
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/bin/bash
+set -e
+echo \"foo\"
+exit 0
+EOF
+  chmod 755 a/test.sh
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --build_event_json_file=bep.json \
+    --noremote_upload_local_results \
+    --incompatible_remote_build_event_upload_respect_no_cache \
+    //a:test >& $TEST_log || "Failed to test //a:test"
+
+  cat bep.json > $TEST_log
+  expect_not_log "test\.log.*file://" || fail "remote files generated in remote execution are not converted"
+  expect_log "test\.log.*bytestream://" || fail "remote files generated in remote execution are not converted"
+}
+
+
 function test_uploader_ignore_disk_cache_of_combined_cache() {
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -3704,6 +3733,42 @@ EOF
       //a:foo >& $TEST_log && fail "Should failed to build"
 
   expect_log "Executing genrule .* failed: (Exit 1):"
+}
+
+
+function test_local_test_execution_with_disk_cache() {
+  # Tests that the wall time for a locally executed test is correctly cached.
+  # If not, the generate-xml.sh action, which embeds the wall time, will be
+  # considered stale on a cache hit.
+  # Regression test for https://github.com/bazelbuild/bazel/issues/14426.
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+  name = 'test',
+  srcs = ['test.sh'],
+)
+EOF
+  cat > a/test.sh <<EOF
+sleep 1
+EOF
+  chmod +x a/test.sh
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel test \
+    --disk_cache=$CACHEDIR \
+    //a:test >& $TEST_log || "Failed to build //a:test"
+
+  expect_log "5 processes: 3 internal, 2 .*-sandbox"
+
+  bazel clean
+
+  bazel test \
+    --disk_cache=$CACHEDIR \
+    //a:test >& $TEST_log || "Failed to build //a:test"
+
+  expect_log "5 processes: 2 disk cache hit, 3 internal"
 }
 
 run_suite "Remote execution and remote cache tests"

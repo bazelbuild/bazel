@@ -248,9 +248,8 @@ final class AspectFunction implements SkyFunction {
       for (AspectKey aspectKey : orderedKeys) {
         AspectValue aspectValue = (AspectValue) aspectValues.get(aspectKey);
         if (aspectValue == null) {
-          BugReport.sendBugReport(
-              new IllegalStateException(
-                  "aspectValue " + aspectKey + " was missing, this should never happen"));
+          BugReport.logUnexpected(
+              "aspectValue for: '%s' was missing, this should never happen", aspectKey);
           return null;
         }
         topologicalAspectPathBuilder.add(aspectValue.getAspect());

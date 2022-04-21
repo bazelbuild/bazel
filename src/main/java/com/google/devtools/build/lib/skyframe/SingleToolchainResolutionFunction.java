@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -84,11 +85,11 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         key.debugTarget()
             || configuration
                 .getFragment(PlatformConfiguration.class)
-                .debugToolchainResolution(key.toolchainTypeLabel());
+                .debugToolchainResolution(key.toolchainType().toolchainType());
 
     // Find the right one.
     return resolveConstraints(
-        key.toolchainTypeLabel(),
+        key.toolchainType(),
         key.availableExecutionPlatformKeys(),
         key.targetPlatformKey(),
         toolchains.registeredToolchains(),
@@ -103,7 +104,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
    */
   @Nullable
   private static SingleToolchainResolutionValue resolveConstraints(
-      Label toolchainTypeLabel,
+      ToolchainTypeRequirement toolchainType,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
       ConfiguredTargetKey targetPlatformKey,
       ImmutableList<DeclaredToolchainInfo> toolchains,
@@ -135,13 +136,15 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     // check whether a platform has already been seen during processing.
     Set<ConfiguredTargetKey> platformKeysSeen = new HashSet<>();
     ImmutableMap.Builder<ConfiguredTargetKey, Label> builder = ImmutableMap.builder();
-    ToolchainTypeInfo toolchainType = null;
+    ToolchainTypeInfo toolchainTypeInfo = null;
 
     // Pre-filter for the correct toolchain type. This simplifies the loop and makes debugging
     // toolchain resolution much, much easier.
     ImmutableList<DeclaredToolchainInfo> filteredToolchains =
         toolchains.stream()
-            .filter(toolchain -> toolchain.toolchainType().typeLabel().equals(toolchainTypeLabel))
+            .filter(
+                toolchain ->
+                    toolchain.toolchainType().typeLabel().equals(toolchainType.toolchainType()))
             .collect(toImmutableList());
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
@@ -155,7 +158,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         debugMessage(
             eventHandler,
             "    Type %s: %s platform %s: Rejected toolchain %s; mismatching config settings: %s",
-            toolchainTypeLabel,
+            toolchainType.toolchainType(),
             "target",
             targetPlatform.label(),
             toolchain.toolchainLabel(),
@@ -169,7 +172,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
           toolchain.targetConstraints(),
           "target",
           targetPlatform,
-          toolchainTypeLabel,
+          toolchainType,
           toolchain.toolchainLabel())) {
         continue;
       }
@@ -187,7 +190,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             toolchain.execConstraints(),
             "execution",
             executionPlatform,
-            toolchainTypeLabel,
+            toolchainType,
             toolchain.toolchainLabel())) {
           continue;
         }
@@ -195,11 +198,11 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         debugMessage(
             eventHandler,
             "  Type %s: target platform %s: execution %s: Selected toolchain %s",
-            toolchainTypeLabel,
+            toolchainType.toolchainType(),
             targetPlatform.label(),
             executionPlatformKey.getLabel(),
             toolchain.toolchainLabel());
-        toolchainType = toolchain.toolchainType();
+        toolchainTypeInfo = toolchain.toolchainType();
         builder.put(executionPlatformKey, toolchain.toolchainLabel());
         platformKeysSeen.add(executionPlatformKey);
       }
@@ -210,13 +213,12 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       debugMessage(
           eventHandler,
           "  Type %s: target platform %s: No toolchains found.",
-          toolchainTypeLabel,
+          toolchainType.toolchainType(),
           targetPlatform.label());
-      throw new ToolchainResolutionFunctionException(
-          new NoToolchainFoundException(toolchainTypeLabel));
+      throw new ToolchainResolutionFunctionException(new NoToolchainFoundException(toolchainType));
     }
 
-    return SingleToolchainResolutionValue.create(toolchainType, resolvedToolchainLabels);
+    return SingleToolchainResolutionValue.create(toolchainTypeInfo, resolvedToolchainLabels);
   }
 
   /**
@@ -242,7 +244,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       ConstraintCollection toolchainConstraints,
       String platformType,
       PlatformInfo platform,
-      Label toolchainTypeLabel,
+      ToolchainTypeRequirement toolchainType,
       Label toolchainLabel) {
 
     // Check every constraint_setting in either the toolchain or the platform.
@@ -283,7 +285,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       debugMessage(
           eventHandler,
           "    Type %s: %s platform %s: Rejected toolchain %s%s%s",
-          toolchainTypeLabel,
+          toolchainType.toolchainType(),
           platformType,
           platform.label(),
           toolchainLabel,
@@ -296,15 +298,17 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
   /** Used to indicate that a toolchain was not found for the current request. */
   public static final class NoToolchainFoundException extends NoSuchThingException {
-    private final Label missingToolchainTypeLabel;
+    private final ToolchainTypeRequirement missingToolchainType;
 
-    public NoToolchainFoundException(Label missingToolchainTypeLabel) {
-      super(String.format("no matching toolchain found for %s", missingToolchainTypeLabel));
-      this.missingToolchainTypeLabel = missingToolchainTypeLabel;
+    public NoToolchainFoundException(ToolchainTypeRequirement missingToolchainType) {
+      super(
+          String.format(
+              "no matching toolchain found for %s", missingToolchainType.toolchainType()));
+      this.missingToolchainType = missingToolchainType;
     }
 
-    public Label missingToolchainTypeLabel() {
-      return missingToolchainTypeLabel;
+    public ToolchainTypeRequirement missingToolchainType() {
+      return missingToolchainType;
     }
   }
 

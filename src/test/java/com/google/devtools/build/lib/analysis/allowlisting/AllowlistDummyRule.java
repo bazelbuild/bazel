@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import javax.annotation.Nullable;
 
 /** Definition of a test rule that uses allowlists. */
 public final class AllowlistDummyRule {
@@ -41,6 +42,7 @@ public final class AllowlistDummyRule {
   /** Has to be public to make factory initialization logic happy. **/
   public static class RuleFactory implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
       if (!Allowlist.isAvailable(ruleContext, "dummy")) {

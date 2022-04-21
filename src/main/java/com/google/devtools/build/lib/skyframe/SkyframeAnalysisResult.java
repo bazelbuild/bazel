@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -30,7 +29,7 @@ public class SkyframeAnalysisResult {
   private final boolean hasLoadingError;
   private final boolean hasAnalysisError;
   private final boolean hasActionConflicts;
-  private final ImmutableList<ConfiguredTarget> configuredTargets;
+  private final ImmutableSet<ConfiguredTarget> configuredTargets;
   private final WalkableGraph walkableGraph;
   private final ImmutableMap<AspectKey, ConfiguredAspect> aspects;
   private final PackageRoots packageRoots;
@@ -39,7 +38,7 @@ public class SkyframeAnalysisResult {
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
-      ImmutableList<ConfiguredTarget> configuredTargets,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       PackageRoots packageRoots) {
@@ -69,7 +68,7 @@ public class SkyframeAnalysisResult {
     return hasActionConflicts;
   }
 
-  public ImmutableList<ConfiguredTarget> getConfiguredTargets() {
+  public ImmutableSet<ConfiguredTarget> getConfiguredTargets() {
     return configuredTargets;
   }
 
@@ -95,9 +94,7 @@ public class SkyframeAnalysisResult {
         hasLoadingError,
         /*hasAnalysisError=*/ true,
         hasActionConflicts,
-        Sets.difference(ImmutableSet.copyOf(configuredTargets), erroredTargets)
-            .immutableCopy()
-            .asList(),
+        Sets.difference(configuredTargets, erroredTargets).immutableCopy(),
         walkableGraph,
         aspects,
         packageRoots);

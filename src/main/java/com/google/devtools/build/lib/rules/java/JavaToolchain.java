@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code java_toolchain} rule. */
 public class JavaToolchain implements RuleConfiguredTargetFactory {
@@ -56,6 +57,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);

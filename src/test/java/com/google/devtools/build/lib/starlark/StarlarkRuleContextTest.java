@@ -3261,7 +3261,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ((StarlarkExecGroupCollection) info.getValue("exec_groups"))
             .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
-    assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
+    assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).toolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
   }
@@ -3318,7 +3318,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet())
         .containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit", "passionfruit");
-    assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
+    assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).toolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
     assertThat(toolchainContexts.get("passionfruit").resolvedToolchainLabels())

@@ -30,12 +30,14 @@ import com.google.devtools.build.lib.packages.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the 'action_listener' rule.
  */
 public final class ActionListener implements RuleConfiguredTargetFactory {
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     // This rule doesn't produce any output when listed as a build target.

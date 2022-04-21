@@ -89,6 +89,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -416,11 +417,17 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
+    if (getMnemonic().equals("AndroidLint")) {
+      System.out.println("ya");
+    }
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
             artifactExpander,
             getPrimaryOutput().getExecPath(),
-            stripOutputPaths ? PathStripper::strip : (origPath) -> origPath,
+            PathStripper.CommandAdjuster.create(
+                stripOutputPaths,
+                this instanceof StarlarkAction ? getMnemonic() : null,
+                getPrimaryOutput().getExecPath().subFragment(0, 1)),
             commandLineLimits);
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
@@ -692,6 +699,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
 
     private Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
+    private boolean stripOutputPaths = false;
 
     /**
      * Creates a SpawnAction builder.
@@ -717,6 +725,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.commandLines = new ArrayList<>(other.commandLines);
       this.progressMessage = other.progressMessage;
       this.mnemonic = other.mnemonic;
+      this.stripOutputPaths = other.stripOutputPaths;
     }
 
     /**
@@ -863,7 +872,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           executeUnconditionally,
           extraActionInfoSupplier,
           resultConsumer,
-          /*stripOutputPaths=*/ false);
+          stripOutputPaths);
     }
 
     /**
@@ -1078,7 +1087,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     public Builder setExecutable(Artifact executable) {
       addTool(executable);
-      this.executableArg = new CallablePathFragment(executable.getExecPath());
+      this.executableArg =
+          new CallablePathFragment(executable.getExecPath(), executable.hasKnownGeneratingAction());
       this.executableArgs = null;
       this.isShellCommand = false;
       return this;
@@ -1126,7 +1136,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Preconditions.checkArgument(executableProvider.getExecutable() != null,
           "The target does not have an executable");
       this.executableArg =
-          new CallablePathFragment(executableProvider.getExecutable().getExecPath());
+          new CallablePathFragment(
+              executableProvider.getExecutable().getExecPath(),
+              executableProvider.getExecutable().hasKnownGeneratingAction());
       this.executableArgs = null;
       this.isShellCommand = false;
       return addTool(executableProvider);
@@ -1401,6 +1413,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    public Builder stripOutputPaths(boolean stripPaths) {
+      this.stripOutputPaths = stripPaths;
+      return this;
+    }
+
     public <T> Builder setExtraActionInfo(ExtraActionInfoSupplier extraActionInfoSupplier) {
       this.extraActionInfoSupplier = extraActionInfoSupplier;
       return this;
@@ -1464,11 +1481,19 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   /** A {@link PathFragment} that is expanded with {@link PathFragment#getCallablePathString()}. */
-  private static final class CallablePathFragment {
-    public final PathFragment fragment;
+  private static final class CallablePathFragment implements CommandLines.PathStrippable {
 
-    CallablePathFragment(PathFragment fragment) {
+    public final PathFragment fragment;
+    private final boolean isDerived;
+
+    CallablePathFragment(PathFragment fragment, boolean isDerived) {
       this.fragment = fragment;
+      this.isDerived = isDerived;
+    }
+
+    @Override
+    public String expand(Function<PathFragment, PathFragment> stripPaths) {
+      return isDerived ? stripPaths.apply(fragment).getCallablePathString() : toString();
     }
 
     @Override

@@ -38,6 +38,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests for optional toolchain types.
+
   @Test
   public void load() throws Exception {
     addToolchain(
@@ -58,7 +60,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
+            .setToolchainTypes(ImmutableSet.of(testToolchainType))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
@@ -110,7 +112,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
+            .setToolchainTypes(ImmutableSet.of(testToolchainType))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
@@ -152,7 +154,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(testToolchainTypeInfo))
+            .setToolchainTypes(ImmutableSet.of(testToolchainType))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
@@ -216,7 +218,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
-            .setRequiredToolchainTypes(ImmutableSet.of(variableToolchainTypeInfo))
+            .setToolchainTypes(ImmutableSet.of(variableToolchainType))
             .setRequestedLabelToToolchainType(
                 ImmutableMap.of(variableToolchainTypeLabel, variableToolchainTypeInfo))
             .setToolchainTypeToResolved(

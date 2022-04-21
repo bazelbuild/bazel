@@ -249,7 +249,6 @@ def _impl(ctx):
     if is_bsd:
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/ar"),
-            tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "gcc", path = "/usr/bin/clang"),
@@ -263,7 +262,6 @@ def _impl(ctx):
     else:
         tool_paths = [
             tool_path(name = "ar", path = "/bin/false"),
-            tool_path(name = "compat-ld", path = "/bin/false"),
             tool_path(name = "cpp", path = "/bin/false"),
             tool_path(name = "dwp", path = "/bin/false"),
             tool_path(name = "gcc", path = "/bin/false"),

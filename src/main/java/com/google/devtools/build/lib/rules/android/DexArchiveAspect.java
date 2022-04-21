@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -44,6 +45,8 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -72,6 +75,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -512,6 +516,24 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> classpath,
       Artifact result) {
+    SpawnAction.Builder action =
+        new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
+            .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
+            .addInput(jar)
+            .addTransitiveInputs(bootclasspath)
+            .addTransitiveInputs(classpath)
+            .addOutput(result)
+            .setMnemonic("Desugar")
+            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
+            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
+
+    // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
+    // to get the action's inputs for vetting path stripping safety, then call it again later to
+    // fully instantiate the action.
+    boolean stripOutputPaths =
+        stripOutputPaths(action.build(ruleContext).getInputs(), ruleContext.getConfiguration());
+
     CustomCommandLine.Builder args =
         new CustomCommandLine.Builder()
             .addExecPath("--input", jar)
@@ -524,22 +546,17 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     if (getAndroidConfig(ruleContext).desugarJava8Libs()) {
       args.add("--desugar_supported_core_libs");
     }
+    if (stripOutputPaths) {
+      args.stripOutputPaths(result.getExecPath().subFragment(0, 1));
+    }
 
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
-            .addInput(jar)
-            .addTransitiveInputs(bootclasspath)
-            .addTransitiveInputs(classpath)
-            .addOutput(result)
-            .setMnemonic("Desugar")
-            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
-            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
-            .addCommandLine(
-                // Always use params file, so we don't need to compute command line length first
-                args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
-            .build(ruleContext));
+    action
+        .addCommandLine(
+            // Always use params file, so we don't need to compute command line length first
+            args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
+        .stripOutputPaths(stripOutputPaths);
+
+    ruleContext.registerAction(action.build(ruleContext));
     return result;
   }
 
@@ -563,6 +580,21 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   /**
+   * Canonical place to determine if a dex action should strip config prefixes from its output
+   * paths.
+   *
+   * <p>See {@link PathStripper}.
+   */
+  static boolean stripOutputPaths(
+      NestedSet<Artifact> actionInputs, BuildConfigurationValue configuration) {
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    return coreOptions.outputPathsMode == OutputPathsMode.STRIP
+        && PathStripper.isPathStrippable(
+            actionInputs,
+            PathFragment.create(configuration.getDirectories().getRelativeOutputPath()));
+  }
+
+  /**
    * Creates a dexbuilder action with the given input, output, and flags. Flags must have been
    * filtered and normalized to a set that the dexbuilder tool can understand.
    *
@@ -575,12 +607,6 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       Artifact jar,
       Set<String> incrementalDexopts,
       Artifact dexArchive) {
-    CustomCommandLine args =
-        new CustomCommandLine.Builder()
-            .addExecPath("--input_jar", jar)
-            .addExecPath("--output_zip", dexArchive)
-            .addAll(ImmutableList.copyOf(incrementalDexopts))
-            .build();
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
@@ -593,9 +619,26 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
             .setProgressMessage(
-                "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts)
-            // Always use params file for compatibility with WorkerSpawnStrategy
-            .addCommandLine(args, ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build());
+                "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts);
+
+    // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
+    // to get the action's inputs for vetting path stripping safety, then call it again later to
+    // fully instantiate the action.
+    boolean stripOutputPaths =
+        stripOutputPaths(dexbuilder.build(ruleContext).getInputs(), ruleContext.getConfiguration());
+
+    CustomCommandLine.Builder args =
+        new CustomCommandLine.Builder()
+            .addExecPath("--input_jar", jar)
+            .addExecPath("--output_zip", dexArchive)
+            .addAll(ImmutableList.copyOf(incrementalDexopts));
+    if (stripOutputPaths) {
+      args.stripOutputPaths(dexArchive.getExecPath().subFragment(0, 1));
+    }
+
+    dexbuilder
+        .addCommandLine(args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
+        .stripOutputPaths(stripOutputPaths);
     if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
       dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     }

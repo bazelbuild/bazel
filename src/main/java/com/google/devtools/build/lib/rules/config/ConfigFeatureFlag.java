@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -109,6 +110,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);

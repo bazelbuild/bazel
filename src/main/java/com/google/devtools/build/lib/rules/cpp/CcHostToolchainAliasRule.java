@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
+import javax.annotation.Nullable;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
 public class CcHostToolchainAliasRule implements RuleDefinition {
@@ -61,6 +62,7 @@ public class CcHostToolchainAliasRule implements RuleDefinition {
   /** Implementation of cc_host_toolchain_alias. */
   public static class CcHostToolchainAlias implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
 

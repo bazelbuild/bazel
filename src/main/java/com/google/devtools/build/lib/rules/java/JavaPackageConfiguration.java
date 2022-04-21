@@ -29,11 +29,13 @@ import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConf
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import javax.annotation.Nullable;
 
 /** Implementation for the java_package_configuration rule. */
 public class JavaPackageConfiguration implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<PackageSpecificationProvider> packages =

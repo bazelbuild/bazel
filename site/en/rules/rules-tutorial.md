@@ -16,7 +16,9 @@ such as `glob`, `genrule`, `java_binary`, and so on.
 
 See the
 [Bazel](/start/getting-started) and [Starlark](/rules/concepts) documentation for
-more details.
+more details, and the
+[Rules SIG template](https://github.com/bazel-contrib/rules-template) as a
+starting point for new rulesets.
 
 ## The empty rule
 

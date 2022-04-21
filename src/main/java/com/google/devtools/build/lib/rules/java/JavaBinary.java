@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** An implementation of java_binary. */
@@ -87,6 +88,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     final JavaCommon common = new JavaCommon(ruleContext, semantics);

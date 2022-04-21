@@ -459,24 +459,6 @@ public class ExecutionOptions extends OptionsBase {
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
 
-  @Option(
-      name = "experimental_path_agnostic_action",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Setting this to an action's mnemonic declares that the action's output doesn't "
-              + "depend on its input or output paths. For example, "
-              + "\"mytool blaze-out/x86-fastbuild/input -o  bar/output\" produces the same output "
-              + "as \"mytool blaze-out/input -o baz/output\". The action executor may strip "
-              + "configuration prefixes from paths before running these actions to improve cache "
-              + "efficiency. For for example, \"blaze-out/k8-fastbuild/foo\" -> \"blaze-out/foo\". "
-              + "Be especially careful with actions that process debug symbol paths or manifest "
-              + "files.")
-  // TODO(bazel-team): merge this and --experimental_output_paths into a coherent final API.
-  public List<String> pathAgnosticActions;
-
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.

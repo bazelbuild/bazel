@@ -122,7 +122,7 @@ public class TopLevelConstraintSemantics {
    *     command line.
    */
   public PlatformRestrictionsResult checkPlatformRestrictions(
-      ImmutableList<ConfiguredTarget> topLevelTargets,
+      ImmutableSet<ConfiguredTarget> topLevelTargets,
       ImmutableSet<String> explicitTargetPatterns,
       boolean keepGoing)
       throws ViewCreationFailedException {
@@ -249,7 +249,7 @@ public class TopLevelConstraintSemantics {
    *     environment declared through {@link CoreOptions#targetEnvironments}
    */
   public Set<ConfiguredTarget> checkTargetEnvironmentRestrictions(
-      ImmutableList<ConfiguredTarget> topLevelTargets)
+      ImmutableSet<ConfiguredTarget> topLevelTargets)
       throws ViewCreationFailedException, InterruptedException {
     ImmutableSet.Builder<ConfiguredTarget> badTargets = ImmutableSet.builder();
     // Maps targets that are missing *explicitly* required environments to the set of environments
