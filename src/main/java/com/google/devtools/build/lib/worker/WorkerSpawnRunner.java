@@ -230,6 +230,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setRunnerName(getName())
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
+            .setStartTime(startTime)
             .setWallTime(wallTime)
             .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
     if (exitCode != 0) {

@@ -86,9 +86,6 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "  pass",
         "",
         "def http_file(**kwargs):",
-        "  pass",
-        "",
-        "def http_jar(**kwargs):",
         "  pass");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/utils.bzl"),

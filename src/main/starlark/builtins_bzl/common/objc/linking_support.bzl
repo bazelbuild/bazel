@@ -23,6 +23,8 @@ apple_common = _builtins.toplevel.apple_common
 def _link_multi_arch_static_library(ctx, split_target_triplets = None):
     """Links a (potentially multi-architecture) static library targeting Apple platforms.
 
+    Rule context is a required parameter due to usage of the cc_common.configure_features API.
+
     Args:
         ctx: The Starlark rule context.
         split_target_triplets: Dict for split transition keys and target triplet struct (arch,
@@ -32,18 +34,14 @@ def _link_multi_arch_static_library(ctx, split_target_triplets = None):
           Defaults to None for `apple_static_library` rule usage.
 
     Returns:
-        struct(
-            outputs: [
-                struct(
-                    library: Artifact,
-                    architecture: string,
-                    platform: string,
-                    environment: string,
-                )
-            ],
-            objc: apple_common.Objc,
-            output_groups: OutputGroupInfo,
-        )
+        A Starlark struct containing the following attributes:
+            - objc: The Objc provider containing transitive linking information.
+            - output_groups: OutputGroupInfo provider from transitive CcInfo validation_artifacts.
+            - outputs: List of structs containing the following attributes:
+                - library: Artifact representing a linked static library.
+                - architecture: Linked static library architecture (e.g. 'arm64', 'x86_64').
+                - platform: Linked static library target Apple platform (e.g. 'ios', 'macos').
+                - environment: Linked static library environment (e.g. 'device', 'simulator').
     """
     split_deps = ctx.split_attr.deps
     split_avoid_deps = ctx.split_attr.avoid_deps

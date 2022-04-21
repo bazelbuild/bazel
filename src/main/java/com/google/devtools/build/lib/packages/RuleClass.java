@@ -311,12 +311,15 @@ public class RuleClass {
   public interface ConfiguredTargetFactory<
       TConfiguredTarget, TContext, TActionConflictException extends Throwable> {
     /**
-     * Returns a fully initialized configured target instance using the given context.
+     * Returns a fully initialized configured target instance using the given context, or {@code
+     * null} on certain rule errors (typically if {@code ruleContext.hasErrors()} becomes {@code
+     * true} while trying to create the target).
      *
      * @throws RuleErrorException if configured target creation could not be completed due to rule
      *     errors
      * @throws TActionConflictException if there were conflicts during action registration
      */
+    @Nullable
     TConfiguredTarget create(TContext ruleContext)
         throws InterruptedException, RuleErrorException, TActionConflictException;
 

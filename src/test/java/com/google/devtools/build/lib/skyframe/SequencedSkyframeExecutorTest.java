@@ -69,10 +69,12 @@ import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -129,8 +131,11 @@ import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.GraphTester;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.TaggedEvents;
@@ -140,14 +145,17 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -161,10 +169,9 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link SequencedSkyframeExecutor}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   private static final DetailedExitCode USER_DETAILED_EXIT_CODE =
@@ -178,24 +185,38 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_UNKNOWN))
               .build());
 
+  private final OptionsParser options =
+      OptionsParser.builder()
+          .optionsClasses(
+              AnalysisOptions.class,
+              BuildLanguageOptions.class,
+              BuildRequestOptions.class,
+              CoreOptions.class,
+              KeepGoingOption.class,
+              PackageOptions.class)
+          .build();
+  private final Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
   private QueryTransitivePackagePreloader visitor;
-  private OptionsParser options;
 
   @Before
-  public void createSkyframeExecutorAndVisitor() throws Exception {
-    skyframeExecutor = getSkyframeExecutor();
+  public void createVisitorAndParseOptions() throws Exception {
     visitor = skyframeExecutor.getQueryTransitivePackagePreloader();
-    options =
-        OptionsParser.builder()
-            .optionsClasses(
-                AnalysisOptions.class,
-                BuildLanguageOptions.class,
-                BuildRequestOptions.class,
-                CoreOptions.class,
-                KeepGoingOption.class,
-                PackageOptions.class)
-            .build();
     options.parse("--jobs=20");
+  }
+
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    AnalysisMock delegate = super.getAnalysisMock();
+    return new AnalysisMock.Delegate(delegate) {
+      @Override
+      public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+          BlazeDirectories directories) {
+        return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+            .putAll(delegate.getSkyFunctions(directories))
+            .putAll(extraSkyFunctions)
+            .buildOrThrow();
+      }
+    };
   }
 
   @Test
@@ -591,7 +612,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 .getPackage(reporter, PackageIdentifier.createInMainRepo("bad")));
   }
 
-  private Collection<SkyKey> dirtyValues() throws InterruptedException {
+  private ImmutableList<SkyKey> dirtyValues() throws InterruptedException {
     Diff diff =
         new FilesystemValueChecker(
                 new TimestampGranularityMonitor(BlazeClock.instance()),
@@ -2455,14 +2476,45 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         eventCollector, Pattern.compile(".*after scanning.*\n.*Scanning.*\n.*Test dir/top.*"));
   }
 
-  private void syncSkyframeExecutor() throws AbruptExitException, InterruptedException {
+  @Test
+  public void usesCorrectGraphInconsistencyReceiver(
+      @TestParameter boolean trackIncrementalState, @TestParameter boolean useActionCache)
+      throws Exception {
+    extraSkyFunctions.put(
+        SkyFunctionName.FOR_TESTING,
+        (key, env) -> {
+          if (trackIncrementalState || useActionCache) {
+            assertThat(env.restartPermitted()).isFalse();
+          } else {
+            assertThat(env.restartPermitted()).isTrue();
+          }
+          return new SkyValue() {};
+        });
+    initializeSkyframeExecutor();
+    options.parse("--use_action_cache=" + useActionCache);
+
+    skyframeExecutor.setActive(false);
+    skyframeExecutor.decideKeepIncrementalState(
+        /*batch=*/ false,
+        /*keepStateAfterBuild=*/ true,
+        trackIncrementalState,
+        /*discardAnalysisCache=*/ false,
+        reporter);
+    skyframeExecutor.setActive(true);
+    syncSkyframeExecutor();
+
+    EvaluationResult<?> result = evaluate(ImmutableList.of(GraphTester.skyKey("key")));
+    assertThat(result.hasError()).isFalse();
+  }
+
+  private void syncSkyframeExecutor() throws InterruptedException, AbruptExitException {
     skyframeExecutor.sync(
         reporter,
         skyframeExecutor.getPackageLocator().get(),
         UUID.randomUUID(),
         /*clientEnv=*/ ImmutableMap.of(),
         /*repoEnvOption=*/ ImmutableMap.of(),
-        new TimestampGranularityMonitor(BlazeClock.instance()),
+        tsgm,
         options);
   }
 }

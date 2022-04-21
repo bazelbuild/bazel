@@ -104,6 +104,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import com.google.devtools.build.skyframe.Version;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -398,6 +399,12 @@ public final class ActionsTestUtil {
     @Override
     public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
       return stateSupplier.get();
+    }
+
+    @Override
+    @Nullable
+    public Version getMaxTransitiveSourceVersionSoFar() {
+      throw new UnsupportedOperationException();
     }
   }
 

@@ -53,6 +53,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.BadRequest;
 import com.google.rpc.Code;
@@ -70,6 +71,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
@@ -145,6 +147,8 @@ public final class Utils {
       boolean cacheHit,
       String runnerName,
       @Nullable InMemoryOutput inMemoryOutput,
+      Timestamp executionStartTimestamp,
+      Timestamp executionCompletedTimestamp,
       SpawnMetrics spawnMetrics,
       String mnemonic) {
     SpawnResult.Builder builder =
@@ -154,6 +158,11 @@ public final class Utils {
             .setExitCode(exitCode)
             .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
+            .setStartTime(timestampToInstant(executionStartTimestamp))
+            .setWallTime(
+                java.time.Duration.between(
+                    timestampToInstant(executionStartTimestamp),
+                    timestampToInstant(executionCompletedTimestamp)))
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true);
     if (exitCode != 0) {
@@ -169,6 +178,10 @@ public final class Utils {
       builder.setInMemoryOutput(inMemoryOutput.getOutput(), inMemoryOutput.getContents());
     }
     return builder.build();
+  }
+
+  private static Instant timestampToInstant(Timestamp timestamp) {
+    return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
   }
 
   /** Returns {@code true} if all spawn outputs should be downloaded to disk. */

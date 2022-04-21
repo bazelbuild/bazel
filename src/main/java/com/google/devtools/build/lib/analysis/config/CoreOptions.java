@@ -667,15 +667,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
      * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
      * registered to support this feature.
      *
-     * <p>This works independently of {@code --experimental_path_agnostic_action} ({@link
-     * com.google.devtools.build.lib.exec.ExecutionOptions#pathAgnosticActions}). This flag enables
-     * actions that know how to strip output paths from their command lines, which requires custom
-     * code in the action creation logic. {@code --experimental_path_agnostic_action} is a catch-all
-     * that automatically strips command lines after actions have constructed them. The latter is
-     * suitable for experimentation but not as robust since it's essentially a textual replacement
-     * postprocessor. That may miss subtleties in the command line's structure, isn't particularly
-     * efficient, and isn't safe for actions with special dependencies on their output paths.
-     *
      * <p>See {@link com.google.devtools.build.lib.actions.PathStripper} for details.
      */
     STRIP,

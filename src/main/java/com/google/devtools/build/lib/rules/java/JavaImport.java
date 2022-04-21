@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** An implementation for the "java_import" rule. */
 public class JavaImport implements RuleConfiguredTargetFactory {
@@ -46,6 +47,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<Artifact> srcJars = ImmutableList.of();

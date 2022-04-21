@@ -136,7 +136,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
+    assertThat(unloadedToolchainContext.toolchainTypes()).isEmpty();
     // Even with no toolchains requested, should still select the first execution platform.
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
@@ -173,7 +173,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
+    assertThat(unloadedToolchainContext.toolchainTypes()).isEmpty();
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//sample:sample_b");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }

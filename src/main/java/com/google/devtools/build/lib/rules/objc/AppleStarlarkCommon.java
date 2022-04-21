@@ -145,11 +145,6 @@ public class AppleStarlarkCommon
   }
 
   @Override
-  public Provider getAppleDylibBinaryConstructor() {
-    return AppleDylibBinaryInfo.STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
   public Provider getAppleExecutableBinaryConstructor() {
     return AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR;
   }
@@ -162,11 +157,6 @@ public class AppleStarlarkCommon
   @Override
   public Provider getAppleDebugOutputsConstructor() {
     return AppleDebugOutputsInfo.STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
-  public Provider getAppleLoadableBundleBinaryConstructor() {
-    return AppleLoadableBundleBinaryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override

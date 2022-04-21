@@ -85,9 +85,14 @@ public class ZipDecompressorTest {
 
   @Test
   public void testWindowsPermissions() throws Exception {
-    int permissions = ZipDecompressor.getPermissions(ZipDecompressor.WINDOWS_DIRECTORY, "foo/bar");
+    int permissions =
+        ZipDecompressor.getPermissions(ZipDecompressor.WINDOWS_FILE_ATTRIBUTE_DIRECTORY, "foo/bar");
     assertThat(permissions).isEqualTo(DIRECTORY);
-    permissions = ZipDecompressor.getPermissions(ZipDecompressor.WINDOWS_FILE, "foo/bar");
+    permissions =
+        ZipDecompressor.getPermissions(ZipDecompressor.WINDOWS_FILE_ATTRIBUTE_ARCHIVE, "foo/bar");
+    assertThat(permissions).isEqualTo(EXECUTABLE);
+    permissions =
+        ZipDecompressor.getPermissions(ZipDecompressor.WINDOWS_FILE_ATTRIBUTE_NORMAL, "foo/bar");
     assertThat(permissions).isEqualTo(EXECUTABLE);
   }
 

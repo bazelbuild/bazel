@@ -409,5 +409,14 @@ public interface SkyFunction {
      * {@link #compute} call.
      */
     <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier);
+
+    /**
+     * Returns the max transitive source version of a {@link NodeEntry}.
+     *
+     * <p>This value might not consider all deps' source versions if called before all deps have
+     * been requested or if {@link #valuesMissing()} returns true.
+     */
+    @Nullable
+    Version getMaxTransitiveSourceVersionSoFar();
   }
 }

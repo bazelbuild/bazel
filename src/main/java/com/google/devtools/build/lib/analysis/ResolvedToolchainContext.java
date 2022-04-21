@@ -86,7 +86,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         unloadedToolchainContext.key(),
         unloadedToolchainContext.executionPlatform(),
         unloadedToolchainContext.targetPlatform(),
-        unloadedToolchainContext.requiredToolchainTypes(),
+        unloadedToolchainContext.toolchainTypes(),
         unloadedToolchainContext.resolvedToolchainLabels(),
         // this:
         targetDescription,

@@ -219,8 +219,8 @@ public class ObjcRuleClasses {
           "Foundation" are always included when building for the iOS, tvOS and watchOS platforms.
           For macOS, only "Foundation" is always included.
 
-          <p> When linking a top level binary (e.g. apple_binary), all SDK frameworks listed in that
-          binary's transitive dependency graph are linked.
+          <p> When linking a top level Apple binary, all SDK frameworks listed in that binary's
+          transitive dependency graph are linked.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_frameworks", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(weak_sdk_frameworks) -->

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -199,6 +200,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     }
 
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws ActionConflictException, InterruptedException {
       return new RuleConfiguredTargetBuilder(ruleContext)

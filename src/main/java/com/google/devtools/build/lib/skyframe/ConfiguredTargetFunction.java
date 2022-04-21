@@ -659,11 +659,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           (UnloadedToolchainContext)
               values.getOrThrow(unloadedToolchainContextKey.getValue(), ToolchainException.class);
       if (valuesMissing != env.valuesMissing()) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "ToolchainContextValue "
-                    + unloadedToolchainContextKey.getValue()
-                    + " was missing, this should never happen"));
+        BugReport.logUnexpected(
+            "Value for: '%s' was missing, this should never happen",
+            unloadedToolchainContextKey.getValue());
         break;
       }
       if (!valuesMissing) {

@@ -80,6 +80,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
     ],
     runtime_deps = [
-        # None right now. The D8/R8 jar has no dependencies.
+        # CompatDexBuilder depends on some worker utilities.
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
     ],
 )

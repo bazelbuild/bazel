@@ -1,3 +1,21 @@
+## Release 6.0.0-pre.20220411.2 (2022-04-19)
+
+```
+Baseline: 8f0034ce1e7854521e259a5eaf71859b1e6f95bc
+
+Cherry picks:
+
+   + a9465dfa4b124e331b8bb3e8d0219ea3dff7cdb1:
+     Automated rollback of commit
+     240af807c935225d98b630666000cc03934f2ce7.
+```
+
+Important changes:
+
+  - Allow specialization to work with constraint_values.
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, Keith Smiley, Noa Resare, Sahin Yort, Thomas Zayouna, Vasilios Pantazopoulos.
+
 ## Release 6.0.0-pre.20220407.1 (2022-04-14)
 
 ```

@@ -146,4 +146,10 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
     return delegate.getState(stateSupplier);
   }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return delegate.getMaxTransitiveSourceVersionSoFar();
+  }
 }

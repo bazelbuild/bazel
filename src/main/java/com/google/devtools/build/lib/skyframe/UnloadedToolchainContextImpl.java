@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,7 +34,7 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
   public static Builder builder(ToolchainContextKey key) {
     return new AutoValue_UnloadedToolchainContextImpl.Builder()
         .setKey(key)
-        .setRequiredToolchainTypes(ImmutableSet.of())
+        .setToolchainTypes(ImmutableSet.of())
         .setRequestedLabelToToolchainType(ImmutableMap.of())
         .setToolchainTypeToResolved(
             ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder().build());
@@ -52,7 +53,7 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
     Builder setTargetPlatform(PlatformInfo targetPlatform);
 
     /** Sets the toolchain types that were requested. */
-    Builder setRequiredToolchainTypes(Set<ToolchainTypeInfo> requiredToolchainTypes);
+    Builder setToolchainTypes(Set<ToolchainTypeRequirement> toolchainTypes);
 
     /**
      * Maps from the actual toolchain type to the resolved toolchain implementation that should be

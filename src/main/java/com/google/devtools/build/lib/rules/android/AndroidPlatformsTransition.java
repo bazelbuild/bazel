@@ -62,15 +62,29 @@ public final class AndroidPlatformsTransition implements PatchTransition {
   @Override
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
-    if (!androidOptions.incompatibleUseToolchainResolution
-        || androidOptions.androidPlatforms.isEmpty()) {
+    if (!androidOptions.incompatibleUseToolchainResolution) {
       // No change.
       return options.underlying();
     }
 
     BuildOptionsView newOptions = options.clone();
     PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
-    newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
+    // Set the value of --platforms for this target and its dependencies.
+    // 1. If --android_platforms is set, use a value from that.
+    // 2. If --default_android_platform is set, use that.
+    // 3. Otherwise, leave --platforms alone (this will probably lead to build errors).
+    if (!androidOptions.androidPlatforms.isEmpty()) {
+      // If the current value of --platforms is not one of the values of --android_platforms, change
+      // it to be the first one. If the curent --platforms is part of --android_platforms, leave it
+      // as-is.
+      // NOTE: This does not handle aliases at all, so if someone is using aliases with platform
+      // definitions this check will break.
+      if (!androidOptions.androidPlatforms.containsAll(newPlatformOptions.platforms)) {
+        newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
+      }
+    } else if (androidOptions.defaultAndroidPlatform != null) {
+      newPlatformOptions.platforms = ImmutableList.of(androidOptions.defaultAndroidPlatform);
+    }
 
     // If we are using toolchain resolution for Android, also use it for CPP.
     // This needs to be before the AndroidBinary is analyzed so that all native dependencies

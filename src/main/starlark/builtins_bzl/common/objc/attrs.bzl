@@ -20,6 +20,13 @@ ObjcInfo = _builtins.toplevel.apple_common.Objc
 AppleDynamicFrameworkInfo = _builtins.toplevel.apple_common.AppleDynamicFramework
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 
+# Private attribute required by `objc_internal.expand_toolchain_and_ctx_variables`
+_CC_TOOLCHAIN_RULE = {
+    "_cc_toolchain": attr.label(
+        default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
+    ),
+}
+
 _COMPILING_RULE = {
     "srcs": attr.label_list(
         allow_files = [
@@ -129,6 +136,7 @@ def _union(*dictionaries):
 
 common_attrs = struct(
     union = _union,
+    CC_TOOLCHAIN_RULE = _CC_TOOLCHAIN_RULE,
     COMPILING_RULE = _COMPILING_RULE,
     COMPILE_DEPENDENCY_RULE = _COMPILE_DEPENDENCY_RULE,
     INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,

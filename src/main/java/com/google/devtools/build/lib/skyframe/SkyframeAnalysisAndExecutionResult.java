@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -33,7 +32,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
-      ImmutableList<ConfiguredTarget> configuredTargets,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       PackageRoots packageRoots,
@@ -65,9 +64,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
         hasLoadingError(),
         /*hasAnalysisError=*/ true,
         hasActionConflicts(),
-        Sets.difference(ImmutableSet.copyOf(getConfiguredTargets()), erroredTargets)
-            .immutableCopy()
-            .asList(),
+        Sets.difference(getConfiguredTargets(), erroredTargets).immutableCopy(),
         getWalkableGraph(),
         getAspects(),
         getPackageRoots(),
@@ -75,7 +72,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
   }
 
   public static SkyframeAnalysisAndExecutionResult success(
-      ImmutableList<ConfiguredTarget> configuredTargets,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       PackageRoots packageRoots) {
@@ -94,7 +91,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
-      ImmutableList<ConfiguredTarget> configuredTargets,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       PackageRoots packageRoots,

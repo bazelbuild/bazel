@@ -49,10 +49,8 @@ objc_import = rule(
     attrs = common_attrs.union(
         {
             "archives": attr.label_list(allow_empty = False, mandatory = True, allow_files = [".a"]),
-            "_cc_toolchain": attr.label(
-                default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
-            ),
         },
+        common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.LICENSES,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.INCLUDE_SCANNING_RULE,

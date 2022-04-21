@@ -524,6 +524,12 @@ filegroup(
     visibility = ["//tools:__pkg__"],
 )
 
+cc_library(
+    name = "build_info_translation_helper",
+    srcs = ["build_info_translation_helper.cc"],
+    hdrs = ["build_info_translation_helper.h"],
+)
+
 load(":compiler_flag.bzl", "compiler_flag")
 
 compiler_flag(name = "compiler")
