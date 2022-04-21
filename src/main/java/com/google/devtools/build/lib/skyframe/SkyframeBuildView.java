@@ -729,7 +729,7 @@ public final class SkyframeBuildView {
       return SkyframeAnalysisAndExecutionResult.success(
           successfulConfiguredTargets,
           evaluationResult.getWalkableGraph(),
-          ImmutableMap.copyOf(successfulAspects),
+          successfulAspects,
           /*packageRoots=*/ null);
     }
 
@@ -775,7 +775,7 @@ public final class SkyframeBuildView {
         /*hasActionConflicts=*/ foundActionConflictInLatestCheck,
         successfulConfiguredTargets,
         evaluationResult.getWalkableGraph(),
-        ImmutableMap.copyOf(successfulAspects),
+        successfulAspects,
         /*packageRoots=*/ null,
         Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
   }
