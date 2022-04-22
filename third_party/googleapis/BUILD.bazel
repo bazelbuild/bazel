@@ -114,12 +114,12 @@ java_proto_library(
 
 java_proto_library(
     name = "google_api_client_java_proto",
-    deps = [":google_api_http_proto"],
+    deps = [":google_api_client_proto"],
 )
 
 java_proto_library(
     name = "google_api_field_behavior_java_proto",
-    deps = [":google_api_http_proto"],
+    deps = [":google_api_field_behavior_proto"],
 )
 
 java_proto_library(
