@@ -732,6 +732,7 @@ public class ExecutionTool {
     Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
             ? analysisResult.getTargetsToBuild().stream()
+                .map(ConfiguredTarget::getActual)
                 .map(ConfiguredTarget::getConfigurationKey)
                 .filter(Objects::nonNull)
                 .distinct()
