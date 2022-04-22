@@ -642,6 +642,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
       dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     }
+    if (getAndroidConfig(ruleContext).useMultiplexWorkersWithDexbuilder()) {
+      dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
+    }
     ruleContext.registerAction(dexbuilder.build(ruleContext));
     return dexArchive;
   }

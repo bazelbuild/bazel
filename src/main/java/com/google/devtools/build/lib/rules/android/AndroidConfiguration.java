@@ -553,6 +553,14 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean useWorkersWithDexbuilder;
 
     @Option(
+        name = "use_multiplex_workers_with_dexbuilder",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Whether dexbuilder supports being run in local multiplex worker mode.")
+    public boolean useMultiplexWorkersWithDexbuilder;
+
+    @Option(
         name = "experimental_android_rewrite_dexes_with_rex",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1016,6 +1024,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
       host.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
       host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
+      host.useMultiplexWorkersWithDexbuilder = useMultiplexWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
       host.manifestMergerOrder = manifestMergerOrder;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
@@ -1042,6 +1051,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final ImmutableList<String> dexoptsSupportedInDexSharder;
   private final boolean useWorkersWithDexbuilder;
+  private final boolean useMultiplexWorkersWithDexbuilder;
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
@@ -1096,6 +1106,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.dexoptsSupportedInDexSharder = ImmutableList.copyOf(options.dexoptsSupportedInDexSharder);
     this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
+    this.useMultiplexWorkersWithDexbuilder = options.useMultiplexWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
     this.desugarJava8Libs = options.desugarJava8Libs;
     this.checkDesugarDeps = options.checkDesugarDeps;
@@ -1232,6 +1243,12 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean useWorkersWithDexbuilder() {
     return useWorkersWithDexbuilder;
+  }
+
+  /** Whether to assume the dexbuilder tool supports local multiplexed worker mode. */
+  @Override
+  public boolean useMultiplexWorkersWithDexbuilder() {
+    return useMultiplexWorkersWithDexbuilder;
   }
 
   @Override

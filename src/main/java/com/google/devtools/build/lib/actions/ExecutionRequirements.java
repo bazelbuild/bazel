@@ -176,6 +176,9 @@ public class ExecutionRequirements {
   public static final ImmutableMap<String, String> WORKER_MODE_ENABLED =
       ImmutableMap.of(SUPPORTS_WORKERS, "1");
 
+  public static final ImmutableMap<String, String> WORKER_MULTIPLEX_MODE_ENABLED =
+      ImmutableMap.of(SUPPORTS_MULTIPLEX_WORKERS, "1");
+
   /**
    * Requires local execution without sandboxing for a spawn.
    *
