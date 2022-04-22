@@ -549,8 +549,6 @@ JAVA_TOOLS_DEPLOY_JARS = [
 release_archive(
     name = "jars_java_tools_zip",
     srcs = JAVA_TOOLS_DEPLOY_JARS + [
-        "@java_tools_langtools_javac11//:jdk_compiler_jar",
-        "@java_tools_langtools_javac11//:java_compiler_jar",
         "@java_tools_langtools_javac11//:javac_jar",
     ],
     package_dir = "java_tools",

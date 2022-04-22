@@ -152,14 +152,6 @@ function test_java_tools_has_Runner() {
   expect_path_in_java_tools "java_tools/Runner_deploy.jar"
 }
 
-function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "java_tools/jdk_compiler.jar"
-}
-
-function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_tools/java_compiler.jar"
-}
-
 function test_java_tools_has_javac() {
   expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
 }

@@ -270,16 +270,6 @@ alias(
 )
 
 alias(
-    name = "jdk_compiler_jar",
-    actual = "@remote_java_tools//:jdk_compiler_jar",
-)
-
-alias(
-    name = "java_compiler_jar",
-    actual = "@remote_java_tools//:java_compiler_jar",
-)
-
-alias(
     name = "JacocoCoverageRunner",
     actual = "@remote_java_tools//:jacoco_coverage_runner",
 )
