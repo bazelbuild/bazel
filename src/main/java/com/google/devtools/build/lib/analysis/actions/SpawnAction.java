@@ -417,9 +417,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
-    if (getMnemonic().equals("AndroidLint")) {
-      System.out.println("ya");
-    }
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
             artifactExpander,

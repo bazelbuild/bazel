@@ -295,9 +295,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       this.errorInfo = errorInfo;
     }
 
-    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static TraversalRequest create(
+    public static TraversalRequest create(
         DirectTraversalRoot root,
         boolean isRootGenerated,
         PackageBoundaryMode crossPkgBoundaries,

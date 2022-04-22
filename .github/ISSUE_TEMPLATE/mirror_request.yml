@@ -1,0 +1,19 @@
+name: Mirror request
+description: Request to add new archives to mirror.bazel.build
+labels: ["mirror request", "type: process", "P2", "team-OSS"]
+title: "[Mirror] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Attention:** if the archive you're trying to mirror is a GitHub release archive,
+        please use URLs of the form `https://github.com/$USER/$REPO/archive/refs/tags/$TAG`,
+        instead of the form without the `refs/tags/` part. The latter is *not* guaranteed to
+        have a stable hash (see
+        https://github.com/bazel-contrib/SIG-rules-authors/issues/11#issuecomment-1029861300
+        for more details).
+  - type: textarea
+    id: urls
+    attributes:
+      label: >
+        Please list the URLs of the archives you'd like to mirror:

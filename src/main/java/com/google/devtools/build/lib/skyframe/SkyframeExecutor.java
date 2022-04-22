@@ -359,8 +359,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
 
-  private boolean siblingRepositoryLayout = false;
-
   // A Semaphore to limit the number of in-flight execution of certain SkyFunctions to prevent OOM.
   // TODO(b/185987566): Remove this semaphore.
   private static final int DEFAULT_SEMAPHORE_SIZE = ResourceUsage.getAvailableProcessors();
@@ -1233,56 +1231,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
   }
 
-  public Map<PathFragment, Root> getArtifactRootsForFiles(
-      final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths)
-      throws InterruptedException {
-    return getArtifactRoots(eventHandler, execPaths, true);
-  }
-
-  public Map<PathFragment, Root> getArtifactRoots(
-      final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths)
-      throws InterruptedException {
-    return getArtifactRoots(eventHandler, execPaths, false);
-  }
-
-  private Map<PathFragment, Root> getArtifactRoots(
-      final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths, boolean forFiles)
-      throws InterruptedException {
-    final Map<PathFragment, SkyKey> packageKeys = new HashMap<>();
-    for (PathFragment execPath : execPaths) {
-      PackageIdentifier pkgIdentifier =
-          PackageIdentifier.discoverFromExecPath(execPath, forFiles, siblingRepositoryLayout);
-      packageKeys.put(execPath, ContainingPackageLookupValue.key(pkgIdentifier));
-    }
-
-    EvaluationResult<ContainingPackageLookupValue> result;
-    EvaluationContext evaluationContext =
-        newEvaluationContextBuilder()
-            .setKeepGoing(true)
-            .setNumThreads(1)
-            .setEventHandler(eventHandler)
-            .build();
-
-    synchronized (valueLookupLock) {
-      result = memoizingEvaluator.evaluate(packageKeys.values(), evaluationContext);
-    }
-
-    if (result.hasError()) {
-      return new HashMap<>();
-    }
-
-    Map<PathFragment, Root> roots = new HashMap<>();
-    for (PathFragment execPath : execPaths) {
-      ContainingPackageLookupValue value = result.get(packageKeys.get(execPath));
-      if (value.hasContainingPackage()) {
-        roots.put(execPath, value.getContainingPackageRoot());
-      } else {
-        roots.put(execPath, null);
-      }
-    }
-    return roots;
-  }
-
   @VisibleForTesting
   public SkyFunctionEnvironmentForTesting getSkyFunctionEnvironmentForTesting(
       ExtendedEventHandler eventHandler) {
@@ -1407,7 +1355,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
-    this.siblingRepositoryLayout = experimentalSiblingRepositoryLayout;
     this.artifactFactory.setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
   }
 
