@@ -70,24 +70,49 @@ java_test(
 java_library(
     name = "twosimpleclasses",
     srcs = glob(["testdata/twosimpleclasses/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "naming001",
     srcs = glob(["testdata/naming001/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "arithmetic",
     srcs = glob(["testdata/arithmetic/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "barray",
     srcs = glob(["testdata/barray/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "dexmergersample",
     srcs = glob(["testdata/dexmergersample/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
