@@ -692,13 +692,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     addTransitiveAndFilter(objcProviderBuilder, key, Predicates.not(Predicates.in(avoidItemsSet)));
   }
 
-  /**
-   * Check whether that a path fragment is a framework directory (i.e. ends in FRAMEWORK_SUFFIX).
-   */
-  private static void checkIsFrameworkDirectory(PathFragment dir) {
-    Preconditions.checkState(dir.getBaseName().endsWith(FRAMEWORK_SUFFIX));
-  }
-
   /** The input path must be of the form <path>/<name>.FRAMEWORK_SUFFIX. Return the names. */
   private static String getFrameworkName(PathFragment frameworkPath) {
     String segment = frameworkPath.getBaseName();
@@ -719,7 +712,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     NestedSetBuilder<String> names = new NestedSetBuilder<>(key.order);
     for (Artifact file : get(key).toList()) {
       PathFragment frameworkDir = file.getExecPath().getParentDirectory();
-      checkIsFrameworkDirectory(frameworkDir);
+      if (!frameworkDir.getBaseName().endsWith(FRAMEWORK_SUFFIX)) {
+        continue;
+      }
       names.add(getFrameworkName(frameworkDir));
     }
     return names.build();
@@ -734,7 +729,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     NestedSetBuilder<String> paths = new NestedSetBuilder<>(key.order);
     for (Artifact file : get(key).toList()) {
       PathFragment frameworkDir = file.getExecPath().getParentDirectory();
-      checkIsFrameworkDirectory(frameworkDir);
+      if (!frameworkDir.getBaseName().endsWith(FRAMEWORK_SUFFIX)) {
+        continue;
+      }
       paths.add(getFrameworkPath(frameworkDir));
     }
     return paths.build();
