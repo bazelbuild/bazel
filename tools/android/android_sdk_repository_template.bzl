@@ -298,12 +298,14 @@ def create_android_sdk_rules(
     )
     java_binary(
         name = "d8_compat_dx",
-        main_class = "com.android.tools.r8.compatdx.CompatDx",
-        runtime_deps = [":d8_jar_import"],
+        main_class = "com.google.devtools.build.android.r8.CompatDx",
+        runtime_deps = [
+            "@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:r8",
+        ],
     )
-    java_import(
+    native.alias(
         name = "d8_jar_import",
-        jars = ["build-tools/%s/lib/d8.jar" % build_tools_directory],
+        actual = "@android_gmaven_r8//jar",
     )
 
 TAGDIR_TO_TAG_MAP = {
