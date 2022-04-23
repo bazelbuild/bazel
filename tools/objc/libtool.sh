@@ -32,7 +32,7 @@ if [ -z ${MY_LOCATION+x} ]; then
   fi
 fi
 
-function libtool() {
+function invoke_libtool() {
   # Just invoke libtool via xcrunwrapper
   "${MY_LOCATION}/xcrunwrapper.sh" libtool "$@" \
   2> >(grep -v "the table of contents is empty (no object file members in the"`
@@ -47,7 +47,7 @@ if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
 elif "${MY_LOCATION}"/libtool_check_unique "$@"; then
   # If there are no duplicate .o basenames,
   # libtool can be invoked with the original arguments.
-  libtool "$@"
+  invoke_libtool "$@"
   exit
 fi
 
@@ -138,4 +138,4 @@ for arg in "$@"; do
 done
 
 printf '%s\n' "${ARGS[@]}" > "$TEMPDIR/processed.params"
-libtool "@$TEMPDIR/processed.params"
+invoke_libtool "@$TEMPDIR/processed.params"
