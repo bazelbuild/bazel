@@ -472,7 +472,7 @@ cc_toolchain_config(
         "strip": "wrapper/bin/msvc_nop.bat",
     },
     archiver_flags = ["/MACHINE:X64"],
-    default_link_flags = ["/MACHINE:X64", "/DEFAULTLIB:clang_rt.builtins-x86_64.lib"],
+    default_link_flags = ["/MACHINE:X64"],
     dbg_mode_debug_flag = "%{clang_cl_dbg_mode_debug_flag_x64}",
     fastbuild_mode_debug_flag = "%{clang_cl_fastbuild_mode_debug_flag_x64}",
 )
