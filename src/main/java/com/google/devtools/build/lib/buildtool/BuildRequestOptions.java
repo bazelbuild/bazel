@@ -421,6 +421,16 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean actionCacheStoreOutputMetadata;
 
   @Option(
+      name = "rewind_lost_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to use action rewinding to recover from lost inputs. Ignored unless"
+              + " prerequisites for rewinding are met (no incrementality, no action cache).")
+  public boolean rewindLostInputs;
+
+  @Option(
       name = "discard_actions_after_execution",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

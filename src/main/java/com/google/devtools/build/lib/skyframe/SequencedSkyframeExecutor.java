@@ -273,11 +273,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     if (evaluatorNeedsReset) {
-      // Rewinding is only supported with no incremental state and no action cache.
       inconsistencyReceiver =
-          trackIncrementalState || useActionCache(options)
-              ? GraphInconsistencyReceiver.THROWING
-              : new RewindableGraphInconsistencyReceiver();
+          rewindingPermitted(options)
+              ? new RewindableGraphInconsistencyReceiver()
+              : GraphInconsistencyReceiver.THROWING;
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
@@ -300,9 +299,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return workspaceInfo;
   }
 
-  private static boolean useActionCache(OptionsProvider options) {
+  private boolean rewindingPermitted(OptionsProvider options) {
+    // Rewinding is only supported with no incremental state and no action cache.
+    if (trackIncrementalState) {
+      return false;
+    }
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null && buildRequestOptions.useActionCache;
+    return buildRequestOptions != null
+        && !buildRequestOptions.useActionCache
+        && buildRequestOptions.rewindLostInputs;
   }
 
   /**
