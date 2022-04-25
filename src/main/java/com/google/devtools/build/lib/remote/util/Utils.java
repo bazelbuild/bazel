@@ -69,6 +69,7 @@ import com.google.rpc.Status;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Instant;
@@ -706,5 +707,26 @@ public final class Utils {
     if (bulkTransferException != null) {
       throw bulkTransferException;
     }
+  }
+
+  /**
+   * Converts from a Starlark string, which contains raw bytes, to a Protobuf
+   * string, which contains Unicode code points.
+   */
+  public static String starlarkStringToProto(String starlarkString) {
+    if (starlarkString.chars().allMatch(c -> c < 128)) {
+      return starlarkString;
+    }
+    final byte[] utf8 = starlarkString.getBytes(StandardCharsets.ISO_8859_1);
+    return new String(utf8, StandardCharsets.UTF_8);
+  }
+
+  /** See {@link #starlarkStringToProto} */
+  public static String protoStringToStarlark(String protoString) {
+    if (protoString.chars().allMatch(c -> c < 128)) {
+      return protoString;
+    }
+    final byte[] utf8 = protoString.getBytes(StandardCharsets.UTF_8);
+    return new String(utf8, StandardCharsets.ISO_8859_1);
   }
 }

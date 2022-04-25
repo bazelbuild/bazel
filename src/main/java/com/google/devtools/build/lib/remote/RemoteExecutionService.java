@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
+import static com.google.devtools.build.lib.remote.util.Utils.protoStringToStarlark;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromCombinedCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromDiskCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromRemoteCache;
@@ -33,6 +34,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllS
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToCombinedDisk;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
+import static com.google.devtools.build.lib.remote.util.Utils.starlarkStringToProto;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 
 import build.bazel.remote.execution.v2.Action;
@@ -224,7 +226,7 @@ public class RemoteExecutionService {
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
     for (ActionInput output : outputs) {
-      String pathString = remotePathResolver.localPathToOutputPath(output);
+      String pathString = starlarkStringToProto(remotePathResolver.localPathToOutputPath(output));
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         outputDirectories.add(pathString);
       } else {
@@ -239,16 +241,20 @@ public class RemoteExecutionService {
     if (platform != null) {
       command.setPlatform(platform);
     }
-    command.addAllArguments(arguments);
+    for (String arg : arguments) {
+      command.addArguments(starlarkStringToProto(arg));
+    }
     // Sorting the environment pairs by variable name.
     TreeSet<String> variables = new TreeSet<>(env.keySet());
     for (String var : variables) {
-      command.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
+      command.addEnvironmentVariablesBuilder()
+          .setName(starlarkStringToProto(var))
+          .setValue(starlarkStringToProto(env.get(var)));
     }
 
     String workingDirectory = remotePathResolver.getWorkingDirectory();
     if (!Strings.isNullOrEmpty(workingDirectory)) {
-      command.setWorkingDirectory(workingDirectory);
+      command.setWorkingDirectory(starlarkStringToProto(workingDirectory));
     }
     return command.build();
   }
@@ -865,7 +871,7 @@ public class RemoteExecutionService {
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectories()) {
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(dir.getPath()),
+          remotePathResolver.outputPathToLocalPath(protoStringToStarlark(dir.getPath())),
           Futures.transformAsync(
               remoteCache.downloadBlob(
                   action.getRemoteActionExecutionContext(), dir.getTreeDigest()),
@@ -891,7 +897,7 @@ public class RemoteExecutionService {
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
     for (OutputFile outputFile : result.getOutputFiles()) {
-      Path localPath = remotePathResolver.outputPathToLocalPath(outputFile.getPath());
+      Path localPath = remotePathResolver.outputPathToLocalPath(protoStringToStarlark(outputFile.getPath()));
       files.put(
           localPath,
           new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
@@ -901,7 +907,7 @@ public class RemoteExecutionService {
     Iterable<OutputSymlink> outputSymlinks =
         Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
     for (OutputSymlink symlink : outputSymlinks) {
-      Path localPath = remotePathResolver.outputPathToLocalPath(symlink.getPath());
+      Path localPath = remotePathResolver.outputPathToLocalPath(protoStringToStarlark(symlink.getPath()));
       symlinks.put(
           localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
     }

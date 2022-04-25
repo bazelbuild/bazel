@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
@@ -333,14 +334,17 @@ public class MerkleTree {
 
   private static FileNode buildProto(DirectoryTree.FileNode file) {
     return FileNode.newBuilder()
-        .setName(file.getPathSegment())
+        .setName(Utils.starlarkStringToProto(file.getPathSegment()))
         .setDigest(file.getDigest())
         .setIsExecutable(file.isExecutable())
         .build();
   }
 
   private static DirectoryNode buildProto(String baseName, MerkleTree dir) {
-    return DirectoryNode.newBuilder().setName(baseName).setDigest(dir.getRootDigest()).build();
+    return DirectoryNode.newBuilder()
+        .setName(Utils.starlarkStringToProto(baseName))
+        .setDigest(dir.getRootDigest())
+        .build();
   }
 
   private static PathOrBytes toPathOrBytes(DirectoryTree.FileNode file) {
