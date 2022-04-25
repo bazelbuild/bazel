@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -216,17 +217,21 @@ public class BuildTool {
           AnalysisAndExecutionResult analysisAndExecutionResult =
               AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
 
+          BuildResultListener buildResultListener =
+              Preconditions.checkNotNull(env.getBuildResultListener());
           result.setBuildConfigurationCollection(
               analysisAndExecutionResult.getConfigurationCollection());
-          result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
-          result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
+          result.setActualTargets(buildResultListener.getAnalyzedTargets());
+          result.setTestTargets(buildResultListener.getAnalyzedTests());
           try (SilentCloseable c = Profiler.instance().profile("Show results")) {
             result.setSuccessfulTargets(
                 ExecutionTool.determineSuccessfulTargets(
-                    analysisAndExecutionResult.getTargetsToBuild(), builtTargets));
+                    buildResultListener.getAnalyzedTargets(),
+                    buildResultListener.getBuiltTargets()));
             result.setSuccessfulAspects(
                 ExecutionTool.determineSuccessfulAspects(
-                    analysisAndExecutionResult.getAspectsMap().keySet(), builtAspects));
+                    buildResultListener.getAnalyzedAspects().keySet(),
+                    buildResultListener.getBuiltAspects()));
             result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
             BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
             buildResultPrinter.showBuildResult(

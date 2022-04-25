@@ -663,8 +663,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 getConflictFreeActionLookupKeysGlobalSet().addAll(keys);
               }
             },
-            this::getIncrementalArtifactConflictFinder,
-            this::getEventBus));
+            this::getIncrementalArtifactConflictFinder));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -105,6 +106,7 @@ public class CommandEnvironment {
   private final ImmutableList<Any> commandExtensions;
   private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
   private final Consumer<String> shutdownReasonConsumer;
+  private final BuildResultListener buildResultListener;
 
   private OutputService outputService;
   private String workspaceName;
@@ -268,6 +270,8 @@ public class CommandEnvironment {
         repoEnvFromOptions.put(entry.getKey(), entry.getValue());
       }
     }
+    this.buildResultListener = new BuildResultListener();
+    this.eventBus.register(this.buildResultListener);
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -830,5 +834,10 @@ public class CommandEnvironment {
 
   public void addResponseExtensions(Iterable<Any> extensions) {
     responseExtensions.addAll(extensions);
+  }
+
+  @Nullable
+  public BuildResultListener getBuildResultListener() {
+    return buildResultListener;
   }
 }
