@@ -89,7 +89,7 @@ public final class BazelMockAndroidSupport {
             Pair.of("ld-bfd", "arm/bin/arm-linux-androideabi-ld.bfd"),
             Pair.of("ld-gold", "arm/bin/arm-linux-androideabi-ld.gold"))
         .withToolchainTargetConstraints(
-            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7",
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android");
   }
 
@@ -146,7 +146,7 @@ public final class BazelMockAndroidSupport {
         String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
         "    toolchain = '//platform_selected_android_sdks:arm',",
         "    target_compatible_with = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "    ])");
   }
 }

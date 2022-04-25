@@ -12,7 +12,7 @@ toolchain(
     name = "cc-toolchain-armeabi-v7a",
     exec_compatible_with = HOST_CONSTRAINTS,
     target_compatible_with = [
-        "@platforms//cpu:arm",
+        "@platforms//cpu:armv7",
         "@platforms//os:android",
     ],
     toolchain = "@local_config_cc//:cc-compiler-armeabi-v7a",
