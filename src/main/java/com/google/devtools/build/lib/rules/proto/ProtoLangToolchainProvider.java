@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.rules.proto;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkList;
@@ -90,19 +91,6 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
       structField = true)
   public abstract String mnemonic();
 
-  /**
-   * This makes the blacklisted_protos member available in the provider. It can be removed after
-   * users are migrated and a sufficient time for Bazel rules to migrate has elapsed.
-   */
-  @Deprecated
-  public NestedSet<Artifact> blacklistedProtos() {
-    return forbiddenProtos();
-  }
-
-  // TODO(yannic): Remove after migrating all users to `providedProtoSources()`.
-  @Deprecated
-  public abstract NestedSet<Artifact> forbiddenProtos();
-
   public static ProtoLangToolchainProvider create(
       String outReplacementFormatFlag,
       String pluginFormatFlag,
@@ -113,10 +101,6 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
       ImmutableList<String> protocOpts,
       String progressMessage,
       String mnemonic) {
-    NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
-    for (ProtoSource protoSource : providedProtoSources) {
-      blacklistedProtos.add(protoSource.getOriginalSourceFile());
-    }
     return new AutoValue_ProtoLangToolchainProvider(
         outReplacementFormatFlag,
         pluginFormatFlag,
@@ -126,7 +110,6 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
         protoc,
         protocOpts,
         progressMessage,
-        mnemonic,
-        blacklistedProtos.build());
+        mnemonic);
   }
 }

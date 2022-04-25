@@ -22,6 +22,7 @@ load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
+load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -38,6 +39,7 @@ exported_rules = {
     "+apple_static_library": apple_static_library,
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
+    "-proto_lang_toolchain": proto_lang_toolchain,
 }
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,

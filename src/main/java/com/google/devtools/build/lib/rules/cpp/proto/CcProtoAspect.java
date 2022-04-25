@@ -284,7 +284,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     private boolean areSrcsExcluded() {
       return !new ProtoSourceFileExcludeList(
-              ruleContext, getProtoToolchainProvider().forbiddenProtos())
+              ruleContext, getProtoToolchainProvider().providedProtoSources())
           .checkSrcs(protoInfo.getDirectSources(), "cc_proto_library");
     }
 

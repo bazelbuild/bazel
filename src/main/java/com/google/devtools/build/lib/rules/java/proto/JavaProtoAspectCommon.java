@@ -205,14 +205,8 @@ public class JavaProtoAspectCommon {
       return false;
     }
 
-    NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
-    forbiddenProtos.addTransitive(getProtoToolchainProvider().forbiddenProtos());
-    if (rpcSupport != null) {
-      forbiddenProtos.addTransitive(rpcSupport.getForbiddenProtos(ruleContext));
-    }
-
     final ProtoSourceFileExcludeList protoExcludeList =
-        new ProtoSourceFileExcludeList(ruleContext, forbiddenProtos.build());
+        new ProtoSourceFileExcludeList(ruleContext, getProtoToolchainProvider().providedProtoSources());
 
     return protoExcludeList.checkSrcs(protoInfo.getDirectSources(), ruleName);
   }
