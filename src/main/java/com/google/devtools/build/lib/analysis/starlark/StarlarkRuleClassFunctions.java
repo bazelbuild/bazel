@@ -133,11 +133,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                 @Override
                 public Label load(String from) throws Exception {
                   try {
-                    return Label.parseAbsolute(
-                        from,
-                        /* repositoryMapping= */ ImmutableMap.of());
+                    return Label.parseAbsolute(from, /* repositoryMapping= */ ImmutableMap.of());
                   } catch (LabelSyntaxException e) {
-                    throw new Exception(from);
+                    throw new Exception(from, e);
                   }
                 }
               });
