@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
@@ -253,7 +254,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     @Override
     public Object getIndex(StarlarkSemantics semantics, Object key) {
-      return null;
+      return Starlark.NONE;
     }
 
     @Override

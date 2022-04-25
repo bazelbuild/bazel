@@ -233,7 +233,11 @@ public abstract class ConstraintCollection
 
   @Override
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    return get(convertKey(key));
+    Object result = get(convertKey(key));
+    if (result == null) {
+      result = Starlark.NONE;
+    }
+    return result;
   }
 
   @Override
