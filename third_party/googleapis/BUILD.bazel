@@ -24,7 +24,7 @@ exports_files(["LICENSE"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"], allow_empty = True),
     visibility = ["@io_bazel//third_party:__pkg__"],
 )
 
