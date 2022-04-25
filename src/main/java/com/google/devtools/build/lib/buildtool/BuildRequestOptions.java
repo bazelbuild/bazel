@@ -537,6 +537,17 @@ public class BuildRequestOptions extends OptionsBase {
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
 
+  @Option(
+      name = "experimental_use_event_based_build_completion_status",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set, use the event bus to keep track of whether a top-level target or"
+              + " its aspect is analyzed/built.")
+  public boolean useEventBasedBuildCompletionStatus;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.

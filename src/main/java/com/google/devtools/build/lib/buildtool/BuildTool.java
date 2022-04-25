@@ -292,7 +292,8 @@ public class BuildTool {
               analysisResult,
               result,
               analysisResult.getPackageRoots(),
-              request.getTopLevelArtifactContext());
+              request.getTopLevelArtifactContext(),
+              request.getBuildOptions().useEventBasedBuildCompletionStatus);
         } else {
           env.getReporter().post(new NoExecutionEvent());
         }

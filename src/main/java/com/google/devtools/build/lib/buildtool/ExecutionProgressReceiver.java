@@ -71,6 +71,7 @@ public final class ExecutionProgressReceiver
    */
   ExecutionProgressReceiver(
       Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects, int exclusiveTestsCount) {
+    // TODO(b/227138583) Remove these.
     this.builtTargets = Collections.synchronizedSet(builtTargets);
     this.builtAspects = Collections.synchronizedSet(builtAspects);
     this.exclusiveTestsCount = exclusiveTestsCount;

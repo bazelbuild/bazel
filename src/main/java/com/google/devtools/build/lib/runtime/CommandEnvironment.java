@@ -836,7 +836,6 @@ public class CommandEnvironment {
     responseExtensions.addAll(extensions);
   }
 
-  @Nullable
   public BuildResultListener getBuildResultListener() {
     return buildResultListener;
   }

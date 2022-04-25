@@ -378,7 +378,8 @@ public class ExecutionTool {
       AnalysisResult analysisResult,
       BuildResult buildResult,
       PackageRoots packageRoots,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean useEventBasedBuildCompletionStatus)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
     prepare(packageRoots, analysisResult.getNonSymlinkedDirectoriesUnderExecRoot());
@@ -436,6 +437,7 @@ public class ExecutionTool {
         installExplanationHandler(
             request.getBuildOptions().explanationPath, request.getOptionsDescription());
 
+    // TODO(b/227138583): Remove these.
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
 
@@ -530,6 +532,11 @@ public class ExecutionTool {
 
       if (buildCompleted) {
         saveActionCache(actionCache);
+      }
+
+      if (useEventBasedBuildCompletionStatus) {
+        builtTargets = env.getBuildResultListener().getBuiltTargets();
+        builtAspects = env.getBuildResultListener().getBuiltAspects();
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
