@@ -3771,4 +3771,96 @@ EOF
   expect_log "5 processes: 2 disk cache hit, 3 internal"
 }
 
+function test_unicode() {
+  # Run the remote execution worker in a UTF-8 locale so it can write
+  # files to non-ASCII paths in the execroot.
+  tear_down
+  LC_ALL=en_US.UTF-8 set_up
+
+  cat > BUILD <<EOF
+load("//:rules.bzl", "test_unicode")
+test_unicode(
+  name = "test_unicode",
+  inputs = glob(["inputs/**/*"]),
+)
+EOF
+  cat > rules.bzl <<EOF
+def _test_unicode(ctx):
+  out_dir = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/あ.d")
+  out_file = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/あ.txt")
+  out_report = ctx.actions.declare_file(ctx.attr.name + "_report.txt")
+  ctx.actions.run_shell(
+    inputs = ctx.files.inputs,
+    outputs = [out_dir, out_file, out_report],
+    command = """
+set -e
+
+report="\$3"
+touch "\${report}"
+
+echo '[input tree]' >> "\${report}"
+find inputs >> "\${report}"
+echo '' >> "\${report}"
+
+echo '[input file]' >> "\${report}"
+cat \$'inputs/\\\\xe5\\\\x85\\\\xa5\\\\xe5\\\\x8a\\\\x9b/\\\\xe3\\\\x81\\\\x82.txt' >> "\${report}"
+echo '' >> "\${report}"
+
+echo '[environment]' >> "\${report}"
+env | grep -v BASH_EXECUTION_STRING | grep TEST_UNICODE_ >> "\${report}"
+echo '' >> "\${report}"
+
+mkdir "\$1"
+touch "\$1"/dir_content.txt
+echo 'output content' > "\$2"
+""",
+    arguments = [out_dir.path, out_file.path, out_report.path],
+    env = {"TEST_UNICODE_あ": "あ"},
+  )
+  return DefaultInfo(files=depset([out_dir, out_file, out_report]))
+
+test_unicode = rule(
+  implementation = _test_unicode,
+  attrs = {
+    "inputs": attr.label_list(allow_files = True),
+  },
+)
+EOF
+
+  # inputs/入力/あ.txt
+  mkdir -p $'inputs/\xe5\x85\xa5\xe5\x8a\x9b'
+  echo 'input content' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/\xe3\x81\x82.txt'
+
+  # On systems without an ISO-8859-1 locale, the environment locale must be
+  # the same as the file encoding.
+  #
+  # This doesn't affect systems that do have an ISO-8859-1 locale, because the
+  # Bazel launcher will force it to be used.
+  bazel shutdown
+  LC_ALL=en_US.UTF-8 bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //:test_unicode >& $TEST_log \
+      || fail "Failed to build //:test_unicode with remote execution"
+  expect_log "2 processes: 1 internal, 1 remote."
+
+  # Don't leak LC_ALL into other tests.
+  bazel shutdown
+
+  cat > ${TEST_TMPDIR}/test_expected <<EOF
+[input tree]
+inputs
+inputs/入力
+inputs/入力/あ.txt
+
+[input file]
+input content
+
+[environment]
+TEST_UNICODE_あ=あ
+
+EOF
+  diff bazel-bin/test_unicode_report.txt ${TEST_TMPDIR}/test_expected \
+      || fail "Remote execution generated different result"
+}
+
 run_suite "Remote execution and remote cache tests"
