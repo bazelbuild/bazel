@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -48,25 +49,26 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
       Iterable<ConfiguredTargetAndData> toolchainTargets)
       throws ToolchainException {
 
-    ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchains =
+    ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchainsBuilder =
         new ImmutableMap.Builder<>();
     ImmutableList.Builder<TemplateVariableInfo> templateVariableProviders =
         new ImmutableList.Builder<>();
+
     for (ConfiguredTargetAndData target : toolchainTargets) {
       // Aliases are in toolchainTypeToResolved by the original alias label, not via the final
       // target's label.
       Label discoveredLabel = target.getConfiguredTarget().getOriginalLabel();
+      ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
 
       for (ToolchainTypeInfo toolchainType :
           unloadedToolchainContext.toolchainTypeToResolved().inverse().get(discoveredLabel)) {
-        ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target.getConfiguredTarget());
 
         // If the toolchainType hadn't been resolved to an actual target, resolution would have
         // failed with an error much earlier. However, the target might still not be an actual
         // toolchain.
         if (toolchainType != null) {
           if (toolchainInfo != null) {
-            toolchains.put(toolchainType, toolchainInfo);
+            toolchainsBuilder.put(toolchainType, toolchainInfo);
           } else {
             throw new TargetNotToolchainException(toolchainType, discoveredLabel);
           }
@@ -81,6 +83,20 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
       }
     }
 
+    // Verify that all mandatory toolchain type requirements are present.
+    ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains = toolchainsBuilder.buildOrThrow();
+    for (ToolchainTypeRequirement toolchainTypeRequirement :
+        unloadedToolchainContext.toolchainTypes()) {
+      if (toolchainTypeRequirement.mandatory()) {
+        Label toolchainTypeLabel = toolchainTypeRequirement.toolchainType();
+        ToolchainTypeInfo toolchainTypeInfo =
+            unloadedToolchainContext.requestedLabelToToolchainType().get(toolchainTypeLabel);
+        if (!toolchains.containsKey(toolchainTypeInfo)) {
+          throw new MissingToolchainTypeRequirementException(toolchainTypeRequirement);
+        }
+      }
+    }
+
     return new AutoValue_ResolvedToolchainContext(
         // super:
         unloadedToolchainContext.key(),
@@ -91,7 +107,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         // this:
         targetDescription,
         unloadedToolchainContext.requestedLabelToToolchainType(),
-        toolchains.buildOrThrow(),
+        toolchains,
         templateVariableProviders.build());
   }
 
@@ -125,7 +141,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
   }
 
   /**
-   * Exception used when a toolchain type is required but the resolved target does not have
+   * Exception used when a toolchain type is requested but the resolved target does not have
    * ToolchainInfo.
    */
   static final class TargetNotToolchainException extends ToolchainException {
@@ -141,6 +157,22 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
     @Override
     protected Code getDetailedCode() {
       return Code.MISSING_PROVIDER;
+    }
+  }
+
+  /** Exception used when a toolchain type is required but noimplementation was found. */
+  private static class MissingToolchainTypeRequirementException extends ToolchainException {
+
+    MissingToolchainTypeRequirementException(ToolchainTypeRequirement toolchainTypeRequirement) {
+      super(
+          String.format(
+              "toolchain type %s was mandatory but is not present",
+              toolchainTypeRequirement.toolchainType()));
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.NO_MATCHING_TOOLCHAIN;
     }
   }
 }
