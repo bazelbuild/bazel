@@ -71,6 +71,11 @@ else
   declare -r EXE_EXT=""
 fi
 
+function has_utf8_locale() {
+  charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "UTF-8" ]]
+}
+
 function test_remote_grpc_cache_with_protocol() {
   # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
   mkdir -p a
@@ -3772,6 +3777,18 @@ EOF
 }
 
 function test_unicode() {
+  # Bazel can handle Unicode paths if it has either a UTF-8 or ISO-8859-1
+  # locale available, but the in-tree remote execution worker has a hard
+  # requirement on UTF-8.
+  if ! "$is_windows"; then
+    if ! has_utf8_locale; then
+      echo "Skipping test due to lack of UTF-8 locale."
+      echo "Available locales:"
+      locale -a
+      return
+    fi
+  fi
+
   # Run the remote execution worker in a UTF-8 locale so it can write
   # files to non-ASCII paths in the execroot.
   tear_down
