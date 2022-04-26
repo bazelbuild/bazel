@@ -60,11 +60,6 @@ filegroup(
     srcs = ["java_tools/turbine_direct_binary_deploy.jar"],
 )
 
-filegroup(
-    name = "javac_jar",
-    srcs = ["java_tools/javac-9+181-r4173-1.jar"],
-)
-
 java_import(
     name = "jacoco-agent",
     jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.7.jar"],

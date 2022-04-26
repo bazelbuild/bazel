@@ -28,8 +28,6 @@ JAVAP=$1
 shift
 IJAR=$1
 shift
-LANGTOOLS8=$1
-shift
 UNZIP=$1
 shift
 ZIP=$1

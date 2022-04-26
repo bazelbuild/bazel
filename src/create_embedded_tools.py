@@ -37,7 +37,6 @@ output_paths = [
     ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
-    ('*BUILD.java_langtools', lambda x: 'third_party/java/jdk/langtools/BUILD'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),

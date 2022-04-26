@@ -152,10 +152,6 @@ function test_java_tools_has_Runner() {
   expect_path_in_java_tools "java_tools/Runner_deploy.jar"
 }
 
-function test_java_tools_has_javac() {
-  expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
-}
-
 function test_java_tools_has_Jacoco() {
   expect_path_in_java_tools "java_tools/JacocoCoverage_jarjar_deploy.jar"
 }
