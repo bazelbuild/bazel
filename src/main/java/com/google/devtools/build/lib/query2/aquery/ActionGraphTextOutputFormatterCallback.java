@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.devtools.build.lib.util.StringUtil.starlarkToUnicode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -199,7 +200,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Inputs: [")
           .append(
               action.getInputs().toList().stream()
-                  .map(input -> input.getExecPathString())
+                  .map(input -> starlarkToUnicode(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n")
@@ -208,9 +209,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getOutputs().stream()
                   .map(
                       output ->
-                          output.isTreeArtifact()
+                          starlarkToUnicode(output.isTreeArtifact()
                               ? output.getExecPathString() + " (TreeArtifact)"
-                              : output.getExecPathString())
+                              : output.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n");
@@ -228,8 +229,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
             .append(
                 Streams.stream(fixedEnvironment)
                     .map(
-                        environmentVariable ->
-                            environmentVariable.getKey() + "=" + environmentVariable.getValue())
+                        environmentVariable -> starlarkToUnicode(
+                            environmentVariable.getKey() + "=" + environmentVariable.getValue()))
                     .sorted()
                     .collect(Collectors.joining(", ")))
             .append("]\n");
@@ -259,7 +260,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               CommandFailureUtils.describeCommand(
                   CommandDescriptionForm.COMPLETE,
                   /* prettyPrintArgs= */ true,
-                  ((CommandAction) action).getArguments(),
+                  ((CommandAction) action).getArguments().stream()
+                      .map(a -> starlarkToUnicode(a))
+                      .collect(Collectors.toList()),
                   /* environment= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
