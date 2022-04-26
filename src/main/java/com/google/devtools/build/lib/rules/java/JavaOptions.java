@@ -194,7 +194,8 @@ public class JavaOptions extends FragmentOptions {
   public JavaClasspathMode javaClasspath;
 
   @Option(
-      name = "experimental_inmemory_jdeps_files",
+      name = "inmemory_jdeps_files",
+      oldName = "experimental_inmemory_jdeps_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {

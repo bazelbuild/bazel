@@ -689,7 +689,8 @@ public class CppOptions extends FragmentOptions {
   public Label targetLibcTopLabel;
 
   @Option(
-      name = "experimental_inmemory_dotd_files",
+      name = "inmemory_dotd_files",
+      oldName = "experimental_inmemory_dotd_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {

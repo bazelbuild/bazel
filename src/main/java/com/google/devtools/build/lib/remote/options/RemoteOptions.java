@@ -436,8 +436,8 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "null",
       expansion = {
         "--nobuild_runfile_links",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
+        "--inmemory_jdeps_files",
+        "--inmemory_dotd_files",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
@@ -445,9 +445,8 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Does not download any remote build outputs to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
-              + "--remote_download_outputs=minimal.")
+              + "shortcut for three flags: --inmemory_jdeps_files, "
+              + "--inmemory_dotd_files and --remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
   @Option(
@@ -455,8 +454,8 @@ public final class RemoteOptions extends OptionsBase {
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
       expansion = {
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
+        "--inmemory_jdeps_files",
+        "--inmemory_dotd_files",
         "--remote_download_outputs=toplevel"
       },
       category = "remote",
@@ -464,9 +463,8 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Only downloads remote outputs of top level targets to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
-              + "--remote_download_outputs=toplevel.")
+              + "shortcut for three flags: --inmemory_jdeps_files, "
+              + "--inmemory_dotd_files and --remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
   @Option(

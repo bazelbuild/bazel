@@ -273,8 +273,8 @@ tasks:
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_download_outputs=minimal"
-      - "--experimental_inmemory_jdeps_files"
-      - "--experimental_inmemory_dotd_files"
+      - "--inmemory_jdeps_files"
+      - "--inmemory_dotd_files"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -283,8 +283,8 @@ tasks:
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_download_outputs=minimal"
-      - "--experimental_inmemory_jdeps_files"
-      - "--experimental_inmemory_dotd_files"
+      - "--inmemory_jdeps_files"
+      - "--inmemory_dotd_files"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."

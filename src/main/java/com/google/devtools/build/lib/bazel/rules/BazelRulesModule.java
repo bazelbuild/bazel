@@ -574,14 +574,14 @@ public final class BazelRulesModule extends BlazeModule {
       if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
         throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
-                + " --experimental_inmemory_jdeps_files to be enabled",
+                + " --inmemory_jdeps_files to be enabled",
             Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS);
       }
       CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
       if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
         throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
-                + " --experimental_inmemory_dotd_files to be enabled",
+                + " --inmemory_dotd_files to be enabled",
             Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD);
       }
     }
