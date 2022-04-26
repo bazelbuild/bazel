@@ -273,18 +273,18 @@ final class ExecutionServer extends ExecutionImplBase {
     workingDirectory.createDirectoryAndParents();
 
     List<Path> outputs = new ArrayList<>(command.getOutputFilesList().size());
-    for (String output : command.getOutputFilesList()) {
-      Path file = workingDirectory.getRelative(output);
-      if (file.exists()) {
-        throw new FileAlreadyExistsException("Output file already exists: " + file);
-      }
-      file.getParentDirectory().createDirectoryAndParents();
-      outputs.add(file);
-    }
     for (String output : command.getOutputDirectoriesList()) {
       Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
         throw new FileAlreadyExistsException("Output directory/file already exists: " + file);
+      }
+      file.getParentDirectory().createDirectoryAndParents();
+      outputs.add(file);
+    }
+    for (String output : command.getOutputFilesList()) {
+      Path file = workingDirectory.getRelative(output);
+      if (file.exists()) {
+        throw new FileAlreadyExistsException("Output file already exists: " + file);
       }
       file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);

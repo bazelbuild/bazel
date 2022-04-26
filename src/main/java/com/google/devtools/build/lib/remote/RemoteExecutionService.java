@@ -910,6 +910,56 @@ public class RemoteExecutionService {
         files.buildOrThrow(), symlinks.buildOrThrow(), directories.buildOrThrow());
   }
 
+  /** Check that all mandatory outputs are created. */
+  private void checkOutputs(RemoteAction action, ActionResultMetadata metadata) throws IOException {
+    for (ActionInput output : action.getSpawn().getOutputFiles()) {
+      if (!action.getSpawn().isMandatoryOutput(output)) {
+        continue;
+      }
+
+      // Don't check output that is tree artifact since spawn could generate nothing under that
+      // directory. Remote server typically doesn't create directory ahead of time resulting in
+      // empty tree artifact missing from action cache entry.
+      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+        continue;
+      }
+
+      Path localPath = execRoot.getRelative(output.getExecPath());
+      if (metadata.files.containsKey(localPath) || metadata.symlinks.containsKey(localPath)) {
+        continue;
+      }
+
+      // Output file could be under an output directory
+      boolean inDirectory = false;
+      for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories.entrySet()) {
+        Path path = entry.getKey();
+        DirectoryMetadata directory = entry.getValue();
+        if (!localPath.getPathString().startsWith(path.getPathString())) {
+          continue;
+        }
+        for (FileMetadata file : directory.files()) {
+          if (file.path.equals(localPath)) {
+            inDirectory = true;
+            break;
+          }
+        }
+        if (inDirectory) {
+          break;
+        }
+      }
+      if (inDirectory) {
+        continue;
+      }
+
+      throw new IOException(
+          "Invalid action cache entry "
+              + action.getActionKey().getDigest().getHash()
+              + ": expected output "
+              + prettyPrint(output)
+              + " does not exist.");
+    }
+  }
+
   /**
    * Download the output files and directory trees of a remotely executed action, as well stdin /
    * stdout to the local machine.
@@ -935,29 +985,7 @@ public class RemoteExecutionService {
     }
 
     if (result.success()) {
-      // Check that all mandatory outputs are created.
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (action.getSpawn().isMandatoryOutput(output)) {
-          // Don't check output that is tree artifact since spawn could generate nothing under that
-          // directory. Remote server typically doesn't create directory ahead of time resulting in
-          // empty tree artifact missing from action cache entry.
-          if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-            continue;
-          }
-
-          Path localPath = execRoot.getRelative(output.getExecPath());
-          if (!metadata.files.containsKey(localPath)
-              && !metadata.directories.containsKey(localPath)
-              && !metadata.symlinks.containsKey(localPath)) {
-            throw new IOException(
-                "Invalid action cache entry "
-                    + action.getActionKey().getDigest().getHash()
-                    + ": expected output "
-                    + prettyPrint(output)
-                    + " does not exist.");
-          }
-        }
-      }
+      checkOutputs(action, metadata);
 
       // When downloading outputs from just remotely executed action, the action result comes from
       // Execution response which means, if disk cache is enabled, action result hasn't been
@@ -984,6 +1012,7 @@ public class RemoteExecutionService {
             hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
 
     if (downloadOutputs) {
+      // Deduplicate file downloads since output files could under an output directory.
       HashSet<PathFragment> queuedFilePaths = new HashSet<>();
 
       for (FileMetadata file : metadata.files()) {

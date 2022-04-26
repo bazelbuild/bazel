@@ -317,7 +317,6 @@ public class RemoteExecutionServiceTest {
     // Test that downloading a nested output directory works.
 
     // arrange
-    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
     Digest quxDigest = cache.addContents(remoteActionExecutionContext, "qux-contents");
     Directory wobbleDirMessage =
         Directory.newBuilder()
@@ -341,7 +340,7 @@ public class RemoteExecutionServiceTest {
     Digest barTreeDigest =
         cache.addContents(remoteActionExecutionContext, barTreeMessage.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
-    builder.addOutputFilesBuilder().setPath("outputs/a/foo").setDigest(fooDigest);
+    builder.addOutputFilesBuilder().setPath("outputs/a/bar/wobble/qux").setDigest(quxDigest);
     builder.addOutputDirectoriesBuilder().setPath("outputs/a/bar").setTreeDigest(barTreeDigest);
     RemoteActionResult result =
         RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
@@ -354,7 +353,62 @@ public class RemoteExecutionServiceTest {
     service.downloadOutputs(action, result);
 
     // assert
-    assertThat(digestUtil.compute(execRoot.getRelative("outputs/a/foo"))).isEqualTo(fooDigest);
+    assertThat(digestUtil.compute(execRoot.getRelative("outputs/a/bar/wobble/qux")))
+        .isEqualTo(quxDigest);
+    assertThat(execRoot.getRelative("outputs/a/bar/wobble/qux").isExecutable()).isFalse();
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_nestedOutputDirectories_outputFileOmitted_works() throws Exception {
+    // Test that downloading a nested output directory works when the output file under an output
+    // directory is omitted in ActionResult.
+
+    // arrange
+    Digest quxDigest = cache.addContents(remoteActionExecutionContext, "qux-contents");
+    Directory wobbleDirMessage =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("qux").setDigest(quxDigest))
+            .build();
+    Digest wobbleDirDigest =
+        cache.addContents(remoteActionExecutionContext, wobbleDirMessage.toByteArray());
+    Tree barTreeMessage =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("qux")
+                            .setDigest(quxDigest)
+                            .setIsExecutable(true))
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("wobble").setDigest(wobbleDirDigest)))
+            .addChildren(wobbleDirMessage)
+            .build();
+    Digest barTreeDigest =
+        cache.addContents(remoteActionExecutionContext, barTreeMessage.toByteArray());
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputDirectoriesBuilder().setPath("outputs/a/bar").setTreeDigest(barTreeDigest);
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Path barTreePath = remotePathResolver.outputPathToLocalPath("outputs/a/bar");
+    Artifact barTreeOutput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, barTreePath.relativeTo(execRoot));
+    Path quxPath = remotePathResolver.outputPathToLocalPath("outputs/a/bar/wobble/qux");
+    Artifact quxFileOutput = ActionsTestUtil.createArtifact(artifactRoot, quxPath);
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.<Artifact>builder().add(quxFileOutput).add(barTreeOutput).build());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // act
+    service.downloadOutputs(action, result);
+
+    // assert
     assertThat(digestUtil.compute(execRoot.getRelative("outputs/a/bar/wobble/qux")))
         .isEqualTo(quxDigest);
     assertThat(execRoot.getRelative("outputs/a/bar/wobble/qux").isExecutable()).isFalse();

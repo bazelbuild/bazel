@@ -3771,4 +3771,37 @@ EOF
   expect_log "5 processes: 2 disk cache hit, 3 internal"
 }
 
+function test_output_file_under_output_directory() {
+  # Test the case that output file is under an output directory.
+  # See https://github.com/bazelbuild/bazel/issues/15328.
+
+  mkdir -p a
+  cat > a/rules.bzl <<'EOF'
+def _nested_outputs(ctx):
+    out_dir = ctx.actions.declare_directory(ctx.attr.name)
+    out_file = ctx.actions.declare_file(ctx.attr.name + "/hello.txt")
+
+    ctx.actions.run_shell(
+        inputs = [],
+        outputs = [out_dir, out_file],
+        command = """
+echo 'Hello, world!' > $1/hello.txt
+echo 'additional output' > $1/extra.txt
+""",
+        arguments = [out_dir.path],
+    )
+    return DefaultInfo(files = depset([out_dir, out_file]))
+
+nested_outputs = rule(implementation = _nested_outputs)
+EOF
+  cat > a/BUILD <<'EOF'
+load(":rules.bzl", "nested_outputs")
+nested_outputs(name = "nested_outputs")
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:nested_outputs >& $TEST_log || fail "Failed to build //a:nested_outputs"
+}
+
 run_suite "Remote execution and remote cache tests"
