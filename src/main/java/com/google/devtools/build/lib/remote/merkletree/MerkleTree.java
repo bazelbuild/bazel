@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.devtools.build.lib.util.StringUtil.starlarkToUnicode;
+
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -31,7 +33,6 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
@@ -334,7 +335,7 @@ public class MerkleTree {
 
   private static FileNode buildProto(DirectoryTree.FileNode file) {
     return FileNode.newBuilder()
-        .setName(Utils.starlarkStringToProto(file.getPathSegment()))
+        .setName(starlarkToUnicode(file.getPathSegment()))
         .setDigest(file.getDigest())
         .setIsExecutable(file.isExecutable())
         .build();
@@ -342,7 +343,7 @@ public class MerkleTree {
 
   private static DirectoryNode buildProto(String baseName, MerkleTree dir) {
     return DirectoryNode.newBuilder()
-        .setName(Utils.starlarkStringToProto(baseName))
+        .setName(starlarkToUnicode(baseName))
         .setDigest(dir.getRootDigest())
         .build();
   }

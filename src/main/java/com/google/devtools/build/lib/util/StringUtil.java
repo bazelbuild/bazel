@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -88,5 +89,29 @@ public class StringUtil {
       default:
         return number + "th";
     }
+  }
+
+ /**
+   * Converts from a Starlark string, which contains raw bytes, to a Unicode
+   * string, which contains Unicode code points.
+   *
+   * Unicode strings are suitable for passing to Protobuf string fields, or
+   * printing to the terminal (as UTF-8).
+   */
+  public static String starlarkToUnicode(String starlarkValue) {
+    if (starlarkValue.chars().allMatch(c -> c < 128)) {
+      return starlarkValue;
+    }
+    final byte[] utf8 = starlarkValue.getBytes(StandardCharsets.ISO_8859_1);
+    return new String(utf8, StandardCharsets.UTF_8);
+  }
+
+  /** See {@link #starlarkToUnicode} */
+  public static String unicodeToStarlark(String unicode) {
+    if (unicode.chars().allMatch(c -> c < 128)) {
+      return unicode;
+    }
+    final byte[] utf8 = unicode.getBytes(StandardCharsets.UTF_8);
+    return new String(utf8, StandardCharsets.ISO_8859_1);
   }
 }
