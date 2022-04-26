@@ -3777,9 +3777,18 @@ EOF
 }
 
 function test_unicode() {
-  # Bazel can handle Unicode paths if it has either a UTF-8 or ISO-8859-1
-  # locale available, but the in-tree remote execution worker has a hard
-  # requirement on UTF-8.
+  # On UNIX platforms, Bazel can handle files with non-ASCII paths if:
+  #
+  #   (1) The path is encoded in UTF-8, and
+  #   (2) The system has either a UTF-8 or ISO-8859-1 locale available.
+  #
+  # However, the in-tree remote worker has a hard requirement on a UTF-8 locale
+  # because it receives Unicode inputs from the network (in Protobuf strings)
+  # and relies on the locale-aware Java standard library to convert Unicde to
+  # or from filesystem paths.
+  #
+  # On modern Windows, file paths are natively UTF-16 and no special locale
+  # support is required to encode or decode them.
   if ! "$is_windows"; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
@@ -3801,38 +3810,39 @@ test_unicode(
   inputs = glob(["inputs/**/*"]),
 )
 EOF
-  cat > rules.bzl <<EOF
+
+  cat > rules.bzl <<'EOF'
 def _test_unicode(ctx):
-  out_dir = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/あ.d")
-  out_file = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/あ.txt")
+  out_dir = ctx.actions.declare_directory(ctx.attr.name + "_outs/出力/🌱.d")
+  out_file = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/🌱.txt")
   out_report = ctx.actions.declare_file(ctx.attr.name + "_report.txt")
   ctx.actions.run_shell(
     inputs = ctx.files.inputs,
     outputs = [out_dir, out_file, out_report],
     command = """
-set -e
+set -eu
 
-report="\$3"
-touch "\${report}"
+report="$3"
+touch "${report}"
 
-echo '[input tree]' >> "\${report}"
-find inputs >> "\${report}"
-echo '' >> "\${report}"
+echo '[input tree]' >> "${report}"
+find inputs >> "${report}"
+echo '' >> "${report}"
 
-echo '[input file]' >> "\${report}"
-cat \$'inputs/\\\\xe5\\\\x85\\\\xa5\\\\xe5\\\\x8a\\\\x9b/\\\\xe3\\\\x81\\\\x82.txt' >> "\${report}"
-echo '' >> "\${report}"
+echo '[input file]' >> "${report}"
+cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
+echo '' >> "${report}"
 
-echo '[environment]' >> "\${report}"
-env | grep -v BASH_EXECUTION_STRING | grep TEST_UNICODE_ >> "\${report}"
-echo '' >> "\${report}"
+echo '[environment]' >> "${report}"
+env | grep -v BASH_EXECUTION_STRING | grep TEST_UNICODE_ >> "${report}"
+echo '' >> "${report}"
 
-mkdir "\$1"
-touch "\$1"/dir_content.txt
-echo 'output content' > "\$2"
+mkdir -p "$1"
+echo 'output dir content' > "$1"/dir_content.txt
+echo 'output file content' > "$2"
 """,
     arguments = [out_dir.path, out_file.path, out_report.path],
-    env = {"TEST_UNICODE_あ": "あ"},
+    env = {"TEST_UNICODE_🌱": "🌱"},
   )
   return DefaultInfo(files=depset([out_dir, out_file, out_report]))
 
@@ -3844,9 +3854,9 @@ test_unicode = rule(
 )
 EOF
 
-  # inputs/入力/あ.txt
+  # inputs/入力/🌱.txt
   mkdir -p $'inputs/\xe5\x85\xa5\xe5\x8a\x9b'
-  echo 'input content' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/\xe3\x81\x82.txt'
+  echo 'input content' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt'
 
   # On systems without an ISO-8859-1 locale, the environment locale must be
   # the same as the file encoding.
@@ -3863,20 +3873,32 @@ EOF
   # Don't leak LC_ALL into other tests.
   bazel shutdown
 
-  cat > ${TEST_TMPDIR}/test_expected <<EOF
+  # Expect action outputs with correct structure and content.
+  mkdir -p ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d'
+  cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d/dir_content.txt' <<EOF
+output dir content
+EOF
+  cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt' <<EOF
+output file content
+EOF
+
+  diff -r bazel-bin/test_unicode_outs ${TEST_TMPDIR}/test_unicode_outs \
+      || fail "Remote execution generated different result"
+
+  cat > ${TEST_TMPDIR}/test_report_expected <<EOF
 [input tree]
 inputs
 inputs/入力
-inputs/入力/あ.txt
+inputs/入力/🌱.txt
 
 [input file]
 input content
 
 [environment]
-TEST_UNICODE_あ=あ
+TEST_UNICODE_🌱=🌱
 
 EOF
-  diff bazel-bin/test_unicode_report.txt ${TEST_TMPDIR}/test_expected \
+  diff bazel-bin/test_unicode_report.txt ${TEST_TMPDIR}/test_report_expected \
       || fail "Remote execution generated different result"
 }
 
