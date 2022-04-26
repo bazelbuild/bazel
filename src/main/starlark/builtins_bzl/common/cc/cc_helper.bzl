@@ -641,10 +641,13 @@ def _get_cc_flags_make_variable(ctx, common, cc_toolchain):
     cc_flags.extend(feature_config_cc_flags)
     return {"CC_FLAGS": " ".join(cc_flags)}
 
-def _expand_nested_variable(ctx, additional_vars, exp):
+def _expand_nested_variable(ctx, additional_vars, exp, execpath = True):
     # If make variable is predefined path variable(like $(location ...))
     # we will expand it first.
     if exp.find(" ") != -1:
+        if not execpath:
+            if exp.startswith("location"):
+                exp = exp.replace("location", "rootpath", 1)
         targets = []
         if ctx.attr.data != None:
             targets = ctx.attr.data
@@ -671,7 +674,7 @@ def _expand_nested_variable(ctx, additional_vars, exp):
         fail("potentially unbounded recursion during expansion of {}".format(exp))
     return exp
 
-def _expand(ctx, expression, additional_make_variable_substitutions):
+def _expand(ctx, expression, additional_make_variable_substitutions, execpath = True):
     idx = 0
     last_make_var_end = 0
     result = []
@@ -713,7 +716,7 @@ def _expand(ctx, expression, additional_make_variable_substitutions):
                 #   last_make_var_end  make_var_start make_var_end
                 result.append(expression[last_make_var_end:make_var_start - 1])
                 make_var = expression[make_var_start + 1:make_var_end]
-                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var)
+                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var, execpath)
                 result.append(exp)
 
                 # Update indexes.
@@ -822,6 +825,21 @@ def _get_copts(ctx, common, feature_configuration, additional_make_variable_subs
     expanded_attribute_copts = _expand_make_variables_for_copts(ctx, tokenization, attribute_copts, additional_make_variable_substitutions)
     return expanded_package_copts + expanded_attribute_copts
 
+def _get_expanded_env(ctx, additional_make_variable_substitutions):
+    if not hasattr(ctx.attr, "env"):
+        fail("could not find rule attribute named: 'env'")
+    expanded_env = {}
+    for k in ctx.attr.env:
+        expanded_env[k] = _expand(
+            ctx,
+            ctx.attr.env[k],
+            additional_make_variable_substitutions,
+            # By default, Starlark `ctx.expand_location` has `execpath` semantics.
+            # For legacy attributes, e.g. `env`, we want `rootpath` semantics instead.
+            execpath = False,
+        )
+    return expanded_env
+
 def _has_target_constraints(ctx, constraints):
     # Constraints is a label_list
     for constraint in constraints:
@@ -865,5 +883,6 @@ cc_helper = struct(
     get_toolchain_global_make_variables = _get_toolchain_global_make_variables,
     get_cc_flags_make_variable = _get_cc_flags_make_variable,
     get_copts = _get_copts,
+    get_expanded_env = _get_expanded_env,
     has_target_constraints = _has_target_constraints,
 )

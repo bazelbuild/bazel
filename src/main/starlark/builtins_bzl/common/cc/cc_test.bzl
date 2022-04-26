@@ -57,7 +57,7 @@ _cc_test_attrs.update(semantics.get_coverage_attrs())
 def _cc_test_impl(ctx):
     binary_info, cc_info, providers = cc_binary_impl(ctx, [])
     test_env = {}
-    test_env.update(ctx.attr.env)
+    test_env.update(cc_helper.get_expanded_env(ctx, {}))
 
     coverage_runfiles, coverage_env = semantics.get_coverage_env(ctx)
 
@@ -102,10 +102,12 @@ def _impl(ctx):
     cc_test_info = ctx.attr._test_toolchain.cc_test_info
 
     binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+    processed_environment = cc_helper.get_expanded_env(ctx, {})
 
     test_providers = cc_test_info.get_runner.func(
         ctx,
         binary_info,
+        processed_environment = processed_environment,
         **cc_test_info.get_runner.args
     )
     providers.extend(test_providers)
