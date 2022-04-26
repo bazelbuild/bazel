@@ -158,6 +158,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       }
     } catch (InterruptedIOException e) {
       throw new InterruptedException(e.getMessage());
+    } catch (LostInputsExecException e) {
+      throw e;
     } catch (IOException e) {
       throw new EnvironmentalExecException(
           e,

@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 import org.junit.Test;
 
 /** Tests for {@link DirectoryTreeBuilder#buildFromActionInputs}. */
@@ -53,6 +54,12 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
         inputFiles, new StaticMetadataProvider(metadata), execRoot, digestUtil);
   }
 
+  @Override
+  @Nullable
+  Artifact artifactFor(Path path) {
+    return ActionsTestUtil.createArtifact(artifactRoot, path);
+  }
+
   @Test
   public void virtualActionInputShouldWork() throws Exception {
     SortedMap<PathFragment, ActionInput> sortedInputs = new TreeMap<>();
@@ -70,7 +77,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), foo);
     FileNode expectedBarNode =
         FileNode.createExecutable("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
@@ -117,13 +124,13 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(3, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), foo);
     FileNode expectedBarNode =
         FileNode.createExecutable(
-            "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"));
+            "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"), null);
     FileNode expectedBuzzNode =
         FileNode.createExecutable(
-            "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"));
+            "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"), null);
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBarNode);
@@ -160,7 +167,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     FileNode expectedFooNode =
         FileNode.createExecutable(
-            "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"));
+            "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"), null);
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
 

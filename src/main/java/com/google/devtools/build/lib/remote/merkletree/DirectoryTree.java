@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedSet;
+import javax.annotation.Nullable;
 
 /**
  * Intermediate tree representation of a list of lexicographically sorted list of files. Each node
@@ -72,6 +74,7 @@ final class DirectoryTree {
     private final ByteString data;
     private final Digest digest;
     private final boolean isExecutable;
+    @Nullable private final Artifact artifact;
 
     /**
      * Create a FileNode with its executable bit set.
@@ -81,28 +84,30 @@ final class DirectoryTree {
      * injected. We can't use real executable bit of the file until this behaviour is changed. See
      * https://github.com/bazelbuild/bazel/issues/13262 for more details.
      */
-    static FileNode createExecutable(String pathSegment, Path path, Digest digest) {
-      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true);
+    static FileNode createExecutable(String pathSegment, Path path, Digest digest, @Nullable Artifact artifact) {
+      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, artifact);
     }
 
     static FileNode createExecutable(String pathSegment, ByteString data, Digest digest) {
-      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true);
+      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true, /* artifact= */ null);
     }
 
-    private FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable) {
+    private FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable, @Nullable Artifact artifact) {
       super(pathSegment);
       this.path = Preconditions.checkNotNull(path, "path");
       this.data = null;
       this.digest = Preconditions.checkNotNull(digest, "digest");
       this.isExecutable = isExecutable;
+      this.artifact = artifact;
     }
 
-    private FileNode(String pathSegment, ByteString data, Digest digest, boolean isExecutable) {
+    private FileNode(String pathSegment, ByteString data, Digest digest, boolean isExecutable, @Nullable Artifact artifact) {
       super(pathSegment);
       this.path = null;
       this.data = Preconditions.checkNotNull(data, "data");
       this.digest = Preconditions.checkNotNull(digest, "digest");
       this.isExecutable = isExecutable;
+      this.artifact = artifact;
     }
 
     Digest getDigest() {
@@ -121,9 +126,14 @@ final class DirectoryTree {
       return isExecutable;
     }
 
+    @Nullable
+    Artifact getArtifact() {
+      return artifact;
+    }
+
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), path, data, digest, isExecutable);
+      return Objects.hash(super.hashCode(), path, data, digest, isExecutable, artifact);
     }
 
     @Override
@@ -134,7 +144,8 @@ final class DirectoryTree {
             && Objects.equals(path, other.path)
             && Objects.equals(data, other.data)
             && Objects.equals(digest, other.digest)
-            && isExecutable == other.isExecutable;
+            && isExecutable == other.isExecutable
+            && Objects.equals(artifact, other.artifact);
       }
       return false;
     }

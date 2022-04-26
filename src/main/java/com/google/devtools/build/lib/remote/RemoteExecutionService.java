@@ -1207,7 +1207,7 @@ public class RemoteExecutionService {
    * <p>Must be called before calling {@link #executeRemotely}.
    */
   public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 
@@ -1219,7 +1219,7 @@ public class RemoteExecutionService {
     additionalInputs.put(action.getActionKey().getDigest(), action.getAction());
     additionalInputs.put(action.getCommandHash(), action.getCommand());
     remoteExecutionCache.ensureInputsPresent(
-        action.getRemoteActionExecutionContext(), action.getMerkleTree(), additionalInputs, force);
+        action.getRemoteActionExecutionContext(), action.getMerkleTree(), additionalInputs, action.getActionKey().getDigest().toString(), force);
   }
 
   /**
@@ -1230,7 +1230,7 @@ public class RemoteExecutionService {
    */
   public RemoteActionResult executeRemotely(
       RemoteAction action, boolean acceptCachedResult, OperationObserver observer)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 

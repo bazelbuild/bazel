@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -235,15 +236,25 @@ public class RemoteSpawnRunner implements SpawnRunner {
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
     AtomicBoolean forceUploadInput = new AtomicBoolean(false);
     try {
-      return retrier.execute(
+      return retrier.executeWithExecException(
           () -> {
             // Upload the command and all the inputs into the remote cache.
             try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
               // Upon retry, we force upload inputs
-              remoteExecutionService.uploadInputsIfNotPresent(
-                  action, forceUploadInput.getAndSet(true));
+              try {
+                remoteExecutionService.uploadInputsIfNotPresent(
+                    action, forceUploadInput.getAndSet(true));
+              } catch (BulkTransferException e) {
+                // If all of the issues were lost actions, propagate that exception so we can maybe rewind.
+                LostInputsExecException lostInputsExecException = e.asLostInputsExecException();
+                if (lostInputsExecException != null) {
+                  throw lostInputsExecException;
+                } else {
+                  throw e;
+                }
+              }
 
               // subtract network time consumed here to ensure wall clock during upload is not
               // double

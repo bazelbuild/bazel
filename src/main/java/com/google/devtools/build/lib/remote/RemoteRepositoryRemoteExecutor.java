@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -108,7 +109,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       ImmutableMap<String, String> environment,
       String workingDirectory,
       Duration timeout)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "repository_rule", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
@@ -158,7 +159,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(actionDigest, action);
         additionalInputs.put(commandHash, command);
 
-        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, /*force=*/ true);
+        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, "", /*force=*/ true);
       }
 
       try (SilentCloseable c =

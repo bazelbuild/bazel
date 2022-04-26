@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
+import com.google.devtools.build.lib.actions.ExecException;
 import java.io.IOException;
 
 /**
@@ -27,7 +28,7 @@ public interface RemoteExecutionClient {
   /** Execute an action remotely using Remote Execution API. */
   ExecuteResponse executeRemotely(
       RemoteActionExecutionContext context, ExecuteRequest request, OperationObserver observer)
-      throws IOException, InterruptedException;
+      throws ExecException, IOException, InterruptedException;
 
   /** Close resources associated with the remote execution client. */
   void close();
