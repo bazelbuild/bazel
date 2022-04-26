@@ -1,3 +1,29 @@
+## Release 6.0.0-pre.20220414.2 (2022-04-26)
+
+```
+Baseline: 6872fd230b7fe4a15fa900d16f6f9ddd5726cdc3
+
+Cherry picks:
+
+   + a603c2382ffcc49f344eee73dfcd65aa2332f64f:
+     Automated rollback of commit
+     b93f828133e74cb3589ba7ffcfe74d2fe72430cd.
+   + 6142eac9153b539661c43dada5e11b552a6f58f6:
+     Automated rollback of commit
+     314b0900cec69a9d017ab84e94ee1cc0b6782470.
+```
+
+Important changes:
+
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - Make ijar / java_import preserve classes with `@kotlin.Metadata`
+    annotations
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - android_sdk_repository read $ANDROID_SDK_ROOT in addition to
+    $ANDROID_HOME.
+
+This release contains contributions from many people at Google, as well as Alex Torok, gkorlam, hvadehra, Vasilios Pantazopoulos, Yannic.
+
 ## Release 6.0.0-pre.20220411.2 (2022-04-19)
 
 ```
