@@ -33,7 +33,9 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
@@ -244,7 +246,6 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     @Nullable
     @Override
     public Info get(Provider.Key providerKey) {
-
       return null;
     }
 
@@ -252,8 +253,8 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     public void repr(Printer printer) {}
 
     @Override
-    public Object getIndex(StarlarkSemantics semantics, Object key) {
-      return null;
+    public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+      throw Starlark.errorf("Unknown key '%s'", key);
     }
 
     @Override
