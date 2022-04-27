@@ -3776,19 +3776,17 @@ EOF
   expect_log "5 processes: 2 disk cache hit, 3 internal"
 }
 
+# Bazel assumes that non-ASCII characters in file contents (and, in
+# non-Windows systems, file paths) are UTF-8, but stores them internally by
+# parsing the raw UTF-8 bytes as if they were ISO-8859-1 characters.
+#
+# This test verifies that the inverse transformation is applied when sending
+# these inputs through the remote execution protocol. The Protobuf libraries
+# for Java assume that `String` values are encoded in UTF-16, and passing
+# raw bytes will cause double-encoding.
 function test_unicode() {
-  # On UNIX platforms, Bazel can handle files with non-ASCII paths if:
-  #
-  #   (1) The path is encoded in UTF-8, and
-  #   (2) The system has either a UTF-8 or ISO-8859-1 locale available.
-  #
-  # However, the in-tree remote worker has a hard requirement on a UTF-8 locale
-  # because it receives Unicode inputs from the network (in Protobuf strings)
-  # and relies on the locale-aware Java standard library to convert Unicde to
-  # or from filesystem paths.
-  #
-  # On modern Windows, file paths are natively UTF-16 and no special locale
-  # support is required to encode or decode them.
+  # The in-tree remote execution worker only supports non-ASCII paths when
+  # running in a UTF-8 locale.
   if ! "$is_windows"; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
@@ -3798,8 +3796,7 @@ function test_unicode() {
     fi
   fi
 
-  # Run the remote execution worker in a UTF-8 locale so it can write
-  # files to non-ASCII paths in the execroot.
+  # Restart the remote execution worker with LC_ALL set.
   tear_down
   LC_ALL=en_US.UTF-8 set_up
 
@@ -3858,11 +3855,12 @@ EOF
   mkdir -p $'inputs/\xe5\x85\xa5\xe5\x8a\x9b'
   echo 'input content' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt'
 
-  # On systems without an ISO-8859-1 locale, the environment locale must be
-  # the same as the file encoding.
+  # On UNIX platforms, Bazel assumes that file paths are encoded in UTF-8. The
+  # system must have either an ISO-8859-1 or UTF-8 locale available so that
+  # Bazel can read the original bytes of the file path.
   #
-  # This doesn't affect systems that do have an ISO-8859-1 locale, because the
-  # Bazel launcher will force it to be used.
+  # If no ISO-8859-1 locale is available, the JVM might fall back to US-ASCII
+  # rather than trying UTF-8. Setting `LC_ALL=en_US.UTF-8` prevents this.
   bazel shutdown
   LC_ALL=en_US.UTF-8 bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
