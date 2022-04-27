@@ -18,6 +18,7 @@ import android.util.Log;
 import dalvik.system.BaseDexClassLoader;
 import java.io.File;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -35,12 +36,21 @@ public class IncrementalClassLoader extends ClassLoader {
     // TODO(bazel-team): For some mysterious reason, we need to use two class loaders so that
     // everything works correctly. Investigate why that is the case so that the code can be
     // simplified.
-    delegateClassLoader = createDelegateClassLoader(codeCacheDir, nativeLibDir, dexes, original);
+    delegateClassLoader = createDelegateClassLoader(
+      codeCacheDir, getAggregatedNativeLibDirs(original, nativeLibDir), dexes, original);
   }
 
   @Override
   public Class<?> findClass(String className) throws ClassNotFoundException {
     return delegateClassLoader.findClass(className);
+  }
+
+  public static void inject(
+      ClassLoader classLoader, String packageName, File codeCacheDir,
+      String nativeLibDir, List<String> dexes) {
+    IncrementalClassLoader incrementalClassLoader =
+        new IncrementalClassLoader(classLoader, packageName, codeCacheDir, nativeLibDir, dexes);
+    setParent(classLoader, incrementalClassLoader);
   }
 
   /**
@@ -88,11 +98,37 @@ public class IncrementalClassLoader extends ClassLoader {
     }
   }
 
-  public static void inject(
-      ClassLoader classLoader, String packageName, File codeCacheDir,
-      String nativeLibDir, List<String> dexes) {
-    IncrementalClassLoader incrementalClassLoader =
-        new IncrementalClassLoader(classLoader, packageName, codeCacheDir, nativeLibDir, dexes);
-    setParent(classLoader, incrementalClassLoader);
+  /**
+   *  Returns native library paths string including nativeLibDir, as well as parents native library paths.
+   *  This is needed in order to load native libraries present in incremental APK (in addition to native
+   *  libraries pushed incrementally).
+   *
+   *  It supports both loading these library from Java, and natively (i.e shared native libraries loaded
+   *  dynamically by other native libraries).
+   */
+  private static String getAggregatedNativeLibDirs(ClassLoader classLoader, String nativeLibDir) {
+    StringBuilder pathBuilder = new StringBuilder(nativeLibDir);
+    try {
+      for (ClassLoader parent = classLoader; parent != null; parent = parent.getParent()) {
+        if (parent instanceof BaseDexClassLoader) {
+          Field pathList = BaseDexClassLoader.class.getDeclaredField("pathList");
+          pathList.setAccessible(true);
+          Object dexPathList = pathList.get(parent);
+
+          Field nativeLibraryDirectories = dexPathList.getClass().getDeclaredField("nativeLibraryDirectories");
+          nativeLibraryDirectories.setAccessible(true);
+          ArrayList directories = (ArrayList) nativeLibraryDirectories.get(dexPathList);
+
+          for (Object directory : directories) {
+             Log.v("IncrementalClassLoader", "Adding parent native library path: " + directory);
+             pathBuilder.append(File.pathSeparator);
+             pathBuilder.append(((File) directory).getAbsolutePath());
+          }
+        }
+      }
+    } catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException e) {
+      throw new RuntimeException(e);
+    }
+    return pathBuilder.toString();
   }
 }
