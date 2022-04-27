@@ -446,12 +446,25 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   /**
-   * Returns the configuration-dependent string for this configuration. This is also the name of the
-   * configuration's base output directory unless {@link #isHostConfiguration} is {@code true}, in
-   * which case the output directory is named {@code host}.
+   * Returns the configuration-dependent string for this configuration.
+   *
+   * <p>This is also the name of the configuration's base output directory unless {@link
+   * #isHostConfiguration} is {@code true}, in which case the output directory is named {@code
+   * "host"}. See also {@link #getOutputDirectoryName}.
    */
   public String getMnemonic() {
     return outputDirectories.getMnemonic();
+  }
+
+  /**
+   * Returns the name of the base output directory under which actions in this configuration write
+   * their outputs.
+   *
+   * <p>This is the same as {@link #getMnemonic} except in the host configuration, in which case it
+   * is {@code "host"}.
+   */
+  public String getOutputDirectoryName() {
+    return outputDirectories.getOutputDirName();
   }
 
   @VisibleForTesting
