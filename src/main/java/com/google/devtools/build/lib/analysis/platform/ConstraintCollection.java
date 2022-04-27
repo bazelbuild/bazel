@@ -236,7 +236,7 @@ public abstract class ConstraintCollection
     ConstraintSettingInfo constraintSettingInfo = convertKey(key);
     Object result = get(constraintSettingInfo);
     if (result == null) {
-      throw Starlark.errorf("Unknown constraint_setting '%s'", constraintSettingInfo);
+      return Starlark.NONE;
     }
     return result;
   }
