@@ -114,8 +114,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   enum CompilationType {
     JAVAC("Javac"),
-    // TODO(cushon): rename the mnemonic to 'Turbine' after javac-turbine is turned down (and after
-    // collecting data on the perform impact of the turndown)
+    // 'javac turbine' has been replaced by just 'turbine', but the mnemonic is unchanged for
+    // continuity in the blaze performance logs, and to distinguish direct classpath actions
+    // which use the 'Turbine' mnemonic.
+    // TODO(b/230333695): consider renaming to a more descriptive name
     TURBINE("JavacTurbine");
 
     final String mnemonic;
