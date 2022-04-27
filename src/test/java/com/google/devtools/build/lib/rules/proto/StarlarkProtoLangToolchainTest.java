@@ -67,13 +67,14 @@ public class StarlarkProtoLangToolchainTest extends ProtoLangToolchainTest {
     TransitiveInfoCollection runtimes = (TransitiveInfoCollection) toolchain.getValue("runtime");
     assertThat(runtimes.getLabel())
         .isEqualTo(Label.parseAbsolute("//third_party/x:runtime", ImmutableMap.of()));
+  }
 
-    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+  private void validateProtoCompiler(StarlarkInfo toolchain, Label protoCompiler) {
     assertThat(
             ((FilesToRunProvider) toolchain.getValue("proto_compiler"))
                 .getExecutable()
                 .prettyPrint())
-        .isEqualTo(protoc.toPathFragment().getPathString());
+        .isEqualTo(protoCompiler.toPathFragment().getPathString());
   }
 
   @Override
@@ -103,10 +104,49 @@ public class StarlarkProtoLangToolchainTest extends ProtoLangToolchainTest {
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
-
-    validateStarlarkProtoLangToolchain(
+    StarlarkInfo toolchain =
         (StarlarkInfo)
-            getConfiguredTarget("//foo:toolchain").get(getStarlarkProtoLangToolchainInfoKey()));
+            getConfiguredTarget("//foo:toolchain").get(getStarlarkProtoLangToolchainInfoKey());
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+
+    validateStarlarkProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
+  }
+
+  @Test
+  public void protoToolchain_setProtoCompiler() throws Exception {
+    scratch.file(
+        "third_party/x/BUILD",
+        "licenses(['unencumbered'])",
+        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
+        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
+        "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
+        "filegroup(name = 'any', srcs = ['any.proto'])",
+        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])",
+        "cc_binary(name = 'compiler')");
+
+    scratch.file(
+        "foo/BUILD",
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        "licenses(['unencumbered'])",
+        "proto_lang_toolchain(",
+        "    name = 'toolchain',",
+        "    command_line = 'cmd-line:$(OUT)',",
+        "    plugin_format_flag = '--plugin=%s',",
+        "    plugin = '//third_party/x:plugin',",
+        "    runtime = '//third_party/x:runtime',",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
+        "    proto_compiler = '//third_party/x:compiler',",
+        ")");
+
+    StarlarkInfo toolchain =
+        (StarlarkInfo)
+            getConfiguredTarget("//foo:toolchain").get(getStarlarkProtoLangToolchainInfoKey());
+    Label protoc = Label.parseAbsoluteUnchecked("//third_party/x:compiler");
+
+    validateStarlarkProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
   }
 
   @Override
@@ -135,10 +175,13 @@ public class StarlarkProtoLangToolchainTest extends ProtoLangToolchainTest {
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
-
-    validateStarlarkProtoLangToolchain(
+    StarlarkInfo toolchain =
         (StarlarkInfo)
-            getConfiguredTarget("//foo:toolchain").get(getStarlarkProtoLangToolchainInfoKey()));
+            getConfiguredTarget("//foo:toolchain").get(getStarlarkProtoLangToolchainInfoKey());
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+
+    validateStarlarkProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
   }
 
   @Override
@@ -167,10 +210,13 @@ public class StarlarkProtoLangToolchainTest extends ProtoLangToolchainTest {
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
-
-    validateStarlarkProtoLangToolchain(
+    StarlarkInfo toolchain =
         (StarlarkInfo)
-            getConfiguredTarget("//foo:toolchain").get(getStarlarkProtoLangToolchainInfoKey()));
+            getConfiguredTarget("//foo:toolchain").get(getStarlarkProtoLangToolchainInfoKey());
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+
+    validateStarlarkProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
   }
 
   @Override
