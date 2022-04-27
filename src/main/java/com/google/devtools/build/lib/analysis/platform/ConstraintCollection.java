@@ -233,9 +233,10 @@ public abstract class ConstraintCollection
 
   @Override
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    Object result = get(convertKey(key));
+    ConstraintSettingInfo constraintSettingInfo = convertKey(key);
+    Object result = get(constraintSettingInfo);
     if (result == null) {
-      result = Starlark.NONE;
+      throw Starlark.errorf("Unknown constraint_setting '%s'", constraintSettingInfo);
     }
     return result;
   }
