@@ -92,22 +92,43 @@ public class StringUtil {
   }
 
  /**
-   * Converts from a Starlark string, which contains raw bytes, to a Unicode
-   * string, which contains Unicode code points.
+   * Decodes UTF-8 stored in a String, treating each input character as a byte.
    *
-   * Unicode strings are suitable for passing to Protobuf string fields, or
-   * printing to the terminal (as UTF-8).
+   * Several Bazel subsystems, including Starlark, store bytes in `String`
+   * values where each `char` stores one `byte` in its lower 8 bits. This
+   * function converts its input to a `[]byte`, then decodes that byte array
+   * as UTF-8.
+   *
+   * Using U+2049 (EXCLAMATION QUESTION MARK) as an example:
+   *
+   *   "\u2049".getBytes(UTF_8) == [0xE2, 0x81, 0x89]
+   *
+   *   decodeBytestringUtf8("\u00E2\u0081\u0089") == "\u2049"
+   *
+   * The return value is suitable for passing to Protobuf string fields or
+   * printing to the terminal.
    */
-  public static String starlarkToUnicode(String starlarkValue) {
-    if (starlarkValue.chars().allMatch(c -> c < 128)) {
-      return starlarkValue;
+  public static String decodeBytestringUtf8(String bytestringUtf8) {
+    if (bytestringUtf8.chars().allMatch(c -> c < 128)) {
+      return bytestringUtf8;
     }
-    final byte[] utf8 = starlarkValue.getBytes(StandardCharsets.ISO_8859_1);
+    final byte[] utf8 = bytestringUtf8.getBytes(StandardCharsets.ISO_8859_1);
     return new String(utf8, StandardCharsets.UTF_8);
   }
 
-  /** See {@link #starlarkToUnicode} */
-  public static String unicodeToStarlark(String unicode) {
+  /**
+   * Encodes a String to UTF-8, then converts those UTF-8 bytes to a String
+   * by zero-extending each `byte` into a `char`.
+   *
+   * Using U+2049 (EXCLAMATION QUESTION MARK) as an example:
+   *
+   *   "\u2049".getBytes(UTF_8) == [0xE2, 0x81, 0x89]
+   *
+   *   encodeBytestringUtf8("\u2049") == "\u00E2\u0081\u0089"
+   *
+   * See {@link #decodeBytestringUtf8} for motivation.
+   */
+  public static String encodeBytestringUtf8(String unicode) {
     if (unicode.chars().allMatch(c -> c < 128)) {
       return unicode;
     }

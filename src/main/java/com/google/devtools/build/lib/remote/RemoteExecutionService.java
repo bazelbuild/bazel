@@ -34,8 +34,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalR
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
-import static com.google.devtools.build.lib.util.StringUtil.starlarkToUnicode;
-import static com.google.devtools.build.lib.util.StringUtil.unicodeToStarlark;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
+import static com.google.devtools.build.lib.util.StringUtil.encodeBytestringUtf8;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -226,7 +226,7 @@ public class RemoteExecutionService {
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
     for (ActionInput output : outputs) {
-      String pathString = starlarkToUnicode(remotePathResolver.localPathToOutputPath(output));
+      String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         outputDirectories.add(pathString);
       } else {
@@ -242,19 +242,19 @@ public class RemoteExecutionService {
       command.setPlatform(platform);
     }
     for (String arg : arguments) {
-      command.addArguments(starlarkToUnicode(arg));
+      command.addArguments(decodeBytestringUtf8(arg));
     }
     // Sorting the environment pairs by variable name.
     TreeSet<String> variables = new TreeSet<>(env.keySet());
     for (String var : variables) {
       command.addEnvironmentVariablesBuilder()
-          .setName(starlarkToUnicode(var))
-          .setValue(starlarkToUnicode(env.get(var)));
+          .setName(decodeBytestringUtf8(var))
+          .setValue(decodeBytestringUtf8(env.get(var)));
     }
 
     String workingDirectory = remotePathResolver.getWorkingDirectory();
     if (!Strings.isNullOrEmpty(workingDirectory)) {
-      command.setWorkingDirectory(starlarkToUnicode(workingDirectory));
+      command.setWorkingDirectory(decodeBytestringUtf8(workingDirectory));
     }
     return command.build();
   }
@@ -871,7 +871,7 @@ public class RemoteExecutionService {
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectories()) {
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(unicodeToStarlark(dir.getPath())),
+          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(dir.getPath())),
           Futures.transformAsync(
               remoteCache.downloadBlob(
                   action.getRemoteActionExecutionContext(), dir.getTreeDigest()),
@@ -897,7 +897,7 @@ public class RemoteExecutionService {
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
     for (OutputFile outputFile : result.getOutputFiles()) {
-      Path localPath = remotePathResolver.outputPathToLocalPath(unicodeToStarlark(outputFile.getPath()));
+      Path localPath = remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(outputFile.getPath()));
       files.put(
           localPath,
           new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
@@ -907,7 +907,7 @@ public class RemoteExecutionService {
     Iterable<OutputSymlink> outputSymlinks =
         Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
     for (OutputSymlink symlink : outputSymlinks) {
-      Path localPath = remotePathResolver.outputPathToLocalPath(unicodeToStarlark(symlink.getPath()));
+      Path localPath = remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(symlink.getPath()));
       symlinks.put(
           localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
     }

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
-import static com.google.devtools.build.lib.util.StringUtil.starlarkToUnicode;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -200,7 +200,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Inputs: [")
           .append(
               action.getInputs().toList().stream()
-                  .map(input -> starlarkToUnicode(input.getExecPathString()))
+                  .map(input -> decodeBytestringUtf8(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n")
@@ -209,7 +209,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getOutputs().stream()
                   .map(
                       output ->
-                          starlarkToUnicode(output.isTreeArtifact()
+                          decodeBytestringUtf8(output.isTreeArtifact()
                               ? output.getExecPathString() + " (TreeArtifact)"
                               : output.getExecPathString()))
                   .sorted()
@@ -229,7 +229,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
             .append(
                 Streams.stream(fixedEnvironment)
                     .map(
-                        environmentVariable -> starlarkToUnicode(
+                        environmentVariable -> decodeBytestringUtf8(
                             environmentVariable.getKey() + "=" + environmentVariable.getValue()))
                     .sorted()
                     .collect(Collectors.joining(", ")))
@@ -261,7 +261,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   CommandDescriptionForm.COMPLETE,
                   /* prettyPrintArgs= */ true,
                   ((CommandAction) action).getArguments().stream()
-                      .map(a -> starlarkToUnicode(a))
+                      .map(a -> decodeBytestringUtf8(a))
                       .collect(Collectors.toList()),
                   /* environment= */ null,
                   /* cwd= */ null,
