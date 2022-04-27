@@ -2244,9 +2244,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .build();
     EvaluationResult<ActionLookupValue> result =
         memoizingEvaluator.evaluate(
-            Iterables.concat(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
+            analysisPhaseKeys(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
     perCommandSyscallCache.noteAnalysisPhaseEnded();
     return result;
+  }
+
+  /**
+   * Returns top-level analysis phase keys, {@link ConfiguredTargetKey} and {@link
+   * TopLevelAspectsKey}.
+   */
+  protected Iterable<? extends SkyKey> analysisPhaseKeys(
+      Iterable<ConfiguredTargetKey> ctKeys, Iterable<TopLevelAspectsKey> aspectKeys) {
+    return Iterables.concat(ctKeys, aspectKeys);
   }
 
   /**
