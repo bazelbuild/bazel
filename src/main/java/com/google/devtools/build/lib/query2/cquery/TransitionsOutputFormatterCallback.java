@@ -131,7 +131,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     /*aspect=*/ null,
                     configConditions,
                     toolchainContexts,
-                    DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
       } catch (DependencyResolver.Failure | InconsistentAspectOrderException e) {
         // This is an abuse of InterruptedException.
