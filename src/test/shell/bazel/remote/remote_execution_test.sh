@@ -3828,7 +3828,7 @@ report="$3"
 touch "${report}"
 
 echo '[input tree]' >> "${report}"
-find inputs >> "${report}"
+find inputs | sort >> "${report}"
 echo '' >> "${report}"
 
 echo '[input file A]' >> "${report}"
