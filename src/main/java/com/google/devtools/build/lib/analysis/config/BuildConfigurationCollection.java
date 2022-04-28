@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import java.util.HashMap;
@@ -26,7 +28,9 @@ import java.util.HashMap;
  * target configurations are possible because of settings like {@link
  * com.google.devtools.build.lib.buildtool.BuildRequestOptions#multiCpus}.
  *
- * <p>The host configuration is used for tools that are executed during the build, e. g, compilers.
+ * <p>The host configuration is used for tools that are executed during the build, e.g. compilers.
+ * Note that {@link #hashCode} and {@link #equals} do not directly incorporate the host
+ * configuration since it is assumed to be derived from the target configuration.
  */
 @ThreadSafe
 public final class BuildConfigurationCollection {
@@ -82,5 +86,15 @@ public final class BuildConfigurationCollection {
   @Override
   public int hashCode() {
     return targetConfigurations.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add(
+            "targetConfigurations",
+            Lists.transform(targetConfigurations, BuildConfigurationValue::checksum))
+        .add("hostConfiguration", hostConfiguration.checksum())
+        .toString();
   }
 }

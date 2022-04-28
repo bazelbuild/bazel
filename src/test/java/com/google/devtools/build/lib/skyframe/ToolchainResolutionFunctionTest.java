@@ -87,6 +87,25 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void resolve_mandatory_missing() throws Exception {
+    // There is no toolchain for the requested type.
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("no matching toolchains found for types //toolchain:test_toolchain");
+  }
+
+  @Test
   public void resolve_toolchainTypeAlias() throws Exception {
     addToolchain(
         "extra",

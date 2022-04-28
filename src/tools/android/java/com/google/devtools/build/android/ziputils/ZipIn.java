@@ -283,12 +283,11 @@ public class ZipIn {
   /**
    * Constructs a {@link ZipEntry} view of the entry at the location of the given header.
    *
-   * @param header a previously located header. If (@code useDirectory} is set, this will
-   * attempt to lookup a corresponding directory entry. If there is none, and {@code ignoreDeleted}
-   * is also set, the return value will flag this entry with a
-   * {@code ZipEntry.Status.ENTRY_NOT_FOUND} status code.
-   *
-   * @return  {@link ZipEntry} for the given location.
+   * @param header a previously located header. If (@code useDirectory} is set, this will attempt to
+   *     lookup a corresponding directory entry. If there is none, and {@code ignoreDeleted} is also
+   *     set, the return value will flag this entry with a {@code ZipEntry.Status.ENTRY_NOT_FOUND}
+   *     status code.
+   * @return {@link ZipEntry} for the given location.
    * @throws IOException
    */
   public ZipEntry entryWith(LocalFileHeader header) throws IOException {
@@ -305,43 +304,6 @@ public class ZipIn {
       }
     }
     return entryWith(header, dirEntry);
-  }
-
-  /**
-   * Scans for a data descriptor from a given offset.
-   *
-   * @param offset position where to start the search.
-   * @param dirEntry directory entry for validation, or {@code null}.
-   * @return A data descriptor view for the next position containing the data descriptor signature.
-   * @throws IOException
-   */
-  public DataDescriptor descriptorFrom(final long offset, final DirectoryEntry dirEntry)
-      throws IOException {
-    int skipped = 0;
-    for (ByteBuffer buffer = getData(offset + skipped, MAX_HEADER_SIZE);
-        buffer.limit() >= 16; buffer = getData(offset + skipped, MAX_HEADER_SIZE)) {
-      int markerOffset = ScanUtil.scanTo(DATA_DESC_SIG, buffer);
-      if (markerOffset < 0) {
-        skipped += buffer.limit() - 3;
-      } else {
-        skipped += markerOffset;
-        return markerOffset == 0 ? descriptorIn(buffer, offset + skipped, dirEntry)
-            : descriptorAt(offset + skipped, dirEntry);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Creates a data descriptor view at a given offset.
-   *
-   * @param offset presumed location of data descriptor.
-   * @param dirEntry directory entry to use for validation, or {@code null}.
-   * @return a data descriptor view over the given file offset.
-   * @throws IOException
-   */
-  public DataDescriptor descriptorAt(long offset, DirectoryEntry dirEntry) throws IOException {
-    return descriptorIn(getData(offset, 16), offset, dirEntry);
   }
 
   /**
@@ -379,8 +341,10 @@ public class ZipIn {
       content = getData(offset, sizeByDir);
       DataDescriptor dataDesc = descriptorAt(offset + sizeByDir, dirEntry);
       if (dataDesc != null) {
-        return zipEntry.withContent(content).withDescriptor(dataDesc).withCode(
-            ZipEntry.Status.ENTRY_OK);
+        return zipEntry
+            .withContent(content)
+            .withDescriptor(dataDesc)
+            .withCode(ZipEntry.Status.ENTRY_OK);
       }
       return zipEntry.withContent(content).withCode(ZipEntry.Status.NO_DATA_DESC);
     }
@@ -404,11 +368,50 @@ public class ZipIn {
           return zipEntry.withDescriptor(dataDesc).withCode(ZipEntry.Status.UNKNOWN_SIZE);
         }
         content = getData(offset, sizeByDesc);
-        return zipEntry.withContent(content).withDescriptor(dataDesc).withCode(
-            ZipEntry.Status.ENTRY_OK);
+        return zipEntry
+            .withContent(content)
+            .withDescriptor(dataDesc)
+            .withCode(ZipEntry.Status.ENTRY_OK);
       }
     }
     return zipEntry.withCode(ZipEntry.Status.UNKNOWN_SIZE);
+  }
+
+  /**
+   * Scans for a data descriptor from a given offset.
+   *
+   * @param offset position where to start the search.
+   * @param dirEntry directory entry for validation, or {@code null}.
+   * @return A data descriptor view for the next position containing the data descriptor signature.
+   * @throws IOException
+   */
+  public DataDescriptor descriptorFrom(final long offset, final DirectoryEntry dirEntry)
+      throws IOException {
+    int skipped = 0;
+    for (ByteBuffer buffer = getData(offset + skipped, MAX_HEADER_SIZE);
+        buffer.limit() >= 16; buffer = getData(offset + skipped, MAX_HEADER_SIZE)) {
+      int markerOffset = ScanUtil.scanTo(DATA_DESC_SIG, buffer);
+      if (markerOffset < 0) {
+        skipped += buffer.limit() - 3;
+      } else {
+        skipped += markerOffset;
+        return markerOffset == 0 ? descriptorIn(buffer, offset + skipped, dirEntry)
+            : descriptorAt(offset + skipped, dirEntry);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Creates a data descriptor view at a given offset.
+   *
+   * @param offset presumed location of data descriptor.
+   * @param dirEntry directory entry to use for validation, or {@code null}.
+   * @return a data descriptor view over the given file offset.
+   * @throws IOException
+   */
+  public DataDescriptor descriptorAt(long offset, DirectoryEntry dirEntry) throws IOException {
+    return descriptorIn(getData(offset, 16), offset, dirEntry);
   }
 
   /**

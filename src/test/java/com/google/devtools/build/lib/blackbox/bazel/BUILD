@@ -78,11 +78,9 @@ java_library(
         "JavaToolsSetup.java",
     ],
     data = [
-        ":langtools-copy",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/tools/singlejar",
         "//third_party/ijar",
-        "//third_party/java/jdk/langtools:test-srcs",
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     visibility = [":tests"],
@@ -90,15 +88,6 @@ java_library(
         ":common_tools_deps",
         "//third_party:truth",
     ],
-)
-
-# needed by java tools
-genrule(
-    name = "langtools-copy",
-    testonly = 1,
-    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
-    outs = ["langtools.jar"],
-    cmd = "cp $< $@",
 )
 
 java_library(

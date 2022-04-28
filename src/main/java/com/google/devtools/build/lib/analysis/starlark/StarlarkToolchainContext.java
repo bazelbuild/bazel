@@ -30,6 +30,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * An implementation of ToolchainContextApi that can better handle converting strings into Labels.
@@ -99,7 +100,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
   }
 
   @Override
-  public ToolchainInfo getIndex(
+  public StarlarkValue getIndex(
       StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key) throws EvalException {
     Label toolchainTypeLabel = transformKey(starlarkThread, key);
 
@@ -116,7 +117,11 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
               .map(Label::toString)
               .collect(joining(", ")));
     }
-    return toolchainContext().forToolchainType(toolchainTypeLabel);
+    ToolchainInfo toolchainInfo = toolchainContext().forToolchainType(toolchainTypeLabel);
+    if (toolchainInfo == null) {
+      return Starlark.NONE;
+    }
+    return toolchainInfo;
   }
 
   @Override

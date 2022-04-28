@@ -38,8 +38,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
-  // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests for optional toolchain types.
-
   @Test
   public void load() throws Exception {
     addToolchain(
@@ -88,6 +86,165 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         .forToolchainType(testToolchainTypeLabel)
         .getValue("data")
         .isEqualTo("baz");
+  }
+
+  @Test
+  public void load_mandatory_missing() throws Exception {
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    // Create a static UnloadedToolchainContext.
+    UnloadedToolchainContext unloadedToolchainContext =
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
+            .setExecutionPlatform(linuxPlatform)
+            .setTargetPlatform(linuxPlatform)
+            .setToolchainTypes(ImmutableSet.of(testToolchainType))
+            .setRequestedLabelToToolchainType(
+                ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
+            .build();
+
+    // Resolve toolchains.
+    assertThrows(
+        ToolchainException.class,
+        () -> ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableList.of()));
+  }
+
+  @Test
+  public void load_optional_present() throws Exception {
+    addOptionalToolchain(
+        "extra",
+        "extra_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(optionalToolchainType)
+            .build();
+
+    // Create a static UnloadedToolchainContext.
+    UnloadedToolchainContext unloadedToolchainContext =
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
+            .setExecutionPlatform(linuxPlatform)
+            .setTargetPlatform(linuxPlatform)
+            .setToolchainTypes(ImmutableSet.of(optionalToolchainType))
+            .setRequestedLabelToToolchainType(
+                ImmutableMap.of(optionalToolchainTypeLabel, optionalToolchainTypeInfo))
+            .setToolchainTypeToResolved(
+                ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
+                    .put(
+                        optionalToolchainTypeInfo,
+                        Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"))
+                    .build())
+            .build();
+
+    // Create the prerequisites.
+    ConfiguredTargetAndData toolchain =
+        getConfiguredTargetAndData(
+            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
+
+    // Resolve toolchains.
+    ResolvedToolchainContext toolchainContext =
+        ResolvedToolchainContext.load(
+            unloadedToolchainContext, "test", ImmutableList.of(toolchain));
+    assertThat(toolchainContext).isNotNull();
+    assertThat(toolchainContext).hasToolchainType(optionalToolchainTypeLabel);
+    assertThat(toolchainContext)
+        .forToolchainType(optionalToolchainTypeLabel)
+        .getValue("data")
+        .isEqualTo("baz");
+  }
+
+  @Test
+  public void load_optional_missing() throws Exception {
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(optionalToolchainType)
+            .build();
+
+    // Create a static UnloadedToolchainContext.
+    UnloadedToolchainContext unloadedToolchainContext =
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
+            .setExecutionPlatform(linuxPlatform)
+            .setTargetPlatform(linuxPlatform)
+            .setToolchainTypes(ImmutableSet.of(optionalToolchainType))
+            .setRequestedLabelToToolchainType(
+                ImmutableMap.of(optionalToolchainTypeLabel, optionalToolchainTypeInfo))
+            .build();
+
+    // Resolve toolchains.
+    ResolvedToolchainContext toolchainContext =
+        ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableList.of());
+    assertThat(toolchainContext).isNotNull();
+
+    // Missing optional toolchain type requirement is present.
+    assertThat(toolchainContext).hasToolchainType(optionalToolchainTypeLabel);
+    // Missing optional toolchain implementation is null.
+    assertThat(toolchainContext).forToolchainType(optionalToolchainTypeLabel).isNull();
+  }
+
+  @Test
+  public void load_mixed() throws Exception {
+    addToolchain(
+        "extra",
+        "extra_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType, optionalToolchainType)
+            .build();
+
+    // Create a static UnloadedToolchainContext.
+    UnloadedToolchainContext unloadedToolchainContext =
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
+            .setExecutionPlatform(linuxPlatform)
+            .setTargetPlatform(linuxPlatform)
+            .setToolchainTypes(ImmutableSet.of(testToolchainType, optionalToolchainType))
+            .setRequestedLabelToToolchainType(
+                ImmutableMap.<Label, ToolchainTypeInfo>builder()
+                    .put(testToolchainTypeLabel, testToolchainTypeInfo)
+                    .put(optionalToolchainTypeLabel, optionalToolchainTypeInfo)
+                    .build())
+            .setToolchainTypeToResolved(
+                ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
+                    .put(
+                        testToolchainTypeInfo,
+                        Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"))
+                    .build())
+            .build();
+
+    // Create the prerequisites.
+    ConfiguredTargetAndData testToolchain =
+        getConfiguredTargetAndData(
+            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
+
+    // Resolve toolchains.
+    ResolvedToolchainContext toolchainContext =
+        ResolvedToolchainContext.load(
+            unloadedToolchainContext, "test", ImmutableList.of(testToolchain));
+    assertThat(toolchainContext).isNotNull();
+
+    // Test toolchain is present.
+    assertThat(toolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(toolchainContext)
+        .forToolchainType(testToolchainTypeLabel)
+        .getValue("data")
+        .isEqualTo("baz");
+
+    // Missing optional toolchain type requirement is present.
+    assertThat(toolchainContext).hasToolchainType(optionalToolchainTypeLabel);
+    // Missing optional toolchain implementation is null.
+    assertThat(toolchainContext).forToolchainType(optionalToolchainTypeLabel).isNull();
   }
 
   @Test

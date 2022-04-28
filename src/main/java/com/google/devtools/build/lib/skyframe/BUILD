@@ -199,6 +199,7 @@ java_library(
         ":toolchain_exception",
         ":top_level_action_lookup_key",
         ":top_level_aspects_value",
+        ":top_level_status_events",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
         ":transitive_target_value",
@@ -846,6 +847,7 @@ java_library(
     deps = [
         ":artifact_conflict_finder",
         ":aspect_completion_value",
+        ":aspect_key_creator",
         ":build_driver_key",
         ":build_driver_value",
         ":configured_target_key",
@@ -853,10 +855,10 @@ java_library(
         ":incremental_artifact_conflict_finder",
         ":precomputed_value",
         ":target_completion_value",
-        ":test_analysis_complete_event",
         ":test_completion_value",
         ":top_level_aspects_value",
         ":top_level_conflict_exception",
+        ":top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -893,6 +895,20 @@ java_library(
     srcs = ["BuildDriverValue.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "build_result_listener",
+    srcs = ["BuildResultListener.java"],
+    deps = [
+        ":aspect_key_creator",
+        ":configured_target_key",
+        ":top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
     ],
 )
 
@@ -2397,16 +2413,6 @@ java_library(
 )
 
 java_library(
-    name = "test_analysis_complete_event",
-    srcs = ["TestAnalysisCompleteEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "test_completion_value",
     srcs = ["TestCompletionValue.java"],
     deps = [
@@ -2604,6 +2610,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "top_level_status_events",
+    srcs = ["TopLevelStatusEvents.java"],
+    deps = [
+        ":aspect_key_creator",
+        ":configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:auto_value",
     ],
 )
 

@@ -214,7 +214,7 @@ public class ZipOut {
       try {
         fileChannel.write(buffer);
       } catch (IOException ex) {
-        throw new IllegalStateException("Unexpected IOException writing to output channel");
+        throw new IllegalStateException("Unexpected IOException writing to output channel", ex);
       }
     }
   }

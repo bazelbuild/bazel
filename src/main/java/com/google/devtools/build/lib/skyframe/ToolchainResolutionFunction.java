@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableList.builder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
@@ -40,13 +39,12 @@ import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidC
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.InvalidExecutionPlatformLabelException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
-import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
 import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -92,15 +90,15 @@ public class ToolchainResolutionFunction implements SkyFunction {
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
       ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypeInfos =
-          loadToolchainTypes(
+          loadToolchainTypeInfos(
               env,
               configuration,
               key.toolchainTypes().stream()
                   .map(ToolchainTypeRequirement::toolchainType)
                   .collect(toImmutableSet()));
       builder.setRequestedLabelToToolchainType(resolvedToolchainTypeInfos);
-      ImmutableSet<ToolchainTypeRequirement> resolvedToolchainTypes =
-          loadToolchainTypeRequirements(resolvedToolchainTypeInfos, key.toolchainTypes());
+      ImmutableSet<ToolchainType> resolvedToolchainTypes =
+          loadToolchainTypes(resolvedToolchainTypeInfos, key.toolchainTypes());
 
       // Create keys for all platforms that will be used, and validate them early.
       PlatformKeys platformKeys =
@@ -152,11 +150,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
+  @AutoValue
+  abstract static class ToolchainType {
+    abstract ToolchainTypeRequirement toolchainTypeRequirement();
+
+    abstract ToolchainTypeInfo toolchainTypeInfo();
+
+    static ToolchainType create(
+        ToolchainTypeRequirement toolchainTypeRequirement, ToolchainTypeInfo toolchainTypeInfo) {
+      return new AutoValue_ToolchainResolutionFunction_ToolchainType(
+          toolchainTypeRequirement, toolchainTypeInfo);
+    }
+  }
+
   /**
    * Returns a map from the requested toolchain type Label (after any alias chains) to the {@link
    * ToolchainTypeInfo} provider.
    */
-  private static ImmutableMap<Label, ToolchainTypeInfo> loadToolchainTypes(
+  private static ImmutableMap<Label, ToolchainTypeInfo> loadToolchainTypeInfos(
       Environment environment,
       BuildConfigurationValue configuration,
       ImmutableSet<Label> toolchainTypeLabels)
@@ -182,16 +193,17 @@ public class ToolchainResolutionFunction implements SkyFunction {
   /**
    * Returns a map from the actual post-alias Label to the ToolchainTypeRequirement for that type.
    */
-  private ImmutableSet<ToolchainTypeRequirement> loadToolchainTypeRequirements(
+  private ImmutableSet<ToolchainType> loadToolchainTypes(
       ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypeInfos,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes) {
-    ImmutableSet.Builder<ToolchainTypeRequirement> resolved = new ImmutableSet.Builder<>();
+    ImmutableSet.Builder<ToolchainType> resolved = new ImmutableSet.Builder<>();
 
     for (ToolchainTypeRequirement toolchainTypeRequirement : toolchainTypes) {
       // Find the actual Label.
       Label toolchainTypeLabel = toolchainTypeRequirement.toolchainType();
-      if (resolvedToolchainTypeInfos.containsKey(toolchainTypeLabel)) {
-        toolchainTypeLabel = resolvedToolchainTypeInfos.get(toolchainTypeLabel).typeLabel();
+      ToolchainTypeInfo toolchainTypeInfo = resolvedToolchainTypeInfos.get(toolchainTypeLabel);
+      if (toolchainTypeInfo != null) {
+        toolchainTypeLabel = toolchainTypeInfo.typeLabel();
       }
 
       // If the labels don't match, re-build the TTR.
@@ -200,7 +212,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
             toolchainTypeRequirement.toBuilder().toolchainType(toolchainTypeLabel).build();
       }
 
-      resolved.add(toolchainTypeRequirement);
+      resolved.add(ToolchainType.create(toolchainTypeRequirement, toolchainTypeInfo));
     }
     return resolved.build();
   }
@@ -388,7 +400,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
   private static void determineToolchainImplementations(
       Environment environment,
       BuildConfigurationKey configurationKey,
-      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
+      ImmutableSet<ToolchainType> toolchainTypes,
       Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
@@ -399,18 +411,18 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     // Find the toolchains for the requested toolchain types.
     List<SingleToolchainResolutionKey> registeredToolchainKeys = new ArrayList<>();
-    for (ToolchainTypeRequirement toolchainType : toolchainTypes) {
+    for (ToolchainType toolchainType : toolchainTypes) {
       registeredToolchainKeys.add(
           SingleToolchainResolutionValue.key(
               configurationKey,
-              toolchainType,
+              toolchainType.toolchainTypeRequirement(),
+              toolchainType.toolchainTypeInfo(),
               platformKeys.targetPlatformKey(),
               platformKeys.executionPlatformKeys(),
               debugTarget));
     }
 
-    SkyframeIterableResult results =
-        environment.getOrderedValuesAndExceptions(registeredToolchainKeys);
+    SkyframeLookupResult results = environment.getValuesAndExceptions(registeredToolchainKeys);
     boolean valuesMissing = false;
 
     // Determine the potential set of toolchains.
@@ -418,24 +430,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
         HashBasedTable.create();
     ImmutableSet.Builder<ToolchainTypeInfo> requiredToolchainTypesBuilder = ImmutableSet.builder();
     List<Label> missingToolchains = new ArrayList<>();
-    while (results.hasNext()) {
-      try {
-        SingleToolchainResolutionValue singleToolchainResolutionValue =
-            (SingleToolchainResolutionValue)
-                results.nextOrThrow(
-                    NoToolchainFoundException.class, InvalidToolchainLabelException.class);
+    for (SingleToolchainResolutionKey key : registeredToolchainKeys) {
+      SingleToolchainResolutionValue singleToolchainResolutionValue =
+          (SingleToolchainResolutionValue)
+              results.getOrThrow(key, InvalidToolchainLabelException.class);
         if (singleToolchainResolutionValue == null) {
           valuesMissing = true;
           continue;
         }
 
+      if (singleToolchainResolutionValue.availableToolchainLabels().isEmpty()) {
+        // Save the missing type and continue looping to check for more.
+        // TODO(katre): Handle mandatory/optional.
+        missingToolchains.add(key.toolchainType().toolchainType());
+      } else {
         ToolchainTypeInfo requiredToolchainType = singleToolchainResolutionValue.toolchainType();
         requiredToolchainTypesBuilder.add(requiredToolchainType);
         resolvedToolchains.putAll(
             findPlatformsAndLabels(requiredToolchainType, singleToolchainResolutionValue));
-      } catch (NoToolchainFoundException e) {
-        // Save the missing type and continue looping to check for more.
-        missingToolchains.add(e.missingToolchainType().toolchainType());
       }
     }
 
@@ -458,9 +470,15 @@ public class ToolchainResolutionFunction implements SkyFunction {
             platformKeys.executionPlatformKeys(),
             resolvedToolchains);
 
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
+        toolchainTypes.stream()
+            .map(ToolchainType::toolchainTypeRequirement)
+            .collect(toImmutableSet());
     if (selectedExecutionPlatformKey.isEmpty()) {
       throw new NoMatchingPlatformException(
-          toolchainTypes, platformKeys.executionPlatformKeys(), platformKeys.targetPlatformKey());
+          toolchainTypeRequirements,
+          platformKeys.executionPlatformKeys(),
+          platformKeys.targetPlatformKey());
     }
 
     Map<ConfiguredTargetKey, PlatformInfo> platforms =
@@ -471,7 +489,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       throw new ValueMissingException();
     }
 
-    builder.setToolchainTypes(toolchainTypes);
+    builder.setToolchainTypes(toolchainTypeRequirements);
     builder.setExecutionPlatform(platforms.get(selectedExecutionPlatformKey.get()));
     builder.setTargetPlatform(platforms.get(platformKeys.targetPlatformKey()));
 

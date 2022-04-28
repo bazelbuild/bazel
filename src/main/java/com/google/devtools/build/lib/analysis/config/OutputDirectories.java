@@ -341,6 +341,10 @@ public class OutputDirectories {
     return mnemonic;
   }
 
+  String getOutputDirName() {
+    return outputDirName;
+  }
+
   boolean mergeGenfilesDirectory() {
     return mergeGenfilesDirectory;
   }
