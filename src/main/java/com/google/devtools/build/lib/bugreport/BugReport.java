@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bugreport;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -359,14 +360,28 @@ public final class BugReport {
 
   // Log the exception. Because this method is only called in a blaze release, this will result in a
   // report being sent to a remote logging service.
-  private static void logException(Throwable exception, List<String> args, String... values) {
+  @VisibleForTesting
+  static void logException(Throwable exception, List<String> args, String... values) {
     logger.atSevere().withCause(exception).log("Exception");
-    String preamble =
-        getProductName()
-            + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");
+    String preamble = getProductName();
+    Level level = Level.SEVERE;
+    if (exception instanceof OutOfMemoryError) {
+      preamble += " OOMError: ";
+    } else if (exception instanceof NonFatalBugReport) {
+      preamble += " had a non fatal error with args: ";
+      level = Level.WARNING;
+    } else {
+      preamble += " crashed with args: ";
+    }
 
-    LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception, values);
+    LoggingUtil.logToRemote(level, preamble + Joiner.on(' ').join(args), exception, values);
   }
+
+  /**
+   * NonFatalBugReport is a marker interface for Throwables which should be reported when passed to
+   * sendBugReport, but don't represent a crash.
+   */
+  public static interface NonFatalBugReport {}
 
   private static final class DefaultBugReporter implements BugReporter {
 
