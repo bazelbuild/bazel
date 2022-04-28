@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
@@ -925,11 +926,15 @@ public class RemoteExecutionService {
       }
 
       Path localPath = execRoot.getRelative(output.getExecPath());
-      if (metadata.files.containsKey(localPath) || metadata.symlinks.containsKey(localPath)) {
+      if (metadata.files.containsKey(localPath)
+          || metadata.symlinks.containsKey(localPath)
+          || metadata.directories.containsKey(localPath)) {
         continue;
       }
 
-      // Output file could be under an output directory
+      // Handle the case where output file is under an output directory and is omitted from
+      // ActionResult's output_files filed. Technically, this is an server side error, but it won't
+      // hurt if we detect this and continue the build.
       boolean inDirectory = false;
       for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories.entrySet()) {
         Path path = entry.getKey();
@@ -1140,7 +1145,8 @@ public class RemoteExecutionService {
           // Check that all mandatory outputs are created.
           for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
             Path localPath = execRoot.getRelative(outputFile.getExecPath());
-            if (action.getSpawn().isMandatoryOutput(outputFile) && !localPath.exists()) {
+            if (action.getSpawn().isMandatoryOutput(outputFile)
+                && !localPath.exists(Symlinks.NOFOLLOW)) {
               throw new IOException(
                   "Expected output " + prettyPrint(outputFile) + " was not created locally.");
             }
