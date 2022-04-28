@@ -1589,15 +1589,14 @@ genrule(
 EOF
 
   # ${pkg}/input-ünïcödë.txt
-  unicode=$'\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab'
-  touch "${pkg}/input-${unicode}.txt"
+  touch "${pkg}/"$'input-\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab.txt'
 
   bazel aquery --output=text "//$pkg:bar" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  assert_contains "Inputs: \[.*/input-${unicode}.txt" output
-  assert_contains "Outputs: \[.*/output-${unicode}.txt" output
+  assert_contains 'Inputs: \[.*/input-{U+00FC}n{U+00EF}c{U+00F6}d{U+00EB}.txt' output
+  assert_contains 'Outputs: \[.*/output-{U+00FC}n{U+00EF}c{U+00F6}d{U+00EB}.txt' output
 }
 
 # FIXME: The non-text aquery output formats don't correctly handle non-ASCII

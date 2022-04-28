@@ -200,7 +200,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Inputs: [")
           .append(
               action.getInputs().toList().stream()
-                  .map(input -> decodeBytestringUtf8(input.getExecPathString()))
+                  .map(input -> escapeBytestringUtf8(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n")
@@ -209,7 +209,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getOutputs().stream()
                   .map(
                       output ->
-                          decodeBytestringUtf8(output.isTreeArtifact()
+                          escapeBytestringUtf8(output.isTreeArtifact()
                               ? output.getExecPathString() + " (TreeArtifact)"
                               : output.getExecPathString()))
                   .sorted()
@@ -229,7 +229,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
             .append(
                 Streams.stream(fixedEnvironment)
                     .map(
-                        environmentVariable -> decodeBytestringUtf8(
+                        environmentVariable -> escapeBytestringUtf8(
                             environmentVariable.getKey() + "=" + environmentVariable.getValue()))
                     .sorted()
                     .collect(Collectors.joining(", ")))
@@ -261,7 +261,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   CommandDescriptionForm.COMPLETE,
                   /* prettyPrintArgs= */ true,
                   ((CommandAction) action).getArguments().stream()
-                      .map(a -> decodeBytestringUtf8(a))
+                      .map(a -> escapeBytestringUtf8(a))
                       .collect(Collectors.toList()),
                   /* environment= */ null,
                   /* cwd= */ null,
@@ -332,5 +332,37 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       paramFileNameToContentMap = new HashMap<>();
     }
     return paramFileNameToContentMap;
+  }
+
+  /**
+   * Decode a bytestring containing UTF8, and escape any characters outside
+   * the basic printable ASCII range.
+   *
+   * This function is intended for human consumption in debug output that needs
+   * to be durable against unusual encoding settings, and does not guarantee
+   * that the escaping process is reverseable.
+   *
+   * Non-printable ASCII characters are formatted as `{U+00XX}`. Characters
+   * outside the ASCII range but within the Basic Multilingual Plane are
+   * formatted as `{U+XXXX}`. Characters outside the BMP are formatted as
+   *`{U+XXXX...}`.
+   */
+  public static String escapeBytestringUtf8(String utf8) {
+    if (utf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
+      return utf8;
+    }
+
+    final String decoded = decodeBytestringUtf8(utf8);
+    final StringBuilder sb = new StringBuilder(decoded.length() * 8);
+    decoded.codePoints().forEach(c -> {
+      if (c >= 0x20 && c < 0x7F) {
+        sb.appendCodePoint(c);
+      } else if (c <= 0xFFFF) {
+        sb.append(String.format("{U+%04X}", c));
+      } else {
+        sb.append(String.format("{U+%X}", c));
+      }
+    });
+    return sb.toString();
   }
 }
