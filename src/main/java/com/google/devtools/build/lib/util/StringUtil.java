@@ -92,7 +92,8 @@ public class StringUtil {
   }
 
  /**
-   * Decodes UTF-8 stored in a String, treating each input character as a byte.
+   * Decode a String that might actually be UTF-8, in which case each input
+   * character will be treated as a byte.
    *
    * Several Bazel subsystems, including Starlark, store bytes in `String`
    * values where each `char` stores one `byte` in its lower 8 bits. This
@@ -108,12 +109,29 @@ public class StringUtil {
    * The return value is suitable for passing to Protobuf string fields or
    * printing to the terminal.
    */
-  public static String decodeBytestringUtf8(String bytestringUtf8) {
-    if (bytestringUtf8.chars().allMatch(c -> c < 128)) {
-      return bytestringUtf8;
+  public static String decodeBytestringUtf8(String maybeUtf8) {
+    if (maybeUtf8.chars().allMatch(c -> c < 128)) {
+      return maybeUtf8;
     }
-    final byte[] utf8 = bytestringUtf8.getBytes(StandardCharsets.ISO_8859_1);
-    return new String(utf8, StandardCharsets.UTF_8);
+
+    // Try our best to get a valid Unicode string, assuming that the input
+    // is either UTF-8 (from Starlark or a UNIX file path) or already valid
+    // Unicode (from a Windows file path).
+    if (maybeUtf8.chars().anyMatch(c -> c > 0xFF)) {
+      return maybeUtf8;
+    }
+
+    final byte[] utf8 = maybeUtf8.getBytes(StandardCharsets.ISO_8859_1);
+    final String decoded = new String(utf8, StandardCharsets.UTF_8);
+
+    // If the input was Unicode that happens to contain only codepoints in
+    // the ISO-8859-1 range, then it will probably have a partial decoding
+    // failure.
+    if (decoded.chars().anyMatch(c -> c == 0xFFFD)) {
+      return maybeUtf8;
+    }
+
+    return decoded;
   }
 
   /**

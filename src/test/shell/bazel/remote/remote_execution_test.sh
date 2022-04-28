@@ -3800,11 +3800,16 @@ function test_unicode() {
   tear_down
   LC_ALL=en_US.UTF-8 set_up
 
+  # The test inputs contain both globbed and unglobbed input paths, to verify
+  # consistent behavior on Windows where file paths are Unicode but Starlark
+  # strings are UTF-8.
   cat > BUILD <<EOF
 load("//:rules.bzl", "test_unicode")
 test_unicode(
   name = "test_unicode",
-  inputs = glob(["inputs/**/*"]),
+  inputs = glob(["inputs/**/A_*"]) + [
+    "inputs/入力/B_🌱.txt",
+  ],
 )
 EOF
 
@@ -3826,8 +3831,12 @@ echo '[input tree]' >> "${report}"
 find inputs >> "${report}"
 echo '' >> "${report}"
 
-echo '[input file]' >> "${report}"
-cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
+echo '[input file A]' >> "${report}"
+cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/A_\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
+echo '' >> "${report}"
+
+echo '[input file B]' >> "${report}"
+cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/B_\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
 echo '' >> "${report}"
 
 echo '[environment]' >> "${report}"
@@ -3851,9 +3860,10 @@ test_unicode = rule(
 )
 EOF
 
-  # inputs/入力/🌱.txt
+  # inputs/入力/A_🌱.txt and inputs/入力/B_🌱.txt
   mkdir -p $'inputs/\xe5\x85\xa5\xe5\x8a\x9b'
-  echo 'input content' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt'
+  echo 'input content A' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/A_\xf0\x9f\x8c\xb1.txt'
+  echo 'input content B' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/B_\xf0\x9f\x8c\xb1.txt'
 
   # On UNIX platforms, Bazel assumes that file paths are encoded in UTF-8. The
   # system must have either an ISO-8859-1 or UTF-8 locale available so that
@@ -3887,10 +3897,14 @@ EOF
 [input tree]
 inputs
 inputs/入力
-inputs/入力/🌱.txt
+inputs/入力/A_🌱.txt
+inputs/入力/B_🌱.txt
 
-[input file]
-input content
+[input file A]
+input content A
+
+[input file B]
+input content B
 
 [environment]
 TEST_UNICODE_🌱=🌱

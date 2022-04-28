@@ -352,16 +352,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       return maybeUtf8;
     }
 
-    // Try our best to get a valid Unicode string, assuming that the input
-    // is either UTF-8 (from Starlark or a UNIX file path) or already valid
-    // Unicode (from a Windows file path).
-    final String decoded;
-    if (maybeUtf8.chars().anyMatch(c -> c > 0xFF)) {
-      decoded = maybeUtf8;
-    } else {
-      decoded = decodeBytestringUtf8(maybeUtf8);
-    }
-
+    final String decoded = decodeBytestringUtf8(maybeUtf8);
     final StringBuilder sb = new StringBuilder(decoded.length() * 8);
     decoded.codePoints().forEach(c -> {
       if (c >= 0x20 && c < 0x7F) {
