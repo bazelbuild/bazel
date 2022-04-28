@@ -117,8 +117,7 @@ def _compile(
         of the command line.
       additional_tools: (list[File]) Additional tools to add to the action.
       additional_inputs: (Depset[File]) Additional input files to add to the action.
-      resource_set:
-        (func) A callback function that is passed to the created action.
+      resource_set: (func) A callback function that is passed to the created action.
         See `ctx.actions.run`, `resource_set` parameter for full definition of
         the callback.
       experimental_progress_message: Overrides progres_message from the toolchain.
@@ -212,11 +211,9 @@ def _experimental_should_generate_code(
     shouldn't generate code.
 
     Args:
-      proto_library_target:
-        (Target) The proto_library to generate the sources for.
+      proto_library_target: (Target) The proto_library to generate the sources for.
         Obtained as the `target` parameter from an aspect's implementation.
-      proto_lang_toolchain_info:
-        (ProtoLangToolchainInfo) The proto lang toolchain info.
+      proto_lang_toolchain_info: (ProtoLangToolchainInfo) The proto lang toolchain info.
         Obtained from a `proto_lang_toolchain` target or constructed ad-hoc.
       rule_name: (str) Name of the rule used in the failure message.
 
@@ -252,10 +249,8 @@ def _declare_generated_files(
     declares new output files.
 
     Args:
-      actions:
-        (ActionFactory) Obtained by ctx.actions, used to declare the files.
-      proto_library_target:
-        (Target) The proto_library to generate the files for.
+      actions: (ActionFactory) Obtained by ctx.actions, used to declare the files.
+      proto_library_target: (Target) The proto_library to generate the files for.
         Obtained as the `target` parameter from an aspect's implementation.
       extension: (str) The extension to use for generated files.
       name_mapper: (str->str) A function mapped over the base filename without
