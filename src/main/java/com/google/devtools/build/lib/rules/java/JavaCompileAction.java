@@ -418,7 +418,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         actionExecutionContext
             .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
-    return new JavaActionContinuation(actionExecutionContext, reducedClasspath, spawnContinuation);
+    return new JavaActionContinuation(
+        actionExecutionContext, reducedClasspath, spawnContinuation, spawn.stripOutputPaths());
   }
 
   @Override
@@ -663,18 +664,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       SpawnResult spawnResult,
       Artifact outputDepsProto,
       NestedSet<Artifact> actionInputs,
-      ActionExecutionContext actionExecutionContext)
+      ActionExecutionContext actionExecutionContext,
+      boolean stripOutputPaths)
       throws IOException {
 
-    // Get the executor-produce jdeps.
-    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-    InputStream inputStream =
-        inMemoryOutput == null
-            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-            : inMemoryOutput;
     Deps.Dependencies executorJdeps =
-        Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
-    inputStream.close();
+        readExecutorJdeps(spawnResult, outputDepsProto, actionExecutionContext);
+
+    if (!stripOutputPaths) {
+      return executorJdeps;
+    }
 
     // For each of the action's generated inputs, map its stripped path to its full path.
     PathFragment outputRoot = outputDepsProto.getExecPath().subFragment(0, 1);
@@ -719,13 +718,30 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return fullOutputDeps;
   }
 
+  private static Deps.Dependencies readExecutorJdeps(
+      SpawnResult spawnResult,
+      Artifact outputDepsProto,
+      ActionExecutionContext actionExecutionContext)
+      throws IOException {
+    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+    try (InputStream inputStream =
+        inMemoryOutput == null
+            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
+            : inMemoryOutput) {
+      return Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
+    }
+  }
+
   /** Reads the full {@code .jdeps} output from the given spawn results. */
   private Deps.Dependencies readFullOutputDeps(
-      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
+      List<SpawnResult> results,
+      ActionExecutionContext actionExecutionContext,
+      boolean stripOutputPaths)
       throws ActionExecutionException {
+    SpawnResult result = Iterables.getOnlyElement(results);
     try {
       return createFullOutputDeps(
-          Iterables.getOnlyElement(results), outputDepsProto, getInputs(), actionExecutionContext);
+          result, outputDepsProto, getInputs(), actionExecutionContext, stripOutputPaths);
     } catch (IOException e) {
       throw ActionExecutionException.fromExecException(
           new EnvironmentalExecException(
@@ -751,14 +767,17 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     private final ActionExecutionContext actionExecutionContext;
     @Nullable private final ReducedClasspath reducedClasspath;
     private final SpawnContinuation spawnContinuation;
+    private final boolean stripOutputPaths;
 
     public JavaActionContinuation(
         ActionExecutionContext actionExecutionContext,
         @Nullable ReducedClasspath reducedClasspath,
-        SpawnContinuation spawnContinuation) {
+        SpawnContinuation spawnContinuation,
+        boolean stripOutputPaths) {
       this.actionExecutionContext = actionExecutionContext;
       this.reducedClasspath = reducedClasspath;
       this.spawnContinuation = spawnContinuation;
+      this.stripOutputPaths = stripOutputPaths;
     }
 
     @Override
@@ -773,14 +792,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         SpawnContinuation nextContinuation = spawnContinuation.execute();
         if (!nextContinuation.isDone()) {
           return new JavaActionContinuation(
-              actionExecutionContext, reducedClasspath, nextContinuation);
+              actionExecutionContext, reducedClasspath, nextContinuation, stripOutputPaths);
         }
 
         List<SpawnResult> results = nextContinuation.get();
         if (reducedClasspath == null) {
           return ActionContinuationOrResult.of(ActionResult.create(results));
         }
-        Deps.Dependencies dependencies = readFullOutputDeps(results, actionExecutionContext);
+        Deps.Dependencies dependencies =
+            readFullOutputDeps(results, actionExecutionContext, stripOutputPaths);
 
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
@@ -825,7 +845,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                 .getContext(SpawnStrategyResolver.class)
                 .beginExecution(spawn, actionExecutionContext);
         return new JavaFallbackActionContinuation(
-            actionExecutionContext, results, fallbackContinuation);
+            actionExecutionContext, results, fallbackContinuation, spawn.stripOutputPaths());
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, JavaCompileAction.this);
       }
@@ -836,14 +856,17 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     private final ActionExecutionContext actionExecutionContext;
     private final List<SpawnResult> primaryResults;
     private final SpawnContinuation spawnContinuation;
+    private final boolean stripOutputPaths;
 
     public JavaFallbackActionContinuation(
         ActionExecutionContext actionExecutionContext,
         List<SpawnResult> primaryResults,
-        SpawnContinuation spawnContinuation) {
+        SpawnContinuation spawnContinuation,
+        boolean stripOutputPaths) {
       this.actionExecutionContext = actionExecutionContext;
       this.primaryResults = primaryResults;
       this.spawnContinuation = spawnContinuation;
+      this.stripOutputPaths = stripOutputPaths;
     }
 
     @Override
@@ -858,14 +881,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         SpawnContinuation nextContinuation = spawnContinuation.execute();
         if (!nextContinuation.isDone()) {
           return new JavaFallbackActionContinuation(
-              actionExecutionContext, primaryResults, nextContinuation);
+              actionExecutionContext, primaryResults, nextContinuation, stripOutputPaths);
         }
         List<SpawnResult> fallbackResults = nextContinuation.get();
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
               .getContext(JavaCompileActionContext.class)
               .insertDependencies(
-                  outputDepsProto, readFullOutputDeps(fallbackResults, actionExecutionContext));
+                  outputDepsProto,
+                  readFullOutputDeps(fallbackResults, actionExecutionContext, stripOutputPaths));
         }
         return ActionContinuationOrResult.of(
             ActionResult.create(
