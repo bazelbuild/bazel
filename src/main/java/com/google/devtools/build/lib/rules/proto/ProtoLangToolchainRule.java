@@ -100,6 +100,16 @@ public class ProtoLangToolchainRule implements RuleDefinition {
             attr("blacklisted_protos", LABEL_LIST)
                 .allowedFileTypes()
                 .mandatoryProviders(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))
+
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(proto_compiler) -->
+        The proto compiler executable.
+        If provided, this target will be used as a proto-compiler to generate the code.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("proto_compiler", LABEL)
+                .allowedFileTypes()
+                .cfg(ExecutionTransitionFactory.create())
+                .exec())
         .add(
             attr(":proto_compiler", LABEL)
                 .cfg(ExecutionTransitionFactory.create())

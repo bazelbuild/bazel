@@ -37,21 +37,29 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
   public static SingleToolchainResolutionKey key(
       BuildConfigurationKey configurationKey,
       ToolchainTypeRequirement toolchainType,
+      ToolchainTypeInfo toolchainTypeInfo,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
     return key(
-        configurationKey, toolchainType, targetPlatformKey, availableExecutionPlatformKeys, false);
+        configurationKey,
+        toolchainType,
+        toolchainTypeInfo,
+        targetPlatformKey,
+        availableExecutionPlatformKeys,
+        false);
   }
 
   public static SingleToolchainResolutionKey key(
       BuildConfigurationKey configurationKey,
       ToolchainTypeRequirement toolchainType,
+      ToolchainTypeInfo toolchainTypeInfo,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
       boolean debugTarget) {
     return SingleToolchainResolutionKey.create(
         configurationKey,
         toolchainType,
+        toolchainTypeInfo,
         targetPlatformKey,
         availableExecutionPlatformKeys,
         debugTarget);
@@ -70,6 +78,8 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
     public abstract ToolchainTypeRequirement toolchainType();
 
+    public abstract ToolchainTypeInfo toolchainTypeInfo();
+
     abstract ConfiguredTargetKey targetPlatformKey();
 
     abstract ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys();
@@ -79,12 +89,14 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
     static SingleToolchainResolutionKey create(
         BuildConfigurationKey configurationKey,
         ToolchainTypeRequirement toolchainType,
+        ToolchainTypeInfo toolchainTypeInfo,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys,
         boolean debugTarget) {
       return new AutoValue_SingleToolchainResolutionValue_SingleToolchainResolutionKey(
           configurationKey,
           toolchainType,
+          toolchainTypeInfo,
           targetPlatformKey,
           ImmutableList.copyOf(availableExecutionPlatformKeys),
           debugTarget);

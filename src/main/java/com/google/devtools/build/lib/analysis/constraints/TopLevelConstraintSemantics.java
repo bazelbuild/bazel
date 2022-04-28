@@ -309,7 +309,7 @@ public class TopLevelConstraintSemantics {
               .setAnalysis(Analysis.newBuilder().setCode(Code.TARGETS_MISSING_ENVIRONMENTS))
               .build());
     }
-    return ImmutableSet.copyOf(badTargets.addAll(exceptionInducingTargets.keySet()).build());
+    return badTargets.build();
   }
 
   /**

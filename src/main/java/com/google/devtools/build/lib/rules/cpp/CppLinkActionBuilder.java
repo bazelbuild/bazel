@@ -760,7 +760,7 @@ public class CppLinkActionBuilder {
             .build();
 
     PathFragment paramRootPath =
-        ParameterFile.derivePath(outputRootPath, (isLtoIndexing) ? "lto-index" : "2");
+        ParameterFile.derivePath(outputRootPath,  isLtoIndexing ? "lto-index" : "2");
 
     @Nullable
     final Artifact paramFile =

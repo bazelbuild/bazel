@@ -7,7 +7,10 @@ exports_files(["osx_archs.bzl"])
 # Target constraints for each arch.
 # TODO(apple-rules): Rename osx constraint to macOS.
 OSX_TOOLS_CONSTRAINTS = {
-    "armeabi-v7a": ["@platforms//cpu:arm"],
+    "armeabi-v7a": [
+        "@platforms//cpu:armv7",
+        "@platforms//os:android",
+    ],
     "darwin_arm64": [
         "@platforms//os:osx",
         "@platforms//cpu:arm64",

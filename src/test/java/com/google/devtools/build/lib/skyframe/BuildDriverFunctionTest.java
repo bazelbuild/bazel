@@ -53,8 +53,7 @@ public class BuildDriverFunctionTest {
           }
         };
     ActionLookupKey dummyKey = mock(ActionLookupKey.class);
-    BuildDriverFunction function =
-        new BuildDriverFunction(fakeHelper, () -> dummyConflictFinder, /*eventBus=*/ null);
+    BuildDriverFunction function = new BuildDriverFunction(fakeHelper, () -> dummyConflictFinder);
 
     function.checkActionConflicts(dummyKey, /*strictConflictCheck=*/ true);
 

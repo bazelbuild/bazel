@@ -87,6 +87,9 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     assertThat(result.getSuccess()).isTrue();
     assertSingleOutputBuilt("//foo:foo");
     assertSingleOutputBuilt("//foo:bar");
+
+    assertThat(getAnalyzedTargetsLabel()).containsExactly("//foo:foo", "//foo:bar");
+    assertThat(getBuiltTargetsLabel()).containsExactly("//foo:foo", "//foo:bar");
   }
 
   @Test
@@ -107,6 +110,12 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     }
     events.assertContainsError(
         "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
+
+    assertThat(getAnalyzedTargetsLabel()).contains("//foo:execution_failure");
+    if (keepGoing) {
+      assertThat(getAnalyzedTargetsLabel()).containsExactly("//foo:foo", "//foo:execution_failure");
+      assertThat(getBuiltTargetsLabel()).containsExactly("//foo:foo");
+    }
   }
 
   @Test
@@ -130,6 +139,13 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
           () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
     }
     events.assertContainsError("rule '//foo:missing' does not exist");
+
+    if (keepGoing) {
+      assertThat(getAnalyzedTargetsLabel()).contains("//foo:foo");
+      assertThat(getBuiltTargetsLabel()).containsExactly("//foo:foo");
+    } else {
+      assertThat(getBuildResultListener().getBuiltTargets()).isEmpty();
+    }
   }
 
   @Test
@@ -149,6 +165,9 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError(
         "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
     events.assertContainsError("rule '//foo:missing' does not exist");
+
+    assertThat(getAnalyzedTargetsLabel()).contains("//foo:execution_failure");
+    assertThat(getBuiltTargetsLabel()).isEmpty();
   }
 
   @Test

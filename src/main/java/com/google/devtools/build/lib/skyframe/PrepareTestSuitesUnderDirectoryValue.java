@@ -38,9 +38,10 @@ public class PrepareTestSuitesUnderDirectoryValue implements SkyValue {
     return PrepareTestSuitesUnderDirectoryValue.Key.create(repository, rootedPath, excludedPaths);
   }
 
+  /** SkyKey for PREPARE_TEST_SUITES_UNDER_DIRECTORY nodes. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends RecursivePkgSkyKey {
+  public static class Key extends RecursivePkgSkyKey {
     private static final Interner<PrepareTestSuitesUnderDirectoryValue.Key> interner =
         BlazeInterners.newWeakInterner();
 

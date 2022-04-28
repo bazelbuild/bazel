@@ -361,8 +361,6 @@ public final class BugReport {
   // report being sent to a remote logging service.
   private static void logException(Throwable exception, List<String> args, String... values) {
     logger.atSevere().withCause(exception).log("Exception");
-    // The preamble is used in the crash watcher, so don't change it unless you know what you're
-    // doing.
     String preamble =
         getProductName()
             + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");

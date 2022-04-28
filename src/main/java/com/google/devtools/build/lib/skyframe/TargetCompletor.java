@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import javax.annotation.Nullable;
@@ -153,5 +155,11 @@ class TargetCompletor
           artifactsToBuild.getAllArtifactsByOutputGroup(),
           skyframeActionExecutor.publishTargetSummaries());
     }
+  }
+
+  @Override
+  public Postable getTargetOrAspectBuiltEventForResultSummary(
+      TargetCompletionKey key, ConfiguredTargetValue unused) {
+    return TopLevelTargetBuiltEvent.create(key.actionLookupKey());
   }
 }

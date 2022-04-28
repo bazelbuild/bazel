@@ -15,7 +15,6 @@ package com.google.devtools.build.android;
 
 import com.android.annotations.Nullable;
 import com.android.builder.core.VariantType;
-import com.android.ide.common.internal.PngCruncher;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -92,7 +91,6 @@ public class AndroidResourceMerger {
       final List<? extends SerializedAndroidData> transitive,
       final Path resourcesOut,
       final Path assetsOut,
-      @Nullable final PngCruncher cruncher,
       final VariantType type,
       @Nullable final Path symbolsOut,
       final List<String> filteredResources,
@@ -106,7 +104,6 @@ public class AndroidResourceMerger {
           transitive,
           resourcesOut,
           assetsOut,
-          cruncher,
           type,
           symbolsOut,
           /* rclassWriter= */ null,
@@ -129,7 +126,6 @@ public class AndroidResourceMerger {
       final List<? extends SerializedAndroidData> transitive,
       final Path resourcesOut,
       final Path assetsOut,
-      @Nullable final PngCruncher cruncher,
       final VariantType type,
       @Nullable final Path symbolsOut,
       @Nullable final AndroidResourceClassWriter rclassWriter,
@@ -147,7 +143,6 @@ public class AndroidResourceMerger {
         transitive,
         resourcesOut,
         assetsOut,
-        cruncher,
         type,
         symbolsOut,
         rclassWriter,
@@ -164,7 +159,6 @@ public class AndroidResourceMerger {
       final List<? extends SerializedAndroidData> transitive,
       final Path resourcesOut,
       final Path assetsOut,
-      @Nullable final PngCruncher cruncher,
       final VariantType type,
       @Nullable final Path symbolsOut,
       @Nullable AndroidResourceClassWriter rclassWriter,
@@ -202,7 +196,7 @@ public class AndroidResourceMerger {
       }
       AndroidDataWriter writer =
           AndroidDataWriter.createWith(
-              resourcesOut.getParent(), resourcesOut, assetsOut, cruncher, executorService);
+              resourcesOut.getParent(), resourcesOut, assetsOut, executorService);
       return merged.write(writer);
     } catch (IOException e) {
       throw MergingException.wrapException(e);

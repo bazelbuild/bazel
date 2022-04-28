@@ -33,7 +33,9 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
@@ -78,7 +80,11 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void testResolution_singleExecutionPlatform() throws Exception {
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey, testToolchainType, linuxCtkey, ImmutableList.of(macCtkey));
+            targetConfigKey,
+            testToolchainType,
+            testToolchainTypeInfo,
+            linuxCtkey,
+            ImmutableList.of(macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
@@ -104,7 +110,11 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey, testToolchainType, linuxCtkey, ImmutableList.of(linuxCtkey, macCtkey));
+            targetConfigKey,
+            testToolchainType,
+            testToolchainTypeInfo,
+            linuxCtkey,
+            ImmutableList.of(linuxCtkey, macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
@@ -125,14 +135,15 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey, testToolchainType, linuxCtkey, ImmutableList.of(macCtkey));
+            targetConfigKey,
+            testToolchainType,
+            testToolchainTypeInfo,
+            linuxCtkey,
+            ImmutableList.of(macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains("no matching toolchain found for //toolchain:test_toolchain");
+    SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
+    assertThat(singleToolchainResolutionValue.availableToolchainLabels()).isEmpty();
   }
 
   @Test
@@ -235,7 +246,6 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     @Nullable
     @Override
     public Info get(Provider.Key providerKey) {
-
       return null;
     }
 
@@ -243,8 +253,8 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     public void repr(Printer printer) {}
 
     @Override
-    public Object getIndex(StarlarkSemantics semantics, Object key) {
-      return null;
+    public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+      throw Starlark.errorf("Unknown key '%s'", key);
     }
 
     @Override

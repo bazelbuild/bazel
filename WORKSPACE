@@ -387,14 +387,6 @@ dist_http_archive(
     name = "build_bazel_rules_nodejs",
 )
 
-http_archive(
-    name = "java_tools_langtools_javac11",
-    sha256 = "cf0814fa002ef3d794582bb086516d8c9ed0958f83f19799cdb08949019fe4c7",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk11_v2.zip",
-    ],
-)
-
 dist_http_archive(
     name = "platforms",
 )
@@ -666,4 +658,3 @@ debian_deps()
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 bazel_skylib_workspace()
-
