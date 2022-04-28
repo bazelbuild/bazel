@@ -356,8 +356,13 @@ public final class CcCommon implements StarlarkValue {
       FileProvider provider = target.getProvider(FileProvider.class);
       for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
-          ruleContext.attributeWarning("hdrs", "file '" + artifact.getFilename()
-              + "' from target '" + target.getLabel() + "' is not allowed in hdrs");
+          ruleContext.attributeWarning(
+              "hdrs",
+              "file '"
+                  + artifact.getFilename()
+                  + "' from target '"
+                  + target.getLabel()
+                  + "' is not allowed in hdrs");
           continue;
         }
         Label oldLabel = map.put(artifact, target.getLabel());
@@ -366,9 +371,7 @@ public final class CcCommon implements StarlarkValue {
               "hdrs",
               String.format(
                   "Artifact '%s' is duplicated (through '%s' and '%s')",
-                  artifact.getExecPathString(),
-                  oldLabel,
-                  target.getLabel()));
+                  artifact.getExecPathString(), oldLabel, target.getLabel()));
         }
       }
     }
@@ -380,6 +383,14 @@ public final class CcCommon implements StarlarkValue {
     return result.build();
   }
 
+  /**
+   * Returns the files from headers and does some checks. Note that this method reports warnings to
+   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
+   */
+  public List<Pair<Artifact, Label>> getHeaders() {
+    return getHeaders(ruleContext);
+  }
+
   /** Returns the C++ toolchain provider. */
   @StarlarkMethod(name = "toolchain", documented = false, structField = true)
   public CcToolchainProvider getToolchain() {
@@ -389,14 +400,6 @@ public final class CcCommon implements StarlarkValue {
   /** Returns the C++ FDO optimization support provider. */
   public FdoContext getFdoContext() {
     return fdoContext;
-  }
-
-  /**
-   * Returns the files from headers and does some checks. Note that this method reports warnings to
-   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
-   */
-  public List<Pair<Artifact, Label>> getHeaders() {
-    return getHeaders(ruleContext);
   }
 
   @StarlarkMethod(

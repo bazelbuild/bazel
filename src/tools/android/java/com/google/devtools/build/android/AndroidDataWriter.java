@@ -13,10 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.SdkConstants;
-import com.android.annotations.NonNull;
-import com.android.ide.common.internal.PngCruncher;
-import com.android.ide.common.internal.PngException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -27,13 +23,8 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
-import com.google.devtools.build.android.junctions.JunctionCreator;
-import com.google.devtools.build.android.junctions.NoopJunctionCreator;
-import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
 import com.google.devtools.build.android.xml.Namespaces;
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -57,32 +48,6 @@ import javax.xml.namespace.QName;
 
 /** Writer for UnwrittenMergedAndroidData. */
 public class AndroidDataWriter implements AndroidDataWritingVisitor {
-
-  private static final class CrunchTask implements Callable<Boolean> {
-    private final Path destinationPath;
-    private final Path source;
-    private final PngCruncher cruncher;
-
-    private CrunchTask(PngCruncher cruncher, Path destinationPath, Path source) {
-      this.cruncher = cruncher;
-      this.destinationPath = destinationPath;
-      this.source = source;
-    }
-
-    @Override
-    public Boolean call() throws Exception {
-      try (JunctionCreator junc =
-          System.getProperty("os.name").toLowerCase().startsWith("windows")
-              ? new WindowsJunctionCreator(Files.createTempDirectory("pngcrunch"))
-              : new NoopJunctionCreator()) {
-        Files.createDirectories(destinationPath.getParent());
-        cruncher.crunchPng(0, junc.create(source).toFile(), junc.create(destinationPath).toFile());
-      } catch (PngException e) {
-        throw MergingException.wrapException(e);
-      }
-      return Boolean.TRUE;
-    }
-  }
 
   private static final class CopyTask implements Callable<Boolean> {
 
@@ -108,34 +73,12 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
   private static final char[] START_RESOURCES_TAG = "<resources".toCharArray();
   public static final char[] END_RESOURCES = "</resources>".toCharArray();
   private static final char[] LINE_END = "\n".toCharArray();
-  static final PngCruncher NOOP_CRUNCHER =
-      new PngCruncher() {
-        @Override
-        public int start() {
-          return 0;
-        }
-
-        @Override
-        public void end(int key) throws InterruptedException {}
-
-        @Override
-        public void crunchPng(int key, @NonNull File source, @NonNull File destination)
-            throws PngException {
-          try {
-            Files.createDirectories(destination.toPath().getParent());
-            Files.copy(source.toPath(), destination.toPath());
-          } catch (IOException e) {
-            throw new PngException(e);
-          }
-        }
-      };
 
   private final Path destination;
 
   private final Map<String, ResourceValuesDefinitions> valueTags = new LinkedHashMap<>();
   private final Path resourceDirectory;
   private final Path assetDirectory;
-  private final PngCruncher cruncher;
   private final List<ListenableFuture<Boolean>> writeTasks = new ArrayList<>();
   private final ListeningExecutorService executorService;
 
@@ -143,12 +86,10 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
       Path destination,
       Path resourceDirectory,
       Path assetsDirectory,
-      PngCruncher cruncher,
       ListeningExecutorService executorService) {
     this.destination = destination;
     this.resourceDirectory = resourceDirectory;
     this.assetDirectory = assetsDirectory;
-    this.cruncher = cruncher;
     this.executorService = executorService;
   }
 
@@ -156,7 +97,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
    * Creates a new, naive writer for testing.
    *
    * <p>This writer has "assets" and a "res" directory from the destination directory, as well as a
-   * noop png cruncher and a {@link ExecutorService} of 1 thread.
+   * {@link ExecutorService} of 1 thread.
    *
    * @param destination The base directory to derive all paths.
    * @return A new {@link AndroidDataWriter}.
@@ -167,7 +108,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
         destination,
         destination.resolve("res"),
         destination.resolve("assets"),
-        NOOP_CRUNCHER,
         MoreExecutors.newDirectExecutorService());
   }
 
@@ -177,8 +117,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
    * @param manifestDirectory The base directory for the AndroidManifest.
    * @param resourceDirectory The directory to copy resources into.
    * @param assetsDirectory The directory to copy assets into.
-   * @param cruncher The cruncher for png files. If the cruncher is null, it will be replaced with a
-   *     noop cruncher.
    * @param executorService An execution service for multi-threaded writing.
    * @return A new {@link AndroidDataWriter}.
    */
@@ -186,13 +124,11 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
       Path manifestDirectory,
       Path resourceDirectory,
       Path assetsDirectory,
-      @Nullable PngCruncher cruncher,
       ListeningExecutorService executorService) {
     return new AndroidDataWriter(
         manifestDirectory,
         resourceDirectory,
         assetsDirectory,
-        cruncher == null ? NOOP_CRUNCHER : cruncher,
         executorService);
   }
 
@@ -219,15 +155,9 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
   }
 
   @Override
-  public void copyResource(final Path source, final String relativeDestinationPath)
-      throws MergingException {
+  public void copyResource(final Path source, final String relativeDestinationPath) {
     final Path destinationPath = resourceDirectory.resolve(relativeDestinationPath);
-    if (!source.getParent().getFileName().toString().startsWith(SdkConstants.FD_RES_RAW)
-        && source.getFileName().toString().endsWith(SdkConstants.DOT_PNG)) {
-      writeTasks.add(executorService.submit(new CrunchTask(cruncher, destinationPath, source)));
-    } else {
-      copy(source, destinationPath);
-    }
+    copy(source, destinationPath);
   }
 
   private void copy(final Path sourcePath, final Path destinationPath) {

@@ -191,6 +191,11 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
+    public int getArchIntSize(GoConfigurationApi goConfig) {
+      return 0;
+    }
+
+    @Override
     public GoContextInfoApi starlarkCollectTransitiveGoContextGopkg(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         FileApi export,

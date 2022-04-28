@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -83,33 +84,15 @@ public class ProtoCommon {
    *
    * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
    *     ".pb.cc".
-   * @param pythonNames If true, replace hyphens in the file name with underscores, and dots in the
-   *     file name with forward slashes, as required for Python modules.
    */
   public static ImmutableList<Artifact> getGeneratedOutputs(
-      RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources,
-      String extension,
-      boolean pythonNames) {
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources, String extension) {
     ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
     ArtifactRoot genfiles = ruleContext.getGenfilesDirectory();
     for (Artifact src : protoSources) {
       PathFragment srcPath =
           src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
-      if (pythonNames) {
-        srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
 
-        // Protoc python plugin converts dots in filenames to slashes when generating python source
-        // paths. For example, "myproto.gen.proto" generates "myproto/gen_pb2.py".
-        String baseName = srcPath.getBaseName();
-        int lastDot = baseName.lastIndexOf('.');
-        if (lastDot > 0) {
-          String baseNameNoExtension = baseName.substring(0, lastDot);
-          srcPath =
-              srcPath.replaceName(
-                  baseNameNoExtension.replace('.', '/') + baseName.substring(lastDot));
-        }
-      }
       // Note that two proto_library rules can have the same source file, so this is actually a
       // shared action. NB: This can probably result in action conflicts if the proto_library rules
       // are not the same.
@@ -118,18 +101,6 @@ public class ProtoCommon {
               FileSystemUtils.replaceExtension(srcPath, extension), genfiles));
     }
     return outputsBuilder.build();
-  }
-
-  /**
-   * Each language-specific initialization method will call this to construct Artifacts representing
-   * its protocol compiler outputs.
-   *
-   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
-   *     ".pb.cc".
-   */
-  public static ImmutableList<Artifact> getGeneratedOutputs(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources, String extension) {
-    return getGeneratedOutputs(ruleContext, protoSources, extension, false);
   }
 
   /**
@@ -168,6 +139,51 @@ public class ProtoCommon {
                     /* actions */ ruleContext.getStarlarkRuleContext().actions(),
                     /* proto_library_target */ protoTarget,
                     /* extension */ extension),
+                ImmutableMap.of());
+    try {
+      return Sequence.cast(outputs, Artifact.class, "declare_generated_files").getImmutableList();
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessageWithStack());
+    }
+  }
+
+  private static final StarlarkCallable pythonMapper =
+      new StarlarkCallable() {
+        @Override
+        public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
+          return args.get(0).toString().replace('-', '_').replace('.', '/');
+        }
+
+        @Override
+        public String getName() {
+          return "python_mapper";
+        }
+      };
+
+  /**
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs. The cals replaces hyphens in the file name with underscores, and
+   * dots in the file name with forward slashes, as required for Python modules.
+   *
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
+   */
+  public static ImmutableList<Artifact> declareGeneratedFilesPython(
+      RuleContext ruleContext, ConfiguredTarget protoTarget, String extension)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction declareGeneratedFiles =
+        (StarlarkFunction)
+            ruleContext.getStarlarkDefinedBuiltin("proto_common_declare_generated_files");
+    ruleContext.initStarlarkRuleContext();
+    Sequence<?> outputs =
+        (Sequence<?>)
+            ruleContext.callStarlarkOrThrowRuleError(
+                declareGeneratedFiles,
+                ImmutableList.of(
+                    /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+                    /* proto_library_target */ protoTarget,
+                    /* extension */ extension,
+                    /* experimental_python_names */ pythonMapper),
                 ImmutableMap.of());
     try {
       return Sequence.cast(outputs, Artifact.class, "declare_generated_files").getImmutableList();

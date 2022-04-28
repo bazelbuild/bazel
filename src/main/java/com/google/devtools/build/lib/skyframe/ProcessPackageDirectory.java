@@ -273,7 +273,7 @@ public final class ProcessPackageDirectory {
   /** Wraps {@link InconsistentFilesystemException} in {@link ProcessPackageDirectoryException}. */
   public static final class ProcessPackageDirectorySkyFunctionException
       extends SkyFunctionException {
-    private ProcessPackageDirectorySkyFunctionException(
+    public ProcessPackageDirectorySkyFunctionException(
         RootedPath directory, InconsistentFilesystemException e) {
       super(new ProcessPackageDirectoryException(directory, e), Transience.PERSISTENT);
     }

@@ -362,6 +362,41 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_outputDirectoriesWithNestedFile_works() throws Exception {
+    // Test that downloading an output directory containing a named output file works.
+
+    // arrange
+    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
+    Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-ontents");
+    Tree subdirTreeMessage =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(fooDigest))
+                    .addFiles(FileNode.newBuilder().setName("bar").setDigest(barDigest)))
+            .build();
+    Digest subdirTreeDigest =
+        cache.addContents(remoteActionExecutionContext, subdirTreeMessage.toByteArray());
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputFilesBuilder().setPath("outputs/subdir/foo").setDigest(fooDigest);
+    builder.addOutputDirectoriesBuilder().setPath("outputs/subdir").setTreeDigest(subdirTreeDigest);
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // act
+    service.downloadOutputs(action, result);
+
+    // assert
+    assertThat(digestUtil.compute(execRoot.getRelative("outputs/subdir/foo"))).isEqualTo(fooDigest);
+    assertThat(digestUtil.compute(execRoot.getRelative("outputs/subdir/bar"))).isEqualTo(barDigest);
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void downloadOutputs_outputDirectoriesWithSameHash_works() throws Exception {
     // Test that downloading an output directory works when two Directory
     // protos have the same hash i.e. because they have the same name and contents or are empty.

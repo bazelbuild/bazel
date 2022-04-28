@@ -64,7 +64,7 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
         "platform(",
         "    name = 'arm_platform',",
         "    constraint_values = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "    ])");
     BazelMockAndroidSupport.setupPlatformResolvableSdks(mockToolsConfig);
 

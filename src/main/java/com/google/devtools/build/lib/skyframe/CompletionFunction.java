@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -119,6 +120,9 @@ public final class CompletionFunction<
         ArtifactsToBuild artifactsToBuild,
         Environment env)
         throws InterruptedException;
+
+    /** Builds the appropriate event among {@link TopLevelStatusEvents}. */
+    Postable getTargetOrAspectBuiltEventForResultSummary(KeyT key, ValueT value);
   }
 
   private final PathResolverFactory pathResolverFactory;
@@ -314,6 +318,8 @@ public final class CompletionFunction<
     }
     env.getListener().post(postable);
     topLevelArtifactsMetric.mergeIn(currentConsumer);
+
+    env.getListener().post(completor.getTargetOrAspectBuiltEventForResultSummary(key, value));
     return completor.getResult();
   }
 

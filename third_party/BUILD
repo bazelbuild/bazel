@@ -26,7 +26,6 @@ filegroup(
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
-        "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
         "//third_party/jaxb:srcs",
@@ -500,7 +499,7 @@ distrib_jar_filegroup(
 distrib_jar_filegroup(
     name = "guava-failureaccess-jar",
     srcs = [
-      "guava/failureaccess-1.0.1.jar",
+        "guava/failureaccess-1.0.1.jar",
     ],
     enable_distributions = ["debian"],
 )
@@ -633,8 +632,8 @@ distrib_java_import(
     name = "netty_tcnative",
     enable_distributions = ["debian"],
     jars = [
-      "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
-      ":netty_tcnative/netty-tcnative-filtered.jar",
+        "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
+        ":netty_tcnative/netty-tcnative-filtered.jar",
     ],
 )
 

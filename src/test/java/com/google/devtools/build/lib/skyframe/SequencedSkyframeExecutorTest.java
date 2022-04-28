@@ -2478,20 +2478,23 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   @Test
   public void usesCorrectGraphInconsistencyReceiver(
-      @TestParameter boolean trackIncrementalState, @TestParameter boolean useActionCache)
+      @TestParameter boolean trackIncrementalState,
+      @TestParameter boolean useActionCache,
+      @TestParameter boolean rewindLostInputs)
       throws Exception {
     extraSkyFunctions.put(
         SkyFunctionName.FOR_TESTING,
         (key, env) -> {
-          if (trackIncrementalState || useActionCache) {
-            assertThat(env.restartPermitted()).isFalse();
-          } else {
+          if (!trackIncrementalState && !useActionCache && rewindLostInputs) {
             assertThat(env.restartPermitted()).isTrue();
+          } else {
+            assertThat(env.restartPermitted()).isFalse();
           }
           return new SkyValue() {};
         });
     initializeSkyframeExecutor();
-    options.parse("--use_action_cache=" + useActionCache);
+    options.parse(
+        "--use_action_cache=" + useActionCache, "--rewind_lost_inputs=" + rewindLostInputs);
 
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(

@@ -504,7 +504,6 @@ public abstract class CcModule
    * @param objectFiles {@code Sequence<Artifact>}
    * @return
    * @throws EvalException
-   * @throws InterruptedException
    */
   @Override
   public LibraryToLink createLibraryLinkerInput(

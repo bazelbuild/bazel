@@ -181,7 +181,7 @@ public final class CompileCommandLine {
             variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
       } catch (ExpansionException e) {
         throw new IllegalStateException(
-            "Should not happen - 'user_compile_flags' should be a string list, but wasn't.");
+            "Should not happen - 'user_compile_flags' should be a string list, but wasn't.", e);
       }
     } else {
       return ImmutableList.of();

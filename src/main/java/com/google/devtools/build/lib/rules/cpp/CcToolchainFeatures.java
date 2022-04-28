@@ -1290,22 +1290,6 @@ public class CcToolchainFeatures {
           /* ccToolchainPath= */ PathFragment.EMPTY_FRAGMENT);
     }
 
-    @AutoCodec.Instantiator
-    static FeatureConfiguration createForSerialization(
-        ImmutableSet<String> requestedFeatures,
-        ImmutableList<Feature> enabledFeatures,
-        ImmutableSet<String> enabledActionConfigActionNames,
-        ImmutableMap<String, ActionConfig> actionConfigByActionName,
-        PathFragment ccToolchainPath) {
-      return FEATURE_CONFIGURATION_INTERNER.intern(
-          new FeatureConfiguration(
-              requestedFeatures,
-              enabledFeatures,
-              enabledActionConfigActionNames,
-              actionConfigByActionName,
-              ccToolchainPath));
-    }
-
     FeatureConfiguration(
         ImmutableSet<String> requestedFeatures,
         ImmutableList<Feature> enabledFeatures,
@@ -1323,6 +1307,22 @@ public class CcToolchainFeatures {
       this.enabledFeatureNames = featureBuilder.build();
       this.enabledActionConfigActionNames = enabledActionConfigActionNames;
       this.ccToolchainPath = ccToolchainPath;
+    }
+
+    @AutoCodec.Instantiator
+    static FeatureConfiguration createForSerialization(
+        ImmutableSet<String> requestedFeatures,
+        ImmutableList<Feature> enabledFeatures,
+        ImmutableSet<String> enabledActionConfigActionNames,
+        ImmutableMap<String, ActionConfig> actionConfigByActionName,
+        PathFragment ccToolchainPath) {
+      return FEATURE_CONFIGURATION_INTERNER.intern(
+          new FeatureConfiguration(
+              requestedFeatures,
+              enabledFeatures,
+              enabledActionConfigActionNames,
+              actionConfigByActionName,
+              ccToolchainPath));
     }
 
     /**

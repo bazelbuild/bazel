@@ -26,5 +26,6 @@ import net.starlark.java.eval.StarlarkValue;
     doc =
         "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
             + " indexing with the toolchain type, as in"
-            + " <code>context[\"//pkg:my_toolchain_type\"]</code>.")
+            + " <code>ctx.toolchains[\"//pkg:my_toolchain_type\"]</code>. If the toolchain was"
+            + " optional and no toolchain was resolved, this will return <code>None</code>.")
 public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable.Threaded {}

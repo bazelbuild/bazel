@@ -390,21 +390,6 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Adds headers that are compiled into a separate module (when using C++ modules). The idea here
-   * is that a single (generated) library might want to create headers of very different transitive
-   * dependency size. In this case, building headers with very few transitive dependencies into a
-   * separate module can drastrically improve build performance of that module and its users.
-   *
-   * <p>Headers in this separate module must not include any of the regular headers.
-   *
-   * <p>THIS IS AN EXPERIMENTAL FACILITY THAT MIGHT GO AWAY.
-   */
-  public CcCompilationHelper addSeparateModuleHeaders(Collection<Artifact> headers) {
-    separateModuleHeaders.addAll(headers);
-    return this;
-  }
-
-  /**
    * Adds {@code headers} as public header files. These files will be made visible to dependent
    * rules. They may be parsed/preprocessed or compiled into a header module depending on the
    * configuration.
@@ -423,6 +408,21 @@ public final class CcCompilationHelper {
     for (Pair<Artifact, Label> header : headers) {
       addHeader(header.first, header.second);
     }
+    return this;
+  }
+
+  /**
+   * Adds headers that are compiled into a separate module (when using C++ modules). The idea here
+   * is that a single (generated) library might want to create headers of very different transitive
+   * dependency size. In this case, building headers with very few transitive dependencies into a
+   * separate module can drastrically improve build performance of that module and its users.
+   *
+   * <p>Headers in this separate module must not include any of the regular headers.
+   *
+   * <p>THIS IS AN EXPERIMENTAL FACILITY THAT MIGHT GO AWAY.
+   */
+  public CcCompilationHelper addSeparateModuleHeaders(Collection<Artifact> headers) {
+    separateModuleHeaders.addAll(headers);
     return this;
   }
 

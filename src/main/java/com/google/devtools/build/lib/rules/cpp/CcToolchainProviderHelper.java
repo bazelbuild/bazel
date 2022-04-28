@@ -267,7 +267,8 @@ public class CcToolchainProviderHelper {
         // TODO(jungjw): This should probably be getExecPath.
         pathPrefix = PackageIdentifier.parse(packageString).getPackagePath(siblingRepositoryLayout);
       } catch (LabelSyntaxException e) {
-        throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
+        throw new InvalidConfigurationException(
+            "The package '" + packageString + "' is not valid", e);
       }
       int pathStartIndex = packageEndIndex + PACKAGE_END.length();
       if (pathStartIndex + 1 < s.length()) {
@@ -347,9 +348,6 @@ public class CcToolchainProviderHelper {
   /**
    * Returns {@link CcToolchainVariables} instance with build variables that only depend on the
    * toolchain.
-   *
-   * @throws RuleErrorException if there are configuration errors making it impossible to resolve
-   *     certain build variables of this toolchain
    */
   static CcToolchainVariables getBuildVariables(
       BuildOptions buildOptions,

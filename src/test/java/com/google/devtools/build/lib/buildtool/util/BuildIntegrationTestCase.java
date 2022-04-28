@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -92,6 +93,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
@@ -969,6 +971,22 @@ public abstract class BuildIntegrationTestCase {
 
   protected Path getWorkspace() {
     return workspace;
+  }
+
+  protected BuildResultListener getBuildResultListener() {
+    return getCommandEnvironment().getBuildResultListener();
+  }
+
+  protected ImmutableList<String> getAnalyzedTargetsLabel() {
+    return getBuildResultListener().getAnalyzedTargets().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
+  }
+
+  protected ImmutableList<String> getBuiltTargetsLabel() {
+    return getBuildResultListener().getBuiltTargets().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
   }
 
   /**

@@ -54,6 +54,10 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
   public ToolchainTypeRequirement testToolchainType;
   public ToolchainTypeInfo testToolchainTypeInfo;
 
+  public Label optionalToolchainTypeLabel;
+  public ToolchainTypeRequirement optionalToolchainType;
+  public ToolchainTypeInfo optionalToolchainTypeInfo;
+
   protected static IterableSubject assertToolchainLabels(
       RegisteredToolchainsValue registeredToolchainsValue) {
     return assertToolchainLabels(registeredToolchainsValue, null);
@@ -149,6 +153,7 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
   public void addToolchain(
       String packageName,
       String toolchainName,
+      Label toolchainType,
       Collection<String> execConstraints,
       Collection<String> targetConstraints,
       String data)
@@ -158,13 +163,47 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
         "toolchain(",
         "    name = '" + toolchainName + "',",
-        "    toolchain_type = '//toolchain:test_toolchain',",
+        "    toolchain_type = '" + toolchainType + "',",
         "    exec_compatible_with = [" + formatConstraints(execConstraints) + "],",
         "    target_compatible_with = [" + formatConstraints(targetConstraints) + "],",
         "    toolchain = ':" + toolchainName + "_impl')",
         "test_toolchain(",
         "  name='" + toolchainName + "_impl',",
         "  data = '" + data + "')");
+  }
+
+  public void addToolchain(
+      String packageName,
+      String toolchainName,
+      Collection<String> execConstraints,
+      Collection<String> targetConstraints,
+      String data)
+      throws Exception {
+
+    addToolchain(
+        packageName,
+        toolchainName,
+        testToolchainTypeLabel,
+        execConstraints,
+        targetConstraints,
+        data);
+  }
+
+  public void addOptionalToolchain(
+      String packageName,
+      String toolchainName,
+      Collection<String> execConstraints,
+      Collection<String> targetConstraints,
+      String data)
+      throws Exception {
+
+    addToolchain(
+        packageName,
+        toolchainName,
+        optionalToolchainTypeLabel,
+        execConstraints,
+        targetConstraints,
+        data);
   }
 
   @Before
@@ -182,7 +221,20 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         "    attrs = {",
         "       'data': attr.string()})");
 
-    scratch.file("toolchain/BUILD", "toolchain_type(name = 'test_toolchain')");
+    scratch.file(
+        "toolchain/BUILD",
+        "toolchain_type(name = 'test_toolchain')",
+        "toolchain_type(name = 'optional_toolchain')");
+
+    testToolchainTypeLabel = Label.parseAbsoluteUnchecked("//toolchain:test_toolchain");
+    testToolchainType = ToolchainTypeRequirement.create(testToolchainTypeLabel);
+    testToolchainTypeInfo = ToolchainTypeInfo.create(testToolchainTypeLabel);
+
+    optionalToolchainTypeLabel = Label.parseAbsoluteUnchecked("//toolchain:optional_toolchain");
+    optionalToolchainType =
+        ToolchainTypeRequirement.builder(optionalToolchainTypeLabel).mandatory(false).build();
+    optionalToolchainTypeInfo = ToolchainTypeInfo.create(optionalToolchainTypeLabel);
+
     addToolchain(
         "toolchain",
         "toolchain_1",
@@ -195,10 +247,6 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         ImmutableList.of("//constraints:mac"),
         ImmutableList.of("//constraints:linux"),
         "bar");
-
-    testToolchainTypeLabel = Label.parseAbsoluteUnchecked("//toolchain:test_toolchain");
-    testToolchainType = ToolchainTypeRequirement.create(testToolchainTypeLabel);
-    testToolchainTypeInfo = ToolchainTypeInfo.create(testToolchainTypeLabel);
   }
 
   protected EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(

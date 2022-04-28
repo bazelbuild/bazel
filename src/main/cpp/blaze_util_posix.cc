@@ -468,6 +468,10 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   }
   pid_t server_pid;
   pid_reader >> server_pid;
+  if (pid_reader.fail()) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "Failed to read pid from: " << pid_file.AsPrintablePath();
+  }
 
   WriteSystemSpecificProcessIdentifier(server_dir, server_pid);
 

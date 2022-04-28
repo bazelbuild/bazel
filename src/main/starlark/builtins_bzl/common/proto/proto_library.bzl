@@ -225,6 +225,8 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         ctx.actions.write(descriptor_set, "")
         return
 
+    dependencies_descriptor_sets = depset(transitive = [dep.transitive_descriptor_sets for dep in deps])
+
     args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
         args.add("--include_source_info")
@@ -260,6 +262,7 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         mnemonic = "GenProtoDescriptorSet",
         progress_message = "Generating Descriptor Set proto_library %{label}",
         outputs = [descriptor_set],
+        additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
     )
 
