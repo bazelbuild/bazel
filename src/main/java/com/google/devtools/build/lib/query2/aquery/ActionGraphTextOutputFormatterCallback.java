@@ -335,8 +335,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   /**
-   * Decode a bytestring containing UTF8, and escape any characters outside
-   * the basic printable ASCII range.
+   * Decode a bytestring that might contain UTF-8, and escape any characters
+   * outside the basic printable ASCII range.
    *
    * This function is intended for human consumption in debug output that needs
    * to be durable against unusual encoding settings, and does not guarantee
@@ -347,20 +347,27 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
    * formatted as `{U+XXXX}`. Characters outside the BMP are formatted as
    *`{U+XXXX...}`.
    */
-  public static String escapeBytestringUtf8(String utf8) {
-    if (utf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
-      return utf8;
+  public static String escapeBytestringUtf8(String maybeUtf8) {
+    if (maybeUtf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
+      return maybeUtf8;
     }
 
-    final String decoded = decodeBytestringUtf8(utf8);
+    // Try our best to get a valid Unicode string, assuming that the input
+    // is either UTF-8 (from Starlark or a UNIX file path) or already valid
+    // Unicode (from a Windows file path).
+    final String decoded;
+    if (maybeUtf8.chars().anyMatch(c -> c > 0xFF)) {
+      decoded = maybeUtf8;
+    } else {
+      decoded = decodeBytestringUtf8(maybeUtf8);
+    }
+
     final StringBuilder sb = new StringBuilder(decoded.length() * 8);
     decoded.codePoints().forEach(c -> {
       if (c >= 0x20 && c < 0x7F) {
         sb.appendCodePoint(c);
-      } else if (c <= 0xFFFF) {
-        sb.append(String.format("{U+%04X}", c));
       } else {
-        sb.append(String.format("{U+%X}", c));
+        sb.append(String.format("{U+%04X}", c));
       }
     });
     return sb.toString();
