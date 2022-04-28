@@ -400,9 +400,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
 
     builder.addToolchainTypes(parseToolchainTypes(toolchains, thread));
-    if (useToolchainTransition) {
-      builder.useToolchainTransition(ToolchainTransitionMode.ENABLED);
-    }
+    // Always set this.
+    builder.useToolchainTransition(ToolchainTransitionMode.ENABLED);
 
     if (execGroups != Starlark.NONE) {
       Map<String, ExecGroup> execGroupDict =
@@ -690,7 +689,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
         parseToolchainTypes(toolchains, thread),
-        useToolchainTransition,
+        /* useToolchainTransition= */ true,
         applyToGeneratingRules);
   }
 

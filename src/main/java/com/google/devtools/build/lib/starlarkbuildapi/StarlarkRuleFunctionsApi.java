@@ -346,10 +346,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "incompatible_use_toolchain_transition",
             defaultValue = "False",
             named = true,
-            doc =
-                "If set, this rule will use the toolchain transition for toolchain dependencies."
-                    + " This is ignored if the --incompatible_use_toolchain_transition flag is"
-                    + " set."),
+            doc = "Deprecated, this is no longer in use and should be removed."),
         @Param(
             name = "doc",
             named = true,
@@ -623,10 +620,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "incompatible_use_toolchain_transition",
             defaultValue = "False",
             named = true,
-            doc =
-                "If set, this aspect will use the toolchain transition for toolchain dependencies."
-                    + " This is ignored if the --incompatible_use_toolchain_transition flag is"
-                    + " set."),
+            doc = "Deprecated, this is no longer in use and should be removed."),
         @Param(
             name = "doc",
             named = true,
