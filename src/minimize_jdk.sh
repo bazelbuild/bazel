@@ -47,6 +47,10 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   cd "tmp.$$"
   unzip "../$fulljdk"
   cd $FULL_JDK_DIR
+  # We have to add this module explicitly because it is windows specific, it allows
+  # the usage of the Windows truststore
+  # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
+  modules="$modules,jdk.crypto.mscapi"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
