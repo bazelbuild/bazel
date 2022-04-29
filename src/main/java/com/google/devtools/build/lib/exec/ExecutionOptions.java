@@ -417,7 +417,13 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      help =
+          "Log the executed spawns into this file as delimited Spawn protos, according to "
+              + "src/main/protobuf/spawn.proto. This file is written in order of the execution "
+              + "of the Spawns. Related flags:"
+              + " --execution_log_binary_file (ordered binary protobuf format),"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogFile;
 
   @Option(
@@ -428,9 +434,13 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as delimited Spawn protos. Related flags:"
-              + " --execution_log_json_file (text json format), --subcommands (for displaying"
-              + " subcommands in terminal output).")
+          "Log the executed spawns into this file as delimited Spawn protos, according to"
+              + " src/main/protobuf/spawn.proto. The log is first written unordered and is then,"
+              + " at the end of the invocation, sorted in a stable order (can be CPU and memory"
+              + " intensive). Related flags:"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
 
   @Option(
@@ -442,7 +452,11 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as json representation of the delimited Spawn"
-              + " protos. Related flags: --execution_log_binary_file (binary protobuf format),"
+              + " protos, according to src/main/protobuf/spawn.proto. The log is first written"
+              + " unordered and is then, at the end of the invocation, sorted in a stable order"
+              + " (can be CPU and memory intensive). Related flags:"
+              + " Related flags: --execution_log_binary_file (ordered binary protobuf format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
