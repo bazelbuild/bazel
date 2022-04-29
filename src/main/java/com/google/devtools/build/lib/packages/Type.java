@@ -213,7 +213,8 @@ public abstract class Type<T> {
 
   /**
    * Implementation of concatenation for this type, as if by {@code elements[0] + ... +
-   * elements[n-1]}). Returns null to indicate concatenation isn't supported. This method exists to
+   * elements[n-1]}) for scalars or lists, or {@code elements[0] | ... | elements[n-1]} for dicts.
+   * Returns null to indicate concatenation isn't supported. This method exists to
    * support deferred additions {@code select + T} for catenable types T such as string, int, and
    * list.
    */

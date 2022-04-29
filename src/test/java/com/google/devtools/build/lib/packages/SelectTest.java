@@ -70,11 +70,53 @@ public class SelectTest {
 
   @Test
   public void testPlusIncompatibleType() throws Exception {
+
     assertFails(
         "select({'foo': ['FOO'], 'bar': ['BAR']}) + 1",
         "'+' operator applied to incompatible types (select of list, int)");
     assertFails(
         "select({'foo': ['FOO']}) + select({'bar': 2})",
         "'+' operator applied to incompatible types (select of list, select of int)");
+
+    assertFails(
+        "select({'foo': ['FOO']}) + select({'bar': {'a': 'a'}})",
+        "'+' operator applied to incompatible types (select of list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) + select({'foo': ['FOO']})",
+        "'+' operator applied to incompatible types (select of dict, select of list)");
+    assertFails(
+        "['FOO'] + select({'bar': {'a': 'a'}})",
+        "'+' operator applied to incompatible types (list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) + ['FOO']",
+        "'+' operator applied to incompatible types (select of dict, list)");
+    assertFails(
+        "select({'foo': ['FOO']}) + {'a': 'a'}",
+        "'+' operator applied to incompatible types (select of list, dict)");
+    assertFails(
+        "{'a': 'a'} + select({'foo': ['FOO']})",
+        "'+' operator applied to incompatible types (dict, select of list)");
+  }
+
+  @Test
+  public void testUnionIncompatibleType() throws Exception {
+    assertFails(
+        "select({'foo': ['FOO']}) | select({'bar': {'a': 'a'}})",
+        "'|' operator applied to incompatible types (select of list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) | select({'foo': ['FOO']})",
+        "'|' operator applied to incompatible types (select of dict, select of list)");
+    assertFails(
+        "['FOO'] | select({'bar': {'a': 'a'}})",
+        "'|' operator applied to incompatible types (list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) | ['FOO']",
+        "'|' operator applied to incompatible types (select of dict, list)");
+    assertFails(
+        "select({'foo': ['FOO']}) | {'a': 'a'}",
+        "'|' operator applied to incompatible types (select of list, dict)");
+    assertFails(
+        "{'a': 'a'} | select({'foo': ['FOO']})",
+        "'|' operator applied to incompatible types (dict, select of list)");
   }
 }
