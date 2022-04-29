@@ -958,7 +958,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    cmd = 'echo' + select({",
         "        '//conditions:a': 'a',",
         "        '//conditions:b': 'b',",
-        "    }) + glob(['globbed.java']))");
+        "    }) + glob(['globbed.java'], allow_empty = True))");
 
     reporter.removeHandler(failFastHandler);
     assertThrows(NoSuchTargetException.class, () -> getTarget("//foo:binary"));

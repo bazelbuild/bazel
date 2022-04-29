@@ -1346,7 +1346,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "globs/BUILD",
         String.format(
-            "result = glob(%s, exclude=%s, exclude_directories=%d)",
+            "result = glob(%s, exclude=%s, exclude_directories=%d, allow_empty = True)",
             Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
         resultAssertion);
     return loadPackage("globs");

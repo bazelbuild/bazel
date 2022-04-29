@@ -50,6 +50,7 @@ filegroup(
     srcs = glob(
         [".git/**"],
         exclude = [".git/**/*[*"],  # gitk creates temp files with []
+        allow_empty = True,
     ),
 )
 

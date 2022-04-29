@@ -97,7 +97,7 @@ public abstract class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         "    enable_data_binding = 1,",
         "    manifest = 'AndroidManifest.xml',",
         "    srcs = ['LibWithResourceFiles.java'],",
-        "    resource_files = glob(['res/**']),",
+        "    resource_files = glob(['res/**'], allow_empty = True),",
         ")");
     scratch.file(
         "java/android/lib_with_resource_files/LibWithResourceFiles.java",

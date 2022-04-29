@@ -301,7 +301,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     // A dummy directory that is not changed.
     scratch.file("misc/BUILD",
-        "py_binary(name = 'misc', srcs = ['other.py'], data = glob(['*.txt']))");
+        "py_binary(name = 'misc', srcs = ['other.py'], data = glob(['*.txt'], allow_empty = True))");
 
     sync("//python/hello:hello", "//misc:misc");
 
@@ -652,7 +652,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void testInterruptLoadedTarget() throws Exception {
     analysisMock.pySupport().setup(mockToolsConfig);
     scratch.file("python/hello/BUILD",
-        "py_binary(name = 'hello', srcs = ['hello.py'], data = glob(['*.txt']))");
+        "py_binary(name = 'hello', srcs = ['hello.py'], data = glob(['*.txt'], allow_empty = True))");
     Thread.currentThread().interrupt();
     LoadedPackageProvider packageProvider =
         new LoadedPackageProvider(skyframeExecutor.getPackageManager(), reporter);
