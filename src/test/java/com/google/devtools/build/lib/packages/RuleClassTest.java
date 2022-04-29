@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
@@ -864,7 +863,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
         /*toolchainTypes=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ ToolchainResolutionMode.ENABLED,
-        /*useToolchainTransition=*/ ToolchainTransitionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         /* execGroups= */ ImmutableMap.of(),
         OutputFile.Kind.FILE,
