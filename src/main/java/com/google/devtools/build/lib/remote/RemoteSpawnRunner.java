@@ -30,6 +30,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -541,6 +542,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       ActionInput input = e.getValue();
       if (input instanceof VirtualActionInput) {
+        continue;
+      }
+      if (input instanceof Artifact && ((Artifact) input).isEmptyDirectoryMarker()) {
         continue;
       }
       Path path = execRoot.getRelative(input.getExecPathString());

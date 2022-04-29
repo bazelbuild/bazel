@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -184,8 +185,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            spawn,
-            context.getArtifactExpander(),
             execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
@@ -387,6 +386,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException, ForbiddenActionInputException {
     for (ActionInput input : (context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values())) {
       if (input instanceof VirtualActionInput) {
+        continue;
+      }
+      if (input instanceof Artifact && ((Artifact) input).isEmptyDirectoryMarker()) {
         continue;
       }
 

@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -133,6 +134,8 @@ class DirectoryTreeBuilder {
                     FileNode.createExecutable(
                         path.getBaseName(), virtualActionInput.getBytes(), d));
             return childAdded ? 1 : 0;
+          } else if (input instanceof Artifact && ((Artifact) input).isEmptyDirectoryMarker()) {
+            return 0;
           }
 
           FileArtifactValue metadata =

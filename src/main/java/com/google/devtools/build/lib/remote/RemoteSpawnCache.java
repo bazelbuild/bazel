@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -201,6 +202,9 @@ final class RemoteSpawnCache implements SpawnCache {
             throws IOException, ForbiddenActionInputException {
           for (ActionInput input : action.getInputMap().values()) {
             if (input instanceof VirtualActionInput) {
+              continue;
+            }
+            if (input instanceof Artifact && ((Artifact) input).isEmptyDirectoryMarker()) {
               continue;
             }
             FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);

@@ -19,6 +19,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -99,6 +100,9 @@ public class SpawnLogContext implements ActionContext {
       for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
         ActionInput input = e.getValue();
         if (input instanceof VirtualActionInput.EmptyActionInput) {
+          continue;
+        }
+        if (input instanceof Artifact && ((Artifact) input).isEmptyDirectoryMarker()) {
           continue;
         }
         Path inputPath = execRoot.getRelative(input.getExecPathString());

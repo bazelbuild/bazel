@@ -774,6 +774,10 @@ public abstract class Artifact
     return false;
   }
 
+  public boolean isEmptyDirectoryMarker() {
+    return false;
+  }
+
   /**
    * Returns whether the artifact represents a Fileset.
    *
@@ -1292,6 +1296,10 @@ public abstract class Artifact
    * </ol>
    */
   public static final class TreeFileArtifact extends DerivedArtifact {
+
+    private static final PathFragment EMPTY_DIRECTORY_MARKER = PathFragment.createAlreadyNormalized(
+        "BAZEL_TREE_FILE_ARTIFACT_EMPTY_DIRECTORY_MARKER");
+
     private final SpecialArtifact parent;
     private final PathFragment parentRelativePath;
 
@@ -1327,6 +1335,10 @@ public abstract class Artifact
     public static TreeFileArtifact createTreeOutput(
         SpecialArtifact parent, String parentRelativePath) {
       return createTreeOutput(parent, PathFragment.create(parentRelativePath));
+    }
+
+    public static TreeFileArtifact createEmptyDirectoryMarker(SpecialArtifact parent) {
+      return createTreeOutput(parent, EMPTY_DIRECTORY_MARKER);
     }
 
     /**
@@ -1390,6 +1402,11 @@ public abstract class Artifact
     @Override
     public boolean isChildOfDeclaredDirectory() {
       return !isActionTemplateExpansionKey(getArtifactOwner());
+    }
+
+    @Override
+    public boolean isEmptyDirectoryMarker() {
+      return parentRelativePath == EMPTY_DIRECTORY_MARKER;
     }
 
     private static boolean isActionTemplateExpansionKey(ActionLookupKey key) {
@@ -1513,14 +1530,17 @@ public abstract class Artifact
   }
 
   /**
-   * Renders a collection of artifacts as root-relative paths and joins
-   * them into a single string. Middleman artifacts are ignored by this method.
+   * Renders a collection of artifacts as root-relative paths and joins them into a single string.
+   * Middleman artifacts are ignored by this method.
    */
   public static String joinRootRelativePaths(String delimiter, Iterable<Artifact> artifacts) {
     return Joiner.on(delimiter).join(toRootRelativePaths(artifacts));
   }
 
-  /** Adds a collection of artifacts to a given collection, with middleman actions expanded once. */
+  /**
+   * Adds a collection of artifacts to a given collection, with middleman actions and tree artifacts
+   * expanded once.
+   */
   static void addExpandedArtifacts(
       Iterable<Artifact> artifacts,
       Collection<? super Artifact> output,
@@ -1529,9 +1549,8 @@ public abstract class Artifact
   }
 
   /**
-   * Converts a collection of artifacts into the outputs computed by
-   * outputFormatter and adds them to a given collection. Middleman artifacts
-   * are expanded once.
+   * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
+   * to a given collection. Middleman artifacts and tree artifacts are expanded once.
    */
   private static <E> void addExpandedArtifacts(Iterable<? extends Artifact> artifacts,
                                                Collection<? super E> output,
@@ -1555,6 +1574,10 @@ public abstract class Artifact
     artifactExpander.expand(middleman, artifacts);
     for (Artifact artifact : artifacts) {
       output.add(outputFormatter.apply(artifact));
+    }
+    if (middleman.isTreeArtifact() && artifacts.isEmpty()) {
+      output.add(outputFormatter.apply(TreeFileArtifact.createEmptyDirectoryMarker(
+          (SpecialArtifact) middleman)));
     }
   }
 

@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -132,7 +133,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
                   SandboxHelpers.atomicallyWriteVirtualInput(
                       virtualActionInput, outputPath, ".remote");
                 }
-              } else {
+              } else if (!(input instanceof Artifact) || !((Artifact) input).isEmptyDirectoryMarker()) {
                 FileArtifactValue metadata = metadataProvider.getMetadata(input);
                 if (metadata != null && metadata.isRemote()) {
                   Path path = execRoot.getRelative(input.getExecPath());

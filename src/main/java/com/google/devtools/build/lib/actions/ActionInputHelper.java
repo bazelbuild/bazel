@@ -103,9 +103,9 @@ public final class ActionInputHelper {
   }
 
   /**
-   * Expands middleman artifacts in a sequence of {@link ActionInput}s.
+   * Expands middleman and tree artifacts in a sequence of {@link ActionInput}s.
    *
-   * <p>Non-middleman artifacts are returned untouched.
+   * <p>Non-middleman, non-tree artifacts are returned untouched.
    */
   public static List<ActionInput> expandArtifacts(
       NestedSet<? extends ActionInput> inputs, ArtifactExpander artifactExpander) {
