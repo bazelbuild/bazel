@@ -38,9 +38,9 @@ toolchain(
 
 filegroup(
     name = "%toolchainName%-all_files",
-    srcs = glob(["ndk/toolchains/%toolchainDirectory%/**"]) + glob([
+    srcs = glob(["ndk/toolchains/%toolchainDirectory%/**"], allow_empty = True) + glob([
         %toolchainFileGlobs%
-    ]) + [
+    ], allow_empty = True) + [
       ":%dynamicRuntimeLibs%",
       ":%staticRuntimeLibs%",
     ],
