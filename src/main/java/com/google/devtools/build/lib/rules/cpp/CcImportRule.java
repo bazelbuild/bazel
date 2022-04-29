@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for the cc_import rule. */
@@ -106,7 +105,6 @@ public final class CcImportRule implements RuleDefinition {
             ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                 .mandatory(true)
                 .build())
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

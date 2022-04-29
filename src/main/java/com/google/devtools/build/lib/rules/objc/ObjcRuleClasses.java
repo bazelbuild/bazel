@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -319,7 +318,6 @@ public class ObjcRuleClasses {
               ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                   .mandatory(true)
                   .build())
-          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }
 

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -41,7 +40,6 @@ public class ObjcLibraryBaseRule implements RuleDefinition {
             ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                 .mandatory(true)
                 .build())
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 
