@@ -526,8 +526,18 @@ filegroup(
 
 cc_library(
     name = "build_info_translation_helper",
-    srcs = ["build_info_translation_helper.cc"],
-    hdrs = ["build_info_translation_helper.h"],
+    srcs = [":build_info_translation_helper.cc"],
+    hdrs = [":build_info_translation_helper.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings"],
+)
+
+cc_library(
+    name = "bazel_build_info_translation_helper",
+    srcs = [":bazel_build_info_translation_helper.cc"],
+    hdrs = [":bazel_build_info_translation_helper.h"],
+    deps = [":build_info_translation_helper"],
 )
 
 load(":compiler_flag.bzl", "compiler_flag")
