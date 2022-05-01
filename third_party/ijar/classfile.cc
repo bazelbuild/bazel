@@ -454,6 +454,82 @@ struct HasAttrs {
   }
 };
 
+// See sec.4.7.3 of JVM spec.
+//
+// Code_attribute {
+//   u2 max_stack;
+//   u2 max_locals;
+//   u4 code_length;
+//   u1 code[code_length];
+//   u2 exception_table_length;
+//   {
+//     u2 start_pc;
+//     u2 end_pc;
+//     u2 handler_pc;
+//     u2 catch_type;
+//   } exception_table[exception_table_length];
+//   u2 attributes_count;
+//   attribute_info attributes[attributes_count];
+// }
+struct CodeAttribute : Attribute {
+  static CodeAttribute* Read(const u1 *&p, Constant *attribute_name) {
+    CodeAttribute *attr = new CodeAttribute;
+
+    u2 max_stack = get_u2be(p);
+    u2 max_locals = get_u2be(p);
+
+    u4 code_length = get_u4be(p);
+    for (u4 i = 0; i < code_length; i++) {
+      // Suppress unused.
+      (void)*p++;
+    }
+
+    u2 exception_table_length = get_u2be(p);
+    for (u2 i = 0; i < exception_table_length; i++) {
+      u2 start_pc = get_u2be(p);
+      u2 end_pc = get_u2be(p);
+      u2 handler_pc = get_u2be(p);
+      u2 catch_type = get_u2be(p);
+
+      // Suppress unused.
+      (void)start_pc;
+      (void)end_pc;
+      (void)handler_pc;
+      (void)catch_type;
+    }
+
+    u2 attributes_count = get_u2be(p);
+    for (u2 i = 0; i < attributes_count; i++) {
+      u2 attribute_name_index = get_u2be(p);
+      u4 attribute_length = get_u4be(p);
+
+      for (u4 j = 0; j < attribute_length; j++) {
+        // Suppress unused.
+        (void)*p++;
+      }
+
+      // Suppress unused.
+      (void)attribute_name_index;
+      (void)attribute_length;
+    }
+
+    // Suppress unused.
+    (void)max_stack;
+    (void)max_locals;
+
+    return attr;
+  }
+
+  void Write(u1 *&p) {
+    // TODO(yannic): Emit a code attribute for an implementation that matches
+    // the signature of the original method, but is independent of the actual
+    // implementation (i.e., code that returns the "default" value of the return
+    // type, i.e.., `0` for `int` or `long`, `false` for `boolean`, or `null` for
+    // all subclasses of `Object`s or for all arrays, or nothing if the return
+    // type is `void`).
+  }
+};
+
 // See sec.4.7.5 of JVM spec.
 struct ExceptionsAttribute : Attribute {
 
@@ -1483,11 +1559,12 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
         attr_name == "LineNumberTable" ||
         attr_name == "LocalVariableTable" ||
         attr_name == "LocalVariableTypeTable" ||
-        attr_name == "Code" ||
         attr_name == "Synthetic" ||
         attr_name == "BootstrapMethods" ||
         attr_name == "SourceDebugExtension") {
       p += attribute_length; // drop these attributes
+    } else if (attr_name == "Code") {
+      attributes.push_back(CodeAttribute::Read(p, attribute_name));
     } else if (attr_name == "Exceptions") {
       attributes.push_back(ExceptionsAttribute::Read(p, attribute_name));
     } else if (attr_name == "Signature") {
