@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Workspaces.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
@@ -49,15 +50,20 @@ public final class WorkspaceRuleModule extends BlazeModule {
         env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile;
     if (logFile != null) {
       try {
-        outFileStream =
-            new AsynchronousFileOutputStream(env.getWorkingDirectory().getRelative(logFile));
+        Path resolvedLogFile = env.getWorkingDirectory().getRelative(logFile);
+        // If the flag specifies a directory, output one file per command. This might make it easier to debug behavior
+        // across multiple bazel commands.
+        if (resolvedLogFile.isDirectory()) {
+          resolvedLogFile = resolvedLogFile.getRelative(env.getCommandId().toString());
+        }
+        outFileStream = new AsynchronousFileOutputStream(resolvedLogFile);
       } catch (IOException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         env.getBlazeModuleEnvironment()
             .exit(
                 new AbruptExitException(
                     createDetailedExitCode(
-                        "Error initializing workspace rule log file.",
+                        String.format("Error initializing workspace rule log file."),
                         Code.WORKSPACES_LOG_INITIALIZATION_FAILURE)));
       }
       eventBus.register(this);
