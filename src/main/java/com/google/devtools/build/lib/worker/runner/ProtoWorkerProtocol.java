@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.worker;
+package com.google.devtools.build.lib.worker.runner;
 
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -20,7 +20,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /** An implementation of a Bazel worker using Proto to communicate with the worker process. */
-final class ProtoWorkerProtocol implements WorkerProtocolImpl {
+public final class ProtoWorkerProtocol implements WorkerProtocolImpl {
 
   /** The worker process's stdin, which we send requests to. */
   private final OutputStream workersStdin;

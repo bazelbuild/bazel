@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.worker;
+package com.google.devtools.build.lib.worker.runner;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -31,7 +31,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 
 /** An implementation of a Bazel worker using JSON to communicate with the worker process. */
-final class JsonWorkerProtocol implements WorkerProtocolImpl {
+public final class JsonWorkerProtocol implements WorkerProtocolImpl {
   /** Reader for reading the WorkResponse. */
   private final JsonReader reader;
   /** Printer for printing the WorkRequest */
@@ -39,7 +39,7 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
   /** Writer for writing the WorkRequest to the worker */
   private final BufferedWriter jsonWriter;
 
-  JsonWorkerProtocol(OutputStream workersStdin, InputStream workersStdout) {
+  public JsonWorkerProtocol(OutputStream workersStdin, InputStream workersStdout) {
     jsonPrinter = JsonFormat.printer().omittingInsignificantWhitespace();
     jsonWriter = new BufferedWriter(new OutputStreamWriter(workersStdin, UTF_8));
     reader = new JsonReader(new BufferedReader(new InputStreamReader(workersStdout, UTF_8)));
