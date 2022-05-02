@@ -137,6 +137,7 @@ public class EagerInvalidatorTest {
         new ParallelEvaluator(
             graph,
             graphVersion,
+            MinimalVersion.INSTANCE,
             tester.getSkyFunctionMap(),
             reporter,
             new MemoizingEvaluator.EmittedEventState(),
