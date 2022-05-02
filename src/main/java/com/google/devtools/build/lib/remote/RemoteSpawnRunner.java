@@ -15,8 +15,11 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
@@ -38,6 +41,8 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -273,6 +278,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
               outErr.printErr(message + "\n");
             }
 
+            profileAccounting(result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
 
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
@@ -301,6 +307,50 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } catch (IOException e) {
       return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
+  }
+
+  private static void profileAccounting(ExecutedActionMetadata executedActionMetadata) {
+    MillisSinceEpochToNanosConverter converter =
+        BlazeClock.createMillisSinceEpochToNanosConverter();
+
+    logProfileTask(
+        converter,
+        executedActionMetadata.getQueuedTimestamp(),
+        executedActionMetadata.getWorkerStartTimestamp(),
+        REMOTE_QUEUE,
+        "queue");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getInputFetchStartTimestamp(),
+        executedActionMetadata.getInputFetchCompletedTimestamp(),
+        REMOTE_SETUP,
+        "fetch");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getExecutionStartTimestamp(),
+        executedActionMetadata.getExecutionCompletedTimestamp(),
+        PROCESS_TIME,
+        "execute");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getOutputUploadStartTimestamp(),
+        executedActionMetadata.getOutputUploadCompletedTimestamp(),
+        UPLOAD_TIME,
+        "upload");
+  }
+
+  private static void logProfileTask(
+      MillisSinceEpochToNanosConverter converter,
+      Timestamp start,
+      Timestamp end,
+      ProfilerTask type,
+      String description) {
+    Profiler.instance()
+        .logSimpleTask(
+            converter.toNanos(Timestamps.toMillis(start)),
+            converter.toNanos(Timestamps.toMillis(end)),
+            type,
+            description);
   }
 
   /** conversion utility for protobuf Timestamp difference to java.time.Duration */
