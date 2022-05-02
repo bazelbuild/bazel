@@ -39,6 +39,7 @@ class ParallelEvaluatorContext {
 
   private final QueryableGraph graph;
   private final Version graphVersion;
+  private final Version minimalVersion;
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   private final ExtendedEventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
@@ -74,6 +75,7 @@ class ParallelEvaluatorContext {
   public ParallelEvaluatorContext(
       QueryableGraph graph,
       Version graphVersion,
+      Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
@@ -87,6 +89,7 @@ class ParallelEvaluatorContext {
       Cache<SkyKey, SkyKeyComputeState> stateCache) {
     this.graph = graph;
     this.graphVersion = graphVersion;
+    this.minimalVersion = minimalVersion;
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
@@ -149,6 +152,10 @@ class ParallelEvaluatorContext {
 
   Version getGraphVersion() {
     return graphVersion;
+  }
+
+  Version getMinimalVersion() {
+    return minimalVersion;
   }
 
   boolean keepGoing() {

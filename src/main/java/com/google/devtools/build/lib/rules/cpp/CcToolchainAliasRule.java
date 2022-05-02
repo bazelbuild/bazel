@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import javax.annotation.Nullable;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
@@ -59,7 +58,6 @@ public class CcToolchainAliasRule implements RuleDefinition {
             ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                 .mandatory(true)
                 .build())
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

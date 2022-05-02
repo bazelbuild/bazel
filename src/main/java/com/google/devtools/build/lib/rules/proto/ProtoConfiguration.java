@@ -256,6 +256,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.protoCompiler;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_toolchain_for_java",
+      doc = "Label for the java proto toolchains.",
+      defaultLabel = ProtoConstants.DEFAULT_JAVA_PROTO_LABEL)
   public Label protoToolchainForJava() {
     return options.protoToolchainForJava;
   }
@@ -267,7 +271,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   @StarlarkConfigurationField(
       name = "proto_toolchain_for_java_lite",
       doc = "Label for the java lite proto toolchains.",
-      defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
+      defaultLabel = ProtoConstants.DEFAULT_JAVA_LITE_PROTO_LABEL)
   public Label protoToolchainForJavaLite() {
     return options.protoToolchainForJavaLite;
   }

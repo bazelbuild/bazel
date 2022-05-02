@@ -116,7 +116,7 @@ public class PackageFunction implements SkyFunction {
 
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
-  private final IncrementalityIntent incrementalityIntent;
+  private final GlobbingStrategy globbingStrategy;
 
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics;
 
@@ -179,7 +179,7 @@ public class PackageFunction implements SkyFunction {
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      IncrementalityIntent incrementalityIntent,
+      GlobbingStrategy globbingStrategy,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics) {
     this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
     this.packageFactory = packageFactory;
@@ -188,7 +188,7 @@ public class PackageFunction implements SkyFunction {
     this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
-    this.incrementalityIntent = incrementalityIntent;
+    this.globbingStrategy = globbingStrategy;
     this.threadStateReceiverFactoryForMetrics = threadStateReceiverFactoryForMetrics;
   }
 
@@ -236,24 +236,27 @@ public class PackageFunction implements SkyFunction {
     }
   }
 
-  /**
-   * A declaration to {@link PackageFunction} about how it will be used, for the sake of making
-   * use-case-driven performance optimizations.
-   */
-  public enum IncrementalityIntent {
+  /** Ways that {@link PackageFunction} can perform globbing. */
+  public enum GlobbingStrategy {
     /**
-     * {@link PackageFunction} will be used to load packages incrementally (e.g. on both clean
-     * builds and incremental builds, perhaps with cached globs). This is Bazel's normal use-case.
+     * Globs are resolved using {@link SkyframeHybridGlobber}, which declares proper Skyframe
+     * dependencies.
+     *
+     * <p>Use when {@link PackageFunction} will be used to load packages incrementally (e.g. on both
+     * clean builds and incremental builds, perhaps with cached globs). This is Bazel's normal
+     * use-case.
      */
-    INCREMENTAL,
+    SKYFRAME_HYBRID,
 
     /**
-     * {@link PackageFunction} will never be used to load packages incrementally.
+     * Globs are resolved using {@link NonSkyframeGlobber}, which does not declare Skyframe
+     * dependencies.
      *
-     * <p>Do not use this unless you know what you are doing; Bazel will be intentionally
-     * incrementally incorrect!
+     * <p>This is a performance optimization only for use when {@link PackageFunction} will never be
+     * used to load packages incrementally. Do not use this unless you know what you are doing;
+     * Bazel will be intentionally incrementally incorrect!
      */
-    NON_INCREMENTAL
+    NON_SKYFRAME
   }
 
   private static void maybeThrowFilesystemInconsistency(
@@ -1132,17 +1135,16 @@ public class PackageFunction implements SkyFunction {
             repositoryIgnoredPatterns,
             packageLocator,
             threadStateReceiverFactoryForMetrics.apply(keyForMetrics));
-    switch (incrementalityIntent) {
-      case INCREMENTAL:
+    switch (globbingStrategy) {
+      case SKYFRAME_HYBRID:
         return new SkyframeHybridGlobber(packageId, packageRoot, env, nonSkyframeGlobber);
-      case NON_INCREMENTAL:
+      case NON_SKYFRAME:
         // Skyframe globbing is only useful for incremental correctness and performance. The
         // first time Bazel loads a package ever, Skyframe globbing is actually pure overhead
         // (SkyframeHybridGlobber will make full use of NonSkyframeGlobber).
         return new NonSkyframeGlobberWithNoGlobDeps(nonSkyframeGlobber);
-      default:
-        throw new IllegalStateException(incrementalityIntent.toString());
     }
+    throw new AssertionError(globbingStrategy);
   }
 
   /**

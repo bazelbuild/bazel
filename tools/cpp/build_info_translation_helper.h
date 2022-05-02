@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,38 +17,45 @@
 #include <string>
 #include <unordered_map>
 
+#include "third_party/absl/status/status.h"
+
 namespace bazel {
 namespace tools {
 namespace cpp {
 
 class BuildInfoTranslationHelper {
  public:
-  BuildInfoTranslationHelper(std::string info_file_path,
-                             std::string version_file_path)
+  BuildInfoTranslationHelper(const std::string& info_file_path,
+                             const std::string& version_file_path)
       : info_file_path_(info_file_path),
         version_file_path_(version_file_path) {}
 
-  std::unordered_map<std::string, std::string> ParseInfoFile();
-  std::unordered_map<std::string, std::string> ParseVersionFile();
+  absl::Status ParseInfoFile(
+      std::unordered_map<std::string, std::string>& file_map);
+  absl::Status ParseVersionFile(
+      std::unordered_map<std::string, std::string>& file_map);
 
   enum KeyType {
     STRING = 0,
     INTEGER = 1,
   };
 
-  virtual std::unordered_map<
-      std::string, std::pair<KeyType, std::pair<std::string, std::string> > >
-  getStableKeys() = 0;
-  virtual std::unordered_map<
-      std::string, std::pair<KeyType, std::pair<std::string, std::string> > >
-  getVolatileKeys() = 0;
+  using KeyMap = std::unordered_map<
+      std::string, std::pair<KeyType, std::pair<std::string, std::string> > >;
+
+  virtual KeyMap getStableKeys() = 0;
+  virtual KeyMap getVolatileKeys() = 0;
 
   virtual ~BuildInfoTranslationHelper() = 0;
 
  private:
   std::string info_file_path_;
   std::string version_file_path_;
-  std::unordered_map<std::string, std::string> ParseFile(std::string file_path);
+  absl::Status ParseFile(
+      const std::string& file_path,
+      std::unordered_map<std::string, std::string>& file_map);
+
+  const char kKeyValueSeparator = ' ';
 };
 
 }  // namespace cpp

@@ -446,7 +446,6 @@ public class BuildViewForTesting {
             ctgNode,
             toolchainContexts == null ? null : toolchainContexts.getTargetPlatform()),
         toolchainContexts,
-        DependencyResolver.shouldUseToolchainTransition(configuration, target),
         ruleClassProvider.getTrimmingTransitionFactory());
   }
 

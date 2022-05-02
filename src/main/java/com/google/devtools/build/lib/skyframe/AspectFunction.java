@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -309,7 +307,6 @@ final class AspectFunction implements SkyFunction {
                     : ToolchainCollection.builder()
                         .addDefaultContext(unloadedToolchainContext)
                         .build(),
-                shouldUseToolchainTransition(configuration, aspect.getDefinition()),
                 ruleClassProvider,
                 buildViewProvider.getSkyframeBuildView().getHostConfiguration());
       } catch (ConfiguredValueCreationException e) {
@@ -570,25 +567,6 @@ final class AspectFunction implements SkyFunction {
       return null;
     }
     return unloadedToolchainContext;
-  }
-
-  /**
-   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
-   * change flag and the aspect's toolchain transition readiness attribute.
-   */
-  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
-  private static boolean shouldUseToolchainTransition(
-      @Nullable BuildConfigurationValue configuration, AspectDefinition definition) {
-    // Check whether the global incompatible change flag is set.
-    if (configuration != null) {
-      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
-      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
-        return true;
-      }
-    }
-
-    // Check the aspect definition to see if it is ready.
-    return definition.useToolchainTransition();
   }
 
   /**

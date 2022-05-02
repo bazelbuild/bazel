@@ -154,7 +154,7 @@ public class BazelRuleClassProvider {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If true, Bazel uses an environment with a static value for PATH and does not "
-                + "inherit LD_LIBRARY_PATH or TMPDIR. Use --action_env=ENV_VARIABLE if you want to "
+                + "inherit LD_LIBRARY_PATH. Use --action_env=ENV_VARIABLE if you want to "
                 + "inherit specific environment variables from the client, but note that doing so "
                 + "can prevent cross-user caching if a shared cache is used.")
     public boolean useStrictActionEnv;

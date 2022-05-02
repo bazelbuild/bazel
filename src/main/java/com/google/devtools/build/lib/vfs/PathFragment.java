@@ -196,16 +196,6 @@ public abstract class PathFragment
     return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
   }
 
-  public static boolean isNormalizedRelativePath(String path) {
-    int driveStrLength = OS.getDriveStrLength(path);
-    int normalizationLevel = OS.needsToNormalize(path);
-    return driveStrLength == 0 && normalizationLevel == OsPathPolicy.NORMALIZED;
-  }
-
-  public static boolean containsSeparator(String path) {
-    return path.lastIndexOf(SEPARATOR_CHAR) != -1;
-  }
-
   /**
    * Returns a {@link PathFragment} instance representing the relative path between this {@link
    * PathFragment} and the given path.
@@ -243,6 +233,16 @@ public abstract class PathFragment
             ? OS.normalize(newPath, normalizationLevel)
             : newPath;
     return makePathFragment(newPath, getDriveStrLength());
+  }
+
+  public static boolean isNormalizedRelativePath(String path) {
+    int driveStrLength = OS.getDriveStrLength(path);
+    int normalizationLevel = OS.needsToNormalize(path);
+    return driveStrLength == 0 && normalizationLevel == OsPathPolicy.NORMALIZED;
+  }
+
+  public static boolean containsSeparator(String path) {
+    return path.lastIndexOf(SEPARATOR_CHAR) != -1;
   }
 
   public PathFragment getChild(String baseName) {
@@ -685,16 +685,6 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns true if the passed path contains uplevel references ".." or single-dot references "."
-   *
-   * <p>This is useful to check a string for normalization before constructing a PathFragment, since
-   * these are always normalized and will throw uplevel references away.
-   */
-  public static boolean isNormalized(String path) {
-    return isNormalizedImpl(path, /* lookForSameLevelReferences= */ true);
-  }
-
-  /**
    * Returns true if the passed path contains uplevel references "..".
    *
    * <p>This is useful to check a string for '..' segments before constructing a PathFragment, since
@@ -702,6 +692,16 @@ public abstract class PathFragment
    */
   public static boolean containsUplevelReferences(String path) {
     return !isNormalizedImpl(path, /* lookForSameLevelReferences= */ false);
+  }
+
+  /**
+   * Returns true if the passed path contains uplevel references ".." or single-dot references "."
+   *
+   * <p>This is useful to check a string for normalization before constructing a PathFragment, since
+   * these are always normalized and will throw uplevel references away.
+   */
+  public static boolean isNormalized(String path) {
+    return isNormalizedImpl(path, /* lookForSameLevelReferences= */ true);
   }
 
   private enum NormalizedImplState {

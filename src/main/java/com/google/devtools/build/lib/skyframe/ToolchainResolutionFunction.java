@@ -161,6 +161,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
       return new AutoValue_ToolchainResolutionFunction_ToolchainType(
           toolchainTypeRequirement, toolchainTypeInfo);
     }
+
+    public boolean mandatory() {
+      return toolchainTypeRequirement().mandatory();
+    }
   }
 
   /**
@@ -428,44 +432,40 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // Determine the potential set of toolchains.
     Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains =
         HashBasedTable.create();
-    ImmutableSet.Builder<ToolchainTypeInfo> requiredToolchainTypesBuilder = ImmutableSet.builder();
-    List<Label> missingToolchains = new ArrayList<>();
+    List<Label> missingMandatoryToolchains = new ArrayList<>();
     for (SingleToolchainResolutionKey key : registeredToolchainKeys) {
       SingleToolchainResolutionValue singleToolchainResolutionValue =
           (SingleToolchainResolutionValue)
               results.getOrThrow(key, InvalidToolchainLabelException.class);
-        if (singleToolchainResolutionValue == null) {
-          valuesMissing = true;
-          continue;
-        }
+      if (singleToolchainResolutionValue == null) {
+        valuesMissing = true;
+        continue;
+      }
 
-      if (singleToolchainResolutionValue.availableToolchainLabels().isEmpty()) {
-        // Save the missing type and continue looping to check for more.
-        // TODO(katre): Handle mandatory/optional.
-        missingToolchains.add(key.toolchainType().toolchainType());
-      } else {
+      if (!singleToolchainResolutionValue.availableToolchainLabels().isEmpty()) {
         ToolchainTypeInfo requiredToolchainType = singleToolchainResolutionValue.toolchainType();
-        requiredToolchainTypesBuilder.add(requiredToolchainType);
         resolvedToolchains.putAll(
             findPlatformsAndLabels(requiredToolchainType, singleToolchainResolutionValue));
+      } else if (key.toolchainType().mandatory()) {
+        // Save the missing type and continue looping to check for more.
+        missingMandatoryToolchains.add(key.toolchainType().toolchainType());
       }
+      // TODO(katre): track missing optional toolchains?
     }
 
-    if (!missingToolchains.isEmpty()) {
-      throw new UnresolvedToolchainsException(missingToolchains);
+    // Verify that all mandatory toolchain types have a toolchain.
+    if (!missingMandatoryToolchains.isEmpty()) {
+      throw new UnresolvedToolchainsException(missingMandatoryToolchains);
     }
 
     if (valuesMissing) {
       throw new ValueMissingException();
     }
 
-    ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes = requiredToolchainTypesBuilder.build();
-
-    // Find and return the first execution platform which has all required toolchains.
-    // TODO(katre): Handle mandatory/optional.
+    // Find and return the first execution platform which has all mandatory toolchains.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
         findExecutionPlatformForToolchains(
-            requiredToolchainTypes,
+            toolchainTypes,
             forcedExecutionPlatform,
             platformKeys.executionPlatformKeys(),
             resolvedToolchains);
@@ -520,43 +520,43 @@ public class ToolchainResolutionFunction implements SkyFunction {
    * resolvedToolchains} and has all required toolchain types.
    */
   private static Optional<ConfiguredTargetKey> findExecutionPlatformForToolchains(
-      ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
+      ImmutableSet<ToolchainType> toolchainTypes,
       Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
 
     if (forcedExecutionPlatform.isPresent()) {
       // Is the forced platform suitable?
-      if (isPlatformSuitable(
-          forcedExecutionPlatform.get(), requiredToolchainTypes, resolvedToolchains)) {
+      if (isPlatformSuitable(forcedExecutionPlatform.get(), toolchainTypes, resolvedToolchains)) {
         return forcedExecutionPlatform;
       }
     }
 
+    // Choose the first execution platform that has all mandatory toolchains.
     return availableExecutionPlatformKeys.stream()
-        .filter(epk -> isPlatformSuitable(epk, requiredToolchainTypes, resolvedToolchains))
+        .filter(epk -> isPlatformSuitable(epk, toolchainTypes, resolvedToolchains))
         .findFirst();
   }
 
   private static boolean isPlatformSuitable(
       ConfiguredTargetKey executionPlatformKey,
-      ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
+      ImmutableSet<ToolchainType> toolchainTypes,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
-    if (requiredToolchainTypes.isEmpty()) {
+    if (toolchainTypes.isEmpty()) {
       // Since there aren't any toolchains, we should be able to use any execution platform that
       // has made it this far.
       return true;
     }
 
-    if (!resolvedToolchains.containsRow(executionPlatformKey)) {
-      return false;
-    }
-
-    // Unless all toolchains are present, ignore this execution platform.
+    // Determine whether all mandatory toolchains are present.
     return resolvedToolchains
         .row(executionPlatformKey)
         .keySet()
-        .containsAll(requiredToolchainTypes);
+        .containsAll(
+            toolchainTypes.stream()
+                .filter(ToolchainType::mandatory)
+                .map(ToolchainType::toolchainTypeInfo)
+                .collect(toImmutableSet()));
   }
 
   private static final class ValueMissingException extends Exception {

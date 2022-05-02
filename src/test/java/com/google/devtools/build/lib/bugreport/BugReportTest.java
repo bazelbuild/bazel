@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bugreport;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -23,8 +24,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.testing.TestLogHandler;
 import com.google.devtools.build.lib.bugreport.BugReport.BlazeRuntimeInterface;
+import com.google.devtools.build.lib.bugreport.BugReport.NonFatalBugReport;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -35,6 +39,7 @@ import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -43,6 +48,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Permission;
 import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -105,11 +113,42 @@ public final class BugReportTest {
     abstract Throwable createThrowable();
   }
 
+  private static final class NonFatalException extends RuntimeException
+      implements NonFatalBugReport {
+    NonFatalException(String message) {
+      super(message);
+    }
+  }
+
+  private enum ExceptionType {
+    FATAL(
+        new RuntimeException("fatal exception"),
+        Level.SEVERE,
+        "myProductName crashed with args: arg foo"),
+    NONFATAL(
+        new NonFatalException("bug report"),
+        Level.WARNING,
+        "myProductName had a non fatal error with args: arg foo"),
+    OOM(new OutOfMemoryError("Java heap space"), Level.SEVERE, "myProductName OOMError: arg foo");
+
+    @SuppressWarnings("ImmutableEnumChecker") // I'm pretty sure no one will mutate this Throwable.
+    private final Throwable throwable;
+
+    @SuppressWarnings("ImmutableEnumChecker") // Same here.
+    private final Level level;
+
+    private final String expectedMessage;
+
+    ExceptionType(Throwable throwable, Level level, String expectedMessage) {
+      this.throwable = throwable;
+      this.level = level;
+      this.expectedMessage = expectedMessage;
+    }
+  }
+
   @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
   private final BlazeRuntimeInterface mockRuntime = mock(BlazeRuntimeInterface.class);
-
-  @TestParameter private CrashType crashType;
 
   private Path exitCodeFile;
   private Path failureDetailFile;
@@ -133,7 +172,22 @@ public final class BugReportTest {
   }
 
   @Test
-  public void convenienceMethod() throws Exception {
+  public void logException(@TestParameter ExceptionType exceptionType) throws Exception {
+    TestLogHandler handler = new TestLogHandler();
+    Logger logger = Logger.getLogger("build.lib.bugreport");
+    logger.addHandler(handler);
+    LoggingUtil.installRemoteLoggerForTesting(immediateFuture(logger));
+
+    BugReport.logException(exceptionType.throwable, ImmutableList.of("arg", "foo"));
+
+    LogRecord got = handler.getStoredLogRecords().get(0);
+    assertThat(got.getThrown()).isSameInstanceAs(exceptionType.throwable);
+    assertThat(got.getLevel()).isEqualTo(exceptionType.level);
+    assertThat(got.getMessage()).isEqualTo(exceptionType.expectedMessage);
+  }
+
+  @Test
+  public void convenienceMethod(@TestParameter CrashType crashType) throws Exception {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
         createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
@@ -153,7 +207,7 @@ public final class BugReportTest {
   }
 
   @Test
-  public void halt() throws Exception {
+  public void halt(@TestParameter CrashType crashType) throws Exception {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
         createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
@@ -176,7 +230,7 @@ public final class BugReportTest {
   }
 
   @Test
-  public void keepAlive() throws Exception {
+  public void keepAlive(@TestParameter CrashType crashType) throws Exception {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
         createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
@@ -191,7 +245,7 @@ public final class BugReportTest {
   }
 
   @Test
-  public void customContext_setUpFront() {
+  public void customContext_setUpFront(@TestParameter CrashType crashType) {
     Throwable t = crashType.createThrowable();
     EventHandler handler = mock(EventHandler.class);
     ArgumentCaptor<Event> event = ArgumentCaptor.forClass(Event.class);
@@ -213,7 +267,7 @@ public final class BugReportTest {
   }
 
   @Test
-  public void customContext_filledInByRuntime() {
+  public void customContext_filledInByRuntime(@TestParameter CrashType crashType) {
     Throwable t = crashType.createThrowable();
     EventHandler handler = mock(EventHandler.class);
     ArgumentCaptor<Event> event = ArgumentCaptor.forClass(Event.class);

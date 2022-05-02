@@ -207,7 +207,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.maxTransitiveSourceVersion =
         bubbleErrorInfo == null
                 && skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
-            ? MinimalVersion.INSTANCE
+            ? evaluatorContext.getMinimalVersion()
             : null;
     this.previouslyRequestedDepsValues = batchPrefetch(throwIfPreviouslyRequestedDepsUndone);
     Preconditions.checkState(
@@ -847,10 +847,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       }
     }
 
-    if (temporaryDirectDeps.isEmpty()
-        && skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC) {
-      maxTransitiveSourceVersion = null; // No dependencies on source.
-    }
     Preconditions.checkState(
         maxTransitiveSourceVersion == null || newlyRegisteredDeps.isEmpty(),
         "Dependency registration not supported when tracking max transitive source versions");

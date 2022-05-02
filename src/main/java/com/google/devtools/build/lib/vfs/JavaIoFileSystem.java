@@ -283,9 +283,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       Files.createSymbolicLink(nioPath, Paths.get(targetFragment.getSafePathString()));
     } catch (java.nio.file.FileAlreadyExistsException e) {
-      throw new IOException(linkPath + ERR_FILE_EXISTS);
+      throw new IOException(linkPath + ERR_FILE_EXISTS, e);
     } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(linkPath + ERR_PERMISSION_DENIED);
+      throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
     } catch (java.nio.file.NoSuchFileException e) {
       throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
     }
@@ -299,7 +299,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       String link = Files.readSymbolicLink(nioPath).toString();
       return PathFragment.create(link);
     } catch (java.nio.file.NotLinkException e) {
-      throw new NotASymlinkException(path);
+      throw new NotASymlinkException(path, e);
     } catch (java.nio.file.NoSuchFileException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     } finally {
@@ -348,9 +348,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       return Files.deleteIfExists(nioPath);
     } catch (java.nio.file.DirectoryNotEmptyException e) {
-      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY);
+      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED);
+      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED, e);
     } catch (java.nio.file.AtomicMoveNotSupportedException
         | java.nio.file.FileAlreadyExistsException
         | java.nio.file.FileSystemLoopException

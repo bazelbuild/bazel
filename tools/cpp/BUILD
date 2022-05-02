@@ -37,3 +37,17 @@ filegroup(
     srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
 )
+
+cc_test(
+    name = "bazel_build_info_translation_helper_test",
+    srcs = ["bazel_build_info_translation_helper_test.cc"],
+    data = [
+        ":test_data/correct_file_format.txt",
+        ":test_data/duplicated_key.txt",
+        ":test_data/no_separator.txt",
+    ],
+    deps = [
+        ":bazel_build_info_translation_helper",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
