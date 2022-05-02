@@ -210,9 +210,15 @@ public class CommandLines {
    */
   public ImmutableList<String> allArguments()
       throws CommandLineExpansionException, InterruptedException {
+    return allArguments(CommandAdjuster.NOOP);
+  }
+
+  /** Variation of {@link #allArguments()} that supports output path stripping. */
+  public ImmutableList<String> allArguments(CommandAdjuster stripPaths)
+      throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
     for (CommandLineAndParamFileInfo pair : getCommandLines()) {
-      arguments.addAll(pair.commandLine.arguments());
+      arguments.addAll(pair.commandLine.arguments(/*artifactExpander=*/ null, stripPaths));
     }
     return arguments.build();
   }
