@@ -71,6 +71,11 @@ else
   declare -r EXE_EXT=""
 fi
 
+function has_utf8_locale() {
+  charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "UTF-8" ]]
+}
+
 function test_remote_grpc_cache_with_protocol() {
   # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
   mkdir -p a
@@ -3769,6 +3774,144 @@ EOF
     //a:test >& $TEST_log || "Failed to build //a:test"
 
   expect_log "5 processes: 2 disk cache hit, 3 internal"
+}
+
+# Bazel assumes that non-ASCII characters in file contents (and, in
+# non-Windows systems, file paths) are UTF-8, but stores them internally by
+# parsing the raw UTF-8 bytes as if they were ISO-8859-1 characters.
+#
+# This test verifies that the inverse transformation is applied when sending
+# these inputs through the remote execution protocol. The Protobuf libraries
+# for Java assume that `String` values are encoded in UTF-16, and passing
+# raw bytes will cause double-encoding.
+function test_unicode() {
+  # The in-tree remote execution worker only supports non-ASCII paths when
+  # running in a UTF-8 locale.
+  if ! "$is_windows"; then
+    if ! has_utf8_locale; then
+      echo "Skipping test due to lack of UTF-8 locale."
+      echo "Available locales:"
+      locale -a
+      return
+    fi
+  fi
+
+  # Restart the remote execution worker with LC_ALL set.
+  tear_down
+  LC_ALL=en_US.UTF-8 set_up
+
+  # The test inputs contain both globbed and unglobbed input paths, to verify
+  # consistent behavior on Windows where file paths are Unicode but Starlark
+  # strings are UTF-8.
+  cat > BUILD <<EOF
+load("//:rules.bzl", "test_unicode")
+test_unicode(
+  name = "test_unicode",
+  inputs = glob(["inputs/**/A_*"]) + [
+    "inputs/入力/B_🌱.txt",
+  ],
+)
+EOF
+
+  cat > rules.bzl <<'EOF'
+def _test_unicode(ctx):
+  out_dir = ctx.actions.declare_directory(ctx.attr.name + "_outs/出力/🌱.d")
+  out_file = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/🌱.txt")
+  out_report = ctx.actions.declare_file(ctx.attr.name + "_report.txt")
+  ctx.actions.run_shell(
+    inputs = ctx.files.inputs,
+    outputs = [out_dir, out_file, out_report],
+    command = """
+set -eu
+
+report="$3"
+touch "${report}"
+
+echo '[input tree]' >> "${report}"
+find inputs | sort >> "${report}"
+echo '' >> "${report}"
+
+echo '[input file A]' >> "${report}"
+cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/A_\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
+echo '' >> "${report}"
+
+echo '[input file B]' >> "${report}"
+cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/B_\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
+echo '' >> "${report}"
+
+echo '[environment]' >> "${report}"
+env | grep -v BASH_EXECUTION_STRING | grep TEST_UNICODE_ >> "${report}"
+echo '' >> "${report}"
+
+mkdir -p "$1"
+echo 'output dir content' > "$1"/dir_content.txt
+echo 'output file content' > "$2"
+""",
+    arguments = [out_dir.path, out_file.path, out_report.path],
+    env = {"TEST_UNICODE_🌱": "🌱"},
+  )
+  return DefaultInfo(files=depset([out_dir, out_file, out_report]))
+
+test_unicode = rule(
+  implementation = _test_unicode,
+  attrs = {
+    "inputs": attr.label_list(allow_files = True),
+  },
+)
+EOF
+
+  # inputs/入力/A_🌱.txt and inputs/入力/B_🌱.txt
+  mkdir -p $'inputs/\xe5\x85\xa5\xe5\x8a\x9b'
+  echo 'input content A' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/A_\xf0\x9f\x8c\xb1.txt'
+  echo 'input content B' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/B_\xf0\x9f\x8c\xb1.txt'
+
+  # On UNIX platforms, Bazel assumes that file paths are encoded in UTF-8. The
+  # system must have either an ISO-8859-1 or UTF-8 locale available so that
+  # Bazel can read the original bytes of the file path.
+  #
+  # If no ISO-8859-1 locale is available, the JVM might fall back to US-ASCII
+  # rather than trying UTF-8. Setting `LC_ALL=en_US.UTF-8` prevents this.
+  bazel shutdown
+  LC_ALL=en_US.UTF-8 bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //:test_unicode >& $TEST_log \
+      || fail "Failed to build //:test_unicode with remote execution"
+  expect_log "2 processes: 1 internal, 1 remote."
+
+  # Don't leak LC_ALL into other tests.
+  bazel shutdown
+
+  # Expect action outputs with correct structure and content.
+  mkdir -p ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d'
+  cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d/dir_content.txt' <<EOF
+output dir content
+EOF
+  cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt' <<EOF
+output file content
+EOF
+
+  diff -r bazel-bin/test_unicode_outs ${TEST_TMPDIR}/test_unicode_outs \
+      || fail "Remote execution generated different result"
+
+  cat > ${TEST_TMPDIR}/test_report_expected <<EOF
+[input tree]
+inputs
+inputs/入力
+inputs/入力/A_🌱.txt
+inputs/入力/B_🌱.txt
+
+[input file A]
+input content A
+
+[input file B]
+input content B
+
+[environment]
+TEST_UNICODE_🌱=🌱
+
+EOF
+  diff bazel-bin/test_unicode_report.txt ${TEST_TMPDIR}/test_report_expected \
+      || fail "Remote execution generated different result"
 }
 
 run_suite "Remote execution and remote cache tests"
