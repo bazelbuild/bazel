@@ -640,7 +640,7 @@ public class CcCommonTest extends BuildViewTestCase {
   @Test
   public void testStaticallyLinkedBinaryNeedsSharedObject() throws Exception {
     scratch.file(
-        "third_party/sophos_av_pua/BUILD",
+        "third_party/sophos/BUILD",
         "licenses(['notice'])",
         "cc_library(name = 'savi',",
         "           srcs = [ 'lib/libsavi.so' ])");
@@ -650,7 +650,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "wrapsophos",
             "cc_library(name = 'sophosengine',",
             "           srcs = [ 'sophosengine.cc' ],",
-            "           deps = [ '//third_party/sophos_av_pua:savi' ])",
+            "           deps = [ '//third_party/sophos:savi' ])",
             "cc_binary(name = 'wrapsophos',",
             "          srcs = [ 'wrapsophos.cc' ],",
             "          deps = [ ':sophosengine' ],",

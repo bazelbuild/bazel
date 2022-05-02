@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
+import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
@@ -196,7 +197,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
-                        PackageFunction.IncrementalityIntent.INCREMENTAL,
+                        GlobbingStrategy.SKYFRAME_HYBRID,
                         k -> ThreadStateReceiver.NULL_INSTANCE))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,

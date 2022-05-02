@@ -346,8 +346,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
-              DependencyResolver.shouldUseToolchainTransition(
-                  targetAndConfiguration.getConfiguration(), targetAndConfiguration.getTarget()),
               ruleClassProvider,
               view.getHostConfiguration());
       if (!state.transitiveRootCauses.isEmpty()) {
@@ -734,7 +732,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-      boolean useToolchainTransition,
       RuleClassProvider ruleClassProvider,
       BuildConfigurationValue hostConfiguration)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
@@ -763,7 +760,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     aspects,
                     configConditions,
                     toolchainContexts,
-                    useToolchainTransition,
                     transitiveRootCauses,
                     ((ConfiguredRuleClassProvider) ruleClassProvider)
                         .getTrimmingTransitionFactory());

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -122,7 +121,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
             ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                 .mandatory(true)
                 .build())
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

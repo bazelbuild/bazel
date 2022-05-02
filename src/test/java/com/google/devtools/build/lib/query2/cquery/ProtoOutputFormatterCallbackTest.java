@@ -29,11 +29,13 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRuleInput;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.ArrayList;
@@ -121,7 +123,10 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   }
 
   @Test
+  @SuppressWarnings("deprecation") // only use for tests
   public void testConfigurations() throws Exception {
+    options.transitions = Transitions.LITE;
+
     MockRule ruleWithPatch =
         () ->
             MockRule.define(
@@ -205,7 +210,6 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     // Assert the proto checksums for targets in different configurations are not the same.
     assertThat(depRuleConfiguration.getChecksum())
         .isNotEqualTo(transitionConfiguration.getChecksum());
-
     // Targets without a configuration have a configuration_id of 0.
     ConfiguredTarget fileTargetProto =
         resultsList.stream()
@@ -213,6 +217,25 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             .findAny()
             .orElseThrow();
     assertThat(fileTargetProto.getConfigurationId()).isEqualTo(0);
+
+    // Targets whose deps have no transitions should appear without configuration information.
+    assertThat(parentRuleProto.getTarget().getRule().getConfiguredRuleInputList())
+        .containsExactly(
+            ConfiguredRuleInput.newBuilder().setLabel("//test:transition_rule").build());
+
+    // Targets with deps with transitions should show them.
+    ConfiguredRuleInput patchedConfiguredRuleInput =
+        ConfiguredRuleInput.newBuilder().setLabel("//test:patched").build();
+    ConfiguredRuleInput depConfiguredRuleInput =
+        ConfiguredRuleInput.newBuilder()
+            .setLabel("//test:dep")
+            .setConfigurationChecksum(depRuleProto.getConfiguration().getChecksum())
+            .setConfigurationId(depRuleProto.getConfigurationId())
+            .build();
+    List<ConfiguredRuleInput> configuredRuleInputs =
+        transitionRuleProto.getTarget().getRule().getConfiguredRuleInputList();
+    assertThat(configuredRuleInputs)
+        .containsExactly(patchedConfiguredRuleInput, depConfiguredRuleInput);
   }
 
   private KeyedConfiguredTarget getKeyedTargetByLabel(
@@ -305,7 +328,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             env.getAccessor(),
             options.aspectDeps.createResolver(
                 getHelper().getPackageManager(), NullEventHandler.INSTANCE),
-            OutputType.BINARY);
+            OutputType.BINARY,
+            /*trimmingTransitionFactory=*/ null);
     env.evaluateQuery(expression, callback);
     return callback.getProtoResult();
   }

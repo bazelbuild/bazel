@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -238,7 +237,6 @@ public final class BazelPyRuleClasses {
               ToolchainTypeRequirement.builder(env.getToolsLabel("//tools/python:toolchain_type"))
                   .mandatory(true)
                   .build())
-          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }
 

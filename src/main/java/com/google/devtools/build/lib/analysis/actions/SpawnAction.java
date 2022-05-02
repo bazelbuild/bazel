@@ -1092,24 +1092,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     /**
-     * Sets the executable as a String.
-     *
-     * <p><b>Caution</b>: this is an optimisation intended to be used only by {@link
-     * com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory}. It prevents reference
-     * duplication when passing {@link PathFragment} to Starlark as a String and then executing with
-     * it.
-     *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
-     */
-    public Builder setExecutableAsString(String executable) {
-      this.executableArg = executable;
-      this.executableArgs = null;
-      this.isShellCommand = false;
-      return this;
-    }
-
-    /**
      * Sets the executable as a configured target. Automatically adds the files to run to the tools
      * and inputs and uses the executable of the target as the executable.
      *
@@ -1130,8 +1112,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setExecutable(FilesToRunProvider executableProvider) {
-      Preconditions.checkArgument(executableProvider.getExecutable() != null,
-          "The target does not have an executable");
+      Preconditions.checkArgument(
+          executableProvider.getExecutable() != null, "The target does not have an executable");
       this.executableArg =
           new CallablePathFragment(
               executableProvider.getExecutable().getExecPath(),
@@ -1139,6 +1121,24 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executableArgs = null;
       this.isShellCommand = false;
       return addTool(executableProvider);
+    }
+
+    /**
+     * Sets the executable as a String.
+     *
+     * <p><b>Caution</b>: this is an optimisation intended to be used only by {@link
+     * com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory}. It prevents reference
+     * duplication when passing {@link PathFragment} to Starlark as a String and then executing with
+     * it.
+     *
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     */
+    public Builder setExecutableAsString(String executable) {
+      this.executableArg = executable;
+      this.executableArgs = null;
+      this.isShellCommand = false;
+      return this;
     }
 
     private Builder setJavaExecutable(

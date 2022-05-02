@@ -337,8 +337,27 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-      checkMember(owner, name, desc);
+      if (!isMethodHandle(opcode, owner, name)) {
+        checkMember(owner, name, desc);
+      }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    private boolean isMethodHandle(int opcode, String owner, String name) {
+      if (opcode != Opcodes.INVOKEVIRTUAL) {
+        return false;
+      }
+      if (!owner.equals("java/lang/invoke/MethodHandle")) {
+        return false;
+      }
+      switch (name) {
+        case "invoke":
+        case "invokeExact":
+          break;
+        default:
+          return false;
+      }
+      return true;
     }
 
     @Override

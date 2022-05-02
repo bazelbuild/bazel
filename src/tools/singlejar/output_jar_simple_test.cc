@@ -989,4 +989,17 @@ TEST_F(OutputJarSimpleTest, MultiReleaseManifestLines) {
       manifest);
 }
 
+// --hermetic_java_home
+TEST_F(OutputJarSimpleTest, HermeticJavaHome) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--hermetic_java_home", "foo/bar/java_home"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Hermetic-Java-Home: foo/bar/java_home\r\n"
+      "\r\n",
+      manifest);
+}
+
 }  // namespace

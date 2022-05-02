@@ -170,7 +170,7 @@ import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActi
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
-import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
+import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -553,9 +553,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
-            tracksStateForIncrementality()
-                ? IncrementalityIntent.INCREMENTAL
-                : IncrementalityIntent.NON_INCREMENTAL,
+            getGlobbingStrategy(),
             skyKeyStateReceiver::makeThreadStateReceiver));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
@@ -705,10 +703,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
     return BzlLoadFunction.create(
         this.pkgFactory, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
-  }
-
-  protected PerBuildSyscallCache newPerBuildSyscallCache(int globbingThreads) {
-    return PerBuildSyscallCache.newBuilder().setInitialCapacity(globbingThreads).build();
   }
 
   @ThreadCompatible
@@ -946,20 +940,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // Assume incrementality.
   }
 
-  /** Whether this executor tracks state for the purpose of improving incremental performance. */
+  /**
+   * Whether this executor tracks state for the purpose of improving incremental performance.
+   *
+   * <p>A return of {@code false} indicates that nodes have a lifetime of a single command and that
+   * graph edges are not kept.
+   */
   public boolean tracksStateForIncrementality() {
     return true;
   }
 
-  /**
-   * Whether this executor may reuse analysis phase nodes for the purpose of improving incremental
-   * performance.
-   *
-   * <p>This may diverge from {@link #tracksStateForIncrementality} in the case where only execution
-   * phase nodes are used for incrementality.
-   */
-  protected boolean isAnalysisIncremental() {
-    return tracksStateForIncrementality();
+  @ForOverride
+  protected GlobbingStrategy getGlobbingStrategy() {
+    return tracksStateForIncrementality()
+        ? GlobbingStrategy.SKYFRAME_HYBRID
+        : GlobbingStrategy.NON_SKYFRAME;
   }
 
   @ForOverride
@@ -1530,7 +1525,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker) {
     skyframeActionExecutor.prepareForExecution(
-        reporter, executor, options, actionCacheChecker, outputService, isAnalysisIncremental());
+        reporter,
+        executor,
+        options,
+        actionCacheChecker,
+        outputService,
+        tracksStateForIncrementality());
   }
 
   /** Asks the Skyframe evaluator to run a single exclusive test. */
@@ -3056,11 +3056,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.getActionLookupValuesInBuild")) {
       AnalysisTraversalResult result = new AnalysisTraversalResult();
-      if (!isAnalysisIncremental()) {
-        // If we do not have incremental analysis state we do not have graph edges, so we cannot
-        // traverse the graph and find only actions in the current build. In this case we can simply
-        // return all ActionLookupValues in the graph, since the graph's lifetime is a single build
-        // anyway.
+      if (!tracksStateForIncrementality()) {
+        // If we do not have graph edges, we cannot traverse the graph and find only actions in the
+        // current build. In this case we can simply return all ActionLookupValues in the graph,
+        // since the graph's lifetime is a single build anyway.
         for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getDoneValues().entrySet()) {
           if ((entry.getKey() instanceof ActionLookupKey) && entry.getValue() != null) {
             result.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());

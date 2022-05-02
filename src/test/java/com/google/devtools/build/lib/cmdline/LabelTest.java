@@ -72,34 +72,6 @@ public class LabelTest {
     }
   }
 
-  private static String parseCommandLine(String label, String prefix) throws LabelSyntaxException {
-    return Label.parseCommandLineLabel(label, PathFragment.create(prefix)).toString();
-  }
-
-  @Test
-  public void testLabelResolution() throws Exception {
-    assertThat(parseCommandLine("//absolute:label", "")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("//absolute:label", "absolute")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine(":label", "absolute")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("label", "absolute")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("absolute:label", "")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("path:label", "absolute")).isEqualTo("//absolute/path:label");
-    assertThat(parseCommandLine("path:label/path", "absolute"))
-        .isEqualTo("//absolute/path:label/path");
-    assertThat(parseCommandLine("label/path", "absolute")).isEqualTo("//absolute:label/path");
-  }
-
-  @Test
-  public void testLabelResolutionAbsolutePath() throws Exception {
-    assertThrows(
-        IllegalArgumentException.class, () -> parseCommandLine("//absolute:label", "/absolute"));
-  }
-
-  @Test
-  public void testLabelResolutionBadSyntax() throws Exception {
-    assertThrows(LabelSyntaxException.class, () -> parseCommandLine("//absolute:A+bad:syntax", ""));
-  }
-
   @Test
   public void testGetRelativeWithAbsoluteLabel() throws Exception {
     Label base = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());

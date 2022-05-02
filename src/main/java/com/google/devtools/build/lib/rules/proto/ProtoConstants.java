@@ -19,6 +19,9 @@ public final class ProtoConstants {
   /** Default label for proto compiler. */
   static final String DEFAULT_PROTOC_LABEL =  "@com_google_protobuf//:protoc";
 
+  /** Default label for java proto toolchains. */
+  static final String DEFAULT_JAVA_PROTO_LABEL = "@com_google_protobuf//:java_toolchain";
+
   /** Default label for java lite proto toolchains. */
   static final String DEFAULT_JAVA_LITE_PROTO_LABEL = "@com_google_protobuf//:javalite_toolchain";
 
