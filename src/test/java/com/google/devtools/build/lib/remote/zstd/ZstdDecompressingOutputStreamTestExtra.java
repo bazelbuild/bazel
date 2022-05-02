@@ -63,7 +63,6 @@ public class ZstdDecompressingOutputStreamTestExtra {
     for (byte b : compressed.toByteArray()) {
       zdos.write(b);
       zdos.flush();
-      assertThat(zdos.getBytesWritten()).isEqualTo(decompressed.toByteArray().length);
     }
     assertThat(decompressed.toByteArray()).isEqualTo(data);
   }
