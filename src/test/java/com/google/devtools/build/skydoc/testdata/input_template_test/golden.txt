@@ -2,6 +2,17 @@
 
 Module Docstring: "Input file for input template test"
 
+Table Of Contents: "## Rules:
+* [my_example](#my_example)
+## Providers:
+* [example](#example)
+## Functions:
+* [my_aspect_impl](#my_aspect_impl)
+* [template_function](#template_function)
+## Aspects:
+* [my_aspect](#my_aspect)
+"
+
 <a name="#my_example"></a>
 
 ## my_example

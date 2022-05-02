@@ -81,7 +81,33 @@ public class MarkdownRenderer {
     VelocityContext context = new VelocityContext();
     context.put("util", new MarkdownUtil());
     context.put("moduleDocstring", moduleInfo.getModuleDocstring());
+    StringBuilder builder = new StringBuilder();
+    if (moduleInfo.getRuleInfoCount() > 0) {
+      builder.append("## Rules:\n");
+      for (RuleInfo info : moduleInfo.getRuleInfoList()) {
+        builder.append(String.format("* [%s](#%<s)\n", info.getRuleName()));
+      }
+    }
+    if (moduleInfo.getProviderInfoCount() > 0) {
+      builder.append("## Providers:\n");
+      for (ProviderInfo info : moduleInfo.getProviderInfoList()) {
+        builder.append(String.format("* [%s](#%<s)\n", info.getProviderName()));
+      }
+    }
+    if (moduleInfo.getFuncInfoCount() > 0) {
+      builder.append("## Functions:\n");
+      for (StarlarkFunctionInfo info : moduleInfo.getFuncInfoList()) {
+        builder.append(String.format("* [%s](#%<s)\n", info.getFunctionName()));
+      }
+    }
+    if (moduleInfo.getAspectInfoCount() > 0) {
+      builder.append("## Aspects:\n");
+      for (AspectInfo info : moduleInfo.getAspectInfoList()) {
+        builder.append(String.format("* [%s](#%<s)\n", info.getAspectName()));
+      }
+    }
 
+    context.put("tableOfContents", builder.toString());
     StringWriter stringWriter = new StringWriter();
     Reader reader = readerFromPath(headerTemplateFilename);
     try {
