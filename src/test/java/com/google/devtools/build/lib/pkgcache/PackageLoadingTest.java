@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -539,5 +540,17 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file("x/BUILD", "genrule(name = 'x',", "srcs = [],", "outs = ['y/z.h'],", "cmd  = '')");
     Package p = getPackage("x");
     assertThat(p.containsErrors()).isTrue();
+  }
+
+  // Regression test for b/230791645: non-deterministic location of input file targets.
+  @Test
+  public void testDeterminismOfInputFileLocation() throws Exception {
+    scratch.file(
+        "p/BUILD",
+        "sh_library(name = 't1', srcs = ['f.sh'])",
+        "sh_library(name = 't2', srcs = ['f.sh'])");
+    Package p = getPackage("p");
+    InputFile f = (InputFile) p.getTarget("f.sh");
+    assertThat(f.getLocation().line()).isEqualTo(1);
   }
 }

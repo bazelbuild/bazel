@@ -55,7 +55,8 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
                           &warn_duplicate_resources) ||
       tokens->MatchAndSet("--nocompress_suffixes", &nocompress_suffixes) ||
       tokens->MatchAndSet("--check_desugar_deps", &check_desugar_deps) ||
-      tokens->MatchAndSet("--multi_release", &multi_release)) {
+      tokens->MatchAndSet("--multi_release", &multi_release) ||
+      tokens->MatchAndSet("--hermetic_java_home", &hermetic_java_home)) {
     return true;
   } else if (tokens->MatchAndSet("--build_info_file", &optarg)) {
     build_info_files.push_back(optarg);

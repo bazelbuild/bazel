@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -76,41 +75,6 @@ import net.starlark.java.syntax.Location;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
-  /**
-   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
-   * change flag and the rule's toolchain transition readiness attribute.
-   */
-  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
-  public static boolean shouldUseToolchainTransition(
-      @Nullable BuildConfigurationValue configuration, Target target) {
-    return shouldUseToolchainTransition(
-        configuration, target instanceof Rule ? (Rule) target : null);
-  }
-
-  /**
-   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
-   * change flag and the rule's toolchain transition readiness attribute.
-   */
-  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
-  public static boolean shouldUseToolchainTransition(
-      @Nullable BuildConfigurationValue configuration, @Nullable Rule rule) {
-    // Check whether the global incompatible change flag is set.
-    if (configuration != null) {
-      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
-      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
-        return true;
-      }
-    }
-
-    // Check the rule definition to see if it is ready.
-    if (rule != null && rule.getRuleClassObject().useToolchainTransition()) {
-      return true;
-    }
-
-    // Default to false.
-    return false;
-  }
 
   /**
    * What we know about a dependency edge after factoring in the properties of the configured target
@@ -184,7 +148,6 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-      boolean useToolchainTransition,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
@@ -194,7 +157,6 @@ public abstract class DependencyResolver {
             aspect != null ? ImmutableList.of(aspect) : ImmutableList.of(),
             configConditions,
             toolchainContexts,
-            useToolchainTransition,
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
@@ -237,7 +199,6 @@ public abstract class DependencyResolver {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-      boolean useToolchainTransition,
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
@@ -297,7 +258,6 @@ public abstract class DependencyResolver {
             fromRule,
             attributeMap,
             toolchainContexts,
-            useToolchainTransition,
             aspects);
 
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
@@ -322,7 +282,6 @@ public abstract class DependencyResolver {
           @Nullable Rule fromRule,
           @Nullable ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-          boolean useToolchainTransition,
           Iterable<Aspect> aspects)
           throws Failure {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
@@ -337,29 +296,18 @@ public abstract class DependencyResolver {
         // use sensible defaults. Not depending on their package makes the error message reporting
         // a missing toolchain a bit better.
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
-        // TODO(#10523): Remove check when this is fully released.
         // This logic needs to stay in sync with the dep finding logic in
         // //third_party/bazel/src/main/java/com/google/devtools/build/lib/analysis/Util.java#findImplicitDeps.
-        if (useToolchainTransition) {
-          ToolchainDependencyKind tdk = (ToolchainDependencyKind) entry.getKey();
-          ToolchainContext toolchainContext =
-              toolchainContexts.getToolchainContext(tdk.getExecGroupName());
-          partiallyResolvedDeps.put(
-              entry.getKey(),
-              PartiallyResolvedDependency.builder()
-                  .setLabel(toLabel)
-                  .setTransition(NoTransition.INSTANCE)
-                  .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
-                  .build());
-        } else {
-          // Legacy approach: use a HostTransition.
-          partiallyResolvedDeps.put(
-              entry.getKey(),
-              PartiallyResolvedDependency.builder()
-                  .setLabel(toLabel)
-                  .setTransition(HostTransition.INSTANCE)
-                  .build());
-        }
+        ToolchainDependencyKind tdk = (ToolchainDependencyKind) entry.getKey();
+        ToolchainContext toolchainContext =
+            toolchainContexts.getToolchainContext(tdk.getExecGroupName());
+        partiallyResolvedDeps.put(
+            entry.getKey(),
+            PartiallyResolvedDependency.builder()
+                .setLabel(toLabel)
+                .setTransition(NoTransition.INSTANCE)
+                .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
+                .build());
         continue;
       }
 

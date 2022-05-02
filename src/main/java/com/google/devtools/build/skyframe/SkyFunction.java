@@ -414,7 +414,21 @@ public interface SkyFunction {
      * Returns the max transitive source version of a {@link NodeEntry}.
      *
      * <p>This value might not consider all deps' source versions if called before all deps have
-     * been requested or if {@link #valuesMissing()} returns true.
+     * been requested or if {@link #valuesMissing} returns {@code true}.
+     *
+     * <p>Rules for calculation of the max transitive source version:
+     *
+     * <ul>
+     *   <li>Returns {@code null} during cycle detection and error bubbling, or for transient
+     *       errors.
+     *   <li>If the node is {@link FunctionHermeticity#NONHERMETIC}, returns the version passed to
+     *       {@link #injectVersionForNonHermeticFunction} if it was called, or else {@code null}.
+     *   <li>For all other nodes, queries {@link NodeEntry#getMaxTransitiveSourceVersion} of direct
+     *       dependency nodes and chooses the maximal version seen (according to {@link
+     *       Version#atMost}). If there are no direct dependencies, returns {@link
+     *       ParallelEvaluatorContext#getMinimalVersion}. If any direct dependency node has a {@code
+     *       null} MTSV, returns {@code null}.
+     * </ul>
      */
     @Nullable
     Version getMaxTransitiveSourceVersionSoFar();

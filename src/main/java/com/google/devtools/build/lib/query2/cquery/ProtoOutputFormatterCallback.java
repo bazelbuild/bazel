@@ -18,11 +18,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -30,9 +35,11 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
@@ -47,6 +54,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Proto output formatter for cquery results. */
 class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -101,9 +109,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final SkyframeExecutor skyframeExecutor;
   private final ConfigurationCache configurationCache = new ConfigurationCache();
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
+  @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
 
   private AnalysisProtosV2.CqueryResult.Builder protoResult;
 
+  private final Map<Label, Target> partialResultMap;
   private KeyedConfiguredTarget currentTarget;
 
   ProtoOutputFormatterCallback(
@@ -113,11 +123,14 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
       AspectResolver resolver,
-      OutputType outputType) {
+      OutputType outputType,
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
+    this.trimmingTransitionFactory = trimmingTransitionFactory;
+    this.partialResultMap = Maps.newHashMap();
   }
 
   @Override
@@ -134,7 +147,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         // Documentation promises that setting this flag to false means we convert directly
         // to the build.proto format. This is hard to test in integration testing due to the way
         // proto output is turned readable (codex). So change the following code with caution.
-        QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
+        Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
         protoResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
         writeData(queryResult.build());
       }
@@ -173,6 +186,19 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   @Override
   public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
       throws InterruptedException {
+    partialResult.forEach(kct -> partialResultMap.put(kct.getLabel(), accessor.getTarget(kct)));
+
+    KnownTargetsDependencyResolver knownTargetsDependencyResolver =
+        new KnownTargetsDependencyResolver(partialResultMap);
+
+    CqueryTransitionResolver transitionResolver =
+        new CqueryTransitionResolver(
+            eventHandler,
+            knownTargetsDependencyResolver,
+            accessor,
+            this,
+            trimmingTransitionFactory);
+
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
     for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
@@ -184,7 +210,41 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       // logic in this next line. If this were to change (i.e. we manipulate targets any further),
       // we will want to add relevant tests.
       currentTarget = keyedConfiguredTarget;
-      builder.setTarget(formatter.toTargetProtoBuffer(accessor.getTarget(keyedConfiguredTarget)));
+      Target target = accessor.getTarget(keyedConfiguredTarget);
+      Build.Target.Builder targetBuilder = formatter.toTargetProtoBuffer(target).toBuilder();
+      if (target instanceof Rule && !Transitions.NONE.equals(options.transitions)) {
+        try {
+          for (CqueryTransitionResolver.ResolvedTransition resolvedTransition :
+              transitionResolver.dependencies(keyedConfiguredTarget)) {
+            if (resolvedTransition.options().isEmpty()) {
+              targetBuilder
+                  .getRuleBuilder()
+                  .addConfiguredRuleInput(
+                      Build.ConfiguredRuleInput.newBuilder()
+                          .setLabel(resolvedTransition.label().toString()));
+            } else {
+              for (BuildOptions options : resolvedTransition.options()) {
+                BuildConfigurationEvent buildConfigurationEvent =
+                    getConfiguration(BuildConfigurationKey.withoutPlatformMapping(options))
+                        .toBuildEvent();
+                int configurationId = configurationCache.getId(buildConfigurationEvent);
+
+                targetBuilder
+                    .getRuleBuilder()
+                    .addConfiguredRuleInput(
+                        Build.ConfiguredRuleInput.newBuilder()
+                            .setLabel(resolvedTransition.label().toString())
+                            .setConfigurationChecksum(options.checksum())
+                            .setConfigurationId(configurationId));
+              }
+            }
+          }
+        } catch (DependencyResolver.Failure | InconsistentAspectOrderException e) {
+          // This is an abuse of InterruptedException.
+          throw new InterruptedException(e.getMessage());
+        }
+      }
+      builder.setTarget(targetBuilder);
 
       if (options.protoIncludeConfigurations) {
         String checksum = keyedConfiguredTarget.getConfigurationChecksum();

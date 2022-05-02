@@ -146,7 +146,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
 
   @Test
   public void testVisitBundleWithNoMatchHasEmptyOutput() throws IOException {
-    // Paths
+    // Non-matching path
     ImmutableSet<String> execPaths = ImmutableSet.of("/path/does/not/match/anything.txt");
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
@@ -158,5 +158,37 @@ public class JacocoLCOVFormatterUninstrumentedTest {
 
     String coverageOutput = writer.toString();
     assertThat(coverageOutput).isEmpty();
+  }
+
+  @Test
+  public void testVisitBundleWithNoExecPathsHasEmptyOutput() throws IOException {
+    // Empty list of exec paths
+    ImmutableSet<String> execPaths = ImmutableSet.of();
+    JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
+    IReportVisitor visitor =
+        formatter.createVisitor(
+            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
+
+    String coverageOutput = writer.toString();
+    assertThat(coverageOutput).isEmpty();
+  }
+
+  @Test
+  public void testVisitBundleWithoutExecPathsDoesNotPruneOutput() throws IOException {
+    // No paths, don't attempt to demangle paths and prune the output, just output with
+    // class-paths as is.
+    JacocoLCOVFormatter formatter = new JacocoLCOVFormatter();
+    IReportVisitor visitor =
+        formatter.createVisitor(
+            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
+
+    String coverageOutput = writer.toString();
+    assertThat(coverageOutput).isNotEmpty();
   }
 }

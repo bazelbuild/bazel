@@ -217,7 +217,8 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             aspectResolver,
-            OutputType.BINARY),
+            OutputType.BINARY,
+            trimmingTransitionFactory),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -225,7 +226,8 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             aspectResolver,
-            OutputType.TEXT),
+            OutputType.TEXT,
+            trimmingTransitionFactory),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -233,7 +235,8 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             aspectResolver,
-            OutputType.JSON),
+            OutputType.JSON,
+            trimmingTransitionFactory),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new GraphOutputFormatterCallback(

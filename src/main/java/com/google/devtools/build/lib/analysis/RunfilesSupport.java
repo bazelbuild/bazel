@@ -477,7 +477,7 @@ public final class RunfilesSupport {
   private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
     // Currently, "env" and "env_inherit" are not added to Starlark-defined rules (unlike "args"),
     // in order to avoid breaking existing Starlark rules that use those attribute names.
-    // TODO(brandjon): Support "env" and "env_inherit" for Starlark-defined rules.
+    // TODO(b/176554800): Support "env" and "env_inherit" for Starlark-defined rules.
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
     if (!isNativeRule

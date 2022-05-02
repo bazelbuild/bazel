@@ -242,43 +242,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return LABEL_INTERNER.intern(new Label(packageIdentifier, internedName));
   }
 
-  /**
-   * Parses and resolves a label string relative to the given workspace-relative directory.
-   *
-   * <ul>
-   *   <li>If the input is an absolute label, it is parsed as normal.
-   *   <li>If the input starts with a colon or does not contain a colon, the package path is taken
-   *       to be the working directory, and the part after the leading colon (if present) is taken
-   *       to be the target.
-   *   <li>If the input has a non-empty part before a colon, it is appended to the working directory
-   *       to form the package path, and the part after the colon is taken as the target.
-   * </ul>
-   *
-   * <p>Note that this method does not support any of the special syntactic constructs otherwise
-   * supported on the command line, like ":all", "/...", and so on.
-   *
-   * <p>It would be cleaner to use the TargetPatternEvaluator for this resolution, but that is not
-   * possible, because it is sometimes necessary to resolve a relative label before the package path
-   * is setup (maybe not anymore...)
-   *
-   * @throws LabelSyntaxException if the resulting label is not valid
-   */
-  public static Label parseCommandLineLabel(String raw, PathFragment workspaceRelativePath)
-      throws LabelSyntaxException {
-    Preconditions.checkArgument(!workspaceRelativePath.isAbsolute());
-    Parts parts = Parts.parse(raw);
-    PathFragment pathFragment;
-    if (parts.repo == null && !parts.pkgIsAbsolute) {
-      pathFragment = workspaceRelativePath.getRelative(parts.pkg);
-    } else {
-      pathFragment = PathFragment.create(parts.pkg);
-    }
-    // TODO(b/200024947): This method will eventually need to take a repo mapping too.
-    RepositoryName repoName =
-        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
-    return create(PackageIdentifier.create(repoName, pathFragment), parts.target);
-  }
-
   /** The name and repository of the package. */
   private final PackageIdentifier packageIdentifier;
 

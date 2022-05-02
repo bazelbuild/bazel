@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -166,7 +165,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
             ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                 .mandatory(true)
                 .build())
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

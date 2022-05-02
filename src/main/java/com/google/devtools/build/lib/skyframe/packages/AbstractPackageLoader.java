@@ -69,7 +69,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
-import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
+import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -505,7 +505,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
-                IncrementalityIntent.NON_INCREMENTAL,
+                GlobbingStrategy.NON_SKYFRAME,
                 k -> ThreadStateReceiver.NULL_INSTANCE))
         .putAll(extraSkyFunctions);
     return builder.buildOrThrow();

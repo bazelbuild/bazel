@@ -1509,7 +1509,13 @@ public class Package {
           "Replacement target belongs to package '%s', expected '%s'",
           newTarget.getPackage(),
           pkg);
-      targets.put(newTarget.getName(), newTarget);
+      Target oldTarget = targets.put(newTarget.getName(), newTarget);
+      if (newTarget instanceof Rule && ruleLabels != null) {
+        List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
+        if (ruleLabelsForOldTarget != null) {
+          ruleLabels.put((Rule) newTarget, ruleLabelsForOldTarget);
+        }
+      }
     }
 
     public Set<Target> getTargets() {
@@ -1535,11 +1541,13 @@ public class Package {
     }
 
     /**
-     * Returns an (immutable, unordered) view of all the targets belonging to this package which are
-     * instances of the specified class.
+     * Returns an {@link Iterable} of all the rule instance targets belonging to this package.
+     *
+     * <p>The returned {@link Iterable} will be deterministically ordered, in the order the rule
+     * instance targets were instantiated.
      */
     private Iterable<Rule> getRules() {
-      return ruleLabels != null ? ruleLabels.keySet() : Package.getTargets(targets, Rule.class);
+      return Package.getTargets(targets, Rule.class);
     }
 
     /**

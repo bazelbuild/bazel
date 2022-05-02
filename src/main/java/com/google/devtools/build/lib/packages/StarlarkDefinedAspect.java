@@ -48,7 +48,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ConfigurationTransition hostTransition;
   private final ImmutableSet<String> hostFragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
-  private final boolean useToolchainTransition;
   private final boolean applyToGeneratingRules;
 
   private StarlarkAspectClass aspectClass;
@@ -73,7 +72,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      boolean useToolchainTransition,
       boolean applyToGeneratingRules) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
@@ -87,7 +85,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
     this.toolchainTypes = toolchainTypes;
-    this.useToolchainTransition = useToolchainTransition;
     this.applyToGeneratingRules = applyToGeneratingRules;
   }
 
@@ -179,7 +176,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addToolchainTypes(toolchainTypes);
-    builder.useToolchainTransition(useToolchainTransition);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     ImmutableSet.Builder<AspectClass> requiredAspectsClasses = ImmutableSet.builder();
     for (StarlarkAspect requiredAspect : requiredAspects) {
@@ -348,10 +344,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return toolchainTypes;
   }
 
-  public boolean useToolchainTransition() {
-    return useToolchainTransition;
-  }
-
   @Override
   public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
       throws EvalException {
@@ -397,7 +389,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         && Objects.equals(hostTransition, that.hostTransition)
         && Objects.equals(hostFragments, that.hostFragments)
         && Objects.equals(toolchainTypes, that.toolchainTypes)
-        && useToolchainTransition == that.useToolchainTransition
         && Objects.equals(aspectClass, that.aspectClass);
   }
 
@@ -416,7 +407,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         hostTransition,
         hostFragments,
         toolchainTypes,
-        useToolchainTransition,
         aspectClass);
   }
 }
