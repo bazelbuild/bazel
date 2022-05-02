@@ -342,10 +342,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
    * to be durable against unusual encoding settings, and does not guarantee
    * that the escaping process is reverseable.
    *
-   * Non-printable ASCII characters are formatted as `{U+00XX}`. Characters
-   * outside the ASCII range but within the Basic Multilingual Plane are
-   * formatted as `{U+XXXX}`. Characters outside the BMP are formatted as
-   *`{U+XXXX...}`.
+   * Characters other than printable ASCII but within the Basic Multilingual
+   * Plane are formatted with `\\uXXXX`. Characters outside the BMP are
+   * formatted as `\\UXXXXXXXX`.
    */
   public static String escapeBytestringUtf8(String maybeUtf8) {
     if (maybeUtf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
@@ -357,8 +356,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     decoded.codePoints().forEach(c -> {
       if (c >= 0x20 && c < 0x7F) {
         sb.appendCodePoint(c);
+      } else if (c <= 0xFFFF) {
+        sb.append(String.format("\\u%04X", c));
       } else {
-        sb.append(String.format("{U+%04X}", c));
+        sb.append(String.format("\\U%08X", c));
       }
     });
     return sb.toString();

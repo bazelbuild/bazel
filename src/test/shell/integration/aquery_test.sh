@@ -1595,8 +1595,8 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  assert_contains 'Inputs: \[.*/input-{U+00FC}n{U+00EF}c{U+00F6}d{U+00EB}.txt' output
-  assert_contains 'Outputs: \[.*/output-{U+00FC}n{U+00EF}c{U+00F6}d{U+00EB}.txt' output
+  assert_contains 'Inputs: \[.*/input-\\u00FCn\\u00EFc\\u00F6d\\u00EB.txt' output
+  assert_contains 'Outputs: \[.*/output-\\u00FCn\\u00EFc\\u00F6d\\u00EB.txt' output
 }
 
 # FIXME: The non-text aquery output formats don't correctly handle non-ASCII
