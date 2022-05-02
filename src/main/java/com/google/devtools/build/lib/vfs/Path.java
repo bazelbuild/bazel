@@ -279,16 +279,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return fileSystem.stat(asFragment(), true);
   }
 
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
-  public FileStatus statNullable() {
-    return statNullable(Symlinks.FOLLOW);
-  }
-
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
-  public FileStatus statNullable(Symlinks symlinks) {
-    return fileSystem.statNullable(asFragment(), symlinks.toBoolean());
-  }
-
   /**
    * Returns the status of a file, optionally following symbolic links.
    *
@@ -300,6 +290,16 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    */
   public FileStatus stat(Symlinks followSymlinks) throws IOException {
     return fileSystem.stat(asFragment(), followSymlinks.toBoolean());
+  }
+
+  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
+  public FileStatus statNullable() {
+    return statNullable(Symlinks.FOLLOW);
+  }
+
+  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
+  public FileStatus statNullable(Symlinks symlinks) {
+    return fileSystem.statNullable(asFragment(), symlinks.toBoolean());
   }
 
   /**
