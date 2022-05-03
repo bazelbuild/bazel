@@ -452,6 +452,11 @@ The initial environment block shall be composed as follows:
              class="external">JUnit test result schema</a>.</td>
     <td>optional</td>
   </tr>
+  <tr>
+    <td><code>BAZEL_TEST</code></td>
+    <td>Signifies test executable is being driven by <code>bazel test</code></td>
+    <td>required</td>
+  </tr>
 </table>
 
 The environment may contain additional entries. Tests should not depend on the
