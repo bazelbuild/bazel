@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -746,7 +748,7 @@ public final class JavaCompilationHelper {
             .add("-runtype", "LOCAL_ONLY")
             .addExecPath("-injars", unoptimizedOutputJar)
             .addExecPath("-outjars", optimizedOutputJar)
-            .addExecPaths("-libraryjars", CustomCommandLine.VectorArg.join(":").each(classpath));
+            .addExecPaths(CustomCommandLine.VectorArg.addBefore("-libraryjars").each(classpath));
     for (Artifact config : configs) {
       command.addPrefixedExecPath("@", config);
     }
@@ -759,7 +761,11 @@ public final class JavaCompilationHelper {
                 .addInputs(configs)
                 .addOutput(optimizedOutputJar)
                 .setExecutable(optimizer)
-                .addCommandLine(command.build())
+                .addCommandLine(
+                    command.build(),
+                    ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                        .setFlagsOnly(true)
+                        .build())
                 .setProgressMessage("Optimizing jar %{label}")
                 .setMnemonic(mnemonic)
                 .build(getRuleContext()));
