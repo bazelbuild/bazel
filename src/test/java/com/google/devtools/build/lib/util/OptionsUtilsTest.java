@@ -32,6 +32,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -159,7 +160,7 @@ public class OptionsUtilsTest {
     return new PathFragmentConverter().convert(input);
   }
 
-  private PathFragment convertOneWorkspaceLog(String input, String commandId) throws Exception {
+  private PathFragment convertOneWorkspaceLog(String input, UUID commandId) throws Exception {
     return new LogPathFragmentConverter().convert(input).evaluate(commandId);
   }
 
@@ -239,7 +240,15 @@ public class OptionsUtilsTest {
 
   @Test
   public void workspaceLogPath() throws Exception {
-    assertThat(convertOneWorkspaceLog("foo", "1234")).isEqualTo(fragment("foo"));
-    assertThat(convertOneWorkspaceLog("foo/{{command_id}}", "1234")).isEqualTo(fragment("foo/1234"));
+    UUID uuid = UUID.fromString("8dbfe551-467c-4b47-9fc2-bb35694ac850");
+    assertThat(convertOneWorkspaceLog("foo", uuid)).isEqualTo(fragment("foo"));
+    assertThat(convertOneWorkspaceLog("foo/{{command_id}}", uuid)).isEqualTo(fragment("foo/8dbfe551-467c-4b47-9fc2-bb35694ac850"));
+
+    // Invalid arguments:
+    OptionsParsingException exception =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> convertOneWorkspaceLog("foo/{{command_id}}/{{unsupported}}", uuid));
+
   }
 }

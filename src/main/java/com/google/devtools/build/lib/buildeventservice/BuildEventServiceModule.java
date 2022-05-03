@@ -66,7 +66,9 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.SimpleSubstitutionTemplate.LogPathFragmentTemplate;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -74,10 +76,12 @@ import com.google.protobuf.util.Timestamps;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -760,11 +764,14 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       }
     }
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventBinaryFile)) {
+    Optional<Path> buildEventBinaryFile = evaluateLogFileFlag(besStreamOptions.buildEventBinaryFile,
+        cmdEnv);
+
+    if (buildEventBinaryFile.isPresent()) {
       try {
         BufferedOutputStream bepBinaryOutputStream =
             new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventBinaryFile)));
+                Files.newOutputStream(buildEventBinaryFile.get()));
 
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventBinaryFilePathConversion
@@ -787,11 +794,13 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       }
     }
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventJsonFile)) {
+    Optional<Path> buildEventJSONFile =
+        evaluateLogFileFlag(besStreamOptions.buildEventJsonFile, cmdEnv);
+    if (buildEventJSONFile.isPresent()) {
       try {
         BufferedOutputStream bepJsonOutputStream =
             new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventJsonFile)));
+                Files.newOutputStream(buildEventJSONFile.get()));
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventJsonFilePathConversion
                 ? uploaderSupplier.get()
@@ -822,6 +831,20 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     return bepTransportsBuilder.build();
+  }
+
+  private static Optional<Path> evaluateLogFileFlag(@Nullable LogPathFragmentTemplate pathTemplate, CommandEnvironment env) {
+    if (pathTemplate == null) {
+      return Optional.empty();
+    }
+    PathFragment evaluated = pathTemplate.evaluate(env.getCommandId());
+    if (evaluated.isEmpty()) {
+      return Optional.empty();
+    }
+
+    // TODO: Consider using env.getWorkingDirectory().getRelative(evaluated) here for uniformity
+    //  with WorkspaceRuleModule. We use Path.get() to maintain existing behavior.
+    return Optional.of(Paths.get(evaluated.getPathString()));
   }
 
   private static AbruptExitException createAbruptExitException(

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Workspaces;
 import com.google.devtools.build.lib.server.FailureDetails.Workspaces.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.SimpleSubstitutionTemplate.LogPathFragmentTemplate;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,10 +47,10 @@ public final class WorkspaceRuleModule extends BlazeModule {
       return;
     }
 
-    PathFragment logFile =
-        env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile
-            .evaluate(env.getCommandId());
-    if (logFile != null) {
+    LogPathFragmentTemplate logFileTemplate =
+        env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile;
+    if (logFileTemplate != null) {
+      PathFragment logFile = logFileTemplate.evaluate(env.getCommandId());
       try {
         outFileStream =
             new AsynchronousFileOutputStream(env.getWorkingDirectory().getRelative(logFile));
@@ -59,7 +60,7 @@ public final class WorkspaceRuleModule extends BlazeModule {
             .exit(
                 new AbruptExitException(
                     createDetailedExitCode(
-                        String.format("Error initializing workspace rule log file."),
+                        "Error initializing workspace rule log file.",
                         Code.WORKSPACES_LOG_INITIALIZATION_FAILURE)));
       }
       eventBus.register(this);

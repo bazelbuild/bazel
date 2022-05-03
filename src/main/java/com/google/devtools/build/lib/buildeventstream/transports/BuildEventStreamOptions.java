@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.SimpleSubstitutionTemplate.LogPathFragmentTemplate;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -49,11 +51,12 @@ public class BuildEventStreamOptions extends OptionsBase {
       implicitRequirements = {"--bes_upload_mode=wait_for_upload_complete"},
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = OptionsUtils.LogPathFragmentConverter.class,
       help =
           "If non-empty, write a varint delimited binary representation of representation of the"
               + " build event protocol to that file. This option implies"
               + " --bes_upload_mode=wait_for_upload_complete.")
-  public String buildEventBinaryFile;
+  public LogPathFragmentTemplate buildEventBinaryFile;
 
   @Option(
       name = "build_event_json_file",
@@ -61,8 +64,9 @@ public class BuildEventStreamOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = OptionsUtils.LogPathFragmentConverter.class,
       help = "If non-empty, write a JSON serialisation of the build event protocol to that file.")
-  public String buildEventJsonFile;
+  public LogPathFragmentTemplate buildEventJsonFile;
 
   @Option(
       name = "build_event_text_file_path_conversion",

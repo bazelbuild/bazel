@@ -32,6 +32,8 @@ public final class DebuggingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.LogPathFragmentConverter.class,
       help =
-          "Log certain Workspace Rules events into this file as delimited WorkspaceEvent protos.")
+          "Log certain Workspace Rules events into this file as delimited WorkspaceEvent protos."
+              + " If the string {{command_id}} appears within the path, it will be replaced with"
+              + " the UUID of the bazel command.")
   public LogPathFragmentTemplate workspaceRulesLogFile;
 }

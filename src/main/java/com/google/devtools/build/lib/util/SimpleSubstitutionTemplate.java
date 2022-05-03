@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * A compiled template that substitutes variables in a string.
