@@ -169,6 +169,7 @@ java_library(
         "PersistentMap.java",
         "RegexFilter.java",
         "ResourceFileLoader.java",
+        "SimpleSubstitutionTemplate.java",
         "Sleeper.java",
         "StreamWriter.java",
         "StringIndexer.java",
