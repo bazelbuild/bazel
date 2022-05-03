@@ -198,7 +198,7 @@ public class BuildView {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       Set<String> multiCpu,
-      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,

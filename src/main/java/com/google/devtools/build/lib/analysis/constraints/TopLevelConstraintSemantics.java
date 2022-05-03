@@ -123,7 +123,7 @@ public class TopLevelConstraintSemantics {
    */
   public PlatformRestrictionsResult checkPlatformRestrictions(
       ImmutableSet<ConfiguredTarget> topLevelTargets,
-      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableSet<Label> explicitTargetPatterns,
       boolean keepGoing)
       throws ViewCreationFailedException {
     ImmutableSet.Builder<ConfiguredTarget> incompatibleTargets = ImmutableSet.builder();
@@ -141,15 +141,14 @@ public class TopLevelConstraintSemantics {
       // We need the label in unambiguous form here. I.e. with the "@" prefix for targets in the
       // main repository. explicitTargetPatterns is also already in the unambiguous form to make
       // comparison succeed regardless of the provided form.
-      String labelString = target.getLabel().getUnambiguousCanonicalForm();
-      if (explicitTargetPatterns.contains(labelString)) {
+      if (explicitTargetPatterns.contains(target.getLabel())) {
         if (!keepGoing) {
           // Use the slightly simpler form for printing error messages. I.e. no "@" prefix for
           // targets in the main repository.
           String targetIncompatibleMessage =
               String.format(
                   TARGET_INCOMPATIBLE_ERROR_TEMPLATE,
-                  target.getLabel().toString(),
+                  target.getLabel(),
                   // We need access to the provider so we pass in the underlying target here that is
                   // responsible for the incompatibility.
                   reportOnIncompatibility(result.underlyingTarget()));
@@ -161,7 +160,7 @@ public class TopLevelConstraintSemantics {
                   .build());
         }
         this.eventHandler.handle(
-            Event.warn(String.format(TARGET_INCOMPATIBLE_ERROR_TEMPLATE, labelString, "")));
+            Event.warn(String.format(TARGET_INCOMPATIBLE_ERROR_TEMPLATE, target.getLabel(), "")));
         incompatibleButRequestedTargets.add(target);
       } else {
         // If this is not an explicitly requested target we can safely skip it.

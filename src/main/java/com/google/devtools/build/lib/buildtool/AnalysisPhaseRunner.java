@@ -205,7 +205,7 @@ public final class AnalysisPhaseRunner {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
-    ImmutableSet<String> explicitTargetPatterns =
+    ImmutableSet<Label> explicitTargetPatterns =
         getExplicitTargetPatterns(env, request.getTargets());
 
     BuildView view =
@@ -317,10 +317,10 @@ public final class AnalysisPhaseRunner {
    *     stringified labels are in the "unambiguous canonical form".
    * @throws ViewCreationFailedException if a pattern fails to parse for some reason.
    */
-  private static ImmutableSet<String> getExplicitTargetPatterns(
+  private static ImmutableSet<Label> getExplicitTargetPatterns(
       CommandEnvironment env, List<String> requestedTargetPatterns)
       throws ViewCreationFailedException {
-    ImmutableSet.Builder<String> explicitTargetPatterns = ImmutableSet.builder();
+    ImmutableSet.Builder<Label> explicitTargetPatterns = ImmutableSet.builder();
     TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
@@ -344,7 +344,7 @@ public final class AnalysisPhaseRunner {
       }
 
       if (parsedPattern.getType() == TargetPattern.Type.SINGLE_TARGET) {
-        explicitTargetPatterns.add(parsedPattern.getSingleTargetPath());
+        explicitTargetPatterns.add(parsedPattern.getSingleTargetLabel());
       }
     }
 

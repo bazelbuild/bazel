@@ -85,7 +85,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * {@code [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it must be a canonical
    * repo name, otherwise the label will be assumed to be in the main repo.
    */
-  private static Label parseCanonical(String raw) throws LabelSyntaxException {
+  static Label parseCanonical(String raw) throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
     parts.checkPkgIsAbsolute();
     RepositoryName repoName =
@@ -112,7 +112,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it will undergo {@code
    * repoMapping}, otherwise the label will be assumed to be in {@code currentRepo}.
    */
-  private static Label parseWithRepoContext(
+  static Label parseWithRepoContext(
       String raw, RepositoryName currentRepo, RepositoryMapping repoMapping)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
@@ -130,7 +130,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * repoMapping}, otherwise the label will be assumed to be in the repo of {@code
    * packageIdentifier}.
    */
-  private static Label parseWithPackageContext(
+  static Label parseWithPackageContext(
       String raw, PackageIdentifier packageIdentifier, RepositoryMapping repoMapping)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
