@@ -116,7 +116,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                 ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))
             .add(
                 attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER_ID)
+                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER.id())
                     .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))
             .add(
                 attr(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
@@ -245,7 +245,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       ProtoCommon.compile(
           ruleContext,
           protoTarget,
-          aspectCommon.getStarlarkProtoToolchainProvider(),
+          aspectCommon.getProtoToolchainProvider(),
           ImmutableList.of(sourceJar),
           sourceJar.getExecPathString(),
           "Generating JavaLite proto_library %{label}");

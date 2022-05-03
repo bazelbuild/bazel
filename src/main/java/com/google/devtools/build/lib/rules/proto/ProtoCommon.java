@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -196,7 +195,7 @@ public class ProtoCommon {
   public static void compile(
       RuleContext ruleContext,
       ConfiguredTarget protoTarget,
-      StarlarkInfo protoLangToolchainInfo,
+      ProtoLangToolchainProvider protoLangToolchainInfo,
       Iterable<Artifact> generatedFiles,
       @Nullable Object pluginOutput,
       @Nullable Args additionalArgs,
@@ -230,7 +229,7 @@ public class ProtoCommon {
   public static void compile(
       RuleContext ruleContext,
       ConfiguredTarget protoTarget,
-      StarlarkInfo protoLangToolchainInfo,
+      ProtoLangToolchainProvider protoLangToolchainInfo,
       Iterable<Artifact> generatedFiles,
       @Nullable Object pluginOutput,
       String progressMessage)
@@ -252,7 +251,7 @@ public class ProtoCommon {
   public static boolean shouldGenerateCode(
       RuleContext ruleContext,
       ConfiguredTarget protoTarget,
-      StarlarkInfo protoLangToolchainInfo,
+      ProtoLangToolchainProvider protoLangToolchainInfo,
       String ruleName)
       throws RuleErrorException, InterruptedException {
     StarlarkFunction shouldGenerateCode =
@@ -270,7 +269,9 @@ public class ProtoCommon {
   }
 
   public static Sequence<Artifact> filterSources(
-      RuleContext ruleContext, ConfiguredTarget protoTarget, StarlarkInfo protoLangToolchainInfo)
+      RuleContext ruleContext,
+      ConfiguredTarget protoTarget,
+      ProtoLangToolchainProvider protoLangToolchainInfo)
       throws RuleErrorException, InterruptedException {
     StarlarkFunction filterSources =
         (StarlarkFunction)

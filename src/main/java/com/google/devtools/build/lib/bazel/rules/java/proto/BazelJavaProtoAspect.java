@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspect;
 import com.google.devtools.build.lib.rules.java.proto.RpcSupport;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
 /** An Aspect which BazelJavaProtoLibrary injects to build Java SPEED protos. */
 public class BazelJavaProtoAspect extends JavaProtoAspect {
@@ -56,7 +56,7 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
     }
 
     @Override
-    public Optional<StarlarkInfo> getToolchain(RuleContext ruleContext) {
+    public Optional<ProtoLangToolchainProvider> getToolchain(RuleContext ruleContext) {
       return Optional.absent();
     }
 

@@ -224,7 +224,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       if (ProtoCommon.shouldGenerateCode(
           ruleContext,
           protoTarget,
-          aspectCommon.getStarlarkProtoToolchainProvider(),
+          aspectCommon.getProtoToolchainProvider(),
           "java_proto_library")) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
@@ -320,7 +320,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ProtoCommon.compile(
           ruleContext,
           protoTarget,
-          aspectCommon.getStarlarkProtoToolchainProvider(),
+          aspectCommon.getProtoToolchainProvider(),
           ImmutableList.of(sourceJar),
           /* pluginOutput= */ null,
           additionalArgs,

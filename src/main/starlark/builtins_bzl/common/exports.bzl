@@ -55,7 +55,7 @@ exported_rules = {
     "+cc_binary": cc_binary,
     "+cc_test": cc_test,
     "-cc_library": cc_library,
-    "+proto_lang_toolchain": proto_lang_toolchain,
+    "-proto_lang_toolchain": proto_lang_toolchain,
 }
 
 # A list of Starlark functions callable from native rules implementation.

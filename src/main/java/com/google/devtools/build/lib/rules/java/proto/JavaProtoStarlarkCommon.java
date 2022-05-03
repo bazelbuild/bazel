@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
@@ -50,7 +49,7 @@ public class JavaProtoStarlarkCommon
       ProtoCommon.compile(
           starlarkRuleContext.getRuleContext(),
           target,
-          getStarlarkProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
+          getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
           ImmutableList.of(sourceJar),
           sourceJar.getExecPathString(),
           "Generating JavaLite proto_library %{label}");
@@ -91,13 +90,6 @@ public class JavaProtoStarlarkCommon
       StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
     ConfiguredTarget javaliteToolchain =
         (ConfiguredTarget) checkNotNull(starlarkRuleContext.getAttr().getValue(protoToolchainAttr));
-    return checkNotNull(ProtoLangToolchainProvider.get(javaliteToolchain));
-  }
-
-  private static StarlarkInfo getStarlarkProtoToolchainProvider(
-      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
-    ConfiguredTarget javaliteToolchain =
-        (ConfiguredTarget) checkNotNull(starlarkRuleContext.getAttr().getValue(protoToolchainAttr));
-    return checkNotNull(ProtoLangToolchainProvider.getStarlarkProvider(javaliteToolchain));
+    return checkNotNull(javaliteToolchain.get(ProtoLangToolchainProvider.PROVIDER));
   }
 }

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import net.starlark.java.eval.EvalException;
 
 /** Used by java_proto_library to support Google-specific features. */
@@ -35,7 +35,7 @@ public interface RpcSupport {
 
   boolean allowServices(RuleContext ruleContext);
 
-  Optional<StarlarkInfo> getToolchain(RuleContext ruleContext);
+  Optional<ProtoLangToolchainProvider> getToolchain(RuleContext ruleContext);
 
   ImmutableList<TransitiveInfoCollection> getRuntimes(RuleContext ruleContext);
 

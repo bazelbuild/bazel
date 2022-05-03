@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -130,7 +129,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER_ID)
+                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER.id())
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
@@ -289,7 +288,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     private boolean areSrcsExcluded() throws RuleErrorException, InterruptedException {
       return !ProtoCommon.shouldGenerateCode(
-          ruleContext, protoTarget, getStarlarkProtoToolchainProvider(), "cc_proto_library");
+          ruleContext, protoTarget, getProtoToolchainProvider(), "cc_proto_library");
     }
 
     private FeatureConfiguration getFeatureConfiguration()
@@ -462,7 +461,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         ProtoCommon.compile(
             ruleContext,
             protoTarget,
-            getStarlarkProtoToolchainProvider(),
+            getProtoToolchainProvider(),
             outputs,
             genfilesPath,
             "Generating C++ proto_library %{label}");
@@ -470,11 +469,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {
-      return ProtoLangToolchainProvider.get(ruleContext, PROTO_TOOLCHAIN_ATTR);
-    }
-
-    private StarlarkInfo getStarlarkProtoToolchainProvider() {
-      return ProtoLangToolchainProvider.getStarlarkProvider(ruleContext, PROTO_TOOLCHAIN_ATTR);
+      return ruleContext.getPrerequisite(PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {

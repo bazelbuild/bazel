@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -387,14 +386,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private ConfiguredAspect proto(ConfiguredTarget base, RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     ProtoLangToolchainProvider protoToolchain =
-        ProtoLangToolchainProvider.get(ruleContext, J2OBJC_PROTO_TOOLCHAIN_ATTR);
-    StarlarkInfo starlarkProtoToolchain =
-        ProtoLangToolchainProvider.getStarlarkProvider(ruleContext, J2OBJC_PROTO_TOOLCHAIN_ATTR);
+        ruleContext.getPrerequisite(
+            J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
+
     try {
       // Avoid pulling in any generated files from forbidden protos.
       ImmutableList<Artifact> filteredProtoSources =
-          ImmutableList.copyOf(
-              ProtoCommon.filterSources(ruleContext, base, starlarkProtoToolchain));
+          ImmutableList.copyOf(ProtoCommon.filterSources(ruleContext, base, protoToolchain));
 
       J2ObjcSource j2ObjcSource = protoJ2ObjcSource(ruleContext, base, filteredProtoSources);
 
@@ -405,7 +403,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
         directJ2ObjcMappingFileProvider =
             createJ2ObjcProtoCompileActions(
-                base, starlarkProtoToolchain, ruleContext, filteredProtoSources, j2ObjcSource);
+                base, protoToolchain, ruleContext, filteredProtoSources, j2ObjcSource);
       }
 
       return buildAspect(
@@ -639,7 +637,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private J2ObjcMappingFileProvider createJ2ObjcProtoCompileActions(
       ConfiguredTarget base,
-      StarlarkInfo protoToolchain,
+      ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
       J2ObjcSource j2ObjcSource)
