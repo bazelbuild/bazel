@@ -613,7 +613,7 @@ public abstract class BuildIntegrationTestCase {
    *
    * @param target the label of the target whose artifacts are requested.
    */
-  protected Iterable<Artifact> getArtifacts(String target)
+  protected ImmutableList<Artifact> getArtifacts(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
     return getFilesToBuild(getConfiguredTarget(target)).toList();

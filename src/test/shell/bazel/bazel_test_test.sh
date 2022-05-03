@@ -144,6 +144,38 @@ EOF
   expect_log "ws: bar$"
 }
 
+function test_runfiles_java_runfiles_merges_env_vars() {
+  runfiles_merges_runfiles_env_vars JAVA_RUNFILES PYTHON_RUNFILES
+}
+
+function test_runfiles_python_runfiles_merges_env_vars() {
+  runfiles_merges_runfiles_env_vars PYTHON_RUNFILES JAVA_RUNFILES
+}
+
+# Usage: runfiles_merges_runfiles_env_vars overridden unchanged
+function runfiles_merges_runfiles_env_vars() {
+  local -r overridden=$1
+  local -r unchanged=$2
+  cat > WORKSPACE <<EOF
+workspace(name = "bar")
+EOF
+  add_rules_cc_to_workspace WORKSPACE
+  mkdir -p foo
+  cat > foo/foo.sh <<'EOF'
+#!/bin/sh
+echo "JAVA_RUNFILES: ${JAVA_RUNFILES}"
+echo "PYTHON_RUNFILES: ${PYTHON_RUNFILES}"
+EOF
+  chmod +x foo/foo.sh
+  echo 'sh_test(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
+
+  bazel test --test_env="${overridden}"=override --test_output=all \
+      //foo >& "${TEST_log}" || fail "Test failed"
+
+  expect_log "${overridden}: /.*/execroot/bar/override"
+  expect_log "${unchanged}: /.*/execroot/bar/bazel-out/[^/]\+-fastbuild/bin/foo/foo.runfiles"
+}
+
 function test_run_under_external_label_with_options() {
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD
