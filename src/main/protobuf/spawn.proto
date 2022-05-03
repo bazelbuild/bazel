@@ -136,4 +136,7 @@ message SpawnExec {
   // Canonical label of the target that emitted this spawn, may not always be
   // set.
   string target_label = 18;
+
+  // A unique identifier for this Spawn.
+  Digest digest = 19;
 }

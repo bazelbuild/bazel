@@ -150,6 +150,13 @@ public class SpawnLogContext implements ActionContext {
     builder.setExitCode(result.exitCode());
     builder.setRemoteCacheHit(result.isCacheHit());
     builder.setRunner(result.getRunnerName());
+    if (result.getDigest().isPresent()) {
+      builder
+          .getDigestBuilder()
+          .setHash(result.getDigest().get().getHash())
+          .setSizeBytes(result.getDigest().get().getSizeBytes());
+    }
+
     String progressMessage = spawn.getResourceOwner().getProgressMessage();
     if (progressMessage != null) {
       builder.setProgressMessage(progressMessage);
