@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.debug;
 
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.SimpleSubstitutionTemplate.LogPathFragmentTemplate;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -29,8 +30,8 @@ public final class DebuggingOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.LogPathFragmentConverter.class,
       help =
           "Log certain Workspace Rules events into this file as delimited WorkspaceEvent protos.")
-  public PathFragment workspaceRulesLogFile;
+  public LogPathFragmentTemplate workspaceRulesLogFile;
 }

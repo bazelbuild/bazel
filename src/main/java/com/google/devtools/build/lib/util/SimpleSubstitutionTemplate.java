@@ -2,7 +2,9 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -71,8 +73,14 @@ public final class SimpleSubstitutionTemplate {
     return parts.stream().map(p -> p.evaluate(evaluator)).collect(Collectors.joining());
   }
 
+  /**
+   * Interface for an object that checks variable names in a template.
+   */
   public interface VariableNameValidator {
 
+    /**
+     * Validates the variable name, throwing an exception if the variable name is unexpected.
+     */
     void validateVariableName(String name) throws InvalidVariableNameException;
   }
 
@@ -137,6 +145,9 @@ public final class SimpleSubstitutionTemplate {
    */
   public interface VariableEvaluator {
 
+    /**
+     * Returns the value of the given variable in the evaluation context.
+     */
     String evaluatedVariable(String variableName);
   }
 
@@ -147,6 +158,47 @@ public final class SimpleSubstitutionTemplate {
 
     public InvalidVariableNameException(String variable, String message) {
       super(String.format("invalid variable name %s: %s", variable, message));
+    }
+  }
+
+  /**
+   * A class to use for the value of the --experimental_workspace_rules_log_file flag.
+   */
+  public static final class LogPathFragmentTemplate {
+    private static final String COMMAND_ID_VAR = "command_id";
+
+    private static final VariableDefinitionSet VARIABLE_DEFINITION_SET =
+        VariableDefinitionSet.of(
+            new SimpleSubstitutionTemplate.VariableDefinitionSet.Definition(
+                COMMAND_ID_VAR,
+                "The UUID that Blaze uses to identify everything logged from the current "
+                    + "build command."));
+
+    private final SimpleSubstitutionTemplate stringTemplate;
+
+    /**
+     * Parses the template.
+     */
+    public static LogPathFragmentTemplate parse(String template)
+        throws InvalidVariableNameException {
+      return new LogPathFragmentTemplate(
+          SimpleSubstitutionTemplate.parse(template, VARIABLE_DEFINITION_SET.validator()));
+    }
+
+    /**
+     * Evaluate the template in the context of a given command.
+     */
+    public PathFragment evaluate(UUID commandId) {
+      return PathFragment.create(stringTemplate.evaluate(variableName -> {
+        if (COMMAND_ID_VAR.equals(variableName)) {
+          return commandId.toString();
+        }
+        throw new RuntimeException("got unknown template variable; programming problem");
+      }));
+    }
+
+    private LogPathFragmentTemplate(SimpleSubstitutionTemplate stringTemplate) {
+      this.stringTemplate = stringTemplate;
     }
   }
 

@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentListConverter;
+import com.google.devtools.build.lib.util.OptionsUtils.LogPathFragmentConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -158,6 +159,10 @@ public class OptionsUtilsTest {
     return new PathFragmentConverter().convert(input);
   }
 
+  private PathFragment convertOneWorkspaceLog(String input, String commandId) throws Exception {
+    return new LogPathFragmentConverter().convert(input).evaluate(commandId);
+  }
+
   @Test
   public void emptyStringYieldsEmptyList() throws Exception {
     assertThat(convert("")).isEmpty();
@@ -230,5 +235,11 @@ public class OptionsUtilsTest {
         assertThrows(OptionsParsingException.class, () -> converter.convert("relative/path"));
 
     assertThat(e).hasMessageThat().isEqualTo("Not an absolute path: 'relative/path'");
+  }
+
+  @Test
+  public void workspaceLogPath() throws Exception {
+    assertThat(convertOneWorkspaceLog("foo", "1234")).isEqualTo(fragment("foo"));
+    assertThat(convertOneWorkspaceLog("foo/{{command_id}}", "1234")).isEqualTo(fragment("foo/1234"));
   }
 }

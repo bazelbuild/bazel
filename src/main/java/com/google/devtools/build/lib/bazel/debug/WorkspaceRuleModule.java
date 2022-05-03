@@ -47,16 +47,12 @@ public final class WorkspaceRuleModule extends BlazeModule {
     }
 
     PathFragment logFile =
-        env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile;
+        env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile
+            .evaluate(env.getCommandId());
     if (logFile != null) {
       try {
-        Path resolvedLogFile = env.getWorkingDirectory().getRelative(logFile);
-        // If the flag specifies a directory, output one file per command. This might make it easier to debug behavior
-        // across multiple bazel commands.
-        if (resolvedLogFile.isDirectory()) {
-          resolvedLogFile = resolvedLogFile.getRelative(env.getCommandId().toString());
-        }
-        outFileStream = new AsynchronousFileOutputStream(resolvedLogFile);
+        outFileStream =
+            new AsynchronousFileOutputStream(env.getWorkingDirectory().getRelative(logFile));
       } catch (IOException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         env.getBlazeModuleEnvironment()

@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.SimpleSubstitutionTemplate.LogPathFragmentTemplate;
+import com.google.devtools.build.lib.util.SimpleSubstitutionTemplate.InvalidVariableNameException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -108,6 +110,28 @@ public final class OptionsUtils {
     }
   }
 
+  /**
+   * Converter from String to {@link SimpleSubstitutionTemplate} that can be evaluated in the
+   * context of a {@link com.google.devtools.build.lib.runtime.CommandEnvironment} to
+   * product a PathFragment.
+   **/
+  public static class LogPathFragmentConverter implements Converter<LogPathFragmentTemplate> {
+    @Override
+    public LogPathFragmentTemplate convert(String input) throws OptionsParsingException {
+      try {
+        return LogPathFragmentTemplate.parse(
+            replaceTildeWithHome(checkNotNull(input)));
+      } catch (InvalidVariableNameException e) {
+        throw new OptionsParsingException(e.getMessage());
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path";
+    }
+  }
+
   /** Converter from String to PathFragment requiring the provided path to be absolute. */
   public static class AbsolutePathFragmentConverter implements Converter<PathFragment> {
 
@@ -171,9 +195,12 @@ public final class OptionsUtils {
   }
 
   private static PathFragment convertOptionsPathFragment(String path) {
-    if (!path.isEmpty() && path.startsWith("~/")) {
+    return PathFragment.create(replaceTildeWithHome(path));
+  }
+  private static String replaceTildeWithHome(String path) {
+    if (path.startsWith("~/")) {
       path = path.replace("~", StandardSystemProperty.USER_HOME.value());
     }
-    return PathFragment.create(path);
+    return path;
   }
 }
