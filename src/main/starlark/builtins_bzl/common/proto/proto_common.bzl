@@ -16,6 +16,8 @@
 Definition of proto_common module.
 """
 
+load(":common/proto/providers.bzl", "ProtoLangToolchainInfo")
+
 def _create_proto_compile_action(
         ctx,
         proto_info,
@@ -287,5 +289,5 @@ proto_common_do_not_use = struct(
     declare_generated_files = _declare_generated_files,
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
-    ProtoLangToolchainInfo = _builtins.internal.ProtoLangToolchainInfo,
+    ProtoLangToolchainInfo = ProtoLangToolchainInfo,
 )
