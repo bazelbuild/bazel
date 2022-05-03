@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tools/cpp/bazel_build_info_translation_helper.h"
+#include "tools/cpp/build_info_translation_helper.h"
 
 #include "googletest/include/gtest/gtest.h"
 
@@ -25,7 +25,7 @@ static const char kTestFilePrefix[] = "";
 class BuildInfoTranslationHelperTest : public testing::Test {};
 
 TEST_F(BuildInfoTranslationHelperTest, CorrectFileFormat) {
-  BazelBuildInfoTranslationHelper helper = BazelBuildInfoTranslationHelper(
+  BuildInfoTranslationHelper helper = BuildInfoTranslationHelper(
       absl::StrCat(kTestFilePrefix,
                    "bazel/tools/cpp/test_data/correct_file_format.txt"),
       "");
@@ -43,7 +43,7 @@ TEST_F(BuildInfoTranslationHelperTest, CorrectFileFormat) {
 }
 
 TEST_F(BuildInfoTranslationHelperTest, NonExistingFile) {
-  BazelBuildInfoTranslationHelper helper = BazelBuildInfoTranslationHelper(
+  BuildInfoTranslationHelper helper = BuildInfoTranslationHelper(
       "",
       absl::StrCat(kTestFilePrefix,
                    "bazel/tools/cpp/test_data/this_file_does_not_exist.txt"));
@@ -60,7 +60,7 @@ TEST_F(BuildInfoTranslationHelperTest, NonExistingFile) {
 }
 
 TEST_F(BuildInfoTranslationHelperTest, DuplicatedKey) {
-  BazelBuildInfoTranslationHelper helper = BazelBuildInfoTranslationHelper(
+  BuildInfoTranslationHelper helper = BuildInfoTranslationHelper(
       absl::StrCat(kTestFilePrefix,
                    "bazel/tools/cpp/test_data/duplicated_key.txt"),
       "");
@@ -75,7 +75,7 @@ TEST_F(BuildInfoTranslationHelperTest, DuplicatedKey) {
 }
 
 TEST_F(BuildInfoTranslationHelperTest, MissingSeparator) {
-  BazelBuildInfoTranslationHelper helper = BazelBuildInfoTranslationHelper(
+  BuildInfoTranslationHelper helper = BuildInfoTranslationHelper(
       "", absl::StrCat(kTestFilePrefix,
                        "bazel/tools/cpp/test_data/no_separator.txt"));
   absl::Status expected_version_status =
