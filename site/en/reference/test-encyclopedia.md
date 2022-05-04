@@ -3,7 +3,7 @@ Book: /_book.yaml
 
 # Test encyclopedia
 
-An Exhaustive Specification of the Test Execution Environment
+An exhaustive specification of the test execution environment.
 
 ## Background {:#background}
 
