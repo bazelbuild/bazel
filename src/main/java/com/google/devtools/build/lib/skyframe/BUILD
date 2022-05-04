@@ -154,7 +154,6 @@ java_library(
         ":package_roots_no_symlink_creation",
         ":package_value",
         ":pattern_expanding_error",
-        ":per_build_syscall_cache",
         ":precomputed_function",
         ":precomputed_value",
         ":prepare_deps_of_pattern_value",

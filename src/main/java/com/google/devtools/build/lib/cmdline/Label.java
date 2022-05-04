@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -423,11 +424,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
-   * @param thread the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
+   * @param thread the Starlark thread.
    */
   @StarlarkMethod(
       name = "relative",
       doc =
+          // TODO(#14503): Fix the documentation.
           "Resolves a label that is either absolute (starts with <code>//</code>) or relative to "
               + "the current package. If this label is in a remote repository, the argument will "
               + "be resolved relative to that repository. If the argument contains a repository "
@@ -456,20 +458,9 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
-    HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
-    return getRelativeWithRemapping(relName, hrm.getRepoMappingForCurrentBzlFile(thread));
-  }
-
-  /**
-   * An interface for retrieving a repository mapping that's applicable for the repo containing the
-   * current .bzl file (more precisely, the .bzl file where the function at the innermost Starlark
-   * stack frame lives).
-   *
-   * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
-   * that type here because logically it belongs in Bazel, above this package.
-   */
-  public interface HasRepoMapping {
-    RepositoryMapping getRepoMappingForCurrentBzlFile(StarlarkThread thread);
+    return getRelativeWithRemapping(
+        relName,
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping());
   }
 
   /**
