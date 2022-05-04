@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import java.util.List;
 
@@ -31,7 +33,7 @@ public interface RpcSupport {
 
   boolean allowServices(RuleContext ruleContext);
 
-  NestedSet<Artifact> getForbiddenProtos(RuleContext ruleContext);
+  Optional<StarlarkInfo> getToolchain(RuleContext ruleContext);
 
   ImmutableList<TransitiveInfoCollection> getRuntimes(RuleContext ruleContext);
 

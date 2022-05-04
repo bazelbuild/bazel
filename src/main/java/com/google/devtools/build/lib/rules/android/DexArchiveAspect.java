@@ -176,11 +176,11 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             // For android_sdk rules, where we just want to get at aidl runtime deps.
             .requireStarlarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
             .requireStarlarkProviders(forKey(ProtoInfo.PROVIDER.getKey()))
-            .requireProviderSets(
+            .requireStarlarkProviderSets(
                 ImmutableList.of(
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.of(ProtoLangToolchainProvider.class)))
+                    ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
             .addRequiredToolchains(
                 Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule

@@ -106,7 +106,6 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                 .exec()
                 .value(PROTO_COMPILER))
         .requiresConfigurationFragments(ProtoConfiguration.class)
-        .advertiseProvider(ProtoLangToolchainProvider.class)
         .removeAttribute("data")
         .removeAttribute("deps")
         .build();

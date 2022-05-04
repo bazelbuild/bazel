@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Bazel providers for proto rules."""
+"""Definition of proto_common module, together with bazel providers for proto rules."""
 
 ProtoLangToolchainInfo = provider(
     doc = "Specifies how to generate language-specific code from .proto files. Used by LANG_proto_library rules.",
@@ -27,4 +27,8 @@ ProtoLangToolchainInfo = provider(
         progress_message = "(str) Progress message to set on the proto compiler action.",
         mnemonic = "(str) Mnemonic to set on the proto compiler action.",
     ),
+)
+
+proto_common_do_not_use = struct(
+    ProtoLangToolchainInfo = ProtoLangToolchainInfo,
 )

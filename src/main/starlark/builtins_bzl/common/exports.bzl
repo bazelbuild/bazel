@@ -39,7 +39,7 @@ exported_rules = {
     "+apple_static_library": apple_static_library,
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
-    "-proto_lang_toolchain": proto_lang_toolchain,
+    "+proto_lang_toolchain": proto_lang_toolchain,
 }
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,

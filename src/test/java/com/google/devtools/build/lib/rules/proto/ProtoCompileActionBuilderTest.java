@@ -103,7 +103,7 @@ public class ProtoCompileActionBuilderTest {
             artifact("//:dont-care", "protoc-gen-javalite.exe"));
 
     ProtoLangToolchainProvider toolchainNoPlugin =
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             "--java_out=param1,param2:%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
@@ -114,7 +114,7 @@ public class ProtoCompileActionBuilderTest {
             /* progressMessage = */ "",
             /* mnemonic= */ "");
     ProtoLangToolchainProvider toolchainWithPlugin =
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             "--PLUGIN_pluginName_out=param3,param4:%s",
             /* pluginFormatFlag= */ "--plugin=protoc-gen-PLUGIN_pluginName=%s",
             plugin,
@@ -182,7 +182,7 @@ public class ProtoCompileActionBuilderTest {
   @Test
   public void commandLine_strictDeps() throws Exception {
     ProtoLangToolchainProvider toolchain =
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             "--java_out=param1,param2:%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
@@ -225,7 +225,7 @@ public class ProtoCompileActionBuilderTest {
   @Test
   public void commandLine_exports() throws Exception {
     ProtoLangToolchainProvider toolchain =
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             "--java_out=param1,param2:%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
@@ -300,7 +300,7 @@ public class ProtoCompileActionBuilderTest {
         };
 
     ProtoLangToolchainProvider toolchain =
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             "--java_out=param1,param2:%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
@@ -339,7 +339,7 @@ public class ProtoCompileActionBuilderTest {
   @Test
   public void exceptionIfSameName() throws Exception {
     ProtoLangToolchainProvider toolchain1 =
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             "dontcare=%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
@@ -350,7 +350,7 @@ public class ProtoCompileActionBuilderTest {
             /* progressMessage = */ "",
             /* mnemonic= */ "");
     ProtoLangToolchainProvider toolchain2 =
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             "dontcare=%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,

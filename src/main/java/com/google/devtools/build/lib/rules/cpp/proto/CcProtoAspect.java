@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -127,7 +128,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryBuiltinProviders(ImmutableList.of(ProtoLangToolchainProvider.class))
+                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER_ID)
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
@@ -449,7 +450,6 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       } else {
         genfilesPath = genfilesFragment.getRelative(protoRootFragment).getPathString();
       }
-
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
       invocations.add(
           new ToolchainInvocation("C++", checkNotNull(getProtoToolchainProvider()), genfilesPath));
@@ -465,7 +465,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {
-      return ruleContext.getPrerequisite(PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+      return ProtoLangToolchainProvider.get(ruleContext, PROTO_TOOLCHAIN_ATTR);
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {

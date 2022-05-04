@@ -18,11 +18,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a single {@code .proto} source file. */
 @Immutable
 @AutoCodec
-class ProtoSource {
+class ProtoSource implements StarlarkValue {
   private final Artifact sourceFile;
   private final Artifact originalSourceFile;
   private final PathFragment sourceRoot;
