@@ -14,7 +14,7 @@
 
 """A Starlark implementation of the proto_lang_toolchain rule."""
 
-load(":common/proto/providers.bzl", "ProtoLangToolchainInfo")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
 

@@ -186,7 +186,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                 ImmutableList.of(
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER.id())))
+                    ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
             .addToolchainTypes(
                 ToolchainTypeRequirement.create(
                     Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel)))
