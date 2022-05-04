@@ -79,7 +79,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
         JavaProtoAspectInfo(jars = depset(jars, transitive = transitive_jars)),
     ]
 
-def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], exports = []):
+def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], exports = [], injecting_rule_kind = "java_proto_library"):
     """Compiles Java source jar returned by proto compiler.
 
     Use this call for java_xxx_proto_library. It uses java_common.compile with
@@ -97,6 +97,8 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
       source_jar: (File) Input source jar (may be `None`).
       deps: (list[JavaInfo]) `deps` of the `proto_library`.
       exports: (list[JavaInfo]) `exports` of the `proto_library`.
+      injecting_rule_kind: (str) Rule kind requesting the compilation.
+        It's embedded into META-INF of the produced runtime jar, for debugging.
     Returns:
       ((JavaInfo, list[File])) JavaInfo of this target and list containing source
       and runtime jar, when they are created.
@@ -111,7 +113,7 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
             exports = exports,
             output = output_jar,
             output_source_jar = source_jar,
-            injecting_rule_kind = "java_proto_library",
+            injecting_rule_kind = injecting_rule_kind,
             javac_opts = java_toolchain.compatible_javacopts("proto"),
             enable_jspecify = False,
             create_output_source_jar = False,
