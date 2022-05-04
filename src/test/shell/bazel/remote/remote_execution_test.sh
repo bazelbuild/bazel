@@ -1006,63 +1006,6 @@ EOF
            || fail "Failed to run //a:starlark_output_dir_test with remote execution"
 }
 
-function generate_empty_treeartifact_build() {
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-load(":output_dir.bzl", "gen_output_dir")
-gen_output_dir(
-    name = "output-dir",
-    outdir = "dir",
-)
-EOF
-  cat > a/output_dir.bzl <<'EOF'
-def _gen_output_dir_impl(ctx):
-    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
-    ctx.actions.run_shell(
-        outputs = [output_dir],
-        inputs = [],
-        command = "",
-        arguments = [output_dir.path],
-    )
-    return [
-        DefaultInfo(files = depset(direct = [output_dir])),
-    ]
-
-gen_output_dir = rule(
-    implementation = _gen_output_dir_impl,
-    attrs = {
-        "outdir": attr.string(mandatory = True),
-    },
-)
-EOF
-}
-
-function test_empty_treeartifact_works_with_remote_execution() {
-  # Test that empty tree artifact works with remote execution
-  generate_empty_treeartifact_build
-
-  bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
-    //a:output-dir >& $TEST_log || fail "Failed to build"
-}
-
-function test_empty_treeartifact_works_with_remote_cache() {
-  # Test that empty tree artifact works with remote cache
-  generate_empty_treeartifact_build
-
-  bazel build \
-    --remote_cache=grpc://localhost:${worker_port} \
-    //a:output-dir >& $TEST_log || fail "Failed to build"
-
-  bazel clean
-
-  bazel build \
-    --remote_cache=grpc://localhost:${worker_port} \
-    //a:output-dir >& $TEST_log || fail "Failed to build"
-
-  expect_log "remote cache hit"
-}
-
 function test_downloads_minimal() {
   # Test that genrule outputs are not downloaded when using
   # --remote_download_minimal
@@ -3074,6 +3017,77 @@ LF:2
 end_of_record"
 
   assert_equals "$expected_result" "$(cat bazel-testlogs/java/factorial/fact-test/coverage.dat)"
+}
+
+function generate_empty_tree_artifact_as_inputs() {
+  touch WORKSPACE
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_d = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_d],
+        command = "mkdir -p %s" % empty_d.path,
+    )
+    f = ctx.actions.declare_file("%s/file" % ctx.label.name)
+    ctx.actions.run_shell(
+        inputs = [empty_d],
+        outputs = [f],
+        command = "touch %s && cd %s && pwd" % (f.path, empty_d.path),
+    )
+    return [DefaultInfo(files = depset([f]))]
+
+r = rule(implementation = _r)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+EOF
+}
+
+function test_empty_tree_artifact_as_inputs() {
+  # Test that when an empty tree artifact is the input, an empty directory is
+  # created in the remote executor for action to read.
+  generate_empty_tree_artifact_as_inputs
+
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_merkle_tree_cache \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_sibling_repository_layout \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
+}
+
+function test_empty_tree_artifact_as_inputs_remote_cache() {
+  # Test that when empty tree artifact works for remote cache.
+  generate_empty_tree_artifact_as_inputs
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  expect_log "remote cache hit"
 }
 
 # Runs coverage with `cc_test` and RE then checks the coverage file is returned.

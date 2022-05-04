@@ -17,12 +17,14 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,6 +35,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /** Builder for directory trees. */
 class DirectoryTreeBuilder {
@@ -94,6 +97,7 @@ class DirectoryTreeBuilder {
       Map<PathFragment, DirectoryNode> tree)
       throws IOException {
     return build(
+        null,
         inputs,
         tree,
         (input, path, currDir) -> {
@@ -122,6 +126,7 @@ class DirectoryTreeBuilder {
       Map<PathFragment, DirectoryNode> tree)
       throws IOException {
     return build(
+        metadataProvider,
         inputs,
         tree,
         (input, path, currDir) -> {
@@ -177,6 +182,7 @@ class DirectoryTreeBuilder {
   }
 
   private static <T> int build(
+      @Nullable MetadataProvider metadataProvider,
       SortedMap<PathFragment, T> inputs,
       Map<PathFragment, DirectoryNode> tree,
       FileNodeVisitor<T> fileNodeVisitor)
@@ -192,6 +198,32 @@ class DirectoryTreeBuilder {
       // Path relative to the exec root
       PathFragment path = e.getKey();
       T input = e.getValue();
+
+      if (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact()) {
+        DerivedArtifact artifact = (DerivedArtifact) input;
+        // MetadataProvider is provided by all callers for which T is a superclass of
+        // DerivedArtifact.
+        Preconditions.checkNotNull(metadataProvider);
+        FileArtifactValue metadata =
+            Preconditions.checkNotNull(
+                metadataProvider.getMetadata(artifact),
+                "missing metadata for '%s'",
+                artifact.getExecPathString());
+        Preconditions.checkState(
+            metadata.equals(TreeArtifactValue.empty().getMetadata()),
+            "Encountered non-empty TreeArtifact '%s' with metadata '%s', which should have"
+                + " been expanded by SpawnInputExpander. This is a bug.",
+            path,
+            metadata);
+        // Create an empty directory and its parent directories but don't visit the TreeArtifact
+        // input itself: A TreeArtifact's metadata has type REGULAR_FILE, not DIRECTORY, and would
+        // thus lead to an empty file being created in the buildFromActionInputs visitor.
+        DirectoryNode emptyDir = new DirectoryNode(path.getBaseName());
+        tree.put(path, emptyDir);
+        createParentDirectoriesIfNotExist(path, emptyDir, tree);
+        continue;
+      }
+
       if (dirname == null || !path.getParentDirectory().equals(dirname)) {
         dirname = path.getParentDirectory();
         dir = tree.get(dirname);

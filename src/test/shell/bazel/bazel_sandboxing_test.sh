@@ -794,7 +794,7 @@ EOF
 }
 
 # regression test for https://github.com/bazelbuild/bazel/issues/6262
-function test_create_tree_artifact_inputs() {
+function test_create_tree_artifact_outputs() {
   create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
@@ -816,6 +816,40 @@ r(name = "a")
 EOF
 
   bazel build --test_output=streamed :a &>$TEST_log || fail "expected build to succeed"
+}
+
+function test_empty_tree_artifact_as_inputs() {
+  # Test that when an empty tree artifact is the input, an empty directory is
+  # created in the sandbox for action to read.
+  create_workspace_with_default_repos WORKSPACE
+
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_d = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_d],
+        command = "mkdir -p %s" % empty_d.path,
+    )
+    f = ctx.actions.declare_file("%s/file" % ctx.label.name)
+    ctx.actions.run_shell(
+        inputs = [empty_d],
+        outputs = [f],
+        command = "touch %s && cd %s && pwd" % (f.path, empty_d.path),
+    )
+    return [DefaultInfo(files = depset([f]))]
+
+r = rule(implementation = _r)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+EOF
+
+  bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
