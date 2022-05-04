@@ -83,7 +83,7 @@ public class CppLinkstampCompileHelper {
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
             .setSemantics(semantics)
-            .setOutputs(outputFile, null)
+            .setOutputs(outputFile, null, null)
             .setInputsForInvalidation(inputsForInvalidation)
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
@@ -173,6 +173,7 @@ public class CppLinkstampCompileHelper {
         needsPic,
         fdoBuildStamp,
         /* dotdFileExecPath= */ null,
+        /* diagnosticsFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),

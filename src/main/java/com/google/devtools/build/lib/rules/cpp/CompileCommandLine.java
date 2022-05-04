@@ -189,7 +189,10 @@ public final class CompileCommandLine {
   }
 
   public static Builder builder(
-      Artifact sourceFile, CoptsFilter coptsFilter, String actionName, Artifact dotdFile) {
+      Artifact sourceFile,
+      CoptsFilter coptsFilter,
+      String actionName,
+      Artifact dotdFile) {
     return new Builder(sourceFile, coptsFilter, actionName, dotdFile);
   }
 
@@ -213,7 +216,10 @@ public final class CompileCommandLine {
     }
 
     private Builder(
-        Artifact sourceFile, CoptsFilter coptsFilter, String actionName, Artifact dotdFile) {
+        Artifact sourceFile,
+        CoptsFilter coptsFilter,
+        String actionName,
+        Artifact dotdFile) {
       this.sourceFile = sourceFile;
       this.coptsFilter = coptsFilter;
       this.actionName = actionName;
