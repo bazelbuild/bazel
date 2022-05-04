@@ -436,7 +436,7 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain. To debug, rerun with --toolchain_resolution_debug='//${pkg}/toolchain:test_toolchain'"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
 }
 
 function test_multiple_toolchain_use_in_rule {
@@ -526,7 +526,7 @@ use_toolchains(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain_2. To debug, rerun with --toolchain_resolution_debug='//${pkg}/toolchain:test_toolchain_2'"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain_2."
 }
 
 function test_toolchain_use_in_rule_non_required_toolchain {
@@ -781,7 +781,7 @@ EOF
     --host_platform="//${pkg}:platform1" \
     --platforms="//${pkg}:platform1" \
     "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain. To debug, rerun with --toolchain_resolution_debug='//${pkg}/toolchain:test_toolchain'"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
   expect_not_log 'Using toolchain: rule message:'
 }
 
