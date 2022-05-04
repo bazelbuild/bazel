@@ -7,7 +7,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.test.TestEnvironmentInfoApi;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
@@ -16,8 +15,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 
 @Immutable
-public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironmentInfoApi,
-    TestEnvironmentInfoApi {
+public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironmentInfoApi {
 
   /**
    * Singleton instance of the provider type for {@link DefaultInfo}.
@@ -88,7 +86,7 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
           Dict.cast(environment, String.class, String.class, "environment"),
           StarlarkList.immutableCopyOf(
               Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")),
-          true);
+          /* shouldErrorOnNonExecutableRule */ true);
     }
   }
 }

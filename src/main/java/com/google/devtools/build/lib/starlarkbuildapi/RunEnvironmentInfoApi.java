@@ -41,15 +41,19 @@ public interface RunEnvironmentInfoApi extends StructApi {
 
   @StarlarkMethod(
       name = "environment",
-      doc = "A dict containing environment variables which should be set when executing the rule"
-          + " that returns this provider.",
+      doc = "A map of string keys and values that represent environment variables and their values."
+          + " These will be made available when the target that returns this provider is executed,"
+          + " either as a test or via the run command.",
       structField = true)
   Map<String, String> getEnvironment();
 
   @StarlarkMethod(
       name = "inherited_environment",
-      doc = "A list of variables that should be inherited from the shell environment when executing"
-          + " the rule that returns this provider.",
+      doc = "A sequence of names of environment variables. These variables are made  available with"
+          + " their current value taken from the shell environment when the target that returns"
+          + " this provider is executed, either as a test or via the run command. If a variable is"
+          + " contained in both <code>environment</code> and <code>inherited_environment</code>,"
+          + " the value inherited from the shell environment will take precedence if set.",
       structField = true)
   List<String> getInheritedEnvironment();
 
