@@ -6,7 +6,6 @@ build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.co
 build:remote_shared --remote_timeout=600
 build:remote_shared --google_default_credentials
 build:remote_shared --jobs=100
-build:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 build:remote_shared --java_runtime_version=rbe_jdk
 build:remote_shared --tool_java_runtime_version=rbe_jdk
 # Workaround for singlejar incompatibility with RBE
