@@ -127,7 +127,6 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                     // can be optional.
                     .mandatory(true)
                     .build())
-            .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER_ID)

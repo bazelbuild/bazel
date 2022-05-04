@@ -155,7 +155,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 // be optional.
                 .mandatory(true)
                 .build())
-        .useToolchainTransition(true)
         .add(
             attr("$grep_includes", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
