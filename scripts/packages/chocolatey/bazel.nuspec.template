@@ -45,7 +45,7 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
     <licenseUrl>https://github.com/bazelbuild/bazel/tree/master/LICENSE</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/bazelbuild/bazel.git</projectSourceUrl>
-    <docsUrl>https://bazel.build/contribute/getting-started</docsUrl>
+    <docsUrl>https://bazel.build/start</docsUrl>
     <mailingListUrl>https://groups.google.com/forum/#!forum/bazel-discuss</mailingListUrl>
     <bugTrackerUrl>https://github.com/bazelbuild/bazel/issues</bugTrackerUrl>
     <tags>bazel build automation</tags>
