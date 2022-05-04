@@ -254,7 +254,8 @@ public class MerkleTree {
           for (DirectoryTree.DirectoryNode dir : dirs) {
             PathFragment subDirname = dirname.getRelative(dir.getPathSegment());
             MerkleTree subMerkleTree =
-                Preconditions.checkNotNull(m.remove(subDirname), "subMerkleTree was null");
+                Preconditions.checkNotNull(
+                    m.remove(subDirname), "subMerkleTree at '%s' was null", subDirname);
             subDirs.put(dir.getPathSegment(), subMerkleTree);
           }
           MerkleTree mt = buildMerkleTree(new TreeSet<>(files), subDirs, digestUtil);
