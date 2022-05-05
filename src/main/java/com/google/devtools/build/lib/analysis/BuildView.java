@@ -406,6 +406,8 @@ public class BuildView {
                 viewOptions.cpuHeavySkyKeysThreadPoolSize);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       } else {
+        skyframeExecutor.setRuleContextConstraintSemantics(
+            (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
@@ -415,6 +417,7 @@ public class BuildView {
                 labelToTargetMap,
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
+                explicitTargetPatterns,
                 eventBus,
                 bugReporter,
                 keepGoing,

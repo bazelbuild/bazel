@@ -232,14 +232,14 @@ public class BuildTool {
                 ExecutionTool.determineSuccessfulAspects(
                     buildResultListener.getAnalyzedAspects().keySet(),
                     buildResultListener.getBuiltAspects()));
-            result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
+            result.setSkippedTargets(buildResultListener.getSkippedTargets());
             BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
             buildResultPrinter.showBuildResult(
                 request,
                 result,
-                analysisAndExecutionResult.getTargetsToBuild(),
-                analysisAndExecutionResult.getTargetsToSkip(),
-                analysisAndExecutionResult.getAspectsMap());
+                buildResultListener.getAnalyzedTargets(),
+                buildResultListener.getSkippedTargets(),
+                buildResultListener.getAnalyzedAspects());
           }
           FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
           if (delayedFailureDetail != null) {

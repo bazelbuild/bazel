@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
@@ -375,6 +376,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // pruning while going through the ActionLookupKeys in the build for conflict checking.
   // Reset after each build.
   private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
+  private RuleContextConstraintSemantics ruleContextConstraintSemantics;
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -661,7 +663,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 getConflictFreeActionLookupKeysGlobalSet().addAll(keys);
               }
             },
-            this::getIncrementalArtifactConflictFinder));
+            this::getIncrementalArtifactConflictFinder,
+            this::getRuleContextConstraintSemantics));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -2967,6 +2970,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     return evalResult.get(key);
+  }
+
+  @Nullable
+  RuleContextConstraintSemantics getRuleContextConstraintSemantics() {
+    return ruleContextConstraintSemantics;
+  }
+
+  public void setRuleContextConstraintSemantics(
+      RuleContextConstraintSemantics ruleContextConstraintSemantics) {
+    this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
   }
 
   /** A progress receiver to track analysis invalidation and update progress messages. */

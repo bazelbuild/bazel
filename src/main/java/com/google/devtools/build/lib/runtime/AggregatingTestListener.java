@@ -130,7 +130,7 @@ public final class AggregatingTestListener {
     aggregators.put(
         asKey(target),
         new TestResultAggregator(
-            target, event.buildConfigurationValue(), policy, /*skippedThisTest=*/ false));
+            target, event.buildConfigurationValue(), policy, event.isSkipped()));
   }
 
   /**
