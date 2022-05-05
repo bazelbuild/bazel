@@ -32,7 +32,14 @@ if [ -z ${MY_LOCATION+x} ]; then
   fi
 fi
 
-WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
+function invoke_libtool() {
+  # Just invoke libtool via xcrunwrapper
+  "${MY_LOCATION}/xcrunwrapper.sh" libtool "$@" \
+  2> >(grep -v "the table of contents is empty (no object file members in the"`
+              `" library define global symbols)$" >&2)
+  # ^ Filtering a warning that's unlikely to indicate a real issue
+  # ...and not silencable via a flag.
+}
 
 if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
   echo "libtool_check_unique not found. Please file an issue at github.com/bazelbuild/bazel"
@@ -40,7 +47,7 @@ if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
 elif "${MY_LOCATION}"/libtool_check_unique "$@"; then
   # If there are no duplicate .o basenames,
   # libtool can be invoked with the original arguments.
-  "${WRAPPER}" libtool "$@"
+  invoke_libtool "$@"
   exit
 fi
 
@@ -131,4 +138,4 @@ for arg in "$@"; do
 done
 
 printf '%s\n' "${ARGS[@]}" > "$TEMPDIR/processed.params"
-"${WRAPPER}" libtool "@$TEMPDIR/processed.params"
+invoke_libtool "@$TEMPDIR/processed.params"
