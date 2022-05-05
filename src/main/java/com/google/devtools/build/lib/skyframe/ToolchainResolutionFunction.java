@@ -622,7 +622,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           missingToolchainTypes.stream().map(Label::toString).collect(Collectors.toList());
       return String.format(
           "No matching toolchains found for types %s."
-          + "\nTo debug, rerun with --toolchain_resolution_debug='%s'"
+          + "\nTo debug, rerun with --toolchain_resolution_debug=\"%s\""
           + "\nIf platforms or toolchains are a new concept for you, we'd encourage reading "
           + "https://bazel.build/concepts/platforms-intro.",
           String.join(", ", labelStrings), String.join("|", labelStrings));
