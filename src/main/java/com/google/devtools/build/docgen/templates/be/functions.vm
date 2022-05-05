@@ -503,6 +503,7 @@ sh_test(
 
 <h3 id="recursive_glob_example">Recursive Glob Examples</h3>
 
+
 <p>Make the test depend on all txt files in the testdata directory and any
    of its subdirectories (and their subdirectories, and so on).
    Subdirectories containing a BUILD file are ignored. (See limitations
