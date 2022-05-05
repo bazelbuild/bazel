@@ -22,7 +22,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.Version;
-import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -96,12 +95,6 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    return delegate.getValues(depKeys);
-  }
-
-  @Override
   public boolean valuesMissing() {
     return delegate.valuesMissing();
   }
@@ -152,5 +145,11 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   @Override
   public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
     return delegate.getState(stateSupplier);
+  }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return delegate.getMaxTransitiveSourceVersionSoFar();
   }
 }

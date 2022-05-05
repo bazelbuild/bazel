@@ -42,18 +42,21 @@ cc_binary(
 cc_shared_library(
     name = "a_so",
     roots = [":a_suffix"],
+    features = ["windows_export_all_symbols"],
 )
 
 cc_shared_library(
     name = "diamond_so",
     dynamic_deps = [":a_so"],
     roots = [":qux"],
+    features = ["windows_export_all_symbols"],
 )
 
 cc_shared_library(
     name = "diamond2_so",
     dynamic_deps = [":a_so"],
     roots = [":qux2"],
+    features = ["windows_export_all_symbols"],
 )
 
 cc_binary(
@@ -96,6 +99,7 @@ cc_shared_library(
         "-Wl,--script=$(location :additional_script.txt)",
       ],
       "//conditions:default": []}),
+    features = ["windows_export_all_symbols"],
 )
 
 cc_library(
@@ -191,6 +195,7 @@ cc_shared_library(
       ],
       "//conditions:default": [],
     }),
+    features = ["windows_export_all_symbols"],
 )
 
 cc_library(
@@ -316,6 +321,7 @@ cc_shared_library(
     roots = [
         ":direct_so_file_cc_lib",
     ],
+    features = ["windows_export_all_symbols"],
 )
 
 genrule(
@@ -337,6 +343,7 @@ cc_shared_library(
         ":direct_so_file_cc_lib2",
     ],
     shared_lib_name = "renamed_so_file.so",
+    features = ["windows_export_all_symbols"],
 )
 
 cc_library(

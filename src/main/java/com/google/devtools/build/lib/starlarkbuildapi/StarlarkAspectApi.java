@@ -25,5 +25,5 @@ import net.starlark.java.eval.StarlarkValue;
     doc =
         "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
             + "documentation of the aspect function</a> or the "
-            + "<a href=\"$STARLARK_DOCS_ROOT/aspects.md\">introduction to Aspects</a>.")
+            + "<a href=\"https://bazel.build/rules/aspects\">introduction to Aspects</a>.")
 public interface StarlarkAspectApi extends StarlarkValue {}

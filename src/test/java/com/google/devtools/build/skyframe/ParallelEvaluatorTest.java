@@ -64,6 +64,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
@@ -83,7 +84,6 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link ParallelEvaluator}. */
 @RunWith(TestParameterInjector.class)
@@ -120,6 +120,7 @@ public class ParallelEvaluatorTest {
     return new ParallelEvaluator(
         graph,
         oldGraphVersion,
+        MinimalVersion.INSTANCE,
         builders,
         storedEventHandler,
         new MemoizingEvaluator.EmittedEventState(),
@@ -2296,12 +2297,8 @@ public class ParallelEvaluatorTest {
               return null;
             });
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));
-    ArgumentCaptor<IllegalStateException> exceptionCaptor =
-        ArgumentCaptor.forClass(IllegalStateException.class);
-    verify(mockReporter).sendBugReport(exceptionCaptor.capture());
-    assertThat(exceptionCaptor.getValue())
-        .hasMessageThat()
-        .matches("Value for: '.*' was missing, this should never happen");
+    verify(mockReporter)
+        .logUnexpected("Value for: '%s' was missing, this should never happen", childKey);
     verifyNoMoreInteractions(mockReporter);
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
@@ -2350,6 +2347,86 @@ public class ParallelEvaluatorTest {
         .hasExceptionThat()
         .isSameInstanceAs(childExn);
     assertThat(numComputes.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void validateExceptionTypeInDifferentPosition(
+      @TestParameter({"0", "1", "2", "3"}) int exceptionIndex) throws Exception {
+    ImmutableList<Class<? extends Exception>> exceptions =
+        ImmutableList.of(
+            Exception.class,
+            SomeOtherErrorException.class,
+            IOException.class,
+            SomeErrorException.class);
+    graph = new InMemoryGraphImpl();
+    SkyKey otherKey = GraphTester.toSkyKey("other");
+    tester.set(otherKey, new StringValue("other"));
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SomeErrorException parentExn = new SomeErrorException("parent error");
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              IllegalStateException illegalStateException =
+                  assertThrows(
+                      IllegalStateException.class,
+                      () ->
+                          env.getValueOrThrow(
+                              otherKey,
+                              exceptions.get(exceptionIndex % 4),
+                              exceptions.get((exceptionIndex + 1) % 4),
+                              exceptions.get((exceptionIndex + 2) % 4),
+                              exceptions.get((exceptionIndex + 3) % 4)));
+              assertThat(illegalStateException)
+                  .hasMessageThat()
+                  .contains("is a supertype of RuntimeException");
+              assertThat(env.valuesMissing()).isFalse();
+              throw new GenericFunctionException(parentExn, Transience.PERSISTENT);
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException()).isEqualTo(parentExn);
+  }
+
+  @Test
+  public void validateExceptionTypeWithDifferentException(
+      @TestParameter ExceptionOption exceptionOption) throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey otherKey = GraphTester.toSkyKey("other");
+    tester.set(otherKey, new StringValue("other"));
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SomeErrorException parentExn = new SomeErrorException("parent error");
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              IllegalStateException illegalStateException =
+                  assertThrows(
+                      IllegalStateException.class,
+                      () -> env.getValueOrThrow(otherKey, exceptionOption.exceptionClass));
+              assertThat(illegalStateException)
+                  .hasMessageThat()
+                  .contains(exceptionOption.errorMessage);
+              assertThat(env.valuesMissing()).isFalse();
+              throw new GenericFunctionException(parentExn, Transience.PERSISTENT);
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException()).isEqualTo(parentExn);
+  }
+
+  private enum ExceptionOption {
+    EXCEPTION(Exception.class, "is a supertype of RuntimeException"),
+    NULL_POINTER_EXCEPTION(NullPointerException.class, "is a subtype of RuntimeException"),
+    INTERRUPTED_EXCEPTION(InterruptedException.class, "is a subtype of InterruptedException");
+
+    final Class<? extends Exception> exceptionClass;
+    final String errorMessage;
+
+    ExceptionOption(Class<? extends Exception> exceptionClass, String errorMessage) {
+      this.exceptionClass = exceptionClass;
+      this.errorMessage = errorMessage;
+    }
   }
 
   @Test
@@ -3042,6 +3119,7 @@ public class ParallelEvaluatorTest {
         new ParallelEvaluator(
             graph,
             graphVersion,
+            MinimalVersion.INSTANCE,
             tester.getSkyFunctionMap(),
             storedEventHandler,
             new MemoizingEvaluator.EmittedEventState(),

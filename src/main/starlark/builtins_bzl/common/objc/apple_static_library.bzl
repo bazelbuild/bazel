@@ -140,14 +140,12 @@ apple_static_library = rule(
                 cfg = apple_common.multi_arch_split,
                 default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
             ),
-            "_cc_toolchain": attr.label(
-                default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
-            ),
         },
+        common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.LICENSES,
-        common_attrs.XCRUN_RULE,
-        common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
         common_attrs.PLATFORM_RULE,
+        common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
+        common_attrs.XCRUN_RULE,
     ),
     outputs = {
         "lipo_archive": "%{name}_lipo.a",

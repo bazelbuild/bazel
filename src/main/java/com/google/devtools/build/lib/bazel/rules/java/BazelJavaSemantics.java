@@ -302,7 +302,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     NestedSet<Artifact> classpath = classpathBuilder.build();
 
     arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
-    arguments.add(Substitution.of(TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER, ""));
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       if (createCoverageMetadataJar) {

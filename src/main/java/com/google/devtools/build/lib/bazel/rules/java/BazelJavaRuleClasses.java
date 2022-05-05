@@ -126,8 +126,8 @@ public class BazelJavaRuleClasses {
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the target.
           See general comments about <code>deps</code> at
-          <a href="common-definitions.html#common-attributes">Attributes common to all build rules
-          </a>.
+          <a href="common-definitions.html#typical-attributes">Typical attributes defined by
+          most build rules</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(
               builder

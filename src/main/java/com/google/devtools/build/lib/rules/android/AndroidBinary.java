@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.auto.value.AutoValue;
@@ -36,6 +38,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -106,6 +109,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   protected abstract CppSemantics createCppSemantics();
 
   @Override
+  @Nullable
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppSemantics cppSemantics = createCppSemantics();
@@ -172,6 +176,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("shrink_resources")
         && dataContext.throwOnShrinkResources()) {
       ruleContext.throwWithAttributeError("shrink_resources", "This attribute is not supported");
+    }
+
+    if (Allowlist.hasAllowlist(ruleContext, "android_multidex_off_allowlist")
+        && !Allowlist.isAvailable(ruleContext, "android_multidex_off_allowlist")
+        && AndroidBinary.getMultidexMode(ruleContext) == MultidexMode.OFF) {
+      ruleContext.attributeError("multidex", "Multidex must be enabled");
     }
 
     if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()
@@ -251,6 +261,30 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getRule().isAttrDefined("manifest_merger", STRING)
                       ? ruleContext.attributes().get("manifest_merger", STRING)
                       : null);
+    }
+
+    Artifact manifestValidation = null;
+    if (Allowlist.hasAllowlist(ruleContext, "android_multidex_native_min_sdk_allowlist")
+        && !Allowlist.isAvailable(ruleContext, "android_multidex_native_min_sdk_allowlist")
+        && getMultidexMode(ruleContext) == MultidexMode.NATIVE
+        && ruleContext.isAttrDefined("$validate_manifest", LABEL)) {
+      manifestValidation =
+          ruleContext.getPackageRelativeArtifact(
+              ruleContext.getLabel().getName() + "_manifest_validation_output",
+              ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(
+          createSpawnActionBuilder(ruleContext)
+              .setExecutable(ruleContext.getExecutablePrerequisite("$validate_manifest"))
+              .setProgressMessage("Validating %{input}")
+              .setMnemonic("ValidateManifest")
+              .addInput(manifest.getManifest())
+              .addOutput(manifestValidation)
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath("--manifest", manifest.getManifest())
+                      .addExecPath("--output", manifestValidation)
+                      .build())
+              .build(ruleContext));
     }
 
     boolean shrinkResourceCycles =
@@ -398,7 +432,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ImmutableList.of(),
         ImmutableList.of(),
         proguardMapping,
-        oneVersionOutputArtifact);
+        oneVersionOutputArtifact,
+        manifestValidation);
   }
 
   public static RuleConfiguredTargetBuilder createAndroidBinary(
@@ -418,7 +453,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
       Artifact proguardMapping,
-      @Nullable Artifact oneVersionEnforcementArtifact)
+      @Nullable Artifact oneVersionEnforcementArtifact,
+      @Nullable Artifact manifestValidation)
       throws InterruptedException, RuleErrorException {
 
     List<ProguardSpecProvider> proguardDeps = new ArrayList<>();
@@ -762,6 +798,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           additionalMergedManifests);
     }
 
+    if (manifestValidation != null) {
+      builder.addOutputGroup(
+          OutputGroupInfo.VALIDATION, NestedSetBuilder.create(STABLE_ORDER, manifestValidation));
+    }
+
     // First propagate validations from most rule attributes as usual; then handle "deps" separately
     // to propagate validations from each config split but avoid known-redundant Android Lint
     // validations (b/168038145, b/180746622).
@@ -823,7 +864,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
-        .addOutputGroup("android_deploy_info", deployInfo);
+        .addOutputGroup("android_deploy_info", deployInfo)
+        .addOutputGroup("android_deploy_info", resourceApk.getManifest());
   }
 
   static class Java8LegacyDexOutput {

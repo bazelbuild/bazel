@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -80,11 +79,13 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlan;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
@@ -136,7 +137,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  * in-flight primary shared action's execution, this function can abort after declaring an external
  * dep on the execution's completion future.
  */
-public class ActionExecutionFunction implements SkyFunction {
+public final class ActionExecutionFunction implements SkyFunction {
 
   private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
@@ -908,8 +909,15 @@ public class ActionExecutionFunction implements SkyFunction {
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
     //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
+
+    // Environment#getOrderedValuesAndExceptions iterates over its given Iterable 3 times total.
+    // Since our discoveredInputs itself comes from InputDiscoveryState#filterKnownDiscoveredInputs,
+    // we create a single list once to avoid repeating the overhead of TransformedIterable and
+    // ActionInputMap#getMetadata.
+    ImmutableList<SkyKey> discoveredInputsAsArtifactKeys =
+        ImmutableList.copyOf(Iterables.transform(discoveredInputs, Artifact::key));
     SkyframeIterableResult nonMandatoryDiscovered =
-        env.getOrderedValuesAndExceptions(Iterables.transform(discoveredInputs, Artifact::key));
+        env.getOrderedValuesAndExceptions(discoveredInputsAsArtifactKeys);
     if (!nonMandatoryDiscovered.hasNext()) {
       return DiscoveredState.NO_DISCOVERED_DATA;
     }
@@ -1099,7 +1107,7 @@ public class ActionExecutionFunction implements SkyFunction {
       return Predicates.alwaysTrue();
     }
 
-    return new Predicate<Artifact>() {
+    return new Predicate<>() {
       // Lazily flatten the NestedSet in case the predicate is never needed. It's only used in the
       // exceptional case of a missing artifact.
       private ImmutableSet<Artifact> mandatoryInputs = null;
@@ -1302,11 +1310,9 @@ public class ActionExecutionFunction implements SkyFunction {
       Label actionLabel,
       BugReporter bugReporter) {
     if (!input.isSourceArtifact()) {
-      bugReporter.sendBugReport(
-          new IllegalStateException(
-              String.format(
-                  "Unexpected exit code %s for generated artifact %s (%s)",
-                  detailedExitCode, input, actionLabel)));
+      bugReporter.logUnexpected(
+          "Unexpected exit code %s for generated artifact %s (%s)",
+          detailedExitCode, input, actionLabel);
     }
     return new LabelCause(
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
@@ -1533,9 +1539,8 @@ public class ActionExecutionFunction implements SkyFunction {
 
     private void handleSourceArtifactExceptionFromSkykey(SkyKey key, SourceArtifactException e) {
       if (!(key instanceof Artifact) || !((Artifact) key).isSourceArtifact()) {
-        bugReporter.sendBugReport(
-            new IllegalStateException(
-                "Unexpected SourceArtifactException for key: " + key + ", " + action, e));
+        bugReporter.logUnexpected(
+            e, "Unexpected SourceArtifactException for key: %s, %s", key, action.prettyPrint());
         missingArtifactCauses.add(
             new LabelCause(action.getOwner().getLabel(), e.getDetailedExitCode()));
         return;

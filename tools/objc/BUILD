@@ -27,11 +27,6 @@ xcode_config(
     name = "host_xcodes",
 )
 
-filegroup(
-    name = "j2objc_dead_code_pruner",
-    srcs = ["j2objc_dead_code_pruner.py"],
-)
-
 py_binary(
     name = "j2objc_dead_code_pruner_binary",
     srcs = ["j2objc_dead_code_pruner_binary.py"],

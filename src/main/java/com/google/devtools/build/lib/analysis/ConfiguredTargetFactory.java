@@ -215,17 +215,24 @@ public final class ConfiguredTargetFactory {
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
       }
+      Label ruleLabel = outputFile.getGeneratingRule().getLabel();
       RuleConfiguredTarget rule =
           (RuleConfiguredTarget)
               targetContext.findDirectPrerequisite(
-                  outputFile.getGeneratingRule().getLabel(),
+                  ruleLabel,
                   // Don't pass a specific configuration, as we don't care what configuration the
                   // generating rule is in. There can only be one actual dependency here, which is
                   // the target that generated the output file.
                   Optional.empty());
-      Verify.verifyNotNull(rule);
+      Verify.verifyNotNull(
+          rule, "While analyzing %s, missing generating rule %s", outputFile, ruleLabel);
+      // If analysis failures are allowed and the generating rule has failure info, just propagate
+      // it. The output artifact won't exist, so we can't create an OutputFileConfiguredTarget.
+      if (config.allowAnalysisFailures()
+          && rule.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey()) != null) {
+        return rule;
+      }
       Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
-
       return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
@@ -347,19 +354,21 @@ public final class ConfiguredTargetFactory {
       }
 
       try {
+        ConfiguredTarget target;
         if (ruleClass.isStarlark()) {
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-          ConfiguredTarget target =
+          target =
               StarlarkRuleConfiguredTargetUtil.buildRule(
                   ruleContext, ruleClass.getAdvertisedProviders());
-
-          return target != null ? target : erroredConfiguredTarget(ruleContext);
+        } else {
+          target =
+              Preconditions.checkNotNull(
+                      ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
+                      "No configured target factory for %s",
+                      ruleClass)
+                  .create(ruleContext);
         }
-        return Preconditions.checkNotNull(
-                ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
-                "No configured target factory for %s",
-                ruleClass)
-            .create(ruleContext);
+        return target != null ? target : erroredConfiguredTarget(ruleContext);
       } finally {
         ruleContext.close();
       }

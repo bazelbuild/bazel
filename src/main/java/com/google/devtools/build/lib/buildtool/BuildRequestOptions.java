@@ -421,6 +421,16 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean actionCacheStoreOutputMetadata;
 
   @Option(
+      name = "rewind_lost_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to use action rewinding to recover from lost inputs. Ignored unless"
+              + " prerequisites for rewinding are met (no incrementality, no action cache).")
+  public boolean rewindLostInputs;
+
+  @Option(
       name = "discard_actions_after_execution",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -536,6 +546,17 @@ public class BuildRequestOptions extends OptionsBase {
               + " Bazel's output base, unless it's an absolute path.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
+
+  @Option(
+      name = "experimental_use_event_based_build_completion_status",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set, use the event bus to keep track of whether a top-level target or"
+              + " its aspect is analyzed/built.")
+  public boolean useEventBasedBuildCompletionStatus;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

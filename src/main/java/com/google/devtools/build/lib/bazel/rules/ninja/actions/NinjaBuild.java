@@ -40,11 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Configured target factory for {@link NinjaBuildRule}. */
 public class NinjaBuild implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     Map<String, List<String>> outputGroupsFromAttrs =

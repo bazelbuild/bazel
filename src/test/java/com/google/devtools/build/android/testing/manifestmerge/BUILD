@@ -13,6 +13,7 @@ filegroup(
 filegroup(
     name = "test_data",
     srcs = [
+        "expected-merged-permissions/AndroidManifest.xml",
         "expected/AndroidManifest.xml",
         "mergeeOne/AndroidManifest.xml",
         "mergeeTwo/AndroidManifest.xml",

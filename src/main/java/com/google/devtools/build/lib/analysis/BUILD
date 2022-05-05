@@ -985,6 +985,7 @@ java_library(
     name = "resolved_toolchain_context",
     srcs = ["ResolvedToolchainContext.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         ":template_variable_info",
         ":toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -1091,6 +1092,7 @@ java_library(
     name = "toolchain_context",
     srcs = ["ToolchainContext.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
@@ -1543,7 +1545,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
@@ -1837,6 +1838,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:starlark_toolchain_type_requirement",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
@@ -2031,6 +2033,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -2118,6 +2121,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -2294,6 +2299,7 @@ java_library(
     name = "starlark/starlark_toolchain_context",
     srcs = ["starlark/StarlarkToolchainContext.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         ":resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

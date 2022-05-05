@@ -49,6 +49,9 @@ public class RuleDocumentationAttribute
           .put(Type.STRING_LIST, "List of strings")
           .put(BuildType.TRISTATE, "Integer")
           .put(BuildType.LABEL, "<a href=\"${link build-ref#labels}\">Label</a>")
+          .put(
+              BuildType.LABEL_KEYED_STRING_DICT,
+              "Dictionary: <a href=\"${link build-ref#labels}\">label</a> -> String")
           .put(BuildType.LABEL_LIST, "List of <a href=\"${link build-ref#labels}\">labels</a>")
           .put(
               BuildType.LABEL_DICT_UNARY,

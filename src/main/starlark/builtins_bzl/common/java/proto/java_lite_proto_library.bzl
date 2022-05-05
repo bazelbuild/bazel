@@ -22,6 +22,7 @@
 load(":common/java/java_semantics.bzl", "semantics")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
+PROTO_JAVACOPTS_KEY = "proto"
 JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 
 java_common = _builtins.toplevel.java_common
@@ -115,10 +116,13 @@ def _aspect_impl(target, ctx):
             injecting_rule_kind = "java_lite_proto_library",
             source_jars = [source_jar],
             output = output_jar,
+            output_source_jar = source_jar,
             deps = deps,
             exports = exports,
             java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+            javac_opts = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].compatible_javacopts(PROTO_JAVACOPTS_KEY),
             enable_jspecify = False,
+            create_output_source_jar = False,
         )
     else:
         # If there are no proto sources just pass along the compilation dependencies.

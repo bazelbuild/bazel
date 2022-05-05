@@ -258,7 +258,7 @@ public final class SkyframeActionExecutor {
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       OutputService outputService,
-      boolean incrementalAnalysis) {
+      boolean trackIncrementalState) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
     this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
@@ -284,7 +284,7 @@ public final class SkyframeActionExecutor {
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
     freeDiscoveredInputsAfterExecution =
-        !incrementalAnalysis && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
+        !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
   }
 
   public void setActionLogBufferPathGenerator(
@@ -1282,7 +1282,7 @@ public final class SkyframeActionExecutor {
     private class ActionContinuationStep extends ActionStep {
       private final ActionContinuationOrResult actionContinuationOrResult;
 
-      public ActionContinuationStep(ActionContinuationOrResult actionContinuationOrResult) {
+      ActionContinuationStep(ActionContinuationOrResult actionContinuationOrResult) {
         Preconditions.checkArgument(!actionContinuationOrResult.isDone());
         this.actionContinuationOrResult = actionContinuationOrResult;
       }
@@ -1306,7 +1306,7 @@ public final class SkyframeActionExecutor {
     private class ActionPostprocessingStep extends ActionStep {
       private final ActionExecutionValue value;
 
-      public ActionPostprocessingStep(ActionExecutionValue value) {
+      ActionPostprocessingStep(ActionExecutionValue value) {
         this.value = value;
       }
 

@@ -14,14 +14,6 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
-genrule(
-    name = "langtools-copy",
-    testonly = 1,
-    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
-    outs = ["langtools.jar"],
-    cmd = "cp $< $@",
-)
-
 gen_workspace_stanza(
     name = "rules_proto_stanza",
     out = "rules_proto_stanza.txt",
@@ -51,7 +43,6 @@ filegroup(
         "cc_api_rules.bzl",
         "remote_helpers.sh",
         "testing_server.py",
-        ":langtools-copy",
         "//examples:srcs",
         "//src/conditions:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
@@ -64,7 +55,6 @@ filegroup(
         "//src/tools/singlejar",
         "//third_party:srcs",
         "//third_party/ijar",
-        "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
         "@bazel_tools//tools/jdk:current_java_runtime",
@@ -226,7 +216,7 @@ sh_test(
 
 JAVA_VERSIONS = ("11", "17")
 
-JAVA_VERSIONS_COVERAGE = ("11",)
+JAVA_VERSIONS_COVERAGE = ("11", "17")
 
 [
     sh_test(
@@ -514,6 +504,15 @@ sh_test(
     )
     for java_version in JAVA_VERSIONS_COVERAGE
 ]
+
+sh_test(
+    name = "bazel_coverage_py_test",
+    srcs = ["bazel_coverage_py_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_windows",
+    ],
+)
 
 sh_test(
     name = "bazel_coverage_sh_test",

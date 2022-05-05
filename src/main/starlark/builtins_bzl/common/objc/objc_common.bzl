@@ -19,7 +19,6 @@ CcInfo = _builtins.toplevel.CcInfo
 apple_common = _builtins.toplevel.apple_common
 
 def _create_context_and_provider(
-        purpose,
         ctx,
         compilation_attributes,
         compilation_artifacts,
@@ -229,13 +228,6 @@ def _add_linkopts(objc_provider_kwargs, link_opts):
             order = "topological",
         ),
     )
-
-def _compilation_contexts_from_cc_infos(cc_infos):
-    cc_compilation_contexts = []
-    for cc_info in cc_infos:
-        cc_compilation_contexts.append(cc_info.compilation_context)
-
-    return cc_compilation_contexts
 
 objc_common = struct(
     create_context_and_provider = _create_context_and_provider,

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -70,6 +71,7 @@ public final class ExecutionProgressReceiver
    */
   ExecutionProgressReceiver(
       Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects, int exclusiveTestsCount) {
+    // TODO(b/227138583) Remove these.
     this.builtTargets = Collections.synchronizedSet(builtTargets);
     this.builtAspects = Collections.synchronizedSet(builtAspects);
     this.exclusiveTestsCount = exclusiveTestsCount;

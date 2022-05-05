@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -23,16 +22,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import javax.annotation.Nullable;
 
 /** Encapsulates the raw analysis result of top level targets and aspects coming from Skyframe. */
 public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisResult {
-  private final DetailedExitCode representativeExecutionExitCode;
+  @Nullable private final DetailedExitCode representativeExecutionExitCode;
 
   private SkyframeAnalysisAndExecutionResult(
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
-      ImmutableList<ConfiguredTarget> configuredTargets,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       PackageRoots packageRoots,
@@ -48,6 +48,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
     this.representativeExecutionExitCode = representativeExecutionExitCode;
   }
 
+  @Nullable
   public DetailedExitCode getRepresentativeExecutionExitCode() {
     return representativeExecutionExitCode;
   }
@@ -63,9 +64,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
         hasLoadingError(),
         /*hasAnalysisError=*/ true,
         hasActionConflicts(),
-        Sets.difference(ImmutableSet.copyOf(getConfiguredTargets()), erroredTargets)
-            .immutableCopy()
-            .asList(),
+        Sets.difference(getConfiguredTargets(), erroredTargets).immutableCopy(),
         getWalkableGraph(),
         getAspects(),
         getPackageRoots(),
@@ -73,7 +72,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
   }
 
   public static SkyframeAnalysisAndExecutionResult success(
-      ImmutableList<ConfiguredTarget> configuredTargets,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       PackageRoots packageRoots) {
@@ -92,11 +91,11 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
-      ImmutableList<ConfiguredTarget> configuredTargets,
+      ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       PackageRoots packageRoots,
-      DetailedExitCode representativeExecutionExitCode) {
+      @Nullable DetailedExitCode representativeExecutionExitCode) {
     return new SkyframeAnalysisAndExecutionResult(
         hasLoadingError,
         hasAnalysisError,

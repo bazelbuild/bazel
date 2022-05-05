@@ -102,6 +102,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
 
   private final Rule rule;
   private final PathPackageLocator packageLocator;
+  private final Path workspaceRoot;
   private final StructImpl attrObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
   private final SyscallCache syscallCache;
@@ -122,7 +123,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
-      SyscallCache syscallCache)
+      SyscallCache syscallCache,
+      Path workspaceRoot)
       throws EvalException {
     super(
         outputDirectory,
@@ -137,6 +139,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     this.packageLocator = packageLocator;
     this.ignoredPatterns = ignoredPatterns;
     this.syscallCache = syscallCache;
+    this.workspaceRoot = workspaceRoot;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -160,6 +163,14 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       doc = "The name of the external repository created by this rule.")
   public String getName() {
     return rule.getName();
+  }
+
+  @StarlarkMethod(
+      name = "workspace_root",
+      structField = true,
+      doc = "The path to the root workspace of the bazel invocation.")
+  public StarlarkPath getWorkspaceRoot() {
+    return new StarlarkPath(workspaceRoot);
   }
 
   @StarlarkMethod(
@@ -825,7 +836,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " By default, the archive type is determined from the file extension of"
                     + " the URL."
                     + " If the file has no extension, you can explicitly specify either \"zip\","
-                    + " \"jar\", \"war\", \"aar\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\""
+                    + " \"jar\", \"war\", \"aar\", \"tar\", \"tar.gz\", \"tgz\", \"tar.xz\","
+                    + " \"txz\", \".tar.zst\", \".tzst\", \"tar.bz2\", \".ar\", or \".deb\""
                     + " here."),
         @Param(
             name = "stripPrefix",

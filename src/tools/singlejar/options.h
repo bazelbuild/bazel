@@ -65,6 +65,7 @@ class Options {
   bool warn_duplicate_resources;
   bool check_desugar_deps;
   bool multi_release;
+  std::string hermetic_java_home;
 
  protected:
   /*

@@ -82,6 +82,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     androidSemantics.checkForMigrationTag(ruleContext);

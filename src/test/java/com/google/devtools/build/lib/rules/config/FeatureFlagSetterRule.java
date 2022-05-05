@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
+import javax.annotation.Nullable;
 
 /** Rule introducing a transition to set feature flags for itself and dependencies. */
 public final class FeatureFlagSetterRule implements RuleDefinition, RuleConfiguredTargetFactory {
@@ -68,6 +69,7 @@ public final class FeatureFlagSetterRule implements RuleDefinition, RuleConfigur
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     TransitiveInfoCollection exportedFlag = ruleContext.getPrerequisite("exports_flag");

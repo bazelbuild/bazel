@@ -254,9 +254,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     for (SkyKey skyKey : transitiveTargetKeys) {
       SkyValue value = transitiveTargetValues.next();
       if (value == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "SkyValue " + skyKey + " was missing, this should never happen"));
+        BugReport.logUnexpected("Value for: '%s' was missing, this should never happen", skyKey);
         return null;
       }
       TransitiveTargetValue transNode = (TransitiveTargetValue) value;

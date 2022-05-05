@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
@@ -53,9 +54,9 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
-import com.google.devtools.build.lib.util.ExecutionDetailedExitCodeHelper;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -158,17 +159,13 @@ public final class SkyframeErrorProcessor {
       boolean includeExecutionPhase)
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
-    if (result.getCatastrophe() != null) {
-      rethrow(result.getCatastrophe(), bugReporter, result);
-    }
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
     // At this point, we consider the build to already have an analysis error, unless the error
     // turns out to be with execution.
     boolean hasAnalysisError = true;
     ViewCreationFailedException noKeepGoingAnalysisExceptionAspect = null;
-    DetailedExitCode detailedExitCode = null;
-    Throwable undetailedCause = null;
+    DetailedExitCode representativeExecutionDetailedExitCode = null;
     Map<ActionAnalysisMetadata, ConflictException> actionConflicts = new HashMap<>();
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       SkyKey errorKey = getErrorKey(errorEntry);
@@ -275,18 +272,24 @@ public final class SkyframeErrorProcessor {
         TopLevelConflictException tlce = (TopLevelConflictException) cause;
         actionConflicts.putAll(tlce.getTransitiveActionConflicts());
         continue;
+      } else if (cause instanceof TargetCompatibilityCheckException) {
+        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (isExecutionException(cause)) {
-        detailedExitCode =
+        DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(cause);
+        if (detailedExitCode == null) {
+          detailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
+        }
+        representativeExecutionDetailedExitCode =
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
+                representativeExecutionDetailedExitCode, detailedExitCode);
         rootCauses =
             cause instanceof ActionExecutionException
                 ? ((ActionExecutionException) cause).getRootCauses()
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
         hasAnalysisError = false;
       } else {
-        // TODO(ulfjack): Report something!
-        undetailedCause = cause;
+        BugReport.logUnexpected(
+            cause, "Unexpected cause encountered while evaluating: %s", errorKey);
       }
 
       if (!inTest) {
@@ -326,19 +329,20 @@ public final class SkyframeErrorProcessor {
       throw noKeepGoingAnalysisExceptionAspect;
     }
 
-    if (includeExecutionPhase && detailedExitCode == null) {
-      detailedExitCode =
-          ExecutionDetailedExitCodeHelper.createDetailedExitCodeForUndetailedExecutionCause(
-              result, undetailedCause);
-    }
-
     return ErrorProcessingResult.create(
-        hasLoadingError, hasAnalysisError, ImmutableMap.copyOf(actionConflicts), detailedExitCode);
+        hasLoadingError,
+        hasAnalysisError,
+        ImmutableMap.copyOf(actionConflicts),
+        representativeExecutionDetailedExitCode);
   }
 
   private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
     if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
       return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
+    }
+    // For exclusive tests.
+    if (errorEntry.getKey().argument() instanceof TestCompletionKey) {
+      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey();
     }
     return errorEntry.getKey();
   }
@@ -410,7 +414,7 @@ public final class SkyframeErrorProcessor {
       return;
     }
 
-    sendBugReportUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+    logUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
   }
 
   private static void assertValidAnalysisOrExecutionException(
@@ -428,14 +432,14 @@ public final class SkyframeErrorProcessor {
       return;
     }
 
-    sendBugReportUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+    logUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
   }
 
   /**
-   * Walk the graph to find a path to the lowest-level node that threw unexpected exception and send
-   * a BugReport.
+   * Walk the graph to find a path to the lowest-level node that threw unexpected exception and log
+   * it.
    */
-  private static void sendBugReportUnexpectedExceptionOrigin(
+  private static void logUnexpectedExceptionOrigin(
       ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph, Throwable cause)
       throws InterruptedException {
     List<SkyKey> path = new ArrayList<>();
@@ -463,9 +467,7 @@ public final class SkyframeErrorProcessor {
         }
       } while (foundDep);
     } finally {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "Unexpected analysis error: " + key + " -> " + errorInfo + ", (" + path + ")"));
+      BugReport.logUnexpected("Unexpected analysis error: %s -> %s, (%s)", key, errorInfo, path);
     }
   }
 
@@ -531,10 +533,7 @@ public final class SkyframeErrorProcessor {
         // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
         // we can do is throw a generic build failure exception, since we've already reported the
         // cycles above.
-        throw new BuildFailedException(
-            null,
-            ExecutionDetailedExitCodeHelper.createDetailedExecutionExitCode(
-                "cycle found during execution", Execution.Code.CYCLE));
+        throw new BuildFailedException(null, CYCLE_CODE);
       } else {
         rethrow(exception, bugReporter, result);
       }
@@ -564,6 +563,10 @@ public final class SkyframeErrorProcessor {
           logger.atWarning().withCause(cause).log(
               "Non-action-execution/input-error exception for %s", error);
         }
+      } else if (!error.getValue().getCycleInfo().isEmpty()) {
+        detailedExitCode =
+            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                detailedExitCode, CYCLE_CODE);
       } else {
         undetailedCause = cause;
       }
@@ -571,16 +574,14 @@ public final class SkyframeErrorProcessor {
     if (detailedExitCode != null) {
       return detailedExitCode;
     }
-    return ExecutionDetailedExitCodeHelper.createDetailedExitCodeForUndetailedExecutionCause(
-        result, undetailedCause);
+    return createDetailedExitCodeForUndetailedExecutionCause(result, undetailedCause);
   }
 
   /**
    * Figure out why an action's analysis/execution failed and rethrow the right kind of exception.
-   * At the moment, we don't expect any analysis failure to be catastrophic.
    */
   @VisibleForTesting
-  public static void rethrow(
+  static void rethrow(
       Throwable cause, BugReporter bugReporter, EvaluationResult<?> resultForDebugging)
       throws BuildFailedException, TestExecException {
     Throwables.throwIfUnchecked(cause);
@@ -607,9 +608,23 @@ public final class SkyframeErrorProcessor {
     if (cause instanceof InputFileErrorException) {
       throw (InputFileErrorException) cause;
     }
+
     // We encountered an exception we don't think we should have encountered. This can indicate
     // an exception-processing bug in our code, such as lower level exceptions not being properly
     // handled, or in our expectations in this method.
+
+    if (cause instanceof DetailedException) {
+      // The exception escaped Skyframe error bubbling, but its failure detail can still be used.
+      bugReporter.logUnexpected(
+          (Exception) cause,
+          "action terminated with unexpected exception with result %s",
+          resultForDebugging);
+      throw new BuildFailedException(
+          cause.getMessage(), ((DetailedException) cause).getDetailedExitCode());
+    }
+
+    // An undetailed exception means we may incorrectly attribute responsibility for the failure:
+    // we need to fix that.
     bugReporter.sendBugReport(
         new IllegalStateException(
             "action terminated with unexpected exception with result " + resultForDebugging,
@@ -617,11 +632,42 @@ public final class SkyframeErrorProcessor {
     String message =
         "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
     throw new BuildFailedException(
-        message,
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setExecution(Execution.newBuilder().setCode(Execution.Code.UNEXPECTED_EXCEPTION))
-                .build()));
+        message, createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION));
+  }
+
+  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCause(
+      EvaluationResult<?> result, Throwable undetailedCause) {
+    if (undetailedCause == null) {
+      BugReport.sendBugReport("No exceptions found despite error in %s", result);
+      return createDetailedExecutionExitCode(
+          "keep_going execution failed without an action failure",
+          Execution.Code.NON_ACTION_EXECUTION_FAILURE);
+    }
+    BugReport.sendBugReport(
+        new IllegalStateException("No detailed exception found in " + result, undetailedCause));
+    return createDetailedExecutionExitCode(
+        "keep_going execution failed without an action failure: "
+            + undetailedCause.getMessage()
+            + " ("
+            + undetailedCause.getClass().getSimpleName()
+            + ")",
+        Execution.Code.NON_ACTION_EXECUTION_FAILURE);
+  }
+
+  private static final DetailedExitCode CYCLE_CODE =
+      createDetailedExecutionExitCode("cycle found during execution", Execution.Code.CYCLE);
+  private static final Execution UNKNOWN_EXECUTION =
+      Execution.newBuilder().setCode(Execution.Code.UNEXPECTED_EXCEPTION).build();
+
+  private static DetailedExitCode createDetailedExecutionExitCode(
+      String message, Execution.Code detailedCode) {
+    return createDetailedExecutionExitCode(
+        message, Execution.newBuilder().setCode(detailedCode).build());
+  }
+
+  private static DetailedExitCode createDetailedExecutionExitCode(
+      String message, Execution execution) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder().setMessage(message).setExecution(execution).build());
   }
 }

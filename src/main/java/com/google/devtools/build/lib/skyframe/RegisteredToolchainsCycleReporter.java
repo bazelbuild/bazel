@@ -85,7 +85,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
           }
           if (input.argument() instanceof SingleToolchainResolutionKey) {
             Label toolchainType =
-                ((SingleToolchainResolutionKey) input.argument()).toolchainTypeLabel();
+                ((SingleToolchainResolutionKey) input.argument()).toolchainType().toolchainType();
             return String.format("toolchain type %s", toolchainType);
           }
           if (input.argument() instanceof ToolchainContextKey) {

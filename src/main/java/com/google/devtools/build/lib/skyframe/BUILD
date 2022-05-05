@@ -8,6 +8,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -88,7 +89,6 @@ java_library(
         ":action_input_map_helper",
         ":action_lookup_conflict_finding_value",
         ":action_metadata_handler",
-        ":action_rewind_strategy",
         ":action_template_expansion_function",
         ":action_template_expansion_value",
         ":action_utils",
@@ -128,6 +128,7 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
+        ":exclusive_test_build_driver_value",
         ":execution_finished_event",
         ":file_function",
         ":fileset_entry_function",
@@ -153,7 +154,6 @@ java_library(
         ":package_roots_no_symlink_creation",
         ":package_value",
         ":pattern_expanding_error",
-        ":per_build_syscall_cache",
         ":precomputed_function",
         ":precomputed_value",
         ":prepare_deps_of_pattern_value",
@@ -198,6 +198,7 @@ java_library(
         ":toolchain_exception",
         ":top_level_action_lookup_key",
         ":top_level_aspects_value",
+        ":top_level_status_events",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
         ":transitive_target_value",
@@ -312,6 +313,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:rewindable_graph_inconsistency_receiver",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -485,35 +489,6 @@ java_library(
 )
 
 java_library(
-    name = "action_rewind_strategy",
-    srcs = [
-        "ActionRewindStrategy.java",
-        "ActionRewindingStats.java",
-    ],
-    deps = [
-        ":action_utils",
-        ":artifact_function",
-        ":artifact_nested_set_key",
-        ":skyframe_aware_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "action_template_expansion_function",
     srcs = ["ActionTemplateExpansionFunction.java"],
     deps = [
@@ -641,7 +616,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
@@ -872,16 +846,19 @@ java_library(
     deps = [
         ":artifact_conflict_finder",
         ":aspect_completion_value",
+        ":aspect_key_creator",
         ":build_driver_key",
         ":build_driver_value",
         ":configured_target_key",
+        ":exclusive_test_build_driver_value",
         ":incremental_artifact_conflict_finder",
+        ":package_value",
         ":precomputed_value",
         ":target_completion_value",
-        ":test_analysis_complete_event",
         ":test_completion_value",
         ":top_level_aspects_value",
         ":top_level_conflict_exception",
+        ":top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -889,13 +866,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/top_level_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -915,9 +896,25 @@ java_library(
 
 java_library(
     name = "build_driver_value",
-    srcs = ["BuildDriverValue.java"],
+    srcs = [
+        "BuildDriverValue.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "build_result_listener",
+    srcs = ["BuildResultListener.java"],
+    deps = [
+        ":aspect_key_creator",
+        ":configured_target_key",
+        ":top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
     ],
 )
 
@@ -1271,11 +1268,22 @@ java_library(
 )
 
 java_library(
+    name = "exclusive_test_build_driver_value",
+    srcs = ["ExclusiveTestBuildDriverValue.java"],
+    deps = [
+        ":build_driver_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
     name = "execution_finished_event",
     srcs = ["ExecutionFinishedEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
@@ -1719,34 +1727,6 @@ java_library(
 )
 
 java_library(
-    name = "path_casing_lookup_function",
-    srcs = ["PathCasingLookupFunction.java"],
-    deps = [
-        ":directory_listing_value",
-        ":path_casing_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "path_casing_lookup_value",
-    srcs = ["PathCasingLookupValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "pattern_expanding_error",
     srcs = ["PatternExpandingError.java"],
     deps = [
@@ -1825,6 +1805,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -2241,11 +2222,13 @@ java_library(
         ":detailed_exceptions",
         ":sane_analysis_exception",
         ":sky_functions",
+        ":test_completion_value",
         ":top_level_conflict_exception",
         ":transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/top_level_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
@@ -2256,7 +2239,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:execution_detailed_exit_code_helper",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
@@ -2438,16 +2420,6 @@ java_library(
 )
 
 java_library(
-    name = "test_analysis_complete_event",
-    srcs = ["TestAnalysisCompleteEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "test_completion_value",
     srcs = ["TestCompletionValue.java"],
     deps = [
@@ -2512,6 +2484,7 @@ java_library(
         ":package_value",
         ":test_expansion_value",
         ":tests_for_target_pattern_value",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -2648,6 +2621,20 @@ java_library(
 )
 
 java_library(
+    name = "top_level_status_events",
+    srcs = ["TopLevelStatusEvents.java"],
+    deps = [
+        ":aspect_key_creator",
+        ":configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "transitive_target_key",
     srcs = ["TransitiveTargetKey.java"],
     deps = [
@@ -2766,6 +2753,7 @@ java_library(
     deps = [
         ":toolchain_context_key",
         ":unloaded_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -131,13 +130,6 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    recordDeps(depKeys);
-    return delegate.getValues(depKeys);
-  }
-
-  @Override
   public boolean valuesMissing() {
     return delegate.valuesMissing();
   }
@@ -207,5 +199,11 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   @Override
   public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
     return delegate.getState(stateSupplier);
+  }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return delegate.getMaxTransitiveSourceVersionSoFar();
   }
 }

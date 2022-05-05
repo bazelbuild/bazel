@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -205,32 +206,40 @@ public class BuildTool {
           Set<AspectKey> builtAspects = new HashSet<>();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
+            executionTool.prepareForExecution(
+                request.getId(),
+                builtTargets,
+                builtAspects,
+                loadingResult.getNotSymlinkedInExecrootDirectories());
           }
 
           // TODO(b/199053098): implement support for --nobuild.
           AnalysisAndExecutionResult analysisAndExecutionResult =
               AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
 
+          BuildResultListener buildResultListener =
+              Preconditions.checkNotNull(env.getBuildResultListener());
           result.setBuildConfigurationCollection(
               analysisAndExecutionResult.getConfigurationCollection());
-          result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
-          result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
+          result.setActualTargets(buildResultListener.getAnalyzedTargets());
+          result.setTestTargets(buildResultListener.getAnalyzedTests());
           try (SilentCloseable c = Profiler.instance().profile("Show results")) {
             result.setSuccessfulTargets(
                 ExecutionTool.determineSuccessfulTargets(
-                    analysisAndExecutionResult.getTargetsToBuild(), builtTargets));
+                    buildResultListener.getAnalyzedTargets(),
+                    buildResultListener.getBuiltTargets()));
             result.setSuccessfulAspects(
                 ExecutionTool.determineSuccessfulAspects(
-                    analysisAndExecutionResult.getAspectsMap().keySet(), builtAspects));
-            result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
+                    buildResultListener.getAnalyzedAspects().keySet(),
+                    buildResultListener.getBuiltAspects()));
+            result.setSkippedTargets(buildResultListener.getSkippedTargets());
             BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
             buildResultPrinter.showBuildResult(
                 request,
                 result,
-                analysisAndExecutionResult.getTargetsToBuild(),
-                analysisAndExecutionResult.getTargetsToSkip(),
-                analysisAndExecutionResult.getAspectsMap());
+                buildResultListener.getAnalyzedTargets(),
+                buildResultListener.getSkippedTargets(),
+                buildResultListener.getAnalyzedAspects());
           }
           FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
           if (delayedFailureDetail != null) {
@@ -283,7 +292,8 @@ public class BuildTool {
               analysisResult,
               result,
               analysisResult.getPackageRoots(),
-              request.getTopLevelArtifactContext());
+              request.getTopLevelArtifactContext(),
+              request.getBuildOptions().useEventBasedBuildCompletionStatus);
         } else {
           env.getReporter().post(new NoExecutionEvent());
         }

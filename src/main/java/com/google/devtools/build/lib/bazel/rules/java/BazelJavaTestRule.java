@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -62,6 +61,13 @@ public final class BazelJavaTestRule implements RuleDefinition {
             attr(":lcov_merger", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
                 .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        // Add the script as an attribute in order for java_test to output code coverage results for
+        // code covered by CC binaries invocations.
+        .add(
+            attr("$collect_cc_coverage", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .singleArtifact()
+                .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>
@@ -103,7 +109,6 @@ public final class BazelJavaTestRule implements RuleDefinition {
             ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                 .mandatory(true)
                 .build())
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

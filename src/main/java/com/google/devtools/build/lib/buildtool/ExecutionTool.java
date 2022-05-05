@@ -247,7 +247,10 @@ public class ExecutionTool {
    * tests for these setup steps.
    */
   public void prepareForExecution(
-      UUID buildId, Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects)
+      UUID buildId,
+      Set<ConfiguredTargetKey> builtTargets,
+      Set<AspectKey> builtAspects,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories)
       throws AbruptExitException, BuildFailedException, InterruptedException {
     init();
     BuildRequestOptions options = request.getBuildOptions();
@@ -260,12 +263,33 @@ public class ExecutionTool {
         "--experimental_merged_skyframe_analysis_execution requires a single package path entry."
             + " Found a list of size: %s",
         pkgPathEntries.size());
-    Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
-    PackageRoots noSymlinkPackageRoots = new PackageRootsNoSymlinkCreation(singleSourceRoot);
-    env.getEventBus().post(new ExecRootPreparedEvent(noSymlinkPackageRoots.getPackageRootsMap()));
-    env.getSkyframeBuildView()
-        .getArtifactFactory()
-        .setPackageRoots(noSymlinkPackageRoots.getPackageRootLookup());
+
+    try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
+      Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
+      PackageRoots noSymlinkPackageRoots = new PackageRootsNoSymlinkCreation(singleSourceRoot);
+      try {
+        SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
+            getExecRoot(),
+            singleSourceRoot.asPath(),
+            /*prefix=*/ env.getDirectories().getProductName() + "-",
+            notSymlinkedInExecrootDirectories,
+            request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("Failed to prepare the symlink forest")
+                    .setSymlinkForest(
+                        FailureDetails.SymlinkForest.newBuilder()
+                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
+                    .build()),
+            e);
+      }
+      env.getEventBus().post(new ExecRootPreparedEvent(noSymlinkPackageRoots.getPackageRootsMap()));
+      env.getSkyframeBuildView()
+          .getArtifactFactory()
+          .setPackageRoots(noSymlinkPackageRoots.getPackageRootLookup());
+    }
 
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
@@ -354,7 +378,8 @@ public class ExecutionTool {
       AnalysisResult analysisResult,
       BuildResult buildResult,
       PackageRoots packageRoots,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean useEventBasedBuildCompletionStatus)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
     prepare(packageRoots, analysisResult.getNonSymlinkedDirectoriesUnderExecRoot());
@@ -412,6 +437,7 @@ public class ExecutionTool {
         installExplanationHandler(
             request.getBuildOptions().explanationPath, request.getOptionsDescription());
 
+    // TODO(b/227138583): Remove these.
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
 
@@ -506,6 +532,11 @@ public class ExecutionTool {
 
       if (buildCompleted) {
         saveActionCache(actionCache);
+      }
+
+      if (useEventBasedBuildCompletionStatus) {
+        builtTargets = env.getBuildResultListener().getBuiltTargets();
+        builtAspects = env.getBuildResultListener().getBuiltAspects();
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
@@ -701,6 +732,7 @@ public class ExecutionTool {
     Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
             ? analysisResult.getTargetsToBuild().stream()
+                .map(ConfiguredTarget::getActual)
                 .map(ConfiguredTarget::getConfigurationKey)
                 .filter(Objects::nonNull)
                 .distinct()

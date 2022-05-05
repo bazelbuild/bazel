@@ -582,9 +582,16 @@ def _malloc_for_target(ctx, cpp_config):
     return ctx.attr.malloc
 
 def _get_link_staticness(ctx, cpp_config):
+    linkstatic_attr = None
+    if hasattr(ctx.attr, "_linkstatic_explicitly_set") and not ctx.attr._linkstatic_explicitly_set:
+        # If we know that linkstatic is not explicitly set, use computed default:
+        linkstatic_attr = semantics.get_linkstatic_default(ctx)
+    else:
+        linkstatic_attr = ctx.attr.linkstatic
+
     if cpp_config.dynamic_mode() == "FULLY":
         return _LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic:
+    elif cpp_config.dynamic_mode() == "OFF" or linkstatic_attr:
         return _LINKING_STATIC
     else:
         return _LINKING_DYNAMIC
@@ -682,12 +689,16 @@ def cc_binary_impl(ctx, additional_linkopts):
         compilation_context_deps.append(malloc_dep)
     if ctx.attr._stl != None:
         compilation_context_deps.append(ctx.attr._stl[CcInfo].compilation_context)
+
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, common, cc_toolchain))
+
     (compilation_context, compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        user_compile_flags = common.copts,
+        user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
         local_defines = common.local_defines,
         loose_includes = common.loose_include_dirs,

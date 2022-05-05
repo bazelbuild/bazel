@@ -593,4 +593,75 @@ EOF
   assert_contains "hello world" bazel-bin/pkg/hello_gen.txt
 }
 
+function test_starlark_test_with_test_environment() {
+  mkdir pkg
+  cat >pkg/BUILD <<'EOF'
+load(":rules.bzl", "my_test")
+my_test(
+  name = "my_test",
+)
+EOF
+
+  # On Windows this file needs to be acceptable by CreateProcessW(), rather
+  # than a Bourne script.
+  if "$is_windows"; then
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".bat"
+_SCRIPT_CONTENT = """@ECHO OFF
+if not "%FIXED_ONLY%" == "fixed" exit /B 1
+if not "%FIXED_AND_INHERITED%" == "inherited" exit /B 1
+if not "%FIXED_AND_INHERITED_BUT_NOT_SET%" == "fixed" exit /B 1
+if not "%INHERITED_ONLY%" == "inherited" exit /B 1
+"""
+EOF
+  else
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".sh"
+_SCRIPT_CONTENT = """#!/bin/bash
+[[ "$FIXED_ONLY" == "fixed" \
+  && "$FIXED_AND_INHERITED" == "inherited" \
+  && "$FIXED_AND_INHERITED_BUT_NOT_SET" == "fixed" \
+  && "$INHERITED_ONLY" == "inherited" ]]
+"""
+EOF
+  fi
+
+  cat >>pkg/rules.bzl <<'EOF'
+def _my_test_impl(ctx):
+    test_sh = ctx.actions.declare_file(ctx.attr.name + _SCRIPT_EXT)
+    ctx.actions.write(
+        output = test_sh,
+        content = _SCRIPT_CONTENT,
+        is_executable = True,
+    )
+    test_env = testing.TestEnvironment(
+      {
+        "FIXED_AND_INHERITED": "fixed",
+        "FIXED_AND_INHERITED_BUT_NOT_SET": "fixed",
+        "FIXED_ONLY": "fixed",
+      },
+      [
+        "FIXED_AND_INHERITED",
+        "FIXED_AND_INHERITED_BUT_NOT_SET",
+        "INHERITED_ONLY",
+      ]
+    )
+    return [
+        DefaultInfo(
+            executable = test_sh,
+        ),
+        test_env
+    ]
+
+my_test = rule(
+    implementation = _my_test_impl,
+    attrs = {},
+    test = True,
+)
+EOF
+
+  FIXED_AND_INHERITED=inherited INHERITED_ONLY=inherited \
+    bazel test //pkg:my_test &> /dev/null || fail "Test should pass"
+}
+
 run_suite "rules test"

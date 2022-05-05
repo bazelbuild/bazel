@@ -43,7 +43,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -110,7 +111,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
 
     ImmutableList<BuildConfigurationKey> targetConfigurationKeys =
         targetConfigurationKeysBuilder.build();
-    Map<SkyKey, SkyValue> configs = env.getValues(targetConfigurationKeys);
+    SkyframeLookupResult configs = env.getValuesAndExceptions(targetConfigurationKeys);
 
     // We only report invalid options for the target configurations, and abort if there's an error.
     ErrorSensingEventHandler<Void> nosyEventHandler =
@@ -277,7 +278,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       }
     }
 
-    Map<SkyKey, SkyValue> configsResult = env.getValues(configSkyKeys);
+    SkyframeIterableResult configsResult = env.getOrderedValuesAndExceptions(configSkyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -292,20 +293,14 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       if (buildSettingPackages == null) {
         return null;
       }
-      Collection<BuildOptions> toOptions =
-          ConfigurationResolver.applyTransitionWithSkyframe(
-                  fromOptions, transition, env, env.getListener())
-              .values();
-      for (BuildOptions toOption : toOptions) {
-        SkyKey configKey =
-            BuildConfigurationKey.withPlatformMapping(platformMappingValue, toOption);
-        BuildConfigurationValue configValue =
-            (BuildConfigurationValue) configsResult.get(configKey);
+      while (configsResult.hasNext()) {
+        BuildConfigurationValue configValue = (BuildConfigurationValue) configsResult.next();
         // configValue will be null here if there was an exception thrown during configuration
         // creation. This will be reported elsewhere.
-        if (configValue != null) {
-          builder.put(key, configValue);
+        if (configValue == null) {
+          return null;
         }
+          builder.put(key, configValue);
       }
     }
     return builder;

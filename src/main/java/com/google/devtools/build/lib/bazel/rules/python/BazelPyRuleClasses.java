@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -64,8 +63,8 @@ public final class BazelPyRuleClasses {
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           See general comments about <code>deps</code> at
-          <a href="${link common-definitions#common-attributes}">
-          Attributes common to all build rules</a>.
+          <a href="${link common-definitions#typical-attributes}">
+          Typical attributes defined by most build rules</a>.
           These are generally
           <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -238,7 +237,6 @@ public final class BazelPyRuleClasses {
               ToolchainTypeRequirement.builder(env.getToolsLabel("//tools/python:toolchain_type"))
                   .mandatory(true)
                   .build())
-          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }
 

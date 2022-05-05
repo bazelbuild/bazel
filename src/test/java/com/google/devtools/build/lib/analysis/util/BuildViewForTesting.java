@@ -192,7 +192,7 @@ public class BuildViewForTesting {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       Set<String> multiCpu,
-      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
@@ -446,7 +446,6 @@ public class BuildViewForTesting {
             ctgNode,
             toolchainContexts == null ? null : toolchainContexts.getTargetPlatform()),
         toolchainContexts,
-        DependencyResolver.shouldUseToolchainTransition(configuration, target),
         ruleClassProvider.getTrimmingTransitionFactory());
   }
 

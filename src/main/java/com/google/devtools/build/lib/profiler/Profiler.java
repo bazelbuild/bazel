@@ -1021,7 +1021,14 @@ public final class Profiler {
         return MAX_SORT_INDEX;
       }
 
-      long extractedNumber = Long.parseLong(numberMatcher.group());
+      long extractedNumber;
+      try {
+        extractedNumber = Long.parseLong(numberMatcher.group());
+      } catch (NumberFormatException e) {
+        // If the number cannot be parsed, e.g. is larger than a long, the actual position is not
+        // really relevant.
+        return MAX_SORT_INDEX;
+      }
 
       if (threadName.startsWith("skyframe-evaluator")) {
         return SKYFRAME_EVALUATOR_SHIFT + extractedNumber;
@@ -1094,7 +1101,7 @@ public final class Profiler {
           writer.name("tid").value(CRITICAL_PATH_THREAD_ID);
           writer.name("args");
           writer.beginObject();
-          writer.name("sort_index").value(CRITICAL_PATH_SORT_INDEX);
+          writer.name("sort_index").value(String.valueOf(CRITICAL_PATH_SORT_INDEX));
           writer.endObject();
           writer.endObject();
 

@@ -711,35 +711,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return getSystemIncludeDirs(getCompilerOptions());
   }
 
-  private static final ImmutableList<CharMatcher> MSVC_CHARS =
-      ImmutableList.of(
-          CharMatcher.anyOf("mM"),
-          CharMatcher.anyOf("sS"),
-          CharMatcher.anyOf("vV"),
-          CharMatcher.anyOf("cC"));
-  private static final ImmutableList<CharMatcher> INCLUDE_PREFIX_CHARS =
-      ImmutableList.of(CharMatcher.anyOf("-/"), CharMatcher.anyOf("iI"));
-
-  private static boolean substrMatchesChars(
-      String s, int startPos, ImmutableList<CharMatcher> substr) {
-    for (int i = 0; i < substr.size(); i++) {
-      if (!substr.get(i).matches(s.charAt(startPos + i))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private static boolean matchesCaseInsensitiveMsvc(String s) {
-    return s.length() >= 4 && substrMatchesChars(s, 0, MSVC_CHARS);
-  }
-
-  private static boolean matchesIncludeCaseInsensitiveMsvc(String s) {
-    return s.length() >= 6
-        && substrMatchesChars(s, 0, INCLUDE_PREFIX_CHARS)
-        && substrMatchesChars(s, 2, MSVC_CHARS);
-  }
-
   private List<PathFragment> getSystemIncludeDirs(List<String> compilerOptions) {
     // TODO(bazel-team): parsing the command line flags here couples us to gcc- and clang-cl-style
     // compiler command lines; use a different way to specify system includes (for example through a
@@ -771,6 +742,35 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
     return result.build();
+  }
+
+  private static final ImmutableList<CharMatcher> MSVC_CHARS =
+      ImmutableList.of(
+          CharMatcher.anyOf("mM"),
+          CharMatcher.anyOf("sS"),
+          CharMatcher.anyOf("vV"),
+          CharMatcher.anyOf("cC"));
+  private static final ImmutableList<CharMatcher> INCLUDE_PREFIX_CHARS =
+      ImmutableList.of(CharMatcher.anyOf("-/"), CharMatcher.anyOf("iI"));
+
+  private static boolean substrMatchesChars(
+      String s, int startPos, ImmutableList<CharMatcher> substr) {
+    for (int i = 0; i < substr.size(); i++) {
+      if (!substr.get(i).matches(s.charAt(startPos + i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean matchesCaseInsensitiveMsvc(String s) {
+    return s.length() >= 4 && substrMatchesChars(s, 0, MSVC_CHARS);
+  }
+
+  private static boolean matchesIncludeCaseInsensitiveMsvc(String s) {
+    return s.length() >= 6
+        && substrMatchesChars(s, 0, INCLUDE_PREFIX_CHARS)
+        && substrMatchesChars(s, 2, MSVC_CHARS);
   }
 
   private static ImmutableList<String> getCmdlineIncludes(List<String> args) {
@@ -1809,10 +1809,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Nullable
   private static ImmutableMap<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Set<DerivedArtifact> usedModules) throws InterruptedException {
-    // Because this env.getValues call does not specify any exceptions, it is impossible for input
-    // discovery to recover from exceptions thrown by spurious module deps (for instance, if a
-    // commented-out include references a header file with an error in it). However, we generally
-    // don't try to recover from errors around spurious includes discovered in the current build.
+    // Because SkyframeIterableResult.next call does not specify any exceptions where
+    // SkyframeIterableResult is returned by env.getOrderedValuesAndExceptions, it is
+    // impossible for input discovery to recover from exceptions thrown by spurious module deps (for
+    // instance, if a commented-out include references a header file with an error in it). However,
+    // we generally don't try to recover from errors around spurious includes discovered in the
+    // current build.
     // TODO(janakr): Can errors be aggregated here at least?
     Collection<SkyKey> skyKeys =
         Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey);

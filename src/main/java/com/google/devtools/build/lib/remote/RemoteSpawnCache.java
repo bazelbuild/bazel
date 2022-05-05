@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -123,10 +122,13 @@ final class RemoteSpawnCache implements SpawnCache {
               .setNetworkTime(action.getNetworkTime().getDuration());
           SpawnResult spawnResult =
               createSpawnResult(
+                  action.getActionKey(),
                   result.getExitCode(),
                   /*cacheHit=*/ true,
                   result.cacheName(),
                   inMemoryOutput,
+                  result.getExecutionMetadata().getWorkerStartTimestamp(),
+                  result.getExecutionMetadata().getWorkerCompletedTimestamp(),
                   spawnMetrics.build(),
                   spawn.getMnemonic());
           return SpawnCache.success(spawnResult);

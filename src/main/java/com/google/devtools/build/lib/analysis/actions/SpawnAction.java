@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.PathStripper;
+import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -89,6 +89,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -249,9 +250,16 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return commandLines;
   }
 
+  private CommandAdjuster getPathStripper() {
+    return CommandAdjuster.create(
+        stripOutputPaths,
+        this instanceof StarlarkAction ? getMnemonic() : null,
+        getPrimaryOutput().getExecPath().subFragment(0, 1));
+  }
+
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return ImmutableList.copyOf(commandLines.allArguments());
+    return commandLines.allArguments(getPathStripper());
   }
 
   @Override
@@ -420,7 +428,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         commandLines.expand(
             artifactExpander,
             getPrimaryOutput().getExecPath(),
-            stripOutputPaths ? PathStripper::strip : (origPath) -> origPath,
+            getPathStripper(),
             commandLineLimits);
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
@@ -465,7 +473,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage());
     message.append('\n');
-    for (Map.Entry<String, String> entry : env.getFixedEnv().toMap().entrySet()) {
+    for (Map.Entry<String, String> entry : env.getFixedEnv().entrySet()) {
       message.append("  Environment variable: ");
       message.append(ShellEscaper.escapeString(entry.getKey()));
       message.append('=');
@@ -574,7 +582,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
     // requires first updating all subclasses and callers to actually handle environments correctly,
     // so it's not a small change.
-    return env.getFixedEnv().toMap();
+    return env.getFixedEnv();
   }
 
   /** Returns the out-of-band execution data for this action. */
@@ -692,6 +700,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
 
     private Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
+    private boolean stripOutputPaths = false;
 
     /**
      * Creates a SpawnAction builder.
@@ -717,6 +726,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.commandLines = new ArrayList<>(other.commandLines);
       this.progressMessage = other.progressMessage;
       this.mnemonic = other.mnemonic;
+      this.stripOutputPaths = other.stripOutputPaths;
     }
 
     /**
@@ -863,7 +873,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           executeUnconditionally,
           extraActionInfoSupplier,
           resultConsumer,
-          /*stripOutputPaths=*/ false);
+          stripOutputPaths);
     }
 
     /**
@@ -1078,25 +1088,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     public Builder setExecutable(Artifact executable) {
       addTool(executable);
-      this.executableArg = new CallablePathFragment(executable.getExecPath());
-      this.executableArgs = null;
-      this.isShellCommand = false;
-      return this;
-    }
-
-    /**
-     * Sets the executable as a String.
-     *
-     * <p><b>Caution</b>: this is an optimisation intended to be used only by {@link
-     * com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory}. It prevents reference
-     * duplication when passing {@link PathFragment} to Starlark as a String and then executing with
-     * it.
-     *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
-     */
-    public Builder setExecutableAsString(String executable) {
-      this.executableArg = executable;
+      this.executableArg =
+          new CallablePathFragment(executable.getExecPath(), executable.hasKnownGeneratingAction());
       this.executableArgs = null;
       this.isShellCommand = false;
       return this;
@@ -1123,13 +1116,33 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setExecutable(FilesToRunProvider executableProvider) {
-      Preconditions.checkArgument(executableProvider.getExecutable() != null,
-          "The target does not have an executable");
+      Preconditions.checkArgument(
+          executableProvider.getExecutable() != null, "The target does not have an executable");
       this.executableArg =
-          new CallablePathFragment(executableProvider.getExecutable().getExecPath());
+          new CallablePathFragment(
+              executableProvider.getExecutable().getExecPath(),
+              executableProvider.getExecutable().hasKnownGeneratingAction());
       this.executableArgs = null;
       this.isShellCommand = false;
       return addTool(executableProvider);
+    }
+
+    /**
+     * Sets the executable as a String.
+     *
+     * <p><b>Caution</b>: this is an optimisation intended to be used only by {@link
+     * com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory}. It prevents reference
+     * duplication when passing {@link PathFragment} to Starlark as a String and then executing with
+     * it.
+     *
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     */
+    public Builder setExecutableAsString(String executable) {
+      this.executableArg = executable;
+      this.executableArgs = null;
+      this.isShellCommand = false;
+      return this;
     }
 
     private Builder setJavaExecutable(
@@ -1401,6 +1414,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    public Builder stripOutputPaths(boolean stripPaths) {
+      this.stripOutputPaths = stripPaths;
+      return this;
+    }
+
     public <T> Builder setExtraActionInfo(ExtraActionInfoSupplier extraActionInfoSupplier) {
       this.extraActionInfoSupplier = extraActionInfoSupplier;
       return this;
@@ -1464,11 +1482,19 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   /** A {@link PathFragment} that is expanded with {@link PathFragment#getCallablePathString()}. */
-  private static final class CallablePathFragment {
-    public final PathFragment fragment;
+  private static final class CallablePathFragment implements CommandLines.PathStrippable {
 
-    CallablePathFragment(PathFragment fragment) {
+    public final PathFragment fragment;
+    private final boolean isDerived;
+
+    CallablePathFragment(PathFragment fragment, boolean isDerived) {
       this.fragment = fragment;
+      this.isDerived = isDerived;
+    }
+
+    @Override
+    public String expand(Function<PathFragment, PathFragment> stripPaths) {
+      return isDerived ? stripPaths.apply(fragment).getCallablePathString() : toString();
     }
 
     @Override

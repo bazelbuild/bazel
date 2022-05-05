@@ -201,7 +201,7 @@ This is an internal name for the tool. Please refer to Bazel as Bazel.
 
 ## Why do other Google projects (Android, Chrome) use other build tools?
 
-Until the first (Alpha) release, Bazel was not available externally, so open source projects such as Chromium, Android, etc. could not use it. In addition, the original lack of Windows support was a problem for building Windows applications, such as Chrome.
+Until the first (Alpha) release, Bazel was not available externally, so open source projects such as Chromium and Android could not use it. In addition, the original lack of Windows support was a problem for building Windows applications, such as Chrome. Since the project has matured and become more stable, the [Android Open Source Project](https://source.android.com/) is in the process of migrating to Bazel.
 
 ## How do you pronounce “Bazel”?
 

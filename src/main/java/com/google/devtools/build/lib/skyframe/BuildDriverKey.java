@@ -28,27 +28,46 @@ public final class BuildDriverKey implements SkyKey {
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final TestType testType;
   private final boolean strictActionConflictCheck;
+  private final boolean explicitlyRequested;
 
-  public BuildDriverKey(
-      ActionLookupKey actionLookupKey,
-      TopLevelArtifactContext topLevelArtifactContext,
-      boolean strictActionConflictCheck) {
-    this(
-        actionLookupKey,
-        topLevelArtifactContext,
-        strictActionConflictCheck,
-        /*testType=*/ TestType.NOT_TEST);
-  }
-
-  public BuildDriverKey(
+  private BuildDriverKey(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
+      boolean explicitlyRequested,
       TestType testType) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.strictActionConflictCheck = strictActionConflictCheck;
     this.testType = testType;
+    this.explicitlyRequested = explicitlyRequested;
+  }
+
+  public static BuildDriverKey ofTopLevelAspect(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck,
+      boolean explicitlyRequested) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        strictActionConflictCheck,
+        explicitlyRequested,
+        TestType.NOT_TEST);
+  }
+
+  public static BuildDriverKey ofConfiguredTarget(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck,
+      boolean explicitlyRequested,
+      TestType testType) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        strictActionConflictCheck,
+        explicitlyRequested,
+        testType);
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -69,6 +88,10 @@ public final class BuildDriverKey implements SkyKey {
 
   public boolean strictActionConflictCheck() {
     return strictActionConflictCheck;
+  }
+
+  public boolean isExplicitlyRequested() {
+    return explicitlyRequested;
   }
 
   @Override

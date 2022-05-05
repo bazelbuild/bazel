@@ -95,6 +95,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
+        "//src/main/java/com/google/devtools/build/lib/testing/vfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/main/java/com/google/devtools/build/lib/util:srcs",
@@ -321,6 +322,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
@@ -339,9 +343,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_executor_repository_helpers_holder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:test_analysis_complete_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -493,4 +499,45 @@ genrule(
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
+)
+
+genrule(
+    name = "gen_reference_docs",
+    srcs = [
+        ":build-encyclopedia.zip",
+        ":command-line-reference.html",
+        ":skylark-library.zip",
+        "//tools/build_defs/repo:doc",
+    ],
+    outs = ["reference-docs.zip"],
+    cmd = "mkdir -p $(@D)/gen_docs/reference/be && " +
+          "cp $(location :command-line-reference.html) $(@D)/gen_docs/reference/ && " +
+          "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
+          "mkdir -p $(@D)/gen_docs/rules/lib/repo && " +
+          "unzip -q -d $(@D)/gen_docs/rules/lib/ $(location :skylark-library.zip) && " +
+          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/gen_docs/rules/lib/repo/ && " +
+          # Ugly hack: we want to preserve paths relative to gen_docs/,
+          # which means we have to temporarily cd into that directory and zip with -r.
+          "pushd $(@D)/gen_docs && " +
+          "zip -qr tmp.zip . && " +
+          "popd && mv $(@D)/gen_docs/tmp.zip $@",
+    visibility = ["//scripts/docs:__pkg__"],
+)
+
+genrule(
+    name = "gen_api_proto",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+    ],
+    outs = ["builtin.pb"],
+    cmd = (
+        "$(location //src/main/java/com/google/devtools/build/docgen:api_exporter)" +
+        " --output_file=$@" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
+        " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib"
+    ),
+    tools = [
+        "//src/main/java/com/google/devtools/build/docgen:api_exporter",
+    ],
 )

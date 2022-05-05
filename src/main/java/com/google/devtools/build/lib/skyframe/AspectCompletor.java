@@ -29,9 +29,11 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectBuiltEvent;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import javax.annotation.Nullable;
@@ -127,5 +129,11 @@ class AspectCompletor
         completionContext,
         artifactsToBuild.getAllArtifactsByOutputGroup(),
         configurationEventId);
+  }
+
+  @Override
+  public Postable getTargetOrAspectBuiltEventForResultSummary(
+      AspectCompletionKey unused, AspectValue value) {
+    return AspectBuiltEvent.create(value.getKey());
   }
 }

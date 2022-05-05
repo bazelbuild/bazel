@@ -198,7 +198,7 @@ public class BuildView {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       Set<String> multiCpu,
-      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
@@ -406,6 +406,8 @@ public class BuildView {
                 viewOptions.cpuHeavySkyKeysThreadPoolSize);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       } else {
+        skyframeExecutor.setRuleContextConstraintSemantics(
+            (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
@@ -415,6 +417,7 @@ public class BuildView {
                 labelToTargetMap,
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
+                explicitTargetPatterns,
                 eventBus,
                 bugReporter,
                 keepGoing,
@@ -597,7 +600,7 @@ public class BuildView {
           configurations,
           ImmutableSet.copyOf(configuredTargets),
           aspects,
-          allTargetsToTest == null ? null : ImmutableList.copyOf(allTargetsToTest),
+          allTargetsToTest == null ? null : ImmutableSet.copyOf(allTargetsToTest),
           ImmutableSet.copyOf(targetsToSkip),
           failureDetail,
           artifactsToBuild.build(),
@@ -640,7 +643,7 @@ public class BuildView {
         configurations,
         ImmutableSet.copyOf(configuredTargets),
         aspects,
-        allTargetsToTest == null ? null : ImmutableList.copyOf(allTargetsToTest),
+        allTargetsToTest == null ? null : ImmutableSet.copyOf(allTargetsToTest),
         ImmutableSet.copyOf(targetsToSkip),
         failureDetail,
         actionGraph,
@@ -657,12 +660,23 @@ public class BuildView {
   /**
    * Check for errors in "chronological" order (acknowledge that loading and analysis are
    * interleaved, but sequential on the single target scale).
+   *
+   * <p>For Skymeld: execution errors should take precedence, since those are DetailedExceptions.
    */
   @Nullable
   public static FailureDetail createFailureDetail(
       TargetPatternPhaseValue loadingResult,
       @Nullable SkyframeAnalysisResult skyframeAnalysisResult,
       @Nullable TopLevelTargetsAndConfigsResult topLevelTargetsAndConfigs) {
+    if (skyframeAnalysisResult instanceof SkyframeAnalysisAndExecutionResult) {
+      SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
+          (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
+      if (skyframeAnalysisAndExecutionResult.getRepresentativeExecutionExitCode() != null) {
+        return skyframeAnalysisAndExecutionResult
+            .getRepresentativeExecutionExitCode()
+            .getFailureDetail();
+      }
+    }
     if (loadingResult.hasError()) {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but there were errors parsing the target pattern")
@@ -691,15 +705,6 @@ public class BuildView {
           .setMessage("command succeeded, but not all targets were analyzed")
           .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.NOT_ALL_TARGETS_ANALYZED))
           .build();
-    }
-    if (skyframeAnalysisResult instanceof SkyframeAnalysisAndExecutionResult) {
-      SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
-          (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
-      if (skyframeAnalysisAndExecutionResult.getRepresentativeExecutionExitCode() != null) {
-        return skyframeAnalysisAndExecutionResult
-            .getRepresentativeExecutionExitCode()
-            .getFailureDetail();
-      }
     }
     return null;
   }

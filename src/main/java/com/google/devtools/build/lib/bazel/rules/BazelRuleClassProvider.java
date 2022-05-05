@@ -93,6 +93,8 @@ import com.google.devtools.build.lib.rules.android.AndroidSdkBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
+import com.google.devtools.build.lib.rules.android.BaselineProfileProvider;
+import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
@@ -151,7 +153,7 @@ public class BazelRuleClassProvider {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If true, Bazel uses an environment with a static value for PATH and does not "
-                + "inherit LD_LIBRARY_PATH or TMPDIR. Use --action_env=ENV_VARIABLE if you want to "
+                + "inherit LD_LIBRARY_PATH. Use --action_env=ENV_VARIABLE if you want to "
                 + "inherit specific environment variables from the client, but note that doing so "
                 + "can prevent cross-user caching if a shared cache is used.")
     public boolean useStrictActionEnv;
@@ -337,6 +339,7 @@ public class BazelRuleClassProvider {
           RepositoryName toolsRepository = checkNotNull(builder.getToolsRepository());
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
+          builder.addConfigurationFragment(BazelAndroidConfiguration.class);
           builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
@@ -391,7 +394,8 @@ public class BazelRuleClassProvider {
                   AndroidLibraryResourceClassJarProvider.PROVIDER,
                   AndroidFeatureFlagSetProvider.PROVIDER,
                   ProguardMappingProvider.PROVIDER,
-                  AndroidBinaryDataInfo.PROVIDER);
+                  AndroidBinaryDataInfo.PROVIDER,
+                  BaselineProfileProvider.PROVIDER);
           builder.addStarlarkBootstrap(bootstrap);
 
           try {

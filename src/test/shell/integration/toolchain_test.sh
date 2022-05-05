@@ -150,6 +150,8 @@ EOF
 function write_register_toolchain() {
   local pkg="${1}"
   local toolchain_name="${2:-test_toolchain}"
+  local exec_compatible_with="${3:-"[]"}"
+  local target_compatible_with="${4:-"[]"}"
 
   cat >> WORKSPACE <<EOF
 register_toolchains('//register/${pkg}:${toolchain_name}_1')
@@ -171,8 +173,8 @@ ${toolchain_name}(
 toolchain(
     name = '${toolchain_name}_1',
     toolchain_type = '//${pkg}/toolchain:${toolchain_name}',
-    exec_compatible_with = [],
-    target_compatible_with = [],
+    exec_compatible_with = ${exec_compatible_with},
+    target_compatible_with = ${target_compatible_with},
     toolchain = ':${toolchain_name}_impl_1',
     visibility = ['//visibility:public'])
 EOF
@@ -482,6 +484,50 @@ EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain 1 extra_str: "foo from test_toolchain_1", toolchain 2 extra_str: "foo from test_toolchain_2"'
+}
+
+function test_multiple_toolchain_use_in_rule_with_optional_missing {
+  local -r pkg="${FUNCNAME[0]}"
+  write_test_toolchain "${pkg}" test_toolchain_1
+  write_test_toolchain "${pkg}" test_toolchain_2
+
+  write_register_toolchain "${pkg}" test_toolchain_1
+
+  # The rule uses two separate toolchains.
+  mkdir -p "${pkg}/toolchain"
+  cat > "${pkg}/toolchain/rule_use_toolchains.bzl" <<EOF
+def _impl(ctx):
+  toolchain_1 = ctx.toolchains['//${pkg}/toolchain:test_toolchain_1']
+  toolchain_2 = ctx.toolchains['//${pkg}/toolchain:test_toolchain_2']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain 1 extra_str: "%s", toolchain 2 is none: %s' %
+         (message, toolchain_1.extra_str, toolchain_2 == None))
+  return []
+
+use_toolchains = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = [
+        '//${pkg}/toolchain:test_toolchain_1',
+        config_common.toolchain_type('//${pkg}/toolchain:test_toolchain_2', mandatory = False),
+    ],
+)
+EOF
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load('//${pkg}/toolchain:rule_use_toolchains.bzl', 'use_toolchains')
+# Use the toolchain.
+use_toolchains(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain 1 extra_str: "foo from test_toolchain_1", toolchain 2 is none: True'
 }
 
 function test_multiple_toolchain_use_in_rule_one_missing {
@@ -2375,6 +2421,146 @@ EOF
   bazel build \
     "//${pkg}/demo:demo" &> $TEST_log || fail "Build failed"
   expect_log "foo_tool = <target @rules_foo//foo_tools:foo_tool>"
+}
+
+function test_exec_platform_order_with_mandatory_toolchains {
+  local -r pkg="${FUNCNAME[0]}"
+
+  # Add two possible execution platforms.
+  mkdir -p "${pkg}/platforms"
+  cat > "${pkg}/platforms/BUILD" <<EOF
+package(default_visibility = ['//visibility:public'])
+constraint_setting(name = 'setting')
+constraint_value(name = 'value1', constraint_setting = ':setting')
+constraint_value(name = 'value2', constraint_setting = ':setting')
+
+platform(
+    name = 'platform1',
+    constraint_values = [':value1'],
+    visibility = ['//visibility:public'])
+platform(
+    name = 'platform2',
+    constraint_values = [':value2'],
+    visibility = ['//visibility:public'])
+EOF
+  # Register them in order.
+  cat >> WORKSPACE <<EOF
+register_execution_platforms("//${pkg}/platforms:platform1", "//${pkg}/platforms:platform2")
+EOF
+
+  # Create a toolchain that only works with platform2
+  write_test_toolchain "${pkg}" test_toolchain
+  write_register_toolchain "${pkg}" test_toolchain "['//${pkg}/platforms:value2']"
+
+  # The rule must receive the toolchain.
+  mkdir -p "${pkg}/toolchain"
+  cat > "${pkg}/toolchain/rule_use_toolchains.bzl" <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//${pkg}/toolchain:test_toolchain']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain is none: %s' %
+         (message, toolchain == None))
+  return []
+
+use_toolchains = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = [
+        config_common.toolchain_type('//${pkg}/toolchain:test_toolchain', mandatory = True),
+    ],
+)
+EOF
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load('//${pkg}/toolchain:rule_use_toolchains.bzl', 'use_toolchains')
+# Use the toolchain.
+use_toolchains(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  bazel build \
+    --toolchain_resolution_debug=.* \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  # Verify that a toolchain was provided.
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain is none: False'
+  # Verify that the exec platform is platform2.
+  expect_log "Selected execution platform //${pkg}/platforms:platform2"
+}
+
+function test_exec_platform_order_with_optional_toolchains {
+  local -r pkg="${FUNCNAME[0]}"
+
+  # Add two possible execution platforms.
+  mkdir -p "${pkg}/platforms"
+  cat > "${pkg}/platforms/BUILD" <<EOF
+package(default_visibility = ['//visibility:public'])
+constraint_setting(name = 'setting')
+constraint_value(name = 'value1', constraint_setting = ':setting')
+constraint_value(name = 'value2', constraint_setting = ':setting')
+
+platform(
+    name = 'platform1',
+    constraint_values = [':value1'],
+    visibility = ['//visibility:public'])
+platform(
+    name = 'platform2',
+    constraint_values = [':value2'],
+    visibility = ['//visibility:public'])
+EOF
+  # Register them in order.
+  cat >> WORKSPACE <<EOF
+register_execution_platforms("//${pkg}/platforms:platform1", "//${pkg}/platforms:platform2")
+EOF
+
+  # Create a toolchain that only works with platform2
+  write_test_toolchain "${pkg}" test_toolchain
+  write_register_toolchain "${pkg}" test_toolchain "['//${pkg}/platforms:value2']"
+
+  # The rule can optionally use the toolchain.
+  mkdir -p "${pkg}/toolchain"
+  cat > "${pkg}/toolchain/rule_use_toolchains.bzl" <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//${pkg}/toolchain:test_toolchain']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain is none: %s' %
+         (message, toolchain == None))
+  return []
+
+use_toolchains = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = [
+        config_common.toolchain_type('//${pkg}/toolchain:test_toolchain', mandatory = False),
+    ],
+)
+EOF
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load('//${pkg}/toolchain:rule_use_toolchains.bzl', 'use_toolchains')
+# Use the toolchain.
+use_toolchains(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  bazel build \
+    --toolchain_resolution_debug=.* \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  # Verify that no toolchain was provided.
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain is none: True'
+  # Verify that the exec platform is platform1.
+  expect_log "Selected execution platform //${pkg}/platforms:platform1"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

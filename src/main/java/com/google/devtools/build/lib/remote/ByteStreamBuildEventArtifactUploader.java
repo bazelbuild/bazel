@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.Step;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -111,12 +112,14 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final Digest digest;
     private final boolean directory;
     private final boolean remote;
+    private final boolean omitted;
 
-    PathMetadata(Path path, Digest digest, boolean directory, boolean remote) {
+    PathMetadata(Path path, Digest digest, boolean directory, boolean remote, boolean omitted) {
       this.path = path;
       this.digest = digest;
       this.directory = directory;
       this.remote = remote;
+      this.omitted = omitted;
     }
 
     public Path getPath() {
@@ -134,6 +137,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     public boolean isRemote() {
       return remote;
     }
+
+    public boolean isOmitted() {
+      return omitted;
+    }
   }
 
   /**
@@ -142,22 +149,29 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    */
   private PathMetadata readPathMetadata(Path file) throws IOException {
     if (file.isDirectory()) {
-      return new PathMetadata(file, /* digest= */ null, /* directory= */ true, /* remote= */ false);
-    }
-    if (omittedFiles.contains(file)) {
-      return new PathMetadata(file, /*digest=*/ null, /*directory=*/ false, /*remote=*/ false);
+      return new PathMetadata(
+          file,
+          /* digest= */ null,
+          /* directory= */ true,
+          /* remote= */ false,
+          /* omitted= */ false);
     }
 
-    for (Path treeRoot : omittedTreeRoots) {
-      if (file.startsWith(treeRoot)) {
-        omittedFiles.add(file);
-        return new PathMetadata(file, /*digest=*/ null, /*directory=*/ false, /*remote=*/ false);
+    boolean omitted = false;
+    if (omittedFiles.contains(file)) {
+      omitted = true;
+    } else {
+      for (Path treeRoot : omittedTreeRoots) {
+        if (file.startsWith(treeRoot)) {
+          omittedFiles.add(file);
+          omitted = true;
+        }
       }
     }
 
     DigestUtil digestUtil = new DigestUtil(xattrProvider, file.getFileSystem().getDigestFunction());
     Digest digest = digestUtil.compute(file);
-    return new PathMetadata(file, digest, /* directory= */ false, isRemoteFile(file));
+    return new PathMetadata(file, digest, /* directory= */ false, isRemoteFile(file), omitted);
   }
 
   private static void processQueryResult(
@@ -170,14 +184,18 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       } else {
         PathMetadata remotePathMetadata =
             new PathMetadata(
-                file.getPath(), file.getDigest(), file.isDirectory(), /* remote= */ true);
+                file.getPath(),
+                file.getDigest(),
+                file.isDirectory(),
+                /* remote= */ true,
+                file.isOmitted());
         knownRemotePaths.add(remotePathMetadata);
       }
     }
   }
 
   private static boolean shouldUpload(PathMetadata path) {
-    return path.getDigest() != null && !path.isRemote() && !path.isDirectory();
+    return path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
@@ -186,7 +204,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     List<PathMetadata> filesToQuery = new ArrayList<>();
     Set<Digest> digestsToQuery = new HashSet<>();
     for (PathMetadata path : paths) {
-      if (shouldUpload(path)) {
+      // Query remote cache for files even if omitted from uploading
+      if (shouldUpload(path) || path.isOmitted()) {
         filesToQuery.add(path);
         digestsToQuery.add(path.getDigest());
       } else {
@@ -243,7 +262,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                                 path.getPath(),
                                 /*digest=*/ null,
                                 path.isDirectory(),
-                                path.isRemote()));
+                                path.isRemote(),
+                                path.isOmitted()));
                       });
             })
         .collect(Collectors.toList());
@@ -256,7 +276,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
-    RemoteActionExecutionContext context = RemoteActionExecutionContext.createForBES(metadata);
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
+    context.setStep(Step.UPLOAD_BES_FILES);
 
     return Single.using(
         remoteCache::retain,
@@ -269,13 +290,17 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                       } catch (IOException e) {
                         reporterUploadError(e);
                         return new PathMetadata(
-                            file, /*digest=*/ null, /*directory=*/ false, /*remote=*/ false);
+                            file,
+                            /*digest=*/ null,
+                            /*directory=*/ false,
+                            /*remote=*/ false,
+                            /*omitted=*/ false);
                       }
                     })
                 .collect(Collectors.toList())
                 .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
                 .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
-                .map(paths -> new PathConverterImpl(remoteServerInstanceName, paths, omittedFiles)),
+                .map(paths -> new PathConverterImpl(remoteServerInstanceName, paths)),
         RemoteCache::release);
   }
 
@@ -309,23 +334,25 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final Set<Path> skippedPaths;
     private final Set<Path> localPaths;
 
-    PathConverterImpl(
-        String remoteServerInstanceName, List<PathMetadata> uploads, Set<Path> localPaths) {
+    PathConverterImpl(String remoteServerInstanceName, List<PathMetadata> uploads) {
       Preconditions.checkNotNull(uploads);
       this.remoteServerInstanceName = remoteServerInstanceName;
       pathToDigest = new HashMap<>(uploads.size());
       ImmutableSet.Builder<Path> skippedPaths = ImmutableSet.builder();
+      ImmutableSet.Builder<Path> localPaths = ImmutableSet.builder();
       for (PathMetadata pair : uploads) {
         Path path = pair.getPath();
         Digest digest = pair.getDigest();
-        if (digest != null) {
+        if (!pair.isRemote() && pair.isOmitted()) {
+          localPaths.add(path);
+        } else if (digest != null) {
           pathToDigest.put(path, digest);
         } else {
           skippedPaths.add(path);
         }
       }
       this.skippedPaths = skippedPaths.build();
-      this.localPaths = localPaths;
+      this.localPaths = localPaths.build();
     }
 
     @Override

@@ -101,23 +101,13 @@ public abstract class Util {
       // This logic should stay up to date with the dep creation logic in
       // DependencyResolver#partiallyResolveDependencies.
       BuildConfigurationValue targetConfiguration = ruleContext.getConfiguration();
-      BuildConfigurationValue hostConfiguration = ruleContext.getHostConfiguration();
       for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
-        if (DependencyResolver.shouldUseToolchainTransition(
-            targetConfiguration, ruleContext.getRule())) {
-          maybeImplicitDeps.add(
-              ConfiguredTargetKey.builder()
-                  .setLabel(toolchain)
-                  .setConfiguration(targetConfiguration)
-                  .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
-                  .build());
-        } else {
-          maybeImplicitDeps.add(
-              ConfiguredTargetKey.builder()
-                  .setLabel(toolchain)
-                  .setConfiguration(hostConfiguration)
-                  .build());
-        }
+        maybeImplicitDeps.add(
+            ConfiguredTargetKey.builder()
+                .setLabel(toolchain)
+                .setConfiguration(targetConfiguration)
+                .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
+                .build());
       }
     }
     return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));

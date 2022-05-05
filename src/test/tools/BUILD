@@ -21,3 +21,13 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+sh_test(
+    name = "daemonize_test",
+    srcs = ["daemonize_test.sh"],
+    data = ["//src/main/tools:daemonize"],
+    deps = [
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)

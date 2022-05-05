@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -92,6 +93,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
@@ -120,6 +122,7 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -610,7 +613,7 @@ public abstract class BuildIntegrationTestCase {
    *
    * @param target the label of the target whose artifacts are requested.
    */
-  protected Iterable<Artifact> getArtifacts(String target)
+  protected ImmutableList<Artifact> getArtifacts(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
     return getFilesToBuild(getConfiguredTarget(target)).toList();
@@ -970,6 +973,22 @@ public abstract class BuildIntegrationTestCase {
     return workspace;
   }
 
+  protected BuildResultListener getBuildResultListener() {
+    return getCommandEnvironment().getBuildResultListener();
+  }
+
+  protected ImmutableList<String> getAnalyzedTargetsLabel() {
+    return getBuildResultListener().getAnalyzedTargets().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
+  }
+
+  protected ImmutableList<String> getBuiltTargetsLabel() {
+    return getBuildResultListener().getBuiltTargets().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
+  }
+
   /**
    * Assertion-checks that the expected error was reported,
    */
@@ -991,6 +1010,18 @@ public abstract class BuildIntegrationTestCase {
     public synchronized void sendBugReport(
         Throwable exception, List<String> args, String... values) {
       exceptions.add(exception);
+    }
+
+    @FormatMethod
+    @Override
+    public void logUnexpected(String message, Object... args) {
+      sendBugReport(new IllegalStateException(String.format(message, args)));
+    }
+
+    @FormatMethod
+    @Override
+    public void logUnexpected(Exception e, String message, Object... args) {
+      sendBugReport(new IllegalStateException(String.format(message, args), e));
     }
 
     @Override

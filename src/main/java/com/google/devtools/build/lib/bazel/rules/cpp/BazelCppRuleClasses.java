@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -112,7 +111,6 @@ public class BazelCppRuleClasses {
               ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
                   .mandatory(true)
                   .build())
-          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }
 

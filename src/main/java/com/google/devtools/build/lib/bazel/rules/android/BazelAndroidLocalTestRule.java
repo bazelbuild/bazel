@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJ
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
@@ -86,7 +85,6 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
         .removeAttribute(":java_launcher")
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

@@ -125,6 +125,7 @@ abstract class AbstractParallelEvaluator {
   AbstractParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
+      Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
@@ -146,6 +147,7 @@ abstract class AbstractParallelEvaluator {
         new ParallelEvaluatorContext(
             graph,
             graphVersion,
+            minimalVersion,
             skyFunctions,
             reporter,
             emittedEventState,
@@ -161,7 +163,7 @@ abstract class AbstractParallelEvaluator {
             stateCache);
   }
 
-  private Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(
+  private static Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(
       Supplier<ExecutorService> executorService,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionJobsThreadPoolSize) {

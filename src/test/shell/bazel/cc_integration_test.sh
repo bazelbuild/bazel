@@ -1455,4 +1455,30 @@ EOF
   expect_log "fatal error: '\?dep.h'\?"
 }
 
+function test_env_inherit_cc_test() {
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_test(
+  name = 'foo_test',
+  srcs = ['foo_test.cc'],
+  env_inherit = ['FOO'],
+)
+EOF
+
+  cat > pkg/foo_test.cc <<EOF
+#include <stdlib.h>
+
+int main() {
+  auto foo = getenv("FOO");
+  if (foo == nullptr) {
+    return 1;
+  }
+  return 0;
+}
+EOF
+
+  bazel test //pkg:foo_test &> "$TEST_log" && fail "Did not fail as expected. ENV leak?" || true
+  FOO=1 bazel test //pkg:foo_test &> "$TEST_log" || fail "Should have inherited FOO env."
+}
+
 run_suite "cc_integration_test"

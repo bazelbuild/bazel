@@ -52,7 +52,7 @@ import net.starlark.java.eval.Tuple;
             + " them.<p>Context objects essentially live for the duration of the call to the"
             + " implementation function. It is not useful to access these objects outside of their"
             + " associated function. See the <a"
-            + " href='$STARLARK_DOCS_ROOT/rules.html#implementation-function'>Rules page</a> for"
+            + " href='https://bazel.build/rules/rules#implementation_function'>Rules page</a> for"
             + " more information.")
 public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValueInfoApi>
     extends StarlarkValue {
@@ -81,7 +81,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " href='File.html'><code>File</code></a>s.  It is a shortcut for:<pre"
           + " class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> In"
           + " other words, use <code>files</code> to access the <a"
-          + " href=\"$STARLARK_DOCS_ROOT/rules.html#requesting-output-files\">default outputs</a>"
+          + " href=\"https://bazel.build/rules/rules#requesting_output_files\">default outputs</a>"
           + " of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl\">See"
           + " example of use</a>.";
@@ -96,13 +96,13 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " no corresponding struct field is generated. It is a shortcut for:<pre"
           + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
           + " <code>file</code> to access the (singular) <a"
-          + " href=\"$STARLARK_DOCS_ROOT/rules.html#requesting-output-files\">default output</a> of"
-          + " a dependency. <a"
+          + " href=\"https://bazel.build/rules/rules#requesting_output_files\">default output</a>"
+          + " of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl\">See"
           + " example of use</a>.";
   String ATTR_DOC =
       "A struct to access the values of the <a"
-          + " href='$STARLARK_DOCS_ROOT/rules.html#attributes'>attributes</a>. The values are"
+          + " href='https://bazel.build/rules/rules#attributes'>attributes</a>. The values are"
           + " provided by the user (if not, a default value is used). The attributes of the struct"
           + " and the types of their values correspond to the keys and values of the <a"
           + " href='globals.html#rule.attrs'><code>attrs</code> dict</a> provided to the <a"
@@ -120,7 +120,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   String OUTPUTS_DOC =
       "A pseudo-struct containing all the predeclared output files, represented by <a"
           + " href='File.html'><code>File</code></a> objects. See the <a"
-          + " href='$STARLARK_DOCS_ROOT/rules.html#files'>Rules page</a> for more information and"
+          + " href='https://bazel.build/rules/rules#files'>Rules page</a> for more information and"
           + " examples.<p>This field does not exist on aspect contexts, since aspects do not have"
           + " predeclared outputs.<p>The fields of this object are defined as follows. It is an"
           + " error if two outputs produce the same field name or have the same label.<ul><li>If"
@@ -572,7 +572,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             doc =
                 "Either a SymlinkEntry depset or the map of symlinks, prefixed by workspace name,"
                     + " to be added to the runfiles. See <a"
-                    + " href=\"$STARLARK_DOCS_ROOT/rules.html#runfiles-symlinks\">Runfiles"
+                    + " href=\"https://bazel.build/rules/rules#runfiles_symlinks\">Runfiles"
                     + " symlinks</a> in the rules guide."),
         @Param(
             name = "root_symlinks",
@@ -584,7 +584,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             },
             doc =
                 "Either a SymlinkEntry depset or a map of symlinks to be added to the runfiles. See"
-                    + " <a href=\"$STARLARK_DOCS_ROOT/rules.html#runfiles-symlinks\">Runfiles"
+                    + " <a href=\"https://bazel.build/rules/rules#runfiles_symlinks\">Runfiles"
                     + " symlinks</a> in the rules guide.")
       })
   RunfilesApi runfiles(

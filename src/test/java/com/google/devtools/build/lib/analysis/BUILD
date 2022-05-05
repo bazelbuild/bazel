@@ -36,6 +36,7 @@ java_library(
             "PackageGroupBuildViewTest.java",
             "RuleConfiguredTargetTest.java",
             "SourceManifestActionTest.java",
+            "AnalysisFailureInfoTest.java",
         ],
     ),
     deps = [
@@ -107,11 +108,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
-        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_transition_factory",
@@ -214,11 +212,34 @@ java_library(
 )
 
 java_test(
+    name = "AnalysisFailureInfoTest",
+    srcs = ["AnalysisFailureInfoTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
+    ],
+)
+
+java_test(
     name = "AnalysisUtilsTest",
     srcs = ["AnalysisUtilsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:auto_value",
         "//third_party:junit4",
         "//third_party:truth",
@@ -343,6 +364,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],

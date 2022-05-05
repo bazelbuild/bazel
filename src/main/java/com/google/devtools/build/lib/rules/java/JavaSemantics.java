@@ -82,7 +82,6 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy-src.jar");
 
   SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE = fromTemplates("%{name}_classpaths_file");
-  String TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER = "%test_runtime_classpath_file%";
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -185,10 +184,23 @@ public interface JavaSemantics {
                 attributes.has("proguard_specs")
                     && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
             JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
-            if (!hasProguardSpecs || !optimizer.label().isPresent()) {
+            if ((!hasProguardSpecs && !javaConfig.runLocalJavaOptimizations())
+                || !optimizer.label().isPresent()) {
               return null;
             }
             return optimizer.label().get();
+          });
+
+  @SerializationConstant
+  LabelListLateBoundDefault<JavaConfiguration> LOCAL_JAVA_OPTIMIZATION_CONFIGURATION =
+      LabelListLateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          (rule, attributes, javaConfig) -> {
+            // Don't bother adding the configuration dep if we're not going to use it.
+            if (!javaConfig.runLocalJavaOptimizations()) {
+              return ImmutableList.of();
+            }
+            return javaConfig.getLocalJavaOptimizationConfiguration();
           });
 
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";

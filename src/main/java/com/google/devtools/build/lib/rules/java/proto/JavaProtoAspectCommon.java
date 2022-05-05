@@ -15,13 +15,16 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -29,9 +32,8 @@ import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo;
+import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 
 /** Common logic used by java*_proto aspects (e.g. {@link JavaLiteProtoAspect}). */
 public class JavaProtoAspectCommon {
@@ -158,16 +160,22 @@ public class JavaProtoAspectCommon {
 
   /** Returns the toolchain that specifies how to generate code from {@code .proto} files. */
   public ProtoLangToolchainProvider getProtoToolchainProvider() {
+    return checkNotNull(ProtoLangToolchainProvider.get(ruleContext, protoToolchainAttr));
+  }
+
+  /**
+   * Returns the Starlark toolchain that specifies how to generate code from {@code .proto} files.
+   */
+  public StarlarkInfo getStarlarkProtoToolchainProvider() {
     return checkNotNull(
-        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.PROVIDER));
+        ProtoLangToolchainProvider.getStarlarkProvider(ruleContext, protoToolchainAttr));
   }
 
   /**
    * Returns the toolchain that specifies how to generate Java-lite code from {@code .proto} files.
    */
   static ProtoLangToolchainProvider getLiteProtoToolchainProvider(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(
-        LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
+    return ProtoLangToolchainProvider.get(ruleContext, LITE_PROTO_TOOLCHAIN_ATTR);
   }
 
   /**
@@ -198,23 +206,23 @@ public class JavaProtoAspectCommon {
    * Decides whether code should be generated for the .proto files in the currently-processed
    * proto_library.
    */
-  boolean shouldGenerateCode(ProtoInfo protoInfo, String ruleName) {
-    Preconditions.checkNotNull(protoInfo);
+  boolean shouldGenerateCode(ConfiguredTarget protoTarget, String ruleName)
+      throws RuleErrorException, InterruptedException {
+    Preconditions.checkNotNull(protoTarget);
     Preconditions.checkNotNull(ruleName);
 
-    if (protoInfo.getDirectSources().isEmpty()) {
-      return false;
-    }
-
-    NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
-    forbiddenProtos.addTransitive(getProtoToolchainProvider().forbiddenProtos());
+    boolean shouldGenerate =
+        ProtoCommon.shouldGenerateCode(
+            ruleContext, protoTarget, getStarlarkProtoToolchainProvider(), ruleName);
     if (rpcSupport != null) {
-      forbiddenProtos.addTransitive(rpcSupport.getForbiddenProtos(ruleContext));
+      Optional<StarlarkInfo> toolchain = rpcSupport.getToolchain(ruleContext);
+      if (toolchain.isPresent()) {
+        if (!ProtoCommon.shouldGenerateCode(ruleContext, protoTarget, toolchain.get(), ruleName)) {
+          shouldGenerate = false;
+        }
+      }
     }
 
-    final ProtoSourceFileExcludeList protoExcludeList =
-        new ProtoSourceFileExcludeList(ruleContext, forbiddenProtos.build());
-
-    return protoExcludeList.checkSrcs(protoInfo.getDirectSources(), ruleName);
+    return shouldGenerate;
   }
 }

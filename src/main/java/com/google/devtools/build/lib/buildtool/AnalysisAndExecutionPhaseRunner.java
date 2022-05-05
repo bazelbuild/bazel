@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
@@ -174,7 +175,7 @@ public final class AnalysisAndExecutionPhaseRunner {
           BuildFailedException, TestExecException {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
-    ImmutableSet<String> explicitTargetPatterns =
+    ImmutableSet<Label> explicitTargetPatterns =
         getExplicitTargetPatterns(env, request.getTargets());
 
     BuildView view =
@@ -216,10 +217,10 @@ public final class AnalysisAndExecutionPhaseRunner {
    *     stringified labels are in the "unambiguous canonical form".
    * @throws ViewCreationFailedException if a pattern fails to parse for some reason.
    */
-  private static ImmutableSet<String> getExplicitTargetPatterns(
+  private static ImmutableSet<Label> getExplicitTargetPatterns(
       CommandEnvironment env, List<String> requestedTargetPatterns)
       throws ViewCreationFailedException {
-    ImmutableSet.Builder<String> explicitTargetPatterns = ImmutableSet.builder();
+    ImmutableSet.Builder<Label> explicitTargetPatterns = ImmutableSet.builder();
     TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
@@ -243,7 +244,7 @@ public final class AnalysisAndExecutionPhaseRunner {
       }
 
       if (parsedPattern.getType() == TargetPattern.Type.SINGLE_TARGET) {
-        explicitTargetPatterns.add(parsedPattern.getSingleTargetPath());
+        explicitTargetPatterns.add(parsedPattern.getSingleTargetLabel());
       }
     }
 

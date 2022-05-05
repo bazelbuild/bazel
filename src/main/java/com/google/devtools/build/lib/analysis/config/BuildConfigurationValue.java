@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMn
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -442,16 +442,29 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public String getMainRepositoryName() {
-    return mainRepositoryName.strippedName();
+    return mainRepositoryName.getName();
   }
 
   /**
-   * Returns the configuration-dependent string for this configuration. This is also the name of the
-   * configuration's base output directory unless {@link #isHostConfiguration} is {@code true}, in
-   * which case the output directory is named {@code host}.
+   * Returns the configuration-dependent string for this configuration.
+   *
+   * <p>This is also the name of the configuration's base output directory unless {@link
+   * #isHostConfiguration} is {@code true}, in which case the output directory is named {@code
+   * "host"}. See also {@link #getOutputDirectoryName}.
    */
   public String getMnemonic() {
     return outputDirectories.getMnemonic();
+  }
+
+  /**
+   * Returns the name of the base output directory under which actions in this configuration write
+   * their outputs.
+   *
+   * <p>This is the same as {@link #getMnemonic} except in the host configuration, in which case it
+   * is {@code "host"}.
+   */
+  public String getOutputDirectoryName() {
+    return outputDirectories.getOutputDirName();
   }
 
   @VisibleForTesting
@@ -485,7 +498,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    */
   @Override
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return actionEnv.getFixedEnv().toMap();
+    return actionEnv.getFixedEnv();
   }
 
   /**
@@ -597,7 +610,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
     return stampBinaries();
@@ -629,7 +642,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    */
   @Override
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnv.getFixedEnv().toMap();
+    return testEnv.getFixedEnv();
   }
 
   /**
@@ -677,7 +690,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
     return isToolConfiguration();

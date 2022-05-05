@@ -269,7 +269,7 @@ match a directory in the archive, Bazel will return an error.""",
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
 following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, or `tar.bz2`.""",
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -357,8 +357,9 @@ http_archive = repository_rule(
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`,
-`"tar"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
+`"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
+or `"deb"`.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,

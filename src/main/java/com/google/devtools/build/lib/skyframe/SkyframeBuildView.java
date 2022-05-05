@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeErrorProcessor.ErrorProces
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -98,6 +99,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -477,7 +479,7 @@ public final class SkyframeBuildView {
           /*hasLoadingError=*/ false,
           /*hasAnalysisError=*/ false,
           foundActionConflictInLatestCheck,
-          ImmutableList.copyOf(cts),
+          ImmutableSet.copyOf(cts),
           result.getWalkableGraph(),
           ImmutableMap.copyOf(aspects),
           packageRoots);
@@ -595,7 +597,7 @@ public final class SkyframeBuildView {
         errorProcessingResult.hasLoadingError(),
         result.hasError() || foundActionConflictInLatestCheck,
         foundActionConflictInLatestCheck,
-        ImmutableList.copyOf(cts),
+        ImmutableSet.copyOf(cts),
         result.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
         packageRoots);
@@ -618,6 +620,7 @@ public final class SkyframeBuildView {
       ImmutableMap<Label, Target> labelTargetMap,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableSet<Label> explicitTargetPatterns,
       EventBus eventBus,
       BugReporter bugReporter,
       boolean keepGoing,
@@ -642,24 +645,14 @@ public final class SkyframeBuildView {
     }
 
     List<BuildDriverKey> buildDriverCTKeys = new ArrayList<>(/*initialCapacity=*/ ctKeys.size());
-    List<Label> exclusiveTestsLabels = new ArrayList<>();
 
     for (ConfiguredTargetKey ctKey : ctKeys) {
-      TestType testType =
-          determineTestType(
-              testsToRun,
-              labelTargetMap,
-              ctKey.getLabel(),
-              topLevelArtifactContext.runTestsExclusively());
-      if (TestType.EXCLUSIVE.equals(testType)) {
-        exclusiveTestsLabels.add(ctKey.getLabel());
-        continue;
-      }
       buildDriverCTKeys.add(
-          new BuildDriverKey(
+          BuildDriverKey.ofConfiguredTarget(
               ctKey,
               topLevelArtifactContext,
               strictConflictCheck,
+              /*explicitlyRequested=*/ explicitTargetPatterns.contains(ctKey.getLabel()),
               determineTestType(
                   testsToRun,
                   labelTargetMap,
@@ -667,17 +660,15 @@ public final class SkyframeBuildView {
                   topLevelArtifactContext.runTestsExclusively())));
     }
 
-    if (!exclusiveTestsLabels.isEmpty()) {
-      // TODO(b/223558573) Make exclusive tests work.
-      eventHandler.handle(
-          Event.warn(
-              "--experimental_merged_skyframe_analysis_execution is currently incompatible with"
-                  + " exclusive tests. The following exclusive tests won't be run: "
-                  + exclusiveTestsLabels));
-    }
     List<BuildDriverKey> buildDriverAspectKeys =
         topLevelAspectsKeys.stream()
-            .map(k -> new BuildDriverKey(k, topLevelArtifactContext, strictConflictCheck))
+            .map(
+                k ->
+                    BuildDriverKey.ofTopLevelAspect(
+                        k,
+                        topLevelArtifactContext,
+                        strictConflictCheck,
+                        /*explicitlyRequested=*/ explicitTargetPatterns.contains(k.getLabel())))
             .collect(Collectors.toList());
 
     try (SilentCloseable c =
@@ -696,14 +687,44 @@ public final class SkyframeBuildView {
       skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
     }
 
-    if (!evaluationResult.hasError()) {
-      Map<AspectKey, ConfiguredAspect> successfulAspects =
+    // The exclusive tests whose analysis succeeded i.e. those that can be run.
+    ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
+    boolean continueWithExclusiveTests = !evaluationResult.hasError() || keepGoing;
+    List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
+
+    if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
+      // Run exclusive tests sequentially.
+      Iterable<SkyKey> testCompletionKeys =
+          TestCompletionValue.keys(
+              exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
+      for (SkyKey testCompletionKey : testCompletionKeys) {
+        EvaluationResult<SkyValue> testRunResult =
+            skyframeExecutor.evaluateSkyKeys(
+                eventHandler, ImmutableSet.of(testCompletionKey), keepGoing);
+        if (testRunResult.hasError()) {
+          detailedExitCodes.add(
+              SkyframeErrorProcessor.processErrors(
+                      testRunResult,
+                      configurationLookupSupplier,
+                      skyframeExecutor.getCyclesReporter(),
+                      eventHandler,
+                      keepGoing,
+                      eventBus,
+                      bugReporter,
+                      /*includeExecutionPhase=*/ true)
+                  .executionDetailedExitCode());
+        }
+      }
+    }
+
+    if (!evaluationResult.hasError() && detailedExitCodes.isEmpty()) {
+      ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
           getSuccessfulAspectMap(
               topLevelAspectsKeys.size(),
               evaluationResult,
               buildDriverAspectKeys,
               /*topLevelActionConflictReport=*/ null);
-      Set<ConfiguredTarget> successfulConfiguredTargets =
+      ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
           getSuccessfulConfiguredTargets(
               ctKeys.size(),
               evaluationResult,
@@ -711,9 +732,9 @@ public final class SkyframeBuildView {
               /*topLevelActionConflictReport=*/ null);
 
       return SkyframeAnalysisAndExecutionResult.success(
-          ImmutableList.copyOf(successfulConfiguredTargets),
+          successfulConfiguredTargets,
           evaluationResult.getWalkableGraph(),
-          ImmutableMap.copyOf(successfulAspects),
+          successfulAspects,
           /*packageRoots=*/ null);
     }
 
@@ -727,6 +748,7 @@ public final class SkyframeBuildView {
             eventBus,
             bugReporter,
             /*includeExecutionPhase=*/ true);
+    detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
 
     foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
     TopLevelActionConflictReport topLevelActionConflictReport =
@@ -742,13 +764,13 @@ public final class SkyframeBuildView {
                 errorProcessingResult)
             : null;
 
-    Map<AspectKey, ConfiguredAspect> successfulAspects =
+    ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
         getSuccessfulAspectMap(
             topLevelAspectsKeys.size(),
             evaluationResult,
             buildDriverAspectKeys,
             topLevelActionConflictReport);
-    Set<ConfiguredTarget> successfulConfiguredTargets =
+    ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
         getSuccessfulConfiguredTargets(
             ctKeys.size(), evaluationResult, buildDriverCTKeys, topLevelActionConflictReport);
 
@@ -756,11 +778,11 @@ public final class SkyframeBuildView {
         /*hasLoadingError=*/ errorProcessingResult.hasLoadingError(),
         /*hasAnalysisError=*/ errorProcessingResult.hasAnalysisError(),
         /*hasActionConflicts=*/ foundActionConflictInLatestCheck,
-        ImmutableList.copyOf(successfulConfiguredTargets),
+        successfulConfiguredTargets,
         evaluationResult.getWalkableGraph(),
-        ImmutableMap.copyOf(successfulAspects),
+        successfulAspects,
         /*packageRoots=*/ null,
-        errorProcessingResult.executionDetailedExitCode());
+        Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
   }
 
   /**
@@ -874,6 +896,18 @@ public final class SkyframeBuildView {
     }
   }
 
+  private static ImmutableSet<ConfiguredTarget> getExclusiveTests(
+      EvaluationResult<BuildDriverValue> evaluationResult) {
+    ImmutableSet.Builder<ConfiguredTarget> exclusiveTests = ImmutableSet.builder();
+    for (BuildDriverValue value : evaluationResult.values()) {
+      if (value instanceof ExclusiveTestBuildDriverValue) {
+        exclusiveTests.add(
+            ((ExclusiveTestBuildDriverValue) value).getExclusiveTestConfiguredTarget());
+      }
+    }
+    return exclusiveTests.build();
+  }
+
   private static TestType determineTestType(
       ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
@@ -920,12 +954,12 @@ public final class SkyframeBuildView {
     return aspectKeysBuilder.build();
   }
 
-  private static Set<ConfiguredTarget> getSuccessfulConfiguredTargets(
+  private static ImmutableSet<ConfiguredTarget> getSuccessfulConfiguredTargets(
       int expectedSize,
       EvaluationResult<BuildDriverValue> evaluationResult,
       List<BuildDriverKey> buildDriverCTKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
-    Set<ConfiguredTarget> cts = Sets.newHashSetWithExpectedSize(expectedSize);
+    ImmutableSet.Builder<ConfiguredTarget> cts = ImmutableSet.builderWithExpectedSize(expectedSize);
     for (BuildDriverKey bdCTKey : buildDriverCTKeys) {
       if (topLevelActionConflictReport != null
           && !topLevelActionConflictReport.isErrorFree(bdCTKey.getActionLookupKey())) {
@@ -939,15 +973,17 @@ public final class SkyframeBuildView {
 
       cts.add(ctValue.getConfiguredTarget());
     }
-    return cts;
+    return cts.build();
   }
 
-  private Map<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
+  private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<BuildDriverValue> evaluationResult,
       List<BuildDriverKey> buildDriverAspectKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
-    Map<AspectKey, ConfiguredAspect> aspects = Maps.newHashMapWithExpectedSize(expectedSize);
+    // There can't be duplicate Aspects after resolving --aspects, so this is safe.
+    ImmutableMap.Builder<AspectKey, ConfiguredAspect> aspects =
+        ImmutableMap.builderWithExpectedSize(expectedSize);
     for (BuildDriverKey bdAspectKey : buildDriverAspectKeys) {
       if (topLevelActionConflictReport != null
           && !topLevelActionConflictReport.isErrorFree(bdAspectKey.getActionLookupKey())) {
@@ -964,7 +1000,7 @@ public final class SkyframeBuildView {
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
       }
     }
-    return aspects;
+    return aspects.buildOrThrow();
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(

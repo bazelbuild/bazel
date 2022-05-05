@@ -59,6 +59,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -90,6 +91,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -97,7 +99,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:apache_commons_compress",
         "//third_party:auth",
         "//third_party:caffeine",
         "//third_party:flogger",
@@ -105,7 +106,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party:rxjava3",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
@@ -125,7 +126,7 @@ java_library(
     srcs = ["ExecutionStatusException.java"],
     deps = [
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "@googleapis//:google_rpc_status_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
@@ -142,7 +143,7 @@ java_library(
         "//third_party:guava",
         "//third_party:netty",
         "//third_party:rxjava3",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
     ],
 )
 
@@ -158,6 +159,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
     ],
 )

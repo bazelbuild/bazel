@@ -180,6 +180,70 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
+  public void singleChunkCompressedUploadAlreadyExists() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channelConnectionFactory),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier,
+            /* maximumOpenFiles= */ -1);
+
+    byte[] blob = {'A'};
+
+    // Set a chunk size that should have no problem accomodating the compressed
+    // blob, even though the blob most likely has a compression ratio >= 1.
+    Chunker chunker =
+        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(100).build();
+    Digest digest = DIGEST_UTIL.compute(blob);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              private int numChunksReceived = 0;
+
+              @Override
+              public void onNext(WriteRequest writeRequest) {
+                // This should be the first and only chunk written.
+                numChunksReceived++;
+                assertThat(numChunksReceived).isEqualTo(1);
+                ByteString data = writeRequest.getData();
+                assertThat(data.size()).isGreaterThan(0);
+                assertThat(writeRequest.getFinishWrite()).isTrue();
+
+                // On receiving the chunk, respond with a committed size of -1
+                // to indicate that the blob already exists (per the remote API
+                // spec) and close the stream.
+                WriteResponse response = WriteResponse.newBuilder().setCommittedSize(-1).build();
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    uploader.uploadBlob(context, digest, chunker);
+
+    // This test should not have triggered any retries.
+    Mockito.verifyNoInteractions(mockBackoff);
+  }
+
+  @Test
   public void progressiveUploadShouldWork() throws Exception {
     Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);
     RemoteRetrier retrier =

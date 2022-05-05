@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -104,7 +105,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
     builder.addRepositoryMappingEntry(
-        RepositoryName.MAIN, RepositoryName.createFromValidStrippedName(name), RepositoryName.MAIN);
+        RepositoryName.MAIN, RepositoryName.createUnvalidated(name), RepositoryName.MAIN);
     parseManagedDirectories(
         Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
   }
@@ -177,7 +178,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
           "Cannot parse repository name '%s'. Repository name should start with '@'.", key);
     }
     try {
-      return RepositoryName.create(key);
+      return RepositoryName.create(key.substring(1));
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("%s", e);
     }

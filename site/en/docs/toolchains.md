@@ -150,7 +150,7 @@ bar_binary = rule(
         ...
         # No `_compiler` attribute anymore.
     },
-    toolchains = ["//bar_tools:toolchain_type"]
+    toolchains = ["//bar_tools:toolchain_type"],
 )
 ```
 
@@ -181,6 +181,55 @@ Bazel's procedure for resolving toolchains to targets is described
 [below](#toolchain-resolution). Only the resolved toolchain target is actually
 made a dependency of the `bar_binary` target, not the whole space of candidate
 toolchains.
+
+### Mandatory and Optional Toolchains {:#optional-toolchains}
+
+By default, when a rule expresses a toolchain type dependency using a bare label
+(as shown above), the toolchain type is considered to be **mandatory**. If Bazel
+is unable to find a matching toolchain (see
+[Toolchain resolution](#toolchain-resolution) below) for a mandatory toolchain
+type, this is an error and analysis halts.
+
+It is possible instead to declare an **optional** toolchain type dependency, as
+follows:
+
+```python
+bar_binary = rule(
+    ...
+    toolchains = [
+        config_common.toolchain_type("//bar_tools:toolchain_type", mandatory = False),
+    ],
+)
+```
+
+When an optional toolchain type cannot be resolved, analysis continues, and the
+result of `ctx.toolchains[""//bar_tools:toolchain_type"]` is `None`.
+
+The [`config_common.toolchain_type`](/rules/lib/config_common#toolchain_type)
+function defaults to mandatory.
+
+The following forms can be used:
+
+-  Mandatory toolchain types:
+   -  `toolchains = ["//bar_tools:toolchain_type"]`
+   -  `toolchains = [config_common.toolchain_type("//bar_tools:toolchain_type")]`
+   -  `toolchains = [config_common.toolchain_type("//bar_tools:toolchain_type", mandatory = True)]`
+- Optional toolchain types:
+   -  `toolchains = [config_common.toolchain_type("//bar_tools:toolchain_type", mandatory = False)]`
+
+```python
+bar_binary = rule(
+    ...
+    toolchains = [
+        "//foo_tools:toolchain_type",
+        config_common.toolchain_type("//bar_tools:toolchain_type", mandatory = False),
+    ],
+)
+```
+
+You can mix and match forms in the same rule, also. However, if the same
+toolchain type is listed multiple times, it will take the most strict version,
+where mandatory is more strict than optional.
 
 ### Writing aspects that use toolchains {:#writing-aspects-toolchains}
 
@@ -467,10 +516,10 @@ The resolution steps are as follows.
    the first available toolchain, if any, that is compatible with this execution
    platform and the target platform.
 
-1. Any execution platform that failed to find a compatible toolchain for one of
-   its toolchain types is ruled out. Of the remaining platforms, the first one
-   becomes the current target's execution platform, and its associated
-   toolchains become dependencies of the target.
+1. Any execution platform that failed to find a compatible mandatory toolchain
+   for one of its toolchain types is ruled out. Of the remaining platforms, the
+   first one becomes the current target's execution platform, and its associated
+   toolchains (if any) become dependencies of the target.
 
 The chosen execution platform is used to run all actions that the target
 generates.
@@ -478,6 +527,10 @@ generates.
 In cases where the same target can be built in multiple configurations (such as
 for different CPUs) within the same build, the resolution procedure is applied
 independently to each version of the target.
+
+If the rule uses [execution groups](/reference/exec-groups), each execution
+group performs toolchain resolution separately, and each has its own execution
+platform and toolchains.
 
 ## Debugging toolchains {:#debugging-toolchains}
 

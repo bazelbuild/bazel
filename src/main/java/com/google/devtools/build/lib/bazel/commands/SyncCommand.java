@@ -196,7 +196,7 @@ public final class SyncCommand implements BlazeCommand {
           // TODO(aehlig): avoid the detour of serializing and then parsing the repository name
           try {
             repositoriesToFetch.add(
-                RepositoryDirectoryValue.key(RepositoryName.create("@" + rule.getName())));
+                RepositoryDirectoryValue.key(RepositoryName.create(rule.getName())));
           } catch (LabelSyntaxException e) {
             String errorMessage =
                 String.format(

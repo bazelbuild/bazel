@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -248,9 +246,8 @@ final class AspectFunction implements SkyFunction {
       for (AspectKey aspectKey : orderedKeys) {
         AspectValue aspectValue = (AspectValue) aspectValues.get(aspectKey);
         if (aspectValue == null) {
-          BugReport.sendBugReport(
-              new IllegalStateException(
-                  "aspectValue " + aspectKey + " was missing, this should never happen"));
+          BugReport.logUnexpected(
+              "aspectValue for: '%s' was missing, this should never happen", aspectKey);
           return null;
         }
         topologicalAspectPathBuilder.add(aspectValue.getAspect());
@@ -310,7 +307,6 @@ final class AspectFunction implements SkyFunction {
                     : ToolchainCollection.builder()
                         .addDefaultContext(unloadedToolchainContext)
                         .build(),
-                shouldUseToolchainTransition(configuration, aspect.getDefinition()),
                 ruleClassProvider,
                 buildViewProvider.getSkyframeBuildView().getHostConfiguration());
       } catch (ConfiguredValueCreationException e) {
@@ -396,7 +392,7 @@ final class AspectFunction implements SkyFunction {
     }
   }
 
-  static SkyKey bzlLoadKeyForStarlarkAspect(StarlarkAspectClass starlarkAspectClass) {
+  static BzlLoadValue.Key bzlLoadKeyForStarlarkAspect(StarlarkAspectClass starlarkAspectClass) {
     Label extensionLabel = starlarkAspectClass.getExtensionLabel();
     return StarlarkBuiltinsValue.isBuiltinsRepo(extensionLabel.getRepository())
         ? BzlLoadValue.keyForBuiltins(extensionLabel)
@@ -415,7 +411,7 @@ final class AspectFunction implements SkyFunction {
     SkyKey basePackageKey =
         PackageValue.key(key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier());
     SkyKey configurationKey = key.getConfigurationKey();
-    SkyKey bzlLoadKey;
+    BzlLoadValue.Key bzlLoadKey;
 
     if (key.getAspectClass() instanceof NativeAspectClass) {
       NativeAspectClass nativeAspectClass = (NativeAspectClass) key.getAspectClass();
@@ -451,9 +447,8 @@ final class AspectFunction implements SkyFunction {
           bzlLoadvalue =
               (BzlLoadValue) initialValues.getOrThrow(bzlLoadKey, BzlLoadFailedException.class);
           if (bzlLoadvalue == null) {
-            BugReport.sendBugReport(
-                new IllegalStateException(
-                    "bzlLoadValue " + bzlLoadKey + " was missing, this should never happen"));
+            BugReport.logUnexpected(
+                "Unexpected exception with %s and AspectKey %s", bzlLoadKey, key);
             return null;
           }
         } catch (BzlLoadFailedException e) {
@@ -487,12 +482,8 @@ final class AspectFunction implements SkyFunction {
               initialValues.getOrThrow(
                   baseConfiguredTargetKey, ConfiguredValueCreationException.class);
       if (baseConfiguredTargetValue == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "BzlLoadFailedException should have been processed by ConfiguredTargetFunction for "
-                    + baseConfiguredTargetKey
-                    + " and "
-                    + key));
+        BugReport.logUnexpected(
+            "Unexpected exception with %s and AspectKey %s", baseConfiguredTargetKey, key);
         return null;
       }
     } catch (ConfiguredValueCreationException e) {
@@ -576,25 +567,6 @@ final class AspectFunction implements SkyFunction {
       return null;
     }
     return unloadedToolchainContext;
-  }
-
-  /**
-   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
-   * change flag and the aspect's toolchain transition readiness attribute.
-   */
-  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
-  private static boolean shouldUseToolchainTransition(
-      @Nullable BuildConfigurationValue configuration, AspectDefinition definition) {
-    // Check whether the global incompatible change flag is set.
-    if (configuration != null) {
-      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
-      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
-        return true;
-      }
-    }
-
-    // Check the aspect definition to see if it is ready.
-    return definition.useToolchainTransition();
   }
 
   /**

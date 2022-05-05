@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandleWithWorker;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -203,8 +202,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
         inputFiles =
             helpers.processInputFiles(
                 context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-                spawn,
-                context.getArtifactExpander(),
                 execRoot);
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);
@@ -231,6 +228,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setRunnerName(getName())
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
+            .setStartTime(startTime)
             .setWallTime(wallTime)
             .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
     if (exitCode != 0) {
@@ -243,9 +241,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                       .setSpawnExitCode(exitCode))
               .build());
     }
-    SpawnResult result = builder.build();
-    reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
-    return result;
+    return builder.build();
   }
 
   private WorkRequest createWorkRequest(
@@ -261,7 +257,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(spawn.getInputFiles(), context.getArtifactExpander());
+        ActionInputHelper.expandArtifacts(
+            spawn.getInputFiles(),
+            context.getArtifactExpander(),
+            /* keepEmptyTreeArtifacts= */ false);
 
     for (ActionInput input : inputs) {
       byte[] digestBytes = inputFileCache.getMetadata(input).getDigest();

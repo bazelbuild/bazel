@@ -15,12 +15,16 @@
 """cc_test Starlark implementation."""
 
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
+load(":common/paths.bzl", "paths")
 
 # TODO(b/198254254): We need to do a wrapper around cc_test like for
 # cc_binary, but for now it should work.
 load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
+platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing
 
 _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
@@ -28,24 +32,56 @@ _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
 # Update cc_test defaults:
 _cc_test_attrs.update(
     _is_test = attr.bool(default = True),
-    stamp = attr.int(default = 0),
-    linkstatic = attr.bool(default = False),
-    malloc = attr.label(
-        default = Label("@//tools/cpp:cc_test_malloc"),
-        allow_rules = ["cc_library"],
-        # TODO(b/198254254): Add aspects. in progress
-        aspects = [],
+    _apple_constraints = attr.label_list(
+        default = [
+            "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
+        ],
     ),
+    _windows_constraints = attr.label_list(
+        default = [
+            "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
+        ],
+    ),
+    # Starlark tests don't get `env_inherit` by default.
+    env_inherit = attr.string_list(),
+    stamp = attr.int(values = [-1, 0, 1], default = 0),
+    linkstatic = attr.bool(default = False),
 )
+_cc_test_attrs.update(semantics.get_test_malloc_attr())
+_cc_test_attrs.update(semantics.get_test_toolchain_attr())
+_cc_test_attrs.update(semantics.get_coverage_attrs())
 
 def _cc_test_impl(ctx):
     binary_info, cc_info, providers = cc_binary_impl(ctx, [])
-    providers.append(testing.TestEnvironment(ctx.attr.env))
+    test_env = {}
+    test_env.update(cc_helper.get_expanded_env(ctx, {}))
+
+    coverage_runfiles, coverage_env = semantics.get_coverage_env(ctx)
+
+    runfiles_list = [binary_info.runfiles]
+    if coverage_runfiles:
+        runfiles_list.append(coverage_runfiles)
+
+    runfiles = ctx.runfiles()
+    runfiles = runfiles.merge_all(runfiles_list)
+
+    test_env.update(coverage_env)
+    providers.append(testing.TestEnvironment(
+        environment = test_env,
+        inherited_environment = ctx.attr.env_inherit,
+    ))
     providers.append(DefaultInfo(
         files = binary_info.files,
-        runfiles = binary_info.runfiles,
+        runfiles = runfiles,
         executable = binary_info.executable,
     ))
+
+    if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
+        # When built for Apple platforms, require the execution to be on a Mac.
+        providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
     return _handle_legacy_return(ctx, cc_info, providers)
 
 def _handle_legacy_return(ctx, cc_info, providers):
@@ -59,39 +95,53 @@ def _handle_legacy_return(ctx, cc_info, providers):
         return providers
 
 def _impl(ctx):
-    cpp_config = ctx.fragments.cpp
-    cc_test_info = ctx.toolchains["@//tools/cpp:test_runner_toolchain_type"].cc_test_info
-
-    if not cpp_config.experimental_platform_cc_test() or cc_test_info.use_legacy_cc_test:
+    if semantics.should_use_legacy_cc_test(ctx):
         # This is the "legacy" cc_test flow
         return _cc_test_impl(ctx)
 
+    cc_test_info = ctx.attr._test_toolchain.cc_test_info
+
     binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+    processed_environment = cc_helper.get_expanded_env(ctx, {})
 
     test_providers = cc_test_info.get_runner.func(
         ctx,
         binary_info,
+        processed_environment = processed_environment,
         **cc_test_info.get_runner.args
     )
     providers.extend(test_providers)
     return _handle_legacy_return(ctx, cc_info, providers)
 
-cc_test = rule(
-    implementation = _impl,
-    attrs = _cc_test_attrs,
-    outputs = {
-        # TODO(b/198254254): Handle case for windows.
-        "stripped_binary": "%{name}.stripped",
-        "dwp_file": "%{name}.dwp",
-    },
-    fragments = ["google_cpp", "cpp"],
-    exec_groups = {
-        "cpp_link": exec_group(copy_from_rule = True),
-    },
-    toolchains = [
-        "@//tools/cpp:toolchain_type",
-        "@//tools/cpp:test_runner_toolchain_type",
-    ],
-    incompatible_use_toolchain_transition = True,
-    test = True,
-)
+def make_cc_test(with_linkstatic = False):
+    _cc_test_attrs.update(
+        _linkstatic_explicitly_set = attr.bool(default = with_linkstatic),
+    )
+    return rule(
+        name = "cc_test",
+        implementation = _impl,
+        attrs = _cc_test_attrs,
+        outputs = {
+            # TODO(b/198254254): Handle case for windows.
+            "stripped_binary": "%{name}.stripped",
+            "dwp_file": "%{name}.dwp",
+        },
+        fragments = ["google_cpp", "cpp"],
+        exec_groups = {
+            "cpp_link": exec_group(copy_from_rule = True),
+        },
+        toolchains = [
+            "@" + semantics.get_repo() + "//tools/cpp:toolchain_type",
+        ],
+        incompatible_use_toolchain_transition = True,
+        test = True,
+    )
+
+cc_test_explicit_linkstatic = make_cc_test(with_linkstatic = True)
+cc_test_default_linkstatic = make_cc_test(with_linkstatic = False)
+
+def cc_test_wrapper(**kwargs):
+    if "linkstatic" in kwargs:
+        cc_test_explicit_linkstatic(**kwargs)
+    else:
+        cc_test_default_linkstatic(**kwargs)

@@ -173,6 +173,7 @@ local_java_repository(
 ```
 
 Example configuration of remote JVM:
+
 ```python
 load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
 

@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,9 +28,11 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import com.google.devtools.build.skyframe.Version;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction.Environment} backed by a {@link SkyframeExecutor} that can be used to
@@ -71,7 +76,12 @@ public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionE
   @Override
   protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
-    throw new UnsupportedOperationException();
+    EvaluationResult<SkyValue> evaluationResult =
+        skyframeExecutor.evaluateSkyKeys(eventHandler, depKeys, true);
+    return stream(depKeys)
+        .map(evaluationResult::get)
+        .map(ValueOrUntypedException::ofValueUntyped)
+        .collect(toImmutableList());
   }
 
   @Override
@@ -92,5 +102,11 @@ public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionE
   @Override
   public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
     return stateSupplier.get();
+  }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    throw new UnsupportedOperationException();
   }
 }

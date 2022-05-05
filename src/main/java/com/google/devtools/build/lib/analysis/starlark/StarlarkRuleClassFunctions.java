@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -81,7 +80,6 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -102,6 +100,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -133,11 +132,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                 @Override
                 public Label load(String from) throws Exception {
                   try {
-                    return Label.parseAbsolute(
-                        from,
-                        /* repositoryMapping= */ ImmutableMap.of());
+                    return Label.parseAbsolute(from, /* repositoryMapping= */ ImmutableMap.of());
                   } catch (LabelSyntaxException e) {
-                    throw new Exception(from);
+                    throw new Exception(from, e);
                   }
                 }
               });
@@ -401,10 +398,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             : Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
         bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
 
-    builder.addRequiredToolchains(parseToolchains(toolchains, thread));
-    if (useToolchainTransition) {
-      builder.useToolchainTransition(ToolchainTransitionMode.ENABLED);
-    }
+    builder.addToolchainTypes(parseToolchainTypes(toolchains, thread));
 
     if (execGroups != Starlark.NONE) {
       Map<String, ExecGroup> execGroupDict =
@@ -479,7 +473,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     if (compileOneFiletype instanceof Sequence) {
-      if (!bzlModule.label().getRepository().getName().equals("@_builtins")) {
+      if (!bzlModule.label().getRepository().getNameWithAt().equals("@_builtins")) {
         throw Starlark.errorf(
             "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
       }
@@ -559,39 +553,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     return attributes.build();
   }
 
-  /**
-   * Parses a sequence of label strings with a repo mapping.
-   *
-   * @param inputs sequence of input strings
-   * @param thread repository mapping
-   * @param adjective describes the purpose of the label; used for errors
-   * @throws EvalException if the label can't be parsed
-   */
-  private static ImmutableList<Label> parseLabels(
-      Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
+  private static ImmutableList<Label> parseExecCompatibleWith(
+      Sequence<?> inputs, StarlarkThread thread) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
     LabelConverter converter = LabelConverter.forThread(thread);
-    for (String input : inputs) {
+    for (String input : Sequence.cast(inputs, String.class, "exec_compatible_with")) {
       try {
         Label label = converter.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
-        throw Starlark.errorf(
-            "Unable to parse %s label '%s': %s", adjective, input, e.getMessage());
+        throw Starlark.errorf("Unable to parse constraint label '%s': %s", input, e.getMessage());
       }
     }
     return parsedLabels.build();
-  }
-
-  private static ImmutableList<Label> parseToolchains(Sequence<?> inputs, StarlarkThread thread)
-      throws EvalException {
-    return parseLabels(Sequence.cast(inputs, String.class, "toolchains"), thread, "toolchain");
-  }
-
-  private static ImmutableList<Label> parseExecCompatibleWith(
-      Sequence<?> inputs, StarlarkThread thread) throws EvalException {
-    return parseLabels(
-        Sequence.cast(inputs, String.class, "exec_compatible_with"), thread, "constraint");
   }
 
   @Override
@@ -698,7 +672,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
     }
 
-    ImmutableList<Label> toolchainTypes = parseToolchains(toolchains, thread);
     return new StarlarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -712,10 +685,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
-        toolchainTypes.stream()
-            .map(tt -> ToolchainTypeRequirement.create(tt))
-            .collect(toImmutableSet()),
-        useToolchainTransition,
+        parseToolchainTypes(toolchains, thread),
         applyToGeneratingRules);
   }
 
@@ -918,7 +888,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       // TODO(b/121385274): remove when we stop allowlisting starlark transitions
       if (hasStarlarkDefinedTransition) {
-        if (!starlarkLabel.getRepository().getName().equals("@_builtins")) {
+        if (!starlarkLabel.getRepository().getNameWithAt().equals("@_builtins")) {
           if (!hasFunctionTransitionAllowlist) {
             errorf(
                 handler,
@@ -1049,13 +1019,62 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       return ExecGroup.copyFromDefault();
     }
 
-    ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes = parseToolchainTypes(toolchains, thread);
     ImmutableSet<Label> constraints =
         ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
     return ExecGroup.builder()
-        .requiredToolchains(toolchainTypes)
+        .toolchainTypes(toolchainTypes)
         .execCompatibleWith(constraints)
         .copyFrom(null)
         .build();
+  }
+
+  private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(
+      Sequence<?> rawToolchains, StarlarkThread thread) throws EvalException {
+    Map<Label, ToolchainTypeRequirement> toolchainTypes = new HashMap<>();
+    LabelConverter converter = LabelConverter.forThread(thread);
+
+    for (Object rawToolchain : rawToolchains) {
+      ToolchainTypeRequirement toolchainType = parseToolchainType(converter, rawToolchain);
+      Label typeLabel = toolchainType.toolchainType();
+      ToolchainTypeRequirement previous = toolchainTypes.get(typeLabel);
+      if (previous != null) {
+        // Keep the one with the strictest requirements.
+        toolchainType = ToolchainTypeRequirement.strictest(previous, toolchainType);
+      }
+      toolchainTypes.put(typeLabel, toolchainType);
+    }
+
+    return ImmutableSet.copyOf(toolchainTypes.values());
+  }
+
+  private static ToolchainTypeRequirement parseToolchainType(
+      LabelConverter converter, Object rawToolchain) throws EvalException {
+    // Handle actual ToolchainTypeRequirement objects.
+    if (rawToolchain instanceof ToolchainTypeRequirement) {
+      return (ToolchainTypeRequirement) rawToolchain;
+    }
+
+    // Handle Label-like objects.
+    Label toolchainLabel = null;
+    if (rawToolchain instanceof Label) {
+      toolchainLabel = (Label) rawToolchain;
+    } else if (rawToolchain instanceof String) {
+      try {
+        toolchainLabel = converter.convert((String) rawToolchain);
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf(
+            "Unable to parse toolchain_type label '%s': %s", rawToolchain, e.getMessage());
+      }
+    }
+
+    if (toolchainLabel != null) {
+      return ToolchainTypeRequirement.builder(toolchainLabel).mandatory(true).build();
+    }
+
+    // It's not a valid type.
+    throw Starlark.errorf(
+        "'toolchains' takes a toolchain_type, Label, or String, but instead got a %s",
+        rawToolchain.getClass().getSimpleName());
   }
 }
