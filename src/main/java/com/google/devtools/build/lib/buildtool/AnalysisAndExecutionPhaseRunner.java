@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -114,7 +115,9 @@ public final class AnalysisAndExecutionPhaseRunner {
             runAnalysisAndExecutionPhase(
                 env, request, loadingResult, buildOptions, request.getMultiCpus());
       }
-      // TODO(b/199053098) Report targets.
+      BuildResultListener buildResultListener = env.getBuildResultListener();
+      AnalysisPhaseRunner.reportTargets(
+          env, buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
 
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));

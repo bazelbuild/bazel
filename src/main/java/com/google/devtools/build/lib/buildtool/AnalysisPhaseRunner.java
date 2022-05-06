@@ -134,7 +134,7 @@ public final class AnalysisPhaseRunner {
         module.afterAnalysis(env, request, buildOptions, analysisResult);
       }
 
-      reportTargets(env, analysisResult);
+      reportTargets(env, analysisResult.getTargetsToBuild(), analysisResult.getTargetsToTest());
 
       for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
         BuildConfigurationValue config =
@@ -274,9 +274,10 @@ public final class AnalysisPhaseRunner {
     return analysisResult;
   }
 
-  private static void reportTargets(CommandEnvironment env, AnalysisResult analysisResult) {
-    Collection<ConfiguredTarget> targetsToBuild = analysisResult.getTargetsToBuild();
-    Collection<ConfiguredTarget> targetsToTest = analysisResult.getTargetsToTest();
+  static void reportTargets(
+      CommandEnvironment env,
+      Collection<ConfiguredTarget> targetsToBuild,
+      Collection<ConfiguredTarget> targetsToTest) {
     if (targetsToTest != null) {
       int testCount = targetsToTest.size();
       int targetCount = targetsToBuild.size() - testCount;
