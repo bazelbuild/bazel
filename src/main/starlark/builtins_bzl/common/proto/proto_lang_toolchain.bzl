@@ -62,13 +62,9 @@ proto_lang_toolchain_attrs = {
     "plugin": attr.label(
         executable = True,
         cfg = "exec",
-        allow_files = True,
     ),
-    "runtime": attr.label(
-        allow_files = True,
-    ),
+    "runtime": attr.label(),
     "blacklisted_protos": attr.label_list(
-        allow_files = True,
         providers = [ProtoInfo],
     ),
 }
@@ -81,7 +77,6 @@ proto_lang_toolchain_custom_protoc = rule(
             "proto_compiler": attr.label(
                 cfg = "exec",
                 executable = True,
-                allow_files = True,
             ),
         },
     ),
