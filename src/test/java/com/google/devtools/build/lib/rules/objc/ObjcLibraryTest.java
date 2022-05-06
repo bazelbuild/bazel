@@ -2062,7 +2062,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
 
     CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
-    assertThat(archiveAction.getMnemonic()).isEqualTo("CppLink");
+    assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
   protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
@@ -2332,11 +2332,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
-    ActionAnalysisMetadata linkAction =
+    ActionAnalysisMetadata archiveAction =
         libTarget.getActions().stream()
-            .filter((a) -> a.getMnemonic().equals("CppLink"))
+            .filter((a) -> a.getMnemonic().equals("CppArchive"))
             .collect(onlyElement());
-    assertThat(linkAction.getInputs().toList())
+    assertThat(archiveAction.getInputs().toList())
         .containsAtLeastElementsIn(toolchainProvider.getArFiles().toList());
 
     ActionAnalysisMetadata objcCompileAction =

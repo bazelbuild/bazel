@@ -715,8 +715,8 @@ tree_art_rule = rule(implementation = _tree_art_impl,
 
 def _actions_test_impl(target, ctx):
     action = target.actions[1]
-    if action.mnemonic != "CppLink":
-      fail("Expected the second action to be CppLink.")
+    if action.mnemonic != "CppArchive":
+      fail("Expected the second action to be CppArchive.")
     aspect_out = ctx.actions.declare_file('aspect_out')
     ctx.actions.run_shell(inputs = action.inputs,
                           outputs = [aspect_out],
@@ -849,13 +849,13 @@ def _actions_test_impl(target, ctx):
     for action in target.actions:
       if action.mnemonic == "CppCompile":
         compile_action = action
-      if action.mnemonic == "CppLink" and not archive_action:
+      if action.mnemonic == "CppArchive":
         archive_action = action
       if action.mnemonic == "CppLink":
         link_action = action
 
     if not compile_action or not archive_action or not link_action:
-      fail("Couln't find compile, archive, or link action")
+      fail("Couldn't find compile, archive, or link action.")
 
     cc_info = target[CcInfo]
     compile_action_outputs = compile_action.outputs.to_list()
@@ -1305,13 +1305,11 @@ def _actions_test_impl(target, ctx):
     for action in target.actions:
       if action.mnemonic == "CppCompile":
         compile_action = action
-      if action.mnemonic == "CppLink" and not archive_action:
+      if action.mnemonic == "CppArchive":
         archive_action = action
-      if action.mnemonic == "CppLink":
-        link_action = action
 
-    if not compile_action or not archive_action or not link_action:
-      fail("Couln't find compile, archive, or link action")
+    if not compile_action or not archive_action:
+      fail("Couldn't find compile or archive action.")
 
     compile_action_outputs = compile_action.outputs.to_list()
     compile_args = ctx.actions.declare_file("compile_args")
@@ -1359,33 +1357,11 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    link_args = ctx.actions.declare_file("link_args")
-    ctx.actions.run_shell(
-        outputs = [link_args],
-        command = "echo \$@ > " + link_args.path,
-        arguments = link_action.args,
-    )
-
-    link_out = ctx.actions.declare_file("link_out.so")
-    ctx.actions.run_shell(
-        inputs = [link_args],
-        shadowed_action = link_action,
-        mnemonic = "RecreatedCppLink",
-        outputs = [link_out],
-        command = "\$(cat %s | sed 's|%s|%s|g')" % (
-            link_args.path,
-            link_action.outputs.to_list()[0].path,
-            link_out.path,
-        ),
-    )
-
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
         archive_args,
         archive_out,
-        link_args,
-        link_out,
     ])]
 
 actions_test_aspect = aspect(implementation = _actions_test_impl)
