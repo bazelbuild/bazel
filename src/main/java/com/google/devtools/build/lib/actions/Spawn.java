@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.PathStripper.ActionStager;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -198,5 +199,9 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   default boolean stripOutputPaths() {
     return false;
+  }
+
+  default ActionStager getActionStager() {
+    return ActionStager.NOOP;
   }
 }
