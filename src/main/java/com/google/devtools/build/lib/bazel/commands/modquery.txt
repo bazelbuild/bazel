@@ -1,0 +1,36 @@
+
+Usage: %{product} %{command} [<option> ...] <query_type> [<args> ...]
+
+Queries the Bzlmod external dependency graph.
+
+<query_type> [<args> ...] can be one of:
+    - deps <module>:
+                      Prints the direct dependencies of the target module(s).
+    - transitiveDeps <module>:
+                      Prints all the (resolved) transitive dependencies of the
+                      target module(s).
+    - all_paths <module_from> <module_to>:
+                      Prints all paths in the dependency graph from
+                      <module_from> to <module_to>.
+    - path <module_from> <module_to>:
+                      Prints the shortest path found in the dependency graph
+                      from <module_from> to <module_to>.
+    - explain <module>:
+                      Prints all the places where the target module is (or was)
+                      requested as a direct dependency, along with the reason
+                      why the respective final version was selected.
+
+<module> arguments must be of type:
+     - root           The current (root) module you are inside of.
+     - <name>@<version>
+     - <name>@_       For specifying the empty version (for non-registry
+                      overridden modules).
+     - <name>         Can also be used only in the case where a single version
+                      is present. Exceptionally, <name> can be used for the
+                      'explain' query as a placeholder for all the present
+                      versions of the module <name>.
+
+NOTE: This command is still very experimental and the precise semantics
+will change in the near future.
+
+%{options}

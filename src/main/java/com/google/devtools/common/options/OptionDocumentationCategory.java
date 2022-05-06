@@ -115,4 +115,7 @@ public enum OptionDocumentationCategory {
 
   /** A category of options to configure Bazel's remote caching and execution capabilities. */
   REMOTE,
+
+  /** This option relates to modquery (external dependencies) output and semantics. */
+  MODQUERY
 }
