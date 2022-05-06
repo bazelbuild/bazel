@@ -1002,4 +1002,49 @@ TEST_F(OutputJarSimpleTest, HermeticJavaHome) {
       manifest);
 }
 
+// --add_exports and --add_opens options combines with --deploy_manifest_lines.
+TEST_F(OutputJarSimpleTest, AddExportsManifestLines) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--add_exports", "foo/com.export", "--add_opens",
+                "foo/com.open", "--deploy_manifest_lines",
+                "Add-Exports: bar/com.export", "Add-Opens: bar/com.open"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: bar/com.export foo/com.export\r\n"
+      "Add-Opens: bar/com.open foo/com.open\r\n"
+      "\r\n",
+      manifest);
+}
+
+// Deduplicate --add_exports
+TEST_F(OutputJarSimpleTest, AddExportsDuplicate) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--add_exports", "foo/export", "--add_exports", "foo/export"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: foo/export\r\n"
+      "\r\n",
+      manifest);
+}
+
+// Tokenize, sort, and deduplicate existing Add-Exports lines
+TEST_F(OutputJarSimpleTest, AddExportsTokenize) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--deploy_manifest_lines",
+                          "Add-Exports: foo/export bar/export foo/export"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: bar/export foo/export\r\n"
+      "\r\n",
+      manifest);
+}
+
 }  // namespace
