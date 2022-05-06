@@ -64,18 +64,6 @@ public class AnalysisFailureEvent implements BuildEvent {
     this.rootCauses = rootCauses;
   }
 
-  public AnalysisFailureEvent(
-      AspectKey failedAspect, BuildEventId configuration, NestedSet<Cause> rootCauses) {
-    this.failedAspect = failedAspect;
-    this.failedTarget = failedAspect.getBaseConfiguredTargetKey();
-    if (configuration != null) {
-      this.configuration = configuration;
-    } else {
-      this.configuration = NullConfiguration.INSTANCE.getEventId();
-    }
-    this.rootCauses = rootCauses;
-  }
-
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
