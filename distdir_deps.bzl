@@ -274,10 +274,10 @@ DIST_DEPS = {
         ],
     },
     "remote_coverage_tools": {
-        "archive": "coverage_output_generator-v2.5.zip",
-        "sha256": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
+        "archive": "coverage_output_generator-v2.6.zip",
+        "sha256": "7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af",
         "urls": [
-            "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
+            "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip",
         ],
         "used_in": [
             "additional_distfiles",
