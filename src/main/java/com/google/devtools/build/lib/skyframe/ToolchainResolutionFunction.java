@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -618,20 +617,14 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
 
     private static String getMessage(List<Label> missingToolchainTypes) {
-      if (missingToolchainTypes.size() == 1
-          && Iterables.getOnlyElement(missingToolchainTypes)
-              .toString()
-              .equals("@bazel_tools//tools/cpp:toolchain_type")) {
-        return "No matching toolchains found for types @bazel_tools//tools/cpp:toolchain_type. "
-            + "Maybe --incompatible_use_cc_configure_from_rules_cc has been flipped and there "
-            + "is no default C++ toolchain added in the WORKSPACE file? See "
-            + "https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
-            + "instructions.";
-      }
-
+      ImmutableList<String> labelStrings =
+          missingToolchainTypes.stream().map(Label::toString).collect(toImmutableList());
       return String.format(
-          "no matching toolchains found for types %s",
-          missingToolchainTypes.stream().map(Label::toString).collect(joining(", ")));
+          "No matching toolchains found for types %s."
+              + "\nTo debug, rerun with --toolchain_resolution_debug='%s'"
+              + "\nIf platforms or toolchains are a new concept for you, we'd encourage reading "
+              + "https://bazel.build/concepts/platforms-intro.",
+          String.join(", ", labelStrings), String.join("|", labelStrings));
     }
   }
 

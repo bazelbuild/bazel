@@ -189,7 +189,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains("no matching toolchains found for types //toolchain:test_toolchain");
+        .contains("No matching toolchains found for types //toolchain:test_toolchain");
   }
 
   @Test
