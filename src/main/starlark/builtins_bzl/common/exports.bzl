@@ -22,7 +22,7 @@ load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
-load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
+load("@_builtins//:common/proto/proto_lang_toolchain_wrapper.bzl", "proto_lang_toolchain")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
