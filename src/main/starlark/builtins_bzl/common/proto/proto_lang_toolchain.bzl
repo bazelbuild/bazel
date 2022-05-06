@@ -22,11 +22,7 @@ ProtoInfo = _builtins.toplevel.ProtoInfo
 proto_common = _builtins.toplevel.proto_common
 
 def _rule_impl(ctx):
-    provided_proto_sources = []
-    transitive_files = depset(transitive = [bp[ProtoInfo].transitive_sources for bp in ctx.attr.blacklisted_protos])
-    for file in transitive_files.to_list():
-        source_root = file.root.path
-        provided_proto_sources.append(proto_common.ProtoSource(file, file, source_root))
+    provided_proto_sources = depset(transitive = [bp[ProtoInfo].transitive_proto_sources() for bp in ctx.attr.blacklisted_protos]).to_list()
 
     flag = ctx.attr.command_line
     if flag.find("$(PLUGIN_OUT)") > -1:
