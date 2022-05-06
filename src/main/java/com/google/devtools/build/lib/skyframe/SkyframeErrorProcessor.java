@@ -84,6 +84,9 @@ public final class SkyframeErrorProcessor {
   /**
    * Indicates if there are errors with the various phases, and an exception to be thrown to halt
    * the build, in case of --nokeep_going.
+   *
+   * <p>The various attributes will be used later on to construct the FailureDetail in {@link
+   * com.google.devtools.build.lib.analysis.BuildView#createFailureDetail}.
    */
   @AutoValue
   abstract static class ErrorProcessingResult {
@@ -161,9 +164,7 @@ public final class SkyframeErrorProcessor {
           TestExecException {
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
-    // At this point, we consider the build to already have an analysis error, unless the error
-    // turns out to be with execution.
-    boolean hasAnalysisError = true;
+    boolean hasAnalysisError = false;
     ViewCreationFailedException noKeepGoingAnalysisExceptionAspect = null;
     DetailedExitCode representativeExecutionDetailedExitCode = null;
     Map<ActionAnalysisMetadata, ConflictException> actionConflicts = new HashMap<>();
@@ -179,23 +180,44 @@ public final class SkyframeErrorProcessor {
       Exception cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
-      // TODO(leba): Can the handling of aspect errors be simplified here?
+      // At this point, we consider the error to be analysis-related (that also includes loading
+      // errors and action conflicts), unless the error turns out to originate from the execution
+      // phase.
+      boolean isCurrentErrorAnalysisRelated = true;
+
       if (errorKey.argument() instanceof TopLevelAspectsKey) {
-        if (includeExecutionPhase && cause instanceof TopLevelConflictException) {
-          TopLevelConflictException tlce = (TopLevelConflictException) cause;
-          actionConflicts.putAll(tlce.getTransitiveActionConflicts());
-        }
-        // We skip Aspects in the keepGoing case; the failures should already have been reported to
-        // the event handler.
-        if (!keepGoing && noKeepGoingAnalysisExceptionAspect == null) {
-          TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
-          String errorMsg =
-              String.format(
-                  "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
-          if (!(cause instanceof TopLevelConflictException)) {
+        if (!keepGoing) {
+          if (isExecutionException(cause)) {
+            rethrow(cause, bugReporter, result);
+          } else if (!(cause instanceof TopLevelConflictException)
+              && noKeepGoingAnalysisExceptionAspect == null) {
+            TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
+            String errorMsg =
+                String.format(
+                    "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
+            // We don't throw the analysis error immediately to make sure that a target analysis
+            // error is preferred over the aspect one.
             noKeepGoingAnalysisExceptionAspect = createViewCreationFailedException(cause, errorMsg);
           }
         }
+
+        // In the keepGoing case for aspects, the failures should already have been reported to the
+        // event handler. We just update the various attributes required for the final
+        // ErrorProcessingResult here.
+        if (cause instanceof TopLevelConflictException) {
+          TopLevelConflictException tlce = (TopLevelConflictException) cause;
+          actionConflicts.putAll(tlce.getTransitiveActionConflicts());
+        } else if (isExecutionException(cause)) {
+          isCurrentErrorAnalysisRelated = false;
+          DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(cause);
+          if (detailedExitCode == null) {
+            detailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
+          }
+          representativeExecutionDetailedExitCode =
+              DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                  representativeExecutionDetailedExitCode, detailedExitCode);
+        }
+        hasAnalysisError = hasAnalysisError || isCurrentErrorAnalysisRelated;
         continue;
       }
 
@@ -267,14 +289,16 @@ public final class SkyframeErrorProcessor {
                 topLevelLabel, configId, ((NoSuchPackageException) cause).getDetailedExitCode());
         rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
       } else if (cause instanceof TopLevelConflictException) {
-        // The root causes for action conflicts will be determined and reported later in the error
-        // handling process.
         TopLevelConflictException tlce = (TopLevelConflictException) cause;
         actionConflicts.putAll(tlce.getTransitiveActionConflicts());
+        hasAnalysisError = true;
+        // The root causes for action conflicts will be determined and reported later in the error
+        // handling process. Simply skip the rest of the loop here.
         continue;
       } else if (cause instanceof TargetCompatibilityCheckException) {
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (isExecutionException(cause)) {
+        isCurrentErrorAnalysisRelated = false;
         DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(cause);
         if (detailedExitCode == null) {
           detailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
@@ -286,13 +310,14 @@ public final class SkyframeErrorProcessor {
             cause instanceof ActionExecutionException
                 ? ((ActionExecutionException) cause).getRootCauses()
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-        hasAnalysisError = false;
       } else {
         BugReport.logUnexpected(
             cause, "Unexpected cause encountered while evaluating: %s", errorKey);
       }
 
-      if (!inTest) {
+      hasAnalysisError = hasAnalysisError || isCurrentErrorAnalysisRelated;
+
+      if (!inTest && isCurrentErrorAnalysisRelated) {
         BuildConfigurationValue configuration =
             configurationLookupSupplier.get().get(label.getConfigurationKey());
         eventBus.post(
