@@ -280,7 +280,6 @@ DIST_DEPS = {
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -296,7 +295,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -312,7 +310,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_linux-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -328,7 +325,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_windows-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -344,7 +340,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_darwin-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
