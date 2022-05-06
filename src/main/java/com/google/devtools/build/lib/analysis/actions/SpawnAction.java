@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.PathStripper.ActionStager;
 import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -392,7 +393,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         /*additionalInputs=*/ ImmutableList.of(),
         /*filesetMappings=*/ ImmutableMap.of(),
         /*reportOutputs=*/ true,
-        stripOutputPaths);
+        stripOutputPaths,
+        ActionStager.NOOP);
   }
 
   /**
@@ -439,7 +441,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         expandedCommandLines.getParamFiles(),
         filesetMappings,
         reportOutputs,
-        stripOutputPaths);
+        stripOutputPaths,
+        ActionStager.NOOP);
   }
 
   Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
@@ -581,6 +584,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final boolean stripOutputPaths;
+    private final ActionStager actionStager;
 
     /**
      * Creates an ActionSpawn with the given environment variables.
@@ -597,7 +601,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
         boolean reportOutputs,
-        boolean stripOutputPaths)
+        boolean stripOutputPaths,
+        ActionStager actionStager)
         throws CommandLineExpansionException {
       super(
           arguments,
@@ -617,6 +622,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
       this.stripOutputPaths = stripOutputPaths;
+      this.actionStager = actionStager;
 
       // If the action environment is already resolved using the client environment, the given
       // environment variables are used as they are. Otherwise, they are used as clientEnv to
@@ -632,6 +638,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @Override
     public boolean stripOutputPaths() {
       return stripOutputPaths;
+    }
+
+    @Override
+    public ActionStager getActionStager() {
+      return actionStager;
     }
 
     @Override
