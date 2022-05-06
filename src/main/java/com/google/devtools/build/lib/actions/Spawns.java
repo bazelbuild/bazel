@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.PathStripper.ActionStager;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
@@ -57,14 +59,18 @@ public final class Spawns {
 
   /** Returns {@code true} if {@code spawn} may be executed locally. */
   public static boolean mayBeExecutedLocally(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_LOCAL);
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_LOCAL)
+        && spawn.getActionStager().isNoop();
   }
 
   /** Returns whether a Spawn can be executed in a sandbox environment. */
   public static boolean mayBeSandboxed(Spawn spawn) {
     return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LEGACY_NOSANDBOX)
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_SANDBOX)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL)
+        // Path mapping via an ActionStager requires a symlink-based sandbox, which is not available
+        // on Windows.
+        && !(OS.getCurrent() == OS.WINDOWS && !spawn.getActionStager().isNoop());
   }
 
   /** Returns whether a Spawn needs network access in order to run successfully. */

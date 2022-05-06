@@ -98,6 +98,10 @@ public final class PathStripper {
       return execPath;
     }
 
+    default boolean isNoop() {
+      return false;
+    }
+
     /**
      * Creates a new action stager for executor implementation logic to use.
      *
@@ -123,6 +127,11 @@ public final class PathStripper {
           @Override
           public PathFragment strip(PathFragment execPath) {
             return execPath;
+          }
+
+          @Override
+          public boolean isNoop() {
+            return true;
           }
         };
 
