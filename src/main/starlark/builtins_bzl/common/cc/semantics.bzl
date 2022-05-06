@@ -18,6 +18,12 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 
 cc_common = _builtins.toplevel.cc_common
 
+def _get_proto_attrs():
+    return {}
+
+def _get_proto_fragments():
+    return []
+
 def _get_proto_aspects():
     return []
 
@@ -194,4 +200,6 @@ semantics = struct(
     get_proto_cc_files = _get_proto_cc_files,
     get_cc_files_provider = _get_cc_files_provider,
     get_proto_aspects = _get_proto_aspects,
+    get_proto_fragments = _get_proto_fragments,
+    get_proto_attrs = _get_proto_attrs,
 )
