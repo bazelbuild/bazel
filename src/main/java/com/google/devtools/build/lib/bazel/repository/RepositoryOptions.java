@@ -266,8 +266,12 @@ public class RepositoryOptions extends OptionsBase {
         throw new OptionsParsingException(
             "Repository overrides must be of the form 'repository-name=path'", input);
       }
-      PathFragment path = PathFragment.create(pieces[1]);
-      if (!path.isAbsolute()) {
+      OptionsUtils.AbsolutePathFragmentConverter absolutePathFragmentConverter =
+              new OptionsUtils.AbsolutePathFragmentConverter();
+      PathFragment path;
+      try {
+        path = absolutePathFragmentConverter.convert(pieces[1]);
+      } catch (OptionsParsingException e) {
         throw new OptionsParsingException(
             "Repository override directory must be an absolute path", input);
       }
