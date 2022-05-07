@@ -90,6 +90,10 @@ public final class PathStripper {
     /** Same as {@link #getExecPathString(ActionInput)} but for a {@link PathFragment}. */
     PathFragment strip(PathFragment execPath);
 
+    default PathFragment unstrip(PathFragment execPath) {
+      return execPath;
+    }
+
     /**
      * Creates a new action stager for executor implementation logic to use.
      *
