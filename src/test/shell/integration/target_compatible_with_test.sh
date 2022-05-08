@@ -1082,4 +1082,52 @@ function test_aquery_incompatible_target() {
   expect_log "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
 }
 
+function test_aspect_skipping() {
+  cat >> target_skipping/BUILD <<EOF
+load(":defs.bzl", "rule_with_aspect")
+
+rule_with_aspect(
+    name = "inspected_foo3_target",
+    inspect = ":foo3",
+)
+EOF
+
+  cat > target_skipping/defs.bzl <<EOF
+def _inspecting_aspect_impl(target, ctx):
+    print("Running aspect on " + str(target))
+    return []
+
+_inspecting_aspect = aspect(
+    implementation = _inspecting_aspect_impl,
+)
+
+def _rule_with_aspect_impl(ctx):
+    pass
+
+rule_with_aspect = rule(
+    implementation = _rule_with_aspect_impl,
+    attrs = {
+        "inspect": attr.label(
+            aspects = [_inspecting_aspect],
+        ),
+    },
+)
+EOF
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping:all &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log "Running aspect on //target_skipping:foo3"
+
+  bazel build \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:all &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_not_log "Running aspect on //target_skipping:foo3"
+}
+
 run_suite "target_compatible_with tests"
