@@ -54,7 +54,7 @@ public interface TestingModuleApi extends StarlarkValue {
       name = "TestEnvironment",
       doc =
           "Creates a new test environment provider. Use this provider to specify extra"
-              + "environment variables to be made available during test execution.",
+              + " environment variables to be made available during test execution.",
       parameters = {
         @Param(
             name = "environment",
