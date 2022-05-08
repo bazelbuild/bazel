@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactPathMapper;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -211,6 +212,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
             stringValues::add,
             location,
             artifactExpander,
+            pathStripper,
             starlarkSemantics);
       } else {
         int count = expandedValues.size();
@@ -417,6 +419,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               fingerprint::addString,
               location,
               artifactExpander,
+              CommandAdjuster.NOOP,
               starlarkSemantics);
         } else {
           for (Object value : maybeExpandedValues) {
@@ -601,10 +604,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
     }
 
-    private int eval(List<Object> arguments, int argi, List<String> builder)
+    private int eval(List<Object> arguments, int argi, List<String> builder,
+        CommandAdjuster stripPaths)
         throws CommandLineExpansionException {
       Object object = arguments.get(argi++);
-      String stringValue = CommandLineItem.expandToCommandLine(object);
+      String stringValue = expandToCommandLine(object, stripPaths);
       if (hasFormat) {
         String formatStr = (String) arguments.get(argi++);
         stringValue = SingleStringArgFormatter.format(formatStr, stringValue);
@@ -750,7 +754,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, stripPaths);
 
       } else if (arg instanceof ScalarArg) {
-        argi = ((ScalarArg) arg).eval(arguments, argi, result);
+        argi = ((ScalarArg) arg).eval(arguments, argi, result, stripPaths);
       } else {
         result.add(expandToCommandLine(arg, stripPaths));
       }
@@ -814,9 +818,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
         if (arg instanceof VectorArg) {
           argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, stripPaths);
         } else if (arg instanceof ScalarArg) {
-          argi = ((ScalarArg) arg).eval(arguments, argi, result);
+          argi = ((ScalarArg) arg).eval(arguments, argi, result, stripPaths);
         } else {
-          result.add(CommandLineItem.expandToCommandLine(arg));
+          result.add(expandToCommandLine(arg, stripPaths));
         }
       }
 
@@ -906,10 +910,19 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Consumer<String> consumer,
       Location loc,
       @Nullable ArtifactExpander artifactExpander,
+      CommandAdjuster stripPaths,
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException, InterruptedException {
+    StarlarkSemantics mapEachSemantics;
+    if (stripPaths == CommandAdjuster.NOOP) {
+      mapEachSemantics = starlarkSemantics;
+    } else {
+      mapEachSemantics = starlarkSemantics.toBuilder()
+          .set(ArtifactPathMapper.STARLARK_SEMANTICS_KEY, stripPaths.toArtifactPathMapper())
+          .build();
+    }
     try (Mutability mu = Mutability.create("map_each")) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread = new StarlarkThread(mu, mapEachSemantics);
       // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
@@ -990,7 +1003,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         throws CommandLineExpansionException, InterruptedException {
       Preconditions.checkState(artifactExpander != null || !hasArtifactExpander);
       applyMapEach(
-          mapFn, maybeExpandDirectory(object), args, location, artifactExpander, starlarkSemantics);
+          mapFn, maybeExpandDirectory(object), args, location, artifactExpander,
+          CommandAdjuster.NOOP, starlarkSemantics);
     }
 
     private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
@@ -1087,7 +1101,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public String getDirname() {
+    public String getDirnameForStarlark(StarlarkSemantics starlarkSemantics) {
       PathFragment parent = getExecPath().getParentDirectory();
       return (parent == null) ? "/" : parent.getSafePathString();
     }
@@ -1108,7 +1122,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public FileRootApi getRoot() {
+    public FileRootApi getRootForStarlark(StarlarkSemantics starlarkSemantics) {
       return fileset.getRoot();
     }
 
@@ -1131,7 +1145,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public String getExecPathString() {
+    public String getExecPathStringForStarlark(StarlarkSemantics starlarkSemantics) {
       return getExecPath().getPathString();
     }
 
@@ -1143,7 +1157,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public String expandToCommandLine() {
-      return getExecPathString();
+      return getExecPath().getPathString();
     }
 
     @Override

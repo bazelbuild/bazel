@@ -244,7 +244,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
    * method instead of {@link Artifact#getPath} because that does not allow filesystem injection.
    *
    * <p>TODO(shahan): cleanup {@link Action}-scoped references to {@link Artifact#getPath} and
-   * {@link Artifact#getRoot}.
+   * {@link Artifact#getRootForStarlark}.
    */
   public Path getInputPath(ActionInput input) {
     return pathResolver.toPath(input);

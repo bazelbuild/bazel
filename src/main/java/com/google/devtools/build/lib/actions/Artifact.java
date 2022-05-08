@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -61,6 +62,8 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkSemantics.Key;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source file or a derived
@@ -564,10 +567,15 @@ public abstract class Artifact
    *
    * <p> The directory name is always a relative path to the execution directory.
    */
-  @Override
   public final String getDirname() {
     PathFragment parent = execPath.getParentDirectory();
     return (parent == null) ? "/" : parent.getSafePathString();
+  }
+
+  @Override
+  public final String getDirnameForStarlark(StarlarkSemantics starlarkSemantics)
+      throws EvalException {
+    return starlarkSemantics.get(ArtifactPathMapper.STARLARK_SEMANTICS_KEY).getMappedDirname(this);
   }
 
   /**
@@ -629,9 +637,14 @@ public abstract class Artifact
    * package-path entries (for source Artifacts), or one of the bin, genfiles or includes dirs (for
    * derived Artifacts). It will always be an ancestor of getPath().
    */
-  @Override
   public final ArtifactRoot getRoot() {
     return root;
+  }
+
+  @Override
+  public final FileRootApi getRootForStarlark(StarlarkSemantics starlarkSemantics)
+      throws EvalException {
+    return starlarkSemantics.get(ArtifactPathMapper.STARLARK_SEMANTICS_KEY).getMappedRoot(this);
   }
 
   @Override
@@ -690,9 +703,15 @@ public abstract class Artifact
   }
 
   /** Returns this.getExecPath().getPathString(). */
-  @Override
   public final String getExecPathString() {
     return execPath.getPathString();
+  }
+
+  @Override
+  public final String getExecPathStringForStarlark(StarlarkSemantics starlarkSemantics)
+      throws EvalException {
+    return starlarkSemantics.get(ArtifactPathMapper.STARLARK_SEMANTICS_KEY)
+        .getMappedExecPathString(this);
   }
 
   public final String getRootRelativePathString() {
@@ -1618,6 +1637,48 @@ public abstract class Artifact
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("artifact", artifact.toDebugString()).toString();
+    }
+  }
+
+  public static abstract class ArtifactPathMapper {
+    private static final ArtifactPathMapper NOOP = new ArtifactPathMapper() {
+      @Override
+      public String getMappedDirname(Artifact artifact) {
+        return artifact.getDirname();
+      }
+
+      @Override
+      public String getMappedExecPathString(Artifact artifact) {
+        return artifact.getExecPathString();
+      }
+
+      @Override
+      public FileRootApi getMappedRoot(Artifact artifact) {
+        return artifact.getRoot();
+      }
+    };
+
+    public static final StarlarkSemantics.Key<ArtifactPathMapper> STARLARK_SEMANTICS_KEY = new Key<>(
+        "path_mapper", NOOP);
+
+    public abstract String getMappedDirname(Artifact artifact) throws EvalException;
+
+    public abstract String getMappedExecPathString(Artifact artifact) throws EvalException;
+
+    public abstract FileRootApi getMappedRoot(Artifact artifact) throws EvalException;
+
+    /**
+     * Any two instances are considered equal as they should not cause the Starlark method lookup
+     * cache to be invalidated.
+     */
+    @Override
+    public boolean equals(Object obj) {
+      return obj != null && obj.getClass() == this.getClass();
+    }
+
+    @Override
+    public int hashCode() {
+      return 1;
     }
   }
 }
