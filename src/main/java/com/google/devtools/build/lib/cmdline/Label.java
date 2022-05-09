@@ -80,13 +80,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
-  // TODO(b/200024947): Make this public.
   /**
    * Parses a raw label string that contains the canonical form of a label. It must be of the form
    * {@code [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it must be a canonical
    * repo name, otherwise the label will be assumed to be in the main repo.
    */
-  static Label parseCanonical(String raw) throws LabelSyntaxException {
+  public static Label parseCanonical(String raw) throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
     parts.checkPkgIsAbsolute();
     RepositoryName repoName =
@@ -107,13 +106,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return repoMapping.get(RepositoryName.createUnvalidated(parts.repo));
   }
 
-  // TODO(b/200024947): Make this public.
   /**
    * Parses a raw label string within the context of a current repo. It must be of the form {@code
    * [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it will undergo {@code
    * repoMapping}, otherwise the label will be assumed to be in {@code currentRepo}.
    */
-  static Label parseWithRepoContext(
+  public static Label parseWithRepoContext(
       String raw, RepositoryName currentRepo, RepositoryMapping repoMapping)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
@@ -123,7 +121,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
-  // TODO(b/200024947): Make this public.
   /**
    * Parses a raw label string within the context of a current package. It can be of a
    * package-relative form ({@code :quux}). Otherwise, it must be of the form {@code
@@ -131,7 +128,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * repoMapping}, otherwise the label will be assumed to be in the repo of {@code
    * packageIdentifier}.
    */
-  static Label parseWithPackageContext(
+  public static Label parseWithPackageContext(
       String raw, PackageIdentifier packageIdentifier, RepositoryMapping repoMapping)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);

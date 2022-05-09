@@ -27,7 +27,6 @@ import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
-import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
@@ -54,7 +53,6 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -93,7 +91,6 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -121,23 +118,9 @@ import net.starlark.java.syntax.Location;
 
 /** A helper class to provide an easier API for Starlark rule definitions. */
 public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Artifact> {
-  // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
-  // rules to Starlark extensions. Using the same instance would require a large refactoring.
-  // If we don't want to support old built-in rules and Starlark simultaneously
-  // (except for transition phase) it's probably OK.
+  // A cache for base rule classes (especially tests).
   private static final LoadingCache<String, Label> labelCache =
-      Caffeine.newBuilder()
-          .build(
-              new CacheLoader<String, Label>() {
-                @Override
-                public Label load(String from) throws Exception {
-                  try {
-                    return Label.parseAbsolute(from, /* repositoryMapping= */ ImmutableMap.of());
-                  } catch (LabelSyntaxException e) {
-                    throw new Exception(from, e);
-                  }
-                }
-              });
+      Caffeine.newBuilder().build(Label::parseCanonical);
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
   /** Parent rule class for non-executable non-test Starlark rules. */
@@ -718,21 +701,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       this.definitionLocation = definitionLocation;
     }
 
-    /** This is for post-export reconstruction for serialization. */
-    private StarlarkRuleFunction(
-        RuleClass ruleClass, RuleClassType type, Location definitionLocation, Label starlarkLabel) {
-      Preconditions.checkNotNull(
-          ruleClass,
-          "RuleClass must be non-null as this StarlarkRuleFunction should have been exported.");
-      Preconditions.checkNotNull(
-          starlarkLabel,
-          "Label must be non-null as this StarlarkRuleFunction should have been exported.");
-      this.ruleClass = ruleClass;
-      this.type = type;
-      this.definitionLocation = definitionLocation;
-      this.starlarkLabel = starlarkLabel;
-    }
-
     @Override
     public String getName() {
       return ruleClass != null ? ruleClass.getName() : "unexported rule";
@@ -740,7 +708,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     @Override
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-        throws EvalException, InterruptedException, ConversionException {
+        throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
         throw new EvalException("unexpected positional arguments");
       }
@@ -965,42 +933,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   @Override
   public Label label(String labelString, StarlarkThread thread) throws EvalException {
-    // This function is surprisingly complex.
-    //
-    // - The logic to find the "current repo" is rather magical, using dynamic scope:
-    //   introspection on the call stack. This is an obstacle to removing GlobalFrame.
-    //
-    //   An alternative way to implement that would be to say that each BUILD/.bzl file
-    //   has its own function value called Label that is a closure over the current
-    //   file label. (That would mean that if you export the Label function from a.bzl
-    //   file and load it into b.bzl, it would behave differently from the Label function
-    //   predeclared in b.bzl, so the choice of implementation strategy is observable.
-    //   However this case is not important in practice.)
-    //   TODO(adonovan): use this alternative implementation.
-    //
-    // - Logically all we really need from this process is a RepoID, not a Label
-    //   or PackageID, but the Label class doesn't yet have the necessary primitives.
-    //   TODO(adonovan): augment the Label class.
-    //
-    // - When repository mapping does occur, the result is converted back to a string
-    //   "unambiguous" canonical form and then parsed again by the cache, with
-    //   no repo mapping.
-    //   TODO(adonovan): augment the Label class so that we can validate, remap,
-    //   and cache without needing four allocations (parseAbsoluteLabel,
-    //   getRelativeWithRemapping, getUnambiguousCanonicalForm, parseAbsoluteLabel
-    //   in labelCache)
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      LabelValidator.parseAbsoluteLabel(labelString);
-      labelString =
-          moduleContext
-              .label()
-              .getRelativeWithRemapping(labelString, moduleContext.repoMapping())
-              .getUnambiguousCanonicalForm();
-      return labelCache.get(labelString);
-    } catch (LabelValidator.BadLabelException | LabelSyntaxException e) {
-      throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
+      return Label.parseWithRepoContext(
+          labelString, moduleContext.label().getRepository(), moduleContext.repoMapping());
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("Illegal absolute label syntax: %s", e.getMessage());
     }
   }
 
