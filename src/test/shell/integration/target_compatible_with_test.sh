@@ -1104,6 +1104,32 @@ rule_with_aspect(
     name = "inspected_foo3_target",
     inspect = ":other_basic_target",
 )
+
+basic_rule(
+    name = "previously_inspected_basic_target",
+    deps = [
+        ":inspected_foo3_target",
+    ],
+)
+
+rule_with_aspect(
+    name = "twice_inspected_foo3_target",
+    inspect = ":previously_inspected_basic_target",
+)
+
+genrule(
+    name = "generated_file",
+    outs = ["generated_file.txt"],
+    cmd = "echo '' > \$(OUTS)",
+    target_compatible_with = [
+        ":foo1",
+    ],
+)
+
+rule_with_aspect(
+    name = "inspected_generated_file",
+    inspect = ":generated_file",
+)
 EOF
 
   cat > target_skipping/defs.bzl <<EOF
@@ -1131,7 +1157,13 @@ _inspecting_aspect = aspect(
 )
 
 def _rule_with_aspect_impl(ctx):
-    pass
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "")
+
+    return [
+        DefaultInfo(files=depset([out])),
+        BasicProvider(),
+    ]
 
 rule_with_aspect = rule(
     implementation = _rule_with_aspect_impl,
@@ -1146,22 +1178,46 @@ EOF
 
   local debug_message1="Running aspect on <target //target_skipping:basic_foo3_target>"
   local debug_message2="Running aspect on <target //target_skipping:other_basic_target>"
+  local debug_message3="Running aspect on <target //target_skipping:previously_inspected_basic_target>"
+  local debug_message4="Running aspect on <target //target_skipping:generated_file>"
 
   bazel build \
+    --show_result=10 \
     --host_platform=@//target_skipping:foo3_platform \
     --platforms=@//target_skipping:foo3_platform \
     //target_skipping:all &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
   expect_log "${debug_message1}"
   expect_log "${debug_message2}"
+  expect_log "${debug_message3}"
+  expect_not_log "${debug_message4}"
 
   bazel build \
+    --show_result=10 \
     --host_platform=@//target_skipping:foo1_bar1_platform \
     --platforms=@//target_skipping:foo1_bar1_platform \
     //target_skipping:all &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
   expect_not_log "${debug_message1}"
   expect_not_log "${debug_message2}"
+  expect_not_log "${debug_message3}"
+  expect_log "${debug_message4}"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:twice_inspected_foo3_target &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR: Target //target_skipping:twice_inspected_foo3_target is incompatible and cannot be built, but was explicitly requested.'
+  expect_log '^Dependency chain:$'
+  expect_log '^    //target_skipping:twice_inspected_foo3_target$'
+  expect_log '^    //target_skipping:previously_inspected_basic_target$'
+  expect_log '^    //target_skipping:inspected_foo3_target$'
+  expect_log '^    //target_skipping:other_basic_target$'
+
+  expect_log "    //target_skipping:basic_foo3_target   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3:"
+  expect_log 'FAILED: Build did NOT complete successfully'
 }
 
 run_suite "target_compatible_with tests"
