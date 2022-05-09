@@ -293,7 +293,6 @@ def _declare_generated_files(
 proto_common = struct(
     create_proto_compile_action = _create_proto_compile_action,
     incompatible_py_uses_bindir = True,
-    incompatible_cc_uses_bindir = True,
 )
 
 proto_common_do_not_use = struct(
