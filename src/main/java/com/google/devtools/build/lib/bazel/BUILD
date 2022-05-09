@@ -138,7 +138,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/actions",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/includescanning",

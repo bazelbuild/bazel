@@ -18,10 +18,8 @@ import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -58,8 +55,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   // Mapping of the relative paths of the incrementally updated managed directories
   // to the managing external repositories
   private final TreeMap<PathFragment, RepositoryName> managedDirectoriesMap;
-  // Directories to be excluded from symlinking to the execroot.
-  private ImmutableSortedSet<String> doNotSymlinkInExecrootPaths;
 
   public WorkspaceGlobals(boolean allowOverride, RuleFactory ruleFactory) {
     this.allowOverride = allowOverride;
@@ -108,38 +103,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
         RepositoryName.MAIN, RepositoryName.createUnvalidated(name), RepositoryName.MAIN);
     parseManagedDirectories(
         Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
-  }
-
-  @Override
-  public void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
-      throws EvalException {
-    List<String> pathsList = Sequence.cast(paths, String.class, "paths");
-    Set<String> set = Sets.newHashSet();
-    for (String path : pathsList) {
-      PathFragment pathFragment = PathFragment.create(path);
-      if (pathFragment.isEmpty()) {
-        throw Starlark.errorf("Empty path can not be passed to toplevel_output_directories.");
-      }
-      if (pathFragment.containsUplevelReferences() || pathFragment.isMultiSegment()) {
-        throw Starlark.errorf(
-            "toplevel_output_directories can only accept top level directories under"
-                + " workspace, \"%s\" can not be specified as an attribute.",
-            path);
-      }
-      if (pathFragment.isAbsolute()) {
-        throw Starlark.errorf(
-            "toplevel_output_directories can only accept top level directories under"
-                + " workspace, absolute path \"%s\" can not be specified as an attribute.",
-            path);
-      }
-      if (!set.add(pathFragment.getBaseName())) {
-        throw Starlark.errorf(
-            "toplevel_output_directories should not contain duplicate values: \"%s\" is"
-                + " specified more then once.",
-            path);
-      }
-    }
-    doNotSymlinkInExecrootPaths = ImmutableSortedSet.copyOf(set);
   }
 
   private void parseManagedDirectories(
@@ -218,10 +181,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   public Map<PathFragment, RepositoryName> getManagedDirectories() {
     return managedDirectoriesMap;
-  }
-
-  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
-    return doNotSymlinkInExecrootPaths;
   }
 
   private static RepositoryName getRepositoryName(@Nullable Label label) {

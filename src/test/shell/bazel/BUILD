@@ -777,14 +777,6 @@ sh_test(
 )
 
 sh_test(
-    name = "ninja_build_test",
-    size = "large",
-    srcs = ["ninja_build_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "tags_propagation_starlark_test",
     size = "large",
     srcs = ["tags_propagation_starlark_test.sh"],

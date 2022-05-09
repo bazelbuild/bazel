@@ -608,8 +608,7 @@ public class BuildView {
           exclusiveTests,
           topLevelOptions,
           loadingResult.getWorkspaceName(),
-          topLevelTargetsWithConfigs.getTargetsAndConfigs(),
-          loadingResult.getNotSymlinkedInExecrootDirectories());
+          topLevelTargetsWithConfigs.getTargetsAndConfigs());
     }
 
 
@@ -653,8 +652,7 @@ public class BuildView {
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
-        topLevelTargetsWithConfigs.getTargetsAndConfigs(),
-        loadingResult.getNotSymlinkedInExecrootDirectories());
+        topLevelTargetsWithConfigs.getTargetsAndConfigs());
   }
 
   /**

@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
@@ -153,11 +152,6 @@ public final class AnalysisTestUtil {
     @Override
     public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getSymlinkArtifact(rootRelativePath, root);
-    }
-
-    @Override
-    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
-      return original.getSourceArtifactForNinjaBuild(execPath, root);
     }
 
     @Override
@@ -377,11 +371,6 @@ public final class AnalysisTestUtil {
 
     @Override
     public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
       return null;
     }
 

@@ -168,15 +168,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalGoogleLegacyApi;
 
   @Option(
-      name = "experimental_ninja_actions",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If set to true, enables Ninja execution functionality.")
-  public boolean experimentalNinjaActions;
-
-  @Option(
       name = "experimental_platforms_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -567,7 +558,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
-            .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
@@ -637,7 +627,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
       "+incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
-  public static final String EXPERIMENTAL_NINJA_ACTIONS = "-experimental_ninja_actions";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
   public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
