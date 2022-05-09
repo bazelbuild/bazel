@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -111,12 +110,6 @@ public final class ConfiguredAspect implements ProviderCollection {
     return new ConfiguredAspect(
         ImmutableList.of(),
         new TransitiveInfoProviderMapBuilder().add().build());
-  }
-
-  public static ConfiguredAspect forIncompatibleTarget(IncompatiblePlatformProvider provider) {
-    return new ConfiguredAspect(
-        ImmutableList.of(),
-        new TransitiveInfoProviderMapBuilder().put(provider).build());
   }
 
   public static Builder builder(RuleContext ruleContext) {
