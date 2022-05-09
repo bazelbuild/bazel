@@ -1209,6 +1209,7 @@ EOF
     --platforms=@//target_skipping:foo1_bar1_platform \
     //target_skipping:twice_inspected_foo3_target &> "${TEST_log}" \
     && fail "Bazel passed unexpectedly."
+  # TODO(#15427): Should use expect_log_once here when the issue is fixed.
   expect_log 'ERROR: Target //target_skipping:twice_inspected_foo3_target is incompatible and cannot be built, but was explicitly requested.'
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:twice_inspected_foo3_target$'
