@@ -280,7 +280,10 @@ public interface JavaSemantics {
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
       Artifact sharedArchive,
-      boolean multiReleaseDeployJars);
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs);
 
   /**
    * Creates the action that writes the Java executable stub script.

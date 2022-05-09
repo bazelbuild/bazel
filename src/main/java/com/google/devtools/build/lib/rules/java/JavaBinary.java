@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
@@ -385,6 +386,22 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         getDeployManifestLines(ruleContext, originalMainClass);
 
     Artifact jsa = createSharedArchive(ruleContext, javaArtifacts, attributes);
+
+    if (ruleContext.isAttrDefined("hermetic", BOOLEAN)
+        && ruleContext.attributes().get("hermetic", BOOLEAN)) {
+      if (!createExecutable) {
+        ruleContext.ruleError("hermetic specified but create_executable is false");
+      }
+      JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
+      if (javaRuntime.libModules() == null) {
+        ruleContext.attributeError(
+            "hermetic", "hermetic specified but java_runtime.lib_modules is absent");
+      }
+      deployArchiveBuilder
+          .setJavaHome(javaRuntime.javaHomePathFragment())
+          .setLibModules(javaRuntime.libModules())
+          .setHermeticInputs(javaRuntime.hermeticInputs());
+    }
 
     deployArchiveBuilder
         .setOutputJar(deployJar)

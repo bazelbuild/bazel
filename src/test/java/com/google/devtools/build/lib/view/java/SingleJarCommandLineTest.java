@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -55,7 +57,10 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 null,
                 OneVersionEnforcementLevel.OFF,
                 null,
-                /* multiReleaseDeployJars= */ false)
+                /* multiReleaseDeployJars= */ false,
+                /* javaHome= */ null,
+                /* libModules= */ null,
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
 
     assertThat(command.arguments()).doesNotContain("--exclude_build_data");
@@ -79,7 +84,10 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 null,
                 OneVersionEnforcementLevel.OFF,
                 null,
-                /* multiReleaseDeployJars= */ false)
+                /* multiReleaseDeployJars= */ false,
+                /* javaHome= */ null,
+                /* libModules= */ null,
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
 
     assertThat(command.arguments()).contains("--exclude_build_data");
@@ -103,7 +111,10 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 dummy,
                 OneVersionEnforcementLevel.OFF,
                 null,
-                /* multiReleaseDeployJars= */ false)
+                /* multiReleaseDeployJars= */ false,
+                /* javaHome= */ null,
+                /* libModules= */ null,
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments()).contains("--java_launcher");
   }
@@ -126,7 +137,10 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 dummy,
                 OneVersionEnforcementLevel.OFF,
                 null,
-                /* multiReleaseDeployJars= */ false)
+                /* multiReleaseDeployJars= */ false,
+                /* javaHome= */ null,
+                /* libModules= */ null,
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments()).contains("--compression");
   }
@@ -149,7 +163,10 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 dummy,
                 OneVersionEnforcementLevel.OFF,
                 null,
-                /* multiReleaseDeployJars= */ false)
+                /* multiReleaseDeployJars= */ false,
+                /* javaHome= */ null,
+                /* libModules= */ null,
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments()).doesNotContain("--compression");
   }
@@ -176,7 +193,10 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 dummy,
                 OneVersionEnforcementLevel.WARNING,
                 dummyOneVersion,
-                /* multiReleaseDeployJars= */ false)
+                /* multiReleaseDeployJars= */ false,
+                /* javaHome= */ null,
+                /* libModules= */ null,
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments())
         .containsAtLeast("--enforce_one_version", "--succeed_on_found_violations");
