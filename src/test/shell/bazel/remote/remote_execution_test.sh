@@ -3090,6 +3090,85 @@ function test_empty_tree_artifact_as_inputs_remote_cache() {
   expect_log "remote cache hit"
 }
 
+function generate_tree_artifact_output() {
+  touch WORKSPACE
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_dir = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_dir],
+        command = "cd %s && pwd" % empty_dir.path,
+    )
+    non_empty_dir = ctx.actions.declare_directory("%s/non_empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [non_empty_dir],
+        command = "cd %s && pwd && touch out" % non_empty_dir.path,
+    )
+    return [DefaultInfo(files = depset([empty_dir, non_empty_dir]))]
+
+r = rule(implementation = _r)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+EOF
+}
+
+function test_create_tree_artifact_outputs() {
+  # Test that if a tree artifact is declared as an input, then the corresponding
+  # empty directory is created before the action executes remotely.
+  generate_tree_artifact_output
+
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_merkle_tree_cache \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_sibling_repository_layout \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+}
+
+function test_create_tree_artifact_outputs_remote_cache() {
+  # Test that implicitly created empty directories corresponding to empty tree
+  # artifacts outputs are correctly cached in the remote cache.
+  generate_tree_artifact_output
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  expect_log "2 remote cache hit"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+}
+
 # Runs coverage with `cc_test` and RE then checks the coverage file is returned.
 # Older versions of gcov are not supported with bazel coverage and so will be skipped.
 # See the above `test_java_rbe_coverage_produces_report` for more information.
