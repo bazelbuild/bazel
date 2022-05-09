@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -185,6 +186,21 @@ final class AspectFunction implements SkyFunction {
     BuildConfigurationValue configuration = state.initialValues.configuration;
     ConfiguredTarget associatedTarget = state.initialValues.associatedTarget;
     Target target = state.initialValues.target;
+
+    if (associatedTarget.get(IncompatiblePlatformProvider.PROVIDER) != null) {
+      System.out.println(">>> --- incompatible: " + associatedTarget.toString());
+      return new AspectValue(
+          key,
+          aspect,
+          target.getLocation(),
+          ConfiguredAspect.forNonapplicableTarget(),
+          //ConfiguredAspect.forIncompatibleTarget(
+          //  IncompatiblePlatformProvider.incompatibleDueToTargets(
+          //    null, ImmutableList.of(associatedTarget))),
+          state.transitivePackagesForPackageRootResolution.build());
+    } else {
+      System.out.println(">>> +++ compatible: " + associatedTarget.toString());
+    }
 
     if (AliasProvider.isAlias(associatedTarget)) {
       return createAliasAspect(

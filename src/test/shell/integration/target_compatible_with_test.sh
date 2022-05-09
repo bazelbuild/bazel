@@ -1084,21 +1084,50 @@ function test_aquery_incompatible_target() {
 
 function test_aspect_skipping() {
   cat >> target_skipping/BUILD <<EOF
-load(":defs.bzl", "rule_with_aspect")
+load(":defs.bzl", "basic_rule", "rule_with_aspect")
+
+basic_rule(
+    name = "basic_foo3_target",
+    target_compatible_with = [
+        ":foo3",
+    ],
+)
+
+basic_rule(
+    name = "other_basic_target",
+    deps = [
+        ":basic_foo3_target",
+    ],
+)
 
 rule_with_aspect(
     name = "inspected_foo3_target",
-    inspect = ":foo3",
+    inspect = ":other_basic_target",
 )
 EOF
 
   cat > target_skipping/defs.bzl <<EOF
+BasicProvider = provider()
+
+def _basic_rule_impl(ctx):
+    return [DefaultInfo(), BasicProvider()]
+
+basic_rule = rule(
+    implementation = _basic_rule_impl,
+    attrs = {
+        "deps": attr.label_list(
+            providers = [BasicProvider],
+        ),
+    },
+)
+
 def _inspecting_aspect_impl(target, ctx):
     print("Running aspect on " + str(target))
     return []
 
 _inspecting_aspect = aspect(
     implementation = _inspecting_aspect_impl,
+    attr_aspects = ["deps"],
 )
 
 def _rule_with_aspect_impl(ctx):
@@ -1115,19 +1144,24 @@ rule_with_aspect = rule(
 EOF
   cd target_skipping || fail "couldn't cd into workspace"
 
+  local debug_message1="Running aspect on <target //target_skipping:basic_foo3_target>"
+  local debug_message2="Running aspect on <target //target_skipping:other_basic_target>"
+
   bazel build \
     --host_platform=@//target_skipping:foo3_platform \
     --platforms=@//target_skipping:foo3_platform \
     //target_skipping:all &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
-  expect_log "Running aspect on //target_skipping:foo3"
+  expect_log "${debug_message1}"
+  expect_log "${debug_message2}"
 
   bazel build \
     --host_platform=@//target_skipping:foo1_bar1_platform \
     --platforms=@//target_skipping:foo1_bar1_platform \
     //target_skipping:all &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
-  expect_not_log "Running aspect on //target_skipping:foo3"
+  expect_not_log "${debug_message1}"
+  expect_not_log "${debug_message2}"
 }
 
 run_suite "target_compatible_with tests"
