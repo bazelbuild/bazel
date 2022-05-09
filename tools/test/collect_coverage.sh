@@ -182,8 +182,11 @@ fi
 # TODO(bazel-team): cd should be avoided.
 cd $ROOT
 # Call the C++ code coverage collection script.
-if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
-    eval "${CC_CODE_COVERAGE_SCRIPT}"
+if [[ -n "$GENERATE_LLVM_LCOV" && "$CC_CODE_COVERAGE_SCRIPT" ]]; then
+    if ! eval "${CC_CODE_COVERAGE_SCRIPT}" && test -z "${IGNORE_COVERAGE_COLLECTION_FAILURES:-}"; then
+      echo "error: coverage collection script failed" >&2
+      exit 1
+    fi
 fi
 
 if [[ -z "$LCOV_MERGER" ]]; then
