@@ -369,7 +369,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   public String getUnambiguousCanonicalForm() {
-    return packageIdentifier.getRepository()
+    return packageIdentifier.getRepository().getNameWithAt()
         + "//"
         + packageIdentifier.getPackageFragment()
         + ":"

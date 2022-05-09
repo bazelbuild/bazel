@@ -1936,7 +1936,7 @@ public abstract class CcModule
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    return label.getPackageIdentifier().getRepository().toString().equals("@_builtins");
+    return label.getPackageIdentifier().getRepository().getName().equals("_builtins");
   }
 
   protected Language parseLanguage(String string) throws EvalException {

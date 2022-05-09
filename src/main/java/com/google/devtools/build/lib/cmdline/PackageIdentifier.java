@@ -169,8 +169,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
    */
   // TODO(bazel-team): Maybe rename to "getDefaultForm"?
   public String getCanonicalForm() {
-    String repository = getRepository().getCanonicalForm();
-    return repository + "//" + getPackageFragment();
+    return repository.getCanonicalForm() + "//" + getPackageFragment();
   }
 
   /**
@@ -183,9 +182,10 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   // that disparity?
   @Override
   public String toString() {
-    // Avoid creating a new String object in the common case of the main repository (PathFragment
-    // stores its toString).
-    return repository.isMain() ? pkgName.toString() : (repository + "//" + pkgName);
+    if (repository.isMain()) {
+      return getPackageFragment().getPathString();
+    }
+    return getCanonicalForm();
   }
 
   @Override
@@ -218,7 +218,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
       return pkgName.compareTo(that.pkgName);
     }
     return ComparisonChain.start()
-        .compare(repository.toString(), that.repository.toString())
+        .compare(repository.getName(), that.repository.getName())
         .compare(pkgName, that.pkgName)
         .result();
   }

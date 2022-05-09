@@ -36,15 +36,15 @@ public class RepositoryNameTest {
 
   @Test
   public void testValidateRepositoryName() throws Exception {
-    assertThat(RepositoryName.create("foo").toString()).isEqualTo("@foo");
-    assertThat(RepositoryName.create("").toString()).isEqualTo("@");
+    assertThat(RepositoryName.create("foo").getNameWithAt()).isEqualTo("@foo");
+    assertThat(RepositoryName.create("").getNameWithAt()).isEqualTo("@");
     assertThat(RepositoryName.create("")).isSameInstanceAs(RepositoryName.MAIN);
-    assertThat(RepositoryName.create("foo_bar").toString()).isEqualTo("@foo_bar");
-    assertThat(RepositoryName.create("foo-bar").toString()).isEqualTo("@foo-bar");
-    assertThat(RepositoryName.create("foo.bar").toString()).isEqualTo("@foo.bar");
-    assertThat(RepositoryName.create("..foo").toString()).isEqualTo("@..foo");
-    assertThat(RepositoryName.create("foo..").toString()).isEqualTo("@foo..");
-    assertThat(RepositoryName.create(".foo").toString()).isEqualTo("@.foo");
+    assertThat(RepositoryName.create("foo_bar").getNameWithAt()).isEqualTo("@foo_bar");
+    assertThat(RepositoryName.create("foo-bar").getNameWithAt()).isEqualTo("@foo-bar");
+    assertThat(RepositoryName.create("foo.bar").getNameWithAt()).isEqualTo("@foo.bar");
+    assertThat(RepositoryName.create("..foo").getNameWithAt()).isEqualTo("@..foo");
+    assertThat(RepositoryName.create("foo..").getNameWithAt()).isEqualTo("@foo..");
+    assertThat(RepositoryName.create(".foo").getNameWithAt()).isEqualTo("@.foo");
 
     assertNotValid(".", "repo names are not allowed to be '@.'");
     assertNotValid("..", "repo names are not allowed to be '@..'");
@@ -58,13 +58,10 @@ public class RepositoryNameTest {
     assertThat(RepositoryName.create("foo").getRunfilesPath())
         .isEqualTo(PathFragment.create("../foo"));
     assertThat(RepositoryName.create("").getRunfilesPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
-    assertThat(RepositoryName.create("").getRunfilesPath())
-        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
   @Test
   public void testGetDefaultCanonicalForm() throws Exception {
-    assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
     assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
     assertThat(RepositoryName.create("foo").getCanonicalForm()).isEqualTo("@foo");
   }

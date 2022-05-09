@@ -374,8 +374,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (!repoRoot.exists()) {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
-          new IOException("to fix, run\n\tbazel fetch //...\nExternal repository " + repositoryName
-              + " not found and fetching repositories is disabled."),
+          new IOException(
+              "to fix, run\n\tbazel fetch //...\nExternal repository "
+                  + repositoryName.getNameWithAt()
+                  + " not found and fetching repositories is disabled."),
           Transience.TRANSIENT);
     }
 
@@ -677,9 +679,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     final String message;
 
     RepositoryFetching(String name, boolean finished) {
-      this.id = name;
-      this.finished = finished;
-      this.message = finished ? "finished." : "fetching";
+      this(name, finished, finished ? "finished." : "fetching");
     }
 
     RepositoryFetching(String name, boolean finished, String message) {
