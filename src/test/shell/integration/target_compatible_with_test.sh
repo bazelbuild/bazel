@@ -1082,6 +1082,7 @@ function test_aquery_incompatible_target() {
   expect_log "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
 }
 
+# Use aspects to interact with incompatible targets and validate the behaviour.
 function test_aspect_skipping() {
   cat >> target_skipping/BUILD <<EOF
 load(":defs.bzl", "basic_rule", "rule_with_aspect")
@@ -1181,6 +1182,7 @@ EOF
   local debug_message3="Running aspect on <target //target_skipping:previously_inspected_basic_target>"
   local debug_message4="Running aspect on <target //target_skipping:generated_file>"
 
+  # Validate that aspects run against compatible targets.
   bazel build \
     --show_result=10 \
     --host_platform=@//target_skipping:foo3_platform \
@@ -1192,6 +1194,8 @@ EOF
   expect_log "${debug_message3}"
   expect_not_log "${debug_message4}"
 
+  # Invert the compatibility and validate that aspects run on the other targets
+  # now.
   bazel build \
     --show_result=10 \
     --host_platform=@//target_skipping:foo1_bar1_platform \
@@ -1203,6 +1207,8 @@ EOF
   expect_not_log "${debug_message3}"
   expect_log "${debug_message4}"
 
+  # Validate that explicitly trying to build a target with an aspect against an
+  # incompatible target produces the normal error message.
   bazel build \
     --show_result=10 \
     --host_platform=@//target_skipping:foo1_bar1_platform \
@@ -1219,6 +1225,10 @@ EOF
 
   expect_log "    //target_skipping:basic_foo3_target   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3:"
   expect_log 'FAILED: Build did NOT complete successfully'
+  expect_not_log "${debug_message1}"
+  expect_not_log "${debug_message2}"
+  expect_not_log "${debug_message3}"
+  expect_not_log "${debug_message4}"
 }
 
 run_suite "target_compatible_with tests"
