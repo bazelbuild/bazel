@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -385,6 +386,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         subprocessBuilder.setArgv(args);
 
         long startTime = System.currentTimeMillis();
+        spawnResultBuilder.setStartTime(Instant.now());
+        Stopwatch executionStopwatch = Stopwatch.createStarted();
         TerminationStatus terminationStatus;
         try (SilentCloseable c =
             Profiler.instance()
