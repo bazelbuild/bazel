@@ -408,12 +408,11 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           ccToolchainType);
     }
 
-    private ImmutableSet<Artifact> getOutputFiles(Iterable<String> suffixes) {
+    private ImmutableSet<Artifact> getOutputFiles(Iterable<String> suffixes)
+        throws RuleErrorException, InterruptedException {
       ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
       for (String suffix : suffixes) {
-        result.addAll(
-            ProtoCommon.getGeneratedOutputs(
-                ruleContext, protoInfo.getDirectProtoSources(), suffix));
+        result.addAll(ProtoCommon.declareGeneratedFiles(ruleContext, protoTarget, suffix));
       }
       return result.build();
     }

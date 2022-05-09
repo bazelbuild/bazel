@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -78,31 +76,6 @@ public class ProtoCommon {
 
   // =================================================================
   // Protocol compiler invocation stuff.
-
-  /**
-   * Each language-specific initialization method will call this to construct Artifacts representing
-   * its protocol compiler outputs.
-   *
-   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
-   *     ".pb.cc".
-   */
-  public static ImmutableList<Artifact> getGeneratedOutputs(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources, String extension) {
-    ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
-    ArtifactRoot genfiles = ruleContext.getGenfilesDirectory();
-    for (Artifact src : protoSources) {
-      PathFragment srcPath =
-          src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
-
-      // Note that two proto_library rules can have the same source file, so this is actually a
-      // shared action. NB: This can probably result in action conflicts if the proto_library rules
-      // are not the same.
-      outputsBuilder.add(
-          ruleContext.getShareableArtifact(
-              FileSystemUtils.replaceExtension(srcPath, extension), genfiles));
-    }
-    return outputsBuilder.build();
-  }
 
   /**
    * Decides whether this proto_library should check for strict proto deps.
