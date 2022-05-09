@@ -33,11 +33,14 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -48,11 +51,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
+  private final TempPathGenerator tempPathGenerator;
 
   protected final Path execRoot;
 
-  protected AbstractActionInputPrefetcher(Path execRoot) {
+  protected AbstractActionInputPrefetcher(Path execRoot, TempPathGenerator tempPathGenerator) {
     this.execRoot = execRoot;
+    this.tempPathGenerator = tempPathGenerator;
   }
 
   protected abstract boolean shouldDownloadInput(
@@ -113,25 +118,41 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return downloadFileIfNot(path, (p) -> downloadInput(p, input, metadata));
   }
 
-  /** Downloads file into the {@code path} with given downloader. */
+  /**
+   * Downloads file into the {@code path} with given downloader.
+   *
+   * <p>The file will be written into a temporary file and moved to the final destination after the
+   * download finished.
+   */
   protected Completable downloadFileIfNot(
       Path path, Function<Path, ListenableFuture<Void>> downloader) {
+    AtomicBoolean completed = new AtomicBoolean(false);
     Completable download =
-        toCompletable(() -> downloader.apply(path), directExecutor())
-            .doOnComplete(() -> finalizeDownload(path))
-            .doOnError(error -> deletePartialDownload(path))
-            .doOnDispose(() -> deletePartialDownload(path));
+        Completable.using(
+            tempPathGenerator::generateTempPath,
+            tempPath ->
+                toCompletable(() -> downloader.apply(tempPath), directExecutor())
+                    .doOnComplete(
+                        () -> {
+                          finalizeDownload(tempPath, path);
+                          completed.set(true);
+                        }),
+            tempPath -> {
+              if (!completed.get()) {
+                deletePartialDownload(tempPath);
+              }
+            },
+            // Set eager=false here because we want cleanup the download *after* upstream is
+            // disposed.
+            /* eager= */ false);
     return downloadCache.executeIfNot(path, download);
   }
 
-  private void finalizeDownload(Path path) {
-    try {
-      // The permission of output file is changed to 0555 after action execution. We manually change
-      // the permission here for the downloaded file to keep this behaviour consistent.
-      path.chmod(0555);
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to chmod 555 on %s", path);
-    }
+  private void finalizeDownload(Path tmpPath, Path path) throws IOException {
+    // The permission of output file is changed to 0555 after action execution. We manually change
+    // the permission here for the downloaded file to keep this behaviour consistent.
+    tmpPath.chmod(0555);
+    FileSystemUtils.moveFile(tmpPath, path);
   }
 
   private void deletePartialDownload(Path path) {

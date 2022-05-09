@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -70,6 +72,7 @@ public class RemoteActionInputFetcherTest {
   private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
   private Path execRoot;
+  private TempPathGenerator tempPathGenerator;
   private ArtifactRoot artifactRoot;
   private RemoteOptions options;
   private DigestUtil digestUtil;
@@ -79,6 +82,9 @@ public class RemoteActionInputFetcherTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), HASH_FUNCTION);
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
+    Path tempDir = fs.getPath("/tmp");
+    tempDir.createDirectoryAndParents();
+    tempPathGenerator = new TempPathGenerator(tempDir);
     Path dev = fs.getPath("/dev");
     dev.createDirectory();
     dev.setWritable(false);
@@ -98,7 +104,7 @@ public class RemoteActionInputFetcherTest {
     MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     RemoteCache remoteCache = newCache(options, digestUtil, cacheEntries);
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
 
     // act
     wait(actionInputFetcher.prefetchFiles(metadata.keySet(), metadataProvider));
@@ -121,7 +127,7 @@ public class RemoteActionInputFetcherTest {
     MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
@@ -141,7 +147,7 @@ public class RemoteActionInputFetcherTest {
     MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
 
     // act
     wait(
@@ -164,7 +170,7 @@ public class RemoteActionInputFetcherTest {
     MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
 
     // act
     assertThrows(
@@ -188,7 +194,7 @@ public class RemoteActionInputFetcherTest {
     MetadataProvider metadataProvider = new StaticMetadataProvider(ImmutableMap.of(a, f));
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
 
     // act
     wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
@@ -206,7 +212,7 @@ public class RemoteActionInputFetcherTest {
     Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
     RemoteCache remoteCache = newCache(options, digestUtil, cacheEntries);
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
 
     // act
     actionInputFetcher.downloadFile(a1.getPath(), metadata.get(a1));
@@ -227,23 +233,15 @@ public class RemoteActionInputFetcherTest {
     Map<Digest, ByteString> cacheEntries = new HashMap<>();
     Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
     RemoteCache remoteCache = mock(RemoteCache.class);
-    when(remoteCache.downloadFile(any(), any(), any()))
-        .thenAnswer(
-            invocation -> {
-              Path path = invocation.getArgument(1);
-              Digest digest = invocation.getArgument(2);
-              ByteString content = cacheEntries.get(digest);
-              if (content == null) {
-                return Futures.immediateFailedFuture(new IOException("Not found"));
-              }
-              content.writeTo(path.getOutputStream());
-
-              startSemaphore.release();
-              return SettableFuture
-                  .create(); // A future that never complete so we can interrupt later
-            });
+    mockDownload(
+        remoteCache,
+        cacheEntries,
+        () -> {
+          startSemaphore.release();
+          return SettableFuture.create(); // A future that never complete so we can interrupt later
+        });
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
 
     AtomicBoolean interrupted = new AtomicBoolean(false);
     Thread t =
@@ -265,6 +263,7 @@ public class RemoteActionInputFetcherTest {
 
     assertThat(interrupted.get()).isTrue();
     assertThat(a1.getPath().exists()).isFalse();
+    assertThat(tempPathGenerator.getTempDir().getDirectoryEntries()).isEmpty();
   }
 
   @Test
@@ -279,9 +278,9 @@ public class RemoteActionInputFetcherTest {
     MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     SettableFuture<Void> download = SettableFuture.create();
     RemoteCache remoteCache = mock(RemoteCache.class);
-    when(remoteCache.downloadFile(any(), any(), any())).thenAnswer(invocation -> download);
+    mockDownload(remoteCache, cacheEntries, () -> download);
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
     Thread cancelledThread =
         new Thread(
             () -> {
@@ -326,6 +325,8 @@ public class RemoteActionInputFetcherTest {
 
     // assert
     assertThat(successful.get()).isTrue();
+    assertThat(FileSystemUtils.readContent(artifact.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
   }
 
   @Test
@@ -340,9 +341,9 @@ public class RemoteActionInputFetcherTest {
 
     SettableFuture<Void> download = SettableFuture.create();
     RemoteCache remoteCache = mock(RemoteCache.class);
-    when(remoteCache.downloadFile(any(), any(), any())).thenAnswer(invocation -> download);
+    mockDownload(remoteCache, cacheEntries, () -> download);
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
+        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
 
     Thread cancelledThread1 =
         new Thread(
@@ -376,6 +377,8 @@ public class RemoteActionInputFetcherTest {
 
     // assert
     assertThat(download.isCancelled()).isTrue();
+    assertThat(artifact.getPath().exists()).isFalse();
+    assertThat(tempPathGenerator.getTempDir().getDirectoryEntries()).isEmpty();
   }
 
   private Artifact createRemoteArtifact(
@@ -419,5 +422,24 @@ public class RemoteActionInputFetcherTest {
       future.cancel(/*mayInterruptIfRunning=*/ true);
       throw e;
     }
+  }
+
+  private static void mockDownload(
+      RemoteCache remoteCache,
+      Map<Digest, ByteString> cacheEntries,
+      Supplier<ListenableFuture<Void>> resultSupplier)
+      throws IOException {
+    when(remoteCache.downloadFile(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Path path = invocation.getArgument(1);
+              Digest digest = invocation.getArgument(2);
+              ByteString content = cacheEntries.get(digest);
+              if (content == null) {
+                return Futures.immediateFailedFuture(new IOException("Not found"));
+              }
+              FileSystemUtils.writeContent(path, content.toByteArray());
+              return resultSupplier.get();
+            });
   }
 }

@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -906,7 +907,8 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
+      throws AbruptExitException {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkNotNull(remoteOptions, "remoteOptions must not be null");
 
@@ -918,12 +920,27 @@ public final class RemoteModule extends BlazeModule {
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
+      Path tempDir = env.getActionTempsDirectory().getChild("remote");
+      try {
+        if (tempDir.exists()
+            && (!tempDir.isDirectory() || !tempDir.getDirectoryEntries().isEmpty())) {
+          env.getReporter()
+              .handle(Event.warn("Found incomplete downloads from previous build, deleting..."));
+          tempDir.deleteTree();
+        }
+      } catch (IOException e) {
+        throw createExitException(
+            e.getMessage(),
+            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+            Code.DOWNLOADED_INPUTS_DELETION_FAILURE);
+      }
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getBuildRequestId(),
               env.getCommandId().toString(),
               actionContextProvider.getRemoteCache(),
-              env.getExecRoot());
+              env.getExecRoot(),
+              new TempPathGenerator(tempDir));
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
     }

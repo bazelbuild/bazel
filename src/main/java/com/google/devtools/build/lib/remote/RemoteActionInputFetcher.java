@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,8 +50,12 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   private final RemoteCache remoteCache;
 
   RemoteActionInputFetcher(
-      String buildRequestId, String commandId, RemoteCache remoteCache, Path execRoot) {
-    super(execRoot);
+      String buildRequestId,
+      String commandId,
+      RemoteCache remoteCache,
+      Path execRoot,
+      TempPathGenerator tempPathGenerator) {
+    super(execRoot, tempPathGenerator);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
