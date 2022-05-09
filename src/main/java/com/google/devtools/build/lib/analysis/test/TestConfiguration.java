@@ -298,6 +298,14 @@ public class TestConfiguration extends Fragment {
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
     public boolean splitCoveragePostProcessing;
 
+    @Option(
+        name = "zip_undeclared_test_outputs",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.TEST_RUNNER},
+        help = "If true, undeclared test outputs will be archived in a zip file.")
+    public boolean zipUndeclaredTestOutputs;
+
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
@@ -373,7 +381,7 @@ public class TestConfiguration extends Fragment {
     return options.coverageSupport;
   }
 
-  public Label getCoverageReportGenerator(){
+  public Label getCoverageReportGenerator() {
     return options.coverageReportGenerator;
   }
 
@@ -408,6 +416,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean splitCoveragePostProcessing() {
     return options.splitCoveragePostProcessing;
+  }
+
+  public boolean getZipUndeclaredTestOutputs() {
+    return options.zipUndeclaredTestOutputs;
   }
 
   /**
