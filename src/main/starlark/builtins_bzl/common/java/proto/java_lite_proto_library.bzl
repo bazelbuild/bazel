@@ -33,21 +33,18 @@ ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 _JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
 
 def _rule_impl(ctx):
-    runtime_deps = java_proto_common.get_runtime(
+    runtime = java_proto_common.get_runtime(
         ctx,
         proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
     )
     proguard_provider_specs = []
-    runtime_deps_java_info = []
-    if runtime_deps:
-        proguard_provider_specs = [runtime_deps[ProguardSpecProvider].specs]
-        runtime_deps_java_info = [runtime_deps[JavaInfo]]
+    if runtime:
+        proguard_provider_specs = [runtime[ProguardSpecProvider].specs]
 
     # Merging the retrieved list of aspect providers from the dependencies and runtime JavaInfo providers.
     java_info = java_common.merge(
         [],
         exports = [dep[JavaInfo] for dep in ctx.attr.deps],
-        runtime_deps = runtime_deps_java_info,
         include_source_jars_from_exports = True,
     )
 
@@ -104,12 +101,12 @@ def _aspect_impl(target, ctx):
         files_to_build.extend([source_jar, output_jar])
 
         # This returns a java provider or None.
-        toolchain_deps = java_proto_common.toolchain_deps(
+        runtime = java_proto_common.get_runtime(
             ctx,
             proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
         )
-        if toolchain_deps:
-            deps.extend([toolchain_deps])
+        if runtime:
+            deps.append(runtime[JavaInfo])
 
         java_info = java_common.compile(
             ctx,

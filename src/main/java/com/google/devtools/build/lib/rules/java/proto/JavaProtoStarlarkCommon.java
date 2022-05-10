@@ -19,13 +19,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -62,22 +59,6 @@ public class JavaProtoStarlarkCommon
   @Override
   public boolean hasProtoSources(ConfiguredTarget target) {
     return !target.get(ProtoInfo.PROVIDER).getDirectProtoSources().isEmpty();
-  }
-
-  @Override
-  @Nullable
-  public JavaInfo getRuntimeToolchainProvider(
-      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
-    TransitiveInfoCollection runtime =
-        getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr).runtime();
-    if (runtime == null) {
-      return null;
-    }
-    return JavaInfo.Builder.create()
-        .addProvider(
-            JavaCompilationArgsProvider.class,
-            JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
-        .build();
   }
 
   @Override
