@@ -1186,7 +1186,7 @@ public class RemoteExecutionService {
               action.action,
               action.command,
               outputFiles.build(),
-              action.getSpawnExecutionContext().getFileOutErr(),
+              action.spawnExecutionContext.getFileOutErr(),
               spawnResult.exitCode(),
               spawnResult.getStartTime(),
               spawnResult.getWallTime());
