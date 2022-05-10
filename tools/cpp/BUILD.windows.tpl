@@ -580,7 +580,7 @@ toolchain(
     exec_compatible_with = [
     ],
     target_compatible_with = [
-        "@platforms//cpu:armv7",
+        "@platforms//cpu:arm",
         "@platforms//os:android",
     ],
     toolchain = ":cc-compiler-armeabi-v7a",

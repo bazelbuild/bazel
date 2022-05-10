@@ -233,7 +233,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       case "x86":
         return "x86_32";
       case "armeabi-v7a":
-        return "armv7";
+        return "arm";
       case "arm64-v8a":
         return "aarch64";
       default:
