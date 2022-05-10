@@ -12,34 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A Starlark implementation of the java_lite_proto_library rule.
-
-  TODO(elenairina):
-  * Return ProguardSpecProvider from the rule via JavaProvider.
-  * Return proto_java from the aspect.
-"""
+"""A Starlark implementation of the java_lite_proto_library rule."""
 
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
 PROTO_JAVACOPTS_KEY = "proto"
 JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 
 java_common = _builtins.toplevel.java_common
-java_proto_common = _builtins.toplevel.java_proto_common
+ProtoInfo = _builtins.toplevel.ProtoInfo
 JavaInfo = _builtins.toplevel.JavaInfo
 ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 
 _JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
 
 def _rule_impl(ctx):
-    runtime = java_proto_common.get_runtime(
-        ctx,
-        proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
-    )
-    proguard_provider_specs = []
+    proto_toolchain_info = ctx.attr._aspect_proto_toolchain_for_javalite[ProtoLangToolchainInfo]
+    runtime = proto_toolchain_info.runtime
+
     if runtime:
-        proguard_provider_specs = [runtime[ProguardSpecProvider].specs]
+        proguard_provider_specs = runtime[ProguardSpecProvider]
+    else:
+        proguard_provider_specs = ProguardSpecProvider(depset())
 
     # Merging the retrieved list of aspect providers from the dependencies and runtime JavaInfo providers.
     java_info = java_common.merge(
@@ -62,9 +58,7 @@ def _rule_impl(ctx):
         ),
         java_info,
         OutputGroupInfo(default = depset()),
-        ProguardSpecProvider(
-            depset(transitive = proguard_provider_specs),
-        ),
+        proguard_provider_specs,
     ]
 
 def _aspect_impl(target, ctx):
@@ -85,15 +79,15 @@ def _aspect_impl(target, ctx):
 
     # Collect the exports' aspect providers.
     exports = [exp[JavaInfo] for exp in ctx.rule.attr.exports]
-
-    if java_proto_common.has_proto_sources(target):
+    proto_toolchain_info = ctx.attr._aspect_proto_toolchain_for_javalite[ProtoLangToolchainInfo]
+    if proto_common.experimental_should_generate_code(target, proto_toolchain_info, "java_lite_proto_library"):
         source_jar = ctx.actions.declare_file(ctx.label.name + "-lite-src.jar")
-        java_proto_common.create_java_lite_proto_compile_action(
-            ctx,
+        proto_common.compile(
+            ctx.actions,
             target,
-            src_jar = source_jar,
-            proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
-            flavour = "javalite",
+            proto_toolchain_info,
+            [source_jar],
+            source_jar,
         )
 
         output_jar = ctx.actions.declare_file("lib" + ctx.label.name + "-lite.jar")
@@ -101,10 +95,7 @@ def _aspect_impl(target, ctx):
         files_to_build.extend([source_jar, output_jar])
 
         # This returns a java provider or None.
-        runtime = java_proto_common.get_runtime(
-            ctx,
-            proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
-        )
+        runtime = proto_toolchain_info.runtime
         if runtime:
             deps.append(runtime[JavaInfo])
 
@@ -141,14 +132,15 @@ java_lite_proto_aspect = aspect(
             default = Label(semantics.JAVA_TOOLCHAIN_LABEL),
         ),
     },
-    fragments = ["proto", "java"],
-    provides = [JavaInfo],
+    fragments = ["java"],
+    required_providers = [ProtoInfo],
+    provides = [JavaInfo, _JavaProtoAspectInfo],
 )
 
 java_lite_proto_library = rule(
     implementation = _rule_impl,
     attrs = {
-        "deps": attr.label_list(aspects = [java_lite_proto_aspect]),
+        "deps": attr.label_list(providers = [ProtoInfo], aspects = [java_lite_proto_aspect]),
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),
