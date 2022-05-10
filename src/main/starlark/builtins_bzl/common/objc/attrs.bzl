@@ -16,6 +16,7 @@
 
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
 
+CcInfo = _builtins.toplevel.CcInfo
 ObjcInfo = _builtins.toplevel.apple_common.Objc
 AppleDynamicFrameworkInfo = _builtins.toplevel.apple_common.AppleDynamicFramework
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
@@ -80,11 +81,7 @@ _COMPILE_DEPENDENCY_RULE = {
     "includes": attr.string_list(),
     "sdk_includes": attr.string_list(),
     "deps": attr.label_list(
-        providers = [ObjcInfo],
-        allow_rules = [
-            "cc_library",
-            "cc_inc_library",
-        ],
+        providers = [[ObjcInfo], [CcInfo]],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
 }

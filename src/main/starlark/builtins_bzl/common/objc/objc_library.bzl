@@ -67,12 +67,12 @@ def _build_linking_context(
     for library in objc_provider.library.to_list():
         archives_from_objc_library[library.path] = library
 
-    objc_libraries_cc_infos = []
+    cc_infos = []
     for dep in deps:
-        if apple_common.Objc in dep and CcInfo in dep:
-            objc_libraries_cc_infos.append(dep[CcInfo])
+        if CcInfo in dep:
+            cc_infos.append(dep[CcInfo])
 
-    merged_objc_library_cc_infos = cc_common.merge_cc_infos(cc_infos = objc_libraries_cc_infos)
+    merged_objc_library_cc_infos = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
     for linker_input in merged_objc_library_cc_infos.linking_context.linker_inputs.to_list():
         for lib in linker_input.libraries:
