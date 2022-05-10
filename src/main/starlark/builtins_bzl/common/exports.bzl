@@ -45,7 +45,7 @@ exported_toplevels = {
 # * leading `-` means the Starlark rule exists, but is not used by default
 exported_rules = {
     "+cc_import": cc_import,
-    "-java_lite_proto_library": java_lite_proto_library,
+    "+java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
     "+proto_library": proto_library,
