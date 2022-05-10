@@ -35,51 +35,59 @@ public class CommandLinesTest {
   private static final CommandLineLimits NO_LIMIT = new CommandLineLimits(10000);
 
   @Test
-  public void testSimpleCommandLine() throws Exception {
+  public void expand_simpleCommandLine_returnsCorrectCommandLine() throws Exception {
     CommandLines commandLines =
         CommandLines.builder()
             .addCommandLine(CommandLine.of(ImmutableList.of("--foo", "--bar")))
             .build();
+
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar");
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
     assertThat(expanded.getParamFiles()).isEmpty();
   }
 
   @Test
-  public void testFromArguments() throws Exception {
+  public void expand_commandLineFromArguments_returnsCorrectCommandLine() throws Exception {
     CommandLines commandLines = CommandLines.of(ImmutableList.of("--foo", "--bar"));
+
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar");
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
     assertThat(expanded.getParamFiles()).isEmpty();
   }
 
   @Test
-  public void testConcat() throws Exception {
+  public void expand_concatCommandLines_returnsConcatenatedArguments() throws Exception {
     CommandLines commandLines =
         CommandLines.concat(
             CommandLine.of(ImmutableList.of("--before")),
             CommandLines.of(ImmutableList.of("--foo", "--bar")));
+
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+
     assertThat(commandLines.allArguments()).containsExactly("--before", "--foo", "--bar");
     assertThat(expanded.arguments()).containsExactly("--before", "--foo", "--bar");
     assertThat(expanded.getParamFiles()).isEmpty();
   }
 
   @Test
-  public void testSimpleParamFileUseAlways() throws Exception {
+  public void expand_paramFileUseAlways_returnsCommandLineWithParamFile() throws Exception {
     CommandLines commandLines =
         CommandLines.builder()
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("--foo", "--bar")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build())
             .build();
+
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar");
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
@@ -87,30 +95,43 @@ public class CommandLinesTest {
   }
 
   @Test
-  public void testMaybeUseParamsFiles() throws Exception {
+  public void expand_paramFileCommandWithinLimits_returnsNoParamFile() throws Exception {
     CommandLines commandLines =
         CommandLines.builder()
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("--foo", "--bar")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(false).build())
             .build();
+
     // Set max length to longer than command line, no param file needed
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
     assertThat(expanded.getParamFiles()).isEmpty();
+  }
+
+  @Test
+  public void expand_paramFileCommandOverLimits_returnsParamFile() throws Exception {
+    CommandLines commandLines =
+        CommandLines.builder()
+            .addCommandLine(
+                CommandLine.of(ImmutableList.of("--foo", "--bar")),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(false).build())
+            .build();
 
     // Set max length to 0, spill to param file is forced
-    expanded =
+    ExpandedCommandLines expanded =
         commandLines.expand(
             artifactExpander, execPath, new CommandLineLimits(0), CommandAdjuster.NOOP, 0);
+
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
     assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--foo", "--bar");
   }
 
   @Test
-  public void testMixOfCommandLinesAndParamFiles() throws Exception {
+  public void expand_mixOfCommandLinesAndParamFiles_returnsCorrectCommandLines() throws Exception {
     CommandLines commandLines =
         CommandLines.builder()
             .addCommandLine(CommandLine.of(ImmutableList.of("a", "b")))
@@ -122,8 +143,10 @@ public class CommandLinesTest {
                 CommandLine.of(ImmutableList.of("g", "h")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build())
             .build();
+
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+
     assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d", "e", "f", "g", "h");
     assertThat(expanded.arguments())
         .containsExactly("a", "b", "@output.txt-0.params", "e", "f", "@output.txt-1.params");
@@ -137,7 +160,8 @@ public class CommandLinesTest {
   }
 
   @Test
-  public void testFirstParamFilePassesButSecondFailsLengthTest() throws Exception {
+  public void expand_commandsWithParamFilesSecondExceedsLimits_returnsParamFileForSecondOnly()
+      throws Exception {
     CommandLines commandLines =
         CommandLines.builder()
             .addCommandLine(
@@ -147,9 +171,11 @@ public class CommandLinesTest {
                 CommandLine.of(ImmutableList.of("c", "d")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(false).build())
             .build();
+
     ExpandedCommandLines expanded =
         commandLines.expand(
             artifactExpander, execPath, new CommandLineLimits(4), CommandAdjuster.NOOP, 0);
+
     assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d");
     assertThat(expanded.arguments()).containsExactly("a", "b", "@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
@@ -158,21 +184,22 @@ public class CommandLinesTest {
 
   /** Filtering of flag and positional arguments with flagsOnly. */
   @Test
-  public void flagsOnly() throws Exception {
+  public void expand_flagsOnly_movesOnlyDashDashPrefixedFlagsToParamFile() throws Exception {
     CommandLines commandLines =
         CommandLines.builder()
             .addCommandLine(
-                CommandLine.of(ImmutableList.of("--a", "1", "--b=c", "2")),
+                CommandLine.of(ImmutableList.of("--a", "1", "--b=c", "-2")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED)
                     .setUseAlways(true)
                     .setFlagsOnly(true)
                     .build())
             .build();
+
     ExpandedCommandLines expanded =
         commandLines.expand(
             artifactExpander, execPath, new CommandLineLimits(4), CommandAdjuster.NOOP, 0);
-    assertThat(commandLines.allArguments()).containsExactly("--a", "1", "--b=c", "2");
-    assertThat(expanded.arguments()).containsExactly("1", "2", "@output.txt-0.params");
+    assertThat(commandLines.allArguments()).containsExactly("--a", "1", "--b=c", "-2");
+    assertThat(expanded.arguments()).containsExactly("1", "-2", "@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
     assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--a", "--b=c");
   }
