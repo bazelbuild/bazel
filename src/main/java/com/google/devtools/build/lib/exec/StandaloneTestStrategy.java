@@ -591,7 +591,6 @@ public class StandaloneTestStrategy extends TestStrategy {
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
             .add(action.getCollectCoverageScript())
-            .add(action.getCoverageDirectoryTreeArtifact())
             .add(action.getCoverageManifest())
             .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),

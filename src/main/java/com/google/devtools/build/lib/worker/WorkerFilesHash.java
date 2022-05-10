@@ -58,7 +58,8 @@ class WorkerFilesHash {
     TreeMap<PathFragment, HashCode> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
-        ActionInputHelper.expandArtifacts(spawn.getToolFiles(), artifactExpander);
+        ActionInputHelper.expandArtifacts(
+            spawn.getToolFiles(), artifactExpander, /* keepEmptyTreeArtifacts= */ false);
     for (ActionInput tool : tools) {
       workerFilesMap.put(
           tool.getExecPath(),
