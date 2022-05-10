@@ -168,9 +168,7 @@ public final class StarlarkRepositoryContextTest {
             1.0,
             /*processWrapper=*/ null,
             starlarkSemantics,
-            repoRemoteExecutor,
-            SyscallCache.NO_CACHE,
-            root.asPath());
+            repoRemoteExecutor);
   }
 
   protected void setUpContextForRule(String name) throws Exception {
@@ -474,11 +472,5 @@ public final class StarlarkRepositoryContextTest {
     scratch.file("/my/folder/c");
     assertThat(context.path("/my/folder").readdir()).containsExactly(
         context.path("/my/folder/a"), context.path("/my/folder/b"), context.path("/my/folder/c"));
-  }
-
-  @Test
-  public void testWorkspaceRoot() throws Exception {
-    setUpContextForRule("test");
-    assertThat(context.getWorkspaceRoot().getPath()).isEqualTo(root.asPath());
   }
 }
