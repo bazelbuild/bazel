@@ -933,6 +933,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   @Override
   public Label label(String labelString, StarlarkThread thread) throws EvalException {
+    // The label string is interpeted with respect to the .bzl module containing the call to
+    // `Label()`. An alternative to this approach that avoids stack inspection is to have each .bzl
+    // module define its own copy of the `Label()` builtin embedding the module's own name. This
+    // would lead to peculiarities like foo.bzl being able to call bar.bzl's `Label()` symbol to
+    // resolve strings as if it were bar.bzl. It also would prevent sharing the same builtins
+    // environment across .bzl files. Hence, we opt for stack inspection.
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
