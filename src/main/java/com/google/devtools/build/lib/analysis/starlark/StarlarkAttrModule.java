@@ -41,8 +41,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -228,16 +226,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             "late-bound attributes must not have a split configuration transition");
       }
       if (trans.equals("host")) {
-        boolean disableStarlarkHostTransitions =
-            thread
-                .getSemantics()
-                .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS);
-        if (disableStarlarkHostTransitions) {
-          throw new EvalException(
-              "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
-                  + "'cfg = \"exec\"' instead.");
-        }
-        builder.cfg(ExecutionTransitionFactory.create());
+        builder.cfg(HostTransition.createFactory());
       } else if (trans.equals("exec")) {
         builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans instanceof ExecutionTransitionFactory) {
@@ -263,8 +252,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         // android_split_transition because users of those transitions should already know about
         // them.
         throw Starlark.errorf(
-            "cfg must be either 'target', 'exec' or a starlark defined transition defined by the "
-                + "exec() or transition() functions.");
+            "cfg must be either 'host', 'target', 'exec' or a starlark defined transition defined"
+                + " by the exec() or transition() functions.");
       }
     }
 
