@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
-import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
-
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -336,17 +334,14 @@ public class MerkleTree {
 
   private static FileNode buildProto(DirectoryTree.FileNode file) {
     return FileNode.newBuilder()
-        .setName(decodeBytestringUtf8(file.getPathSegment()))
+        .setName(file.getPathSegment())
         .setDigest(file.getDigest())
         .setIsExecutable(file.isExecutable())
         .build();
   }
 
   private static DirectoryNode buildProto(String baseName, MerkleTree dir) {
-    return DirectoryNode.newBuilder()
-        .setName(decodeBytestringUtf8(baseName))
-        .setDigest(dir.getRootDigest())
-        .build();
+    return DirectoryNode.newBuilder().setName(baseName).setDigest(dir.getRootDigest()).build();
   }
 
   private static PathOrBytes toPathOrBytes(DirectoryTree.FileNode file) {
