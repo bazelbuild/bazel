@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -58,20 +59,24 @@ import javax.annotation.Nullable;
  * A logging utility for spawns.
  */
 public class SpawnLogContext implements ActionContext {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Path execRoot;
   private final MessageOutputStream executionLog;
+  @Nullable private final ExecutionOptions executionOptions;
   @Nullable private final RemoteOptions remoteOptions;
   private final XattrProvider xattrProvider;
 
   public SpawnLogContext(
       Path execRoot,
       MessageOutputStream executionLog,
+      @Nullable ExecutionOptions executionOptions,
       @Nullable RemoteOptions remoteOptions,
       XattrProvider xattrProvider) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
+    this.executionOptions = executionOptions;
     this.remoteOptions = remoteOptions;
     this.xattrProvider = xattrProvider;
   }
@@ -162,13 +167,63 @@ public class SpawnLogContext implements ActionContext {
       builder.setProgressMessage(progressMessage);
     }
     builder.setMnemonic(spawn.getMnemonic());
-    builder.setWalltime(Durations.fromNanos(result.getMetrics().executionWallTime().toNanos()));
+    builder.setWalltime(durationToProto(result.getMetrics().executionWallTime()));
 
     if (spawn.getTargetLabel() != null) {
       builder.setTargetLabel(spawn.getTargetLabel());
     }
 
+    if (executionOptions != null && executionOptions.executionLogSpawnMetrics) {
+      SpawnMetrics metrics = result.getMetrics();
+      Protos.SpawnMetrics.Builder metricsBuilder = builder.getMetricsBuilder();
+      if (!metrics.totalTime().isZero()) {
+        metricsBuilder.setTotalTime(durationToProto(metrics.totalTime()));
+      }
+      if (!metrics.parseTime().isZero()) {
+        metricsBuilder.setParseTime(durationToProto(metrics.parseTime()));
+      }
+      if (!metrics.networkTime().isZero()) {
+        metricsBuilder.setNetworkTime(durationToProto(metrics.networkTime()));
+      }
+      if (!metrics.fetchTime().isZero()) {
+        metricsBuilder.setFetchTime(durationToProto(metrics.fetchTime()));
+      }
+      if (!metrics.queueTime().isZero()) {
+        metricsBuilder.setQueueTime(durationToProto(metrics.queueTime()));
+      }
+      if (!metrics.setupTime().isZero()) {
+        metricsBuilder.setSetupTime(durationToProto(metrics.setupTime()));
+      }
+      if (!metrics.uploadTime().isZero()) {
+        metricsBuilder.setUploadTime(durationToProto(metrics.uploadTime()));
+      }
+      if (!metrics.executionWallTime().isZero()) {
+        metricsBuilder.setExecutionWallTime(durationToProto(metrics.executionWallTime()));
+      }
+      if (!metrics.processOutputsTime().isZero()) {
+        metricsBuilder.setProcessOutputsTime(durationToProto(metrics.processOutputsTime()));
+      }
+      if (!metrics.retryTime().isZero()) {
+        metricsBuilder.setRetryTime(durationToProto(metrics.retryTime()));
+      }
+      metricsBuilder.setInputBytes(metrics.inputBytes());
+      metricsBuilder.setInputFiles(metrics.inputFiles());
+      metricsBuilder.setMemoryEstimateBytes(metrics.memoryEstimate());
+      metricsBuilder.setInputBytesLimit(metrics.inputBytesLimit());
+      metricsBuilder.setInputFilesLimit(metrics.inputFilesLimit());
+      metricsBuilder.setOutputBytesLimit(metrics.outputBytesLimit());
+      metricsBuilder.setOutputFilesLimit(metrics.outputFilesLimit());
+      metricsBuilder.setMemoryBytesLimit(metrics.memoryLimit());
+      if (!metrics.timeLimit().isZero()) {
+        metricsBuilder.setTimeLimit(durationToProto(metrics.timeLimit()));
+      }
+    }
+
     executionLog.write(builder.build());
+  }
+
+  private static com.google.protobuf.Duration durationToProto(Duration d) {
+    return Durations.fromNanos(d.toNanos());
   }
 
   public void close() throws IOException {
