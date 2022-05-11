@@ -142,6 +142,27 @@ public class RemoteCacheTest {
   }
 
   @Test
+  public void downloadFile_cancelled_cancelDownload() throws Exception {
+    // Test that if a download future is cancelled, the download itself is also cancelled.
+
+    // arrange
+    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    SettableFuture<Void> future = SettableFuture.create();
+    // Return a future that never completes
+    doAnswer(invocationOnMock -> future).when(remoteCacheClient).downloadBlob(any(), any(), any());
+    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
+    Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
+    Path file = execRoot.getRelative("file");
+
+    // act
+    ListenableFuture<Void> download = remoteCache.downloadFile(context, file, digest);
+    download.cancel(/* mayInterruptIfRunning= */ true);
+
+    // assert
+    assertThat(future.isCancelled()).isTrue();
+  }
+
+  @Test
   public void downloadOutErr_empty_doNotPerformDownload() throws Exception {
     // Test that downloading empty stdout/stderr does not try to perform a download.
 
@@ -219,8 +240,7 @@ public class RemoteCacheTest {
             })
         .when(remoteCacheClient)
         .uploadFile(any(), any(), any());
-    RemoteCache remoteCache =
-        new RemoteCache(remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
 
@@ -253,8 +273,7 @@ public class RemoteCacheTest {
                     invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
         .when(remoteCacheClient)
         .findMissingDigests(any(), any());
-    RemoteCache remoteCache =
-        new RemoteCache(remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
     assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableList.of(digest))))
@@ -326,8 +345,7 @@ public class RemoteCacheTest {
     doAnswer(invocationOnMock -> SettableFuture.create())
         .when(remoteCacheClient)
         .uploadFile(any(), any(), any());
-    RemoteCache remoteCache =
-        new RemoteCache(remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
 
@@ -341,5 +359,9 @@ public class RemoteCacheTest {
   private InMemoryRemoteCache newRemoteCache() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     return new InMemoryRemoteCache(options, digestUtil);
+  }
+
+  private RemoteCache newRemoteCache(RemoteCacheClient remoteCacheClient) {
+    return new RemoteCache(remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
   }
 }

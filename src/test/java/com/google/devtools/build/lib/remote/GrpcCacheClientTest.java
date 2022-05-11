@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -67,7 +68,9 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
 import io.grpc.Status;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -149,6 +152,34 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     // Upload all missing inputs (that is, the virtual action input from above)
     client.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), /*force=*/ true);
+  }
+
+  @Test
+  public void downloadBlob_cancelled_cancelRequest() throws IOException {
+    // Test that if the download future is cancelled, the download itself is also cancelled.
+
+    // arrange
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    AtomicBoolean cancelled = new AtomicBoolean();
+    // Mock a byte stream whose read method never finish.
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            ((ServerCallStreamObserver<ReadResponse>) responseObserver)
+                .setOnCancelHandler(() -> cancelled.set(true));
+          }
+        });
+    GrpcCacheClient cacheClient = newClient();
+
+    // act
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      ListenableFuture<Void> download = cacheClient.downloadBlob(context, digest, out);
+      download.cancel(/* mayInterruptIfRunning= */ true);
+    }
+
+    // assert
+    assertThat(cancelled.get()).isTrue();
   }
 
   @Test

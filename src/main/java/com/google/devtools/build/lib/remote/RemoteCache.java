@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.CompletableFuture;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -87,9 +88,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      RemoteCacheClient cacheProtocol,
-      RemoteOptions options,
-      DigestUtil digestUtil) {
+      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
@@ -332,8 +331,9 @@ public class RemoteCache extends AbstractReferenceCounted {
     reporter.started();
     OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
 
-    SettableFuture<Void> outerF = SettableFuture.create();
+    CompletableFuture<Void> outerF = CompletableFuture.create();
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
+    outerF.setCancelCallback(() -> f.cancel(/* mayInterruptIfRunning= */ true));
     Futures.addCallback(
         f,
         new FutureCallback<Void>() {
