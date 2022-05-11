@@ -716,6 +716,7 @@ public class ModuleFileGlobals {
   public Module buildModule() {
     return module
         .setDeps(ImmutableMap.copyOf(deps))
+        .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(
             extensionProxies.stream()
                 .map(ModuleExtensionProxy::buildUsage)

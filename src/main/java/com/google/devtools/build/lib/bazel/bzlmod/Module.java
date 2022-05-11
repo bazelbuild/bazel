@@ -87,10 +87,19 @@ public abstract class Module {
   public abstract ImmutableList<String> getToolchainsToRegister();
 
   /**
-   * The direct dependencies of this module. The key type is the repo name of the dep, and the value
-   * type is the ModuleKey (name+version) of the dep.
+   * The resolved direct dependencies of this module, which can be either the original ones,
+   * overridden by a {@code single_version_override}, by a {@code multiple_version_override}, or by
+   * a {@link NonRegistryOverride} (the version will be ""). The key type is the repo name of the
+   * dep, and the value type is the ModuleKey (name+version) of the dep.
    */
   public abstract ImmutableMap<String, ModuleKey> getDeps();
+
+  /**
+   * The original direct dependencies of this module as they are declared in their MODULE file. The
+   * key type is the repo name of the dep, and the value type is the ModuleKey (name+version) of the
+   * dep.
+   */
+  public abstract ImmutableMap<String, ModuleKey> getOriginalDeps();
 
   /**
    * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
@@ -174,12 +183,21 @@ public abstract class Module {
     /** Optional; defaults to an empty list. */
     public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
+    public abstract Builder setOriginalDeps(ImmutableMap<String, ModuleKey> value);
+
     public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 
     abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
 
     public Builder addDep(String depRepoName, ModuleKey depKey) {
       depsBuilder().put(depRepoName, depKey);
+      return this;
+    }
+
+    abstract ImmutableMap.Builder<String, ModuleKey> originalDepsBuilder();
+
+    public Builder addOriginalDep(String depRepoName, ModuleKey depKey) {
+      originalDepsBuilder().put(depRepoName, depKey);
       return this;
     }
 
@@ -194,6 +212,6 @@ public abstract class Module {
       return this;
     }
 
-    public abstract Module build();
+    abstract Module build();
   }
 }

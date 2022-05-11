@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -204,11 +205,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("A", "0.1", 4)
                 .setKey(ModuleKey.ROOT)
-                .setCompatibilityLevel(4)
                 .setExecutionPlatformsToRegister(
                     ImmutableList.of("//my:platform", "//my:platform2"))
                 .setToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
@@ -250,7 +248,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
+            ModuleBuilder.create("", "")
                 .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "1.0"))
                 .build());
@@ -303,10 +301,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("B", "1.0"))
+            ModuleBuilder.create("B", "1.0")
                 .addDep("C", createModuleKey("C", "2.0"))
                 .setRegistry(registry2)
                 .build());
@@ -344,9 +339,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
+            ModuleBuilder.create("B", "1.0")
                 .setKey(createModuleKey("B", ""))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .build());
@@ -383,11 +376,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("B", "1.0"))
-                .setCompatibilityLevel(6)
+            ModuleBuilder.create("B", "1.0", 6)
                 .addDep("C", createModuleKey("C", "3.0"))
                 .setRegistry(registry2)
                 .build());
@@ -425,10 +414,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setName("mymod")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("mymod", "1.0"))
+            ModuleBuilder.create("mymod", "1.0")
                 .addDep("rules_jvm_external", createModuleKey("rules_jvm_external", "2.0"))
                 .setRegistry(registry)
                 .addExtensionUsage(
@@ -529,7 +515,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
+            ModuleBuilder.create("", "")
                 .setKey(ModuleKey.ROOT)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
@@ -571,10 +557,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setName("mymod")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("mymod", "1.0"))
+            ModuleBuilder.create("mymod", "1.0")
                 .setRegistry(registry)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
@@ -673,8 +656,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setKey(ModuleKey.ROOT)
+            ModuleBuilder.create("", "")
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
                 .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
                 .addDep("foo", createModuleKey("foo", "1.0"))
@@ -711,9 +693,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.getModule())
         .isEqualTo(
-            Module.builder()
-                .setName("bazel_tools")
-                .setVersion(Version.parse("1.0"))
+            ModuleBuilder.create("bazel_tools", "1.0")
                 .setKey(createModuleKey("bazel_tools", ""))
                 .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
                 .addDep("foo", createModuleKey("foo", "2.0"))
