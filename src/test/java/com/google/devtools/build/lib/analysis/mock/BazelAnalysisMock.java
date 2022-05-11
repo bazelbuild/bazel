@@ -19,9 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.MoreFiles;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
@@ -115,6 +118,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
     /** The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
+    config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
@@ -498,6 +502,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.create("embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
     config.create(
         "embedded_tools/tools/build_defs/repo/utils.bzl",
@@ -534,6 +539,21 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "def xcode_configure(*args, **kwargs):", // no positional arguments for XCode
         "  pass");
     config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
+  }
+
+  @Override
+  protected ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+      BlazeDirectories directories) {
+    return ImmutableMap.of(
+        "bazel_tools",
+        LocalPathOverride.create(
+            directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").getPathString()),
+        "platforms",
+        LocalPathOverride.create(
+            directories
+                .getEmbeddedBinariesRoot()
+                .getRelative("platforms_workspace")
+                .getPathString()));
   }
 
   @Override

@@ -115,7 +115,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot))
+                    new ModuleFileFunction(registryFactory, workspaceRoot, ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     GET_REPO_SPEC_BY_NAME_FUNCTION,

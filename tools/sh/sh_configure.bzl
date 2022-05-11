@@ -82,3 +82,7 @@ def sh_configure():
     """Detect the local shell interpreter and register its toolchain."""
     sh_config(name = "local_config_sh")
     native.register_toolchains("@local_config_sh//:local_sh_toolchain")
+
+sh_configure_extension = module_extension(
+    implementation = lambda ctx: sh_config(name = "local_config_sh"),
+)

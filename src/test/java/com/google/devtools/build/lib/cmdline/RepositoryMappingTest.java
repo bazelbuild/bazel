@@ -45,12 +45,6 @@ public final class RepositoryMappingTest {
         .isEqualTo(RepositoryName.create("com_foo_bar_a"));
     assertThat(mapping.get(RepositoryName.create("B")))
         .isEqualTo(RepositoryName.create("B").toNonVisible("fake_owner_repo"));
-
-    // Special repos should still be visible
-    assertThat(mapping.get(RepositoryName.create("bazel_tools")))
-        .isEqualTo(RepositoryName.create("bazel_tools"));
-    assertThat(mapping.get(RepositoryName.create("local_config_platform")))
-        .isEqualTo(RepositoryName.create("local_config_platform"));
   }
 
   @Test

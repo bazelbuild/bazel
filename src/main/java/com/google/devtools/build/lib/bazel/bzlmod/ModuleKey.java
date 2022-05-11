@@ -35,7 +35,14 @@ public abstract class ModuleKey {
    */
   private static final ImmutableMap<String, String> WELL_KNOWN_MODULES =
       ImmutableMap.of(
-          "com_google_protobuf", "com_google_protobuf", "protobuf", "com_google_protobuf");
+          "com_google_protobuf",
+          "com_google_protobuf",
+          "protobuf",
+          "com_google_protobuf",
+          "bazel_tools",
+          "bazel_tools",
+          "local_config_platform",
+          "local_config_platform");
 
   public static final ModuleKey ROOT = create("", Version.EMPTY);
 

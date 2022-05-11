@@ -72,10 +72,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -173,36 +170,22 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
                 .put(
                     SkyFunctions.BAZEL_MODULE_RESOLUTION,
-                    new SkyFunction() {
-                      @Override
-                      public SkyValue compute(SkyKey skyKey, Environment env)
-                          throws SkyFunctionException {
-                        // Dummy function that returns a dep graph with just the root module in it.
-                        return BazelModuleResolutionFunction.createValue(
+                    // Dummy function that returns a dep graph with just the root module in it.
+                    (skyKey, env) ->
+                        BazelModuleResolutionFunction.createValue(
                             ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
-                            ImmutableMap.of());
-                      }
-                    })
+                            ImmutableMap.of()))
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,
-                    new SkyFunction() {
-                      @Override
-                      public SkyValue compute(SkyKey skyKey, Environment env) {
-                        // Dummy function that always falls back.
-                        return RepositoryMappingValue.withMapping(
-                            RepositoryMapping.ALWAYS_FALLBACK);
-                      }
-                    })
+                    // Dummy function that always falls back.
+                    (skyKey, env) ->
+                        RepositoryMappingValue.withMapping(RepositoryMapping.ALWAYS_FALLBACK))
                 .put(
                     SkyFunctions.MODULE_EXTENSION_RESOLUTION,
-                    new SkyFunction() {
-                      @Override
-                      public SkyValue compute(SkyKey skyKey, Environment env) {
-                        // Dummy function that returns nothing.
-                        return ModuleExtensionResolutionValue.create(
-                            ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
-                      }
-                    })
+                    // Dummy function that returns nothing.
+                    (skyKey, env) ->
+                        ModuleExtensionResolutionValue.create(
+                            ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
@@ -285,43 +268,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                                 "https://maven.google.com", "https://repo1.maven.org/maven2")))
                 .build());
     return new FakeBzlmodRepoRuleHelper(repoSpecs.buildOrThrow());
-  }
-
-  @Test
-  public void createRepoRule_bazelTools() throws Exception {
-    EvaluationResult<BzlmodRepoRuleValue> result =
-        evaluator.evaluate(
-            ImmutableList.of(BzlmodRepoRuleValue.key("bazel_tools")), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key("bazel_tools"));
-    Rule repoRule = bzlmodRepoRuleValue.getRule();
-
-    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
-    assertThat(repoRule.getName()).isEqualTo("bazel_tools");
-    // In the test, the install base is set to rootDirectory, which is "/workspace".
-    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/workspace/embedded_tools");
-  }
-
-  @Test
-  public void createRepoRule_localConfigPlatform() throws Exception {
-    // Skip this test in Blaze because local_config_platform is not available.
-    if (!AnalysisMock.get().isThisBazel()) {
-      return;
-    }
-    EvaluationResult<BzlmodRepoRuleValue> result =
-        evaluator.evaluate(
-            ImmutableList.of(BzlmodRepoRuleValue.key("local_config_platform")), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue =
-        result.get(BzlmodRepoRuleValue.key("local_config_platform"));
-    Rule repoRule = bzlmodRepoRuleValue.getRule();
-
-    assertThat(repoRule.getRuleClass()).isEqualTo("local_config_platform");
-    assertThat(repoRule.getName()).isEqualTo("local_config_platform");
   }
 
   @Test

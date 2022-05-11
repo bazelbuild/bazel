@@ -79,12 +79,6 @@ public abstract class RepositoryMapping {
   }
 
   public RepositoryName get(RepositoryName repositoryName) {
-    // 1. @bazel_tools is a special repo that should be visible to all repositories.
-    // 2. @local_config_platform is a special repo that should be visible to all repositories.
-    if (repositoryName.equals(RepositoryName.BAZEL_TOOLS)
-        || repositoryName.equals(RepositoryName.LOCAL_CONFIG_PLATFORM)) {
-      return repositoryName;
-    }
     // If the owner repo is not present, that means we should fallback to the requested repo name.
     if (ownerRepo() == null) {
       return repositoryMapping().getOrDefault(repositoryName, repositoryName);

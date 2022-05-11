@@ -233,7 +233,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new IgnoredPackagePrefixesFunction(
                         /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
-                .put(SkyFunctions.MODULE_FILE, new ModuleFileFunction(registryFactory, rootPath))
+                .put(
+                    SkyFunctions.MODULE_FILE,
+                    new ModuleFileFunction(registryFactory, rootPath, ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_RESOLUTION,
