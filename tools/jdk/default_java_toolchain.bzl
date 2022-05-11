@@ -34,6 +34,10 @@ BASE_JDK9_JVM_OPTS = [
     # and: https://github.com/bazelbuild/bazel/issues/5599
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
+
+    # TODO(b/64485048): Disable this option in persistent worker mode only.
+    # Disable symlinks resolution cache since symlinks in exec root change
+    "-Dsun.io.useCanonCaches=false",
 ]
 
 JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS
@@ -243,11 +247,11 @@ _bootclasspath = rule(
     implementation = _bootclasspath_impl,
     attrs = {
         "host_javabase": attr.label(
-            cfg = "host",
+            cfg = "exec",
             providers = [java_common.JavaRuntimeInfo],
         ),
         "src": attr.label(
-            cfg = "host",
+            cfg = "exec",
             allow_single_file = True,
         ),
         "target_javabase": attr.label(
