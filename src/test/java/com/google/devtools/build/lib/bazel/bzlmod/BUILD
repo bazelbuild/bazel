@@ -32,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_helper",
