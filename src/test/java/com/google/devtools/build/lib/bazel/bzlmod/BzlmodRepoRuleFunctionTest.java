@@ -174,6 +174,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                     (skyKey, env) ->
                         BazelModuleResolutionFunction.createValue(
                             ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
+                            ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
                             ImmutableMap.of()))
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,

@@ -24,6 +24,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
@@ -61,15 +62,17 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
-    ImmutableMap<ModuleKey, Module> resolvedDepGraph;
+    SelectionResult selectionResult;
     try {
-      resolvedDepGraph = Selection.run(initialDepGraph, overrides);
+      selectionResult = Selection.run(initialDepGraph, overrides);
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
+    ImmutableMap<ModuleKey, Module> resolvedDepGraph = selectionResult.getResolvedDepGraph();
+
     verifyRootModuleDirectDepsAreAccurate(
         env, initialDepGraph.get(ModuleKey.ROOT), resolvedDepGraph.get(ModuleKey.ROOT));
-    return createValue(resolvedDepGraph, overrides);
+    return createValue(resolvedDepGraph, selectionResult.getUnprunedDepGraph(), overrides);
   }
 
   private static void verifyRootModuleDirectDepsAreAccurate(
@@ -106,7 +109,9 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
   @VisibleForTesting
   static BazelModuleResolutionValue createValue(
-      ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
+      ImmutableMap<ModuleKey, Module> depGraph,
+      ImmutableMap<ModuleKey, Module> unprunedDepGraph,
+      ImmutableMap<String, ModuleOverride> overrides)
       throws BazelModuleResolutionFunctionException {
     // Build some reverse lookups for later use.
     ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
@@ -165,6 +170,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
     return BazelModuleResolutionValue.create(
         depGraph,
+        unprunedDepGraph,
         canonicalRepoNameLookup,
         moduleNameLookup,
         depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),

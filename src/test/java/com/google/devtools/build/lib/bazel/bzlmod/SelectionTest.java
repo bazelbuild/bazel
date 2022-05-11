@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
+import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,7 +53,8 @@ public class SelectionTest {
             .put(ModuleBuilder.create("D", "2.0", 1).buildEntry())
             .buildOrThrow();
 
-    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -68,6 +70,23 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("D", "2.0", 1).buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph().entrySet())
+        .containsExactly(
+            ModuleBuilder.create("A", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("BfromA", createModuleKey("B", "1.0"))
+                .addDep("CfromA", createModuleKey("C", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("B", "1.0")
+                .addDep("DfromB", createModuleKey("D", "2.0"))
+                .addOriginalDep("DfromB", createModuleKey("D", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("C", "2.0")
+                .addDep("DfromC", createModuleKey("D", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("D", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("D", "2.0", 1).buildEntry());
   }
 
   @Test
@@ -98,7 +117,8 @@ public class SelectionTest {
             .put(ModuleBuilder.create("E", "1.0").buildEntry())
             .build();
 
-    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -112,6 +132,22 @@ public class SelectionTest {
             ModuleBuilder.create("C", "2.0").addDep("D", createModuleKey("D", "2.0")).buildEntry(),
             ModuleBuilder.create("D", "2.0").buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph().entrySet())
+        .containsExactly(
+            ModuleBuilder.create("A", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("B", createModuleKey("B", "1.0"))
+                .addDep("C", createModuleKey("C", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("B", "1.0")
+                .addDep("D", createModuleKey("D", "2.0"))
+                .addOriginalDep("D", createModuleKey("D", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("C", "2.0").addDep("D", createModuleKey("D", "2.0")).buildEntry(),
+            ModuleBuilder.create("D", "2.0").buildEntry(),
+            ModuleBuilder.create("D", "1.0").addDep("E", createModuleKey("E", "1.0")).buildEntry(),
+            ModuleBuilder.create("E", "1.0").buildEntry());
   }
 
   @Test
@@ -138,7 +174,8 @@ public class SelectionTest {
             .put(ModuleBuilder.create("D", "1.0").buildEntry())
             .buildOrThrow();
 
-    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -151,6 +188,22 @@ public class SelectionTest {
                 .buildEntry())
         .inOrder();
     // D is completely gone.
+
+    assertThat(selectionResult.getUnprunedDepGraph().entrySet())
+        .containsExactly(
+            ModuleBuilder.create("A", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("B", createModuleKey("B", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("B", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
+            ModuleBuilder.create("C", "2.0")
+                .addDep("B", createModuleKey("B", "1.0"))
+                .addOriginalDep("B", createModuleKey("B", "1.0-pre"))
+                .buildEntry(),
+            ModuleBuilder.create("B", "1.0-pre")
+                .addDep("D", createModuleKey("D", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("D", "1.0").buildEntry());
   }
 
   @Test
@@ -224,7 +277,8 @@ public class SelectionTest {
     //       \-> C 1.1
     //        \-> D 1.0 -> B 1.1
     //         \-> E 1.0 -> C 1.1
-    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", "1.0")
                 .setKey(ModuleKey.ROOT)
@@ -240,6 +294,25 @@ public class SelectionTest {
             ModuleBuilder.create("D", "1.0").addDep("B", createModuleKey("B", "1.1")).buildEntry(),
             ModuleBuilder.create("E", "1.0").addDep("C", createModuleKey("C", "1.1")).buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph().entrySet())
+        .containsExactly(
+            ModuleBuilder.create("A", "1.0")
+                .setKey(ModuleKey.ROOT)
+                .addDep("B", createModuleKey("B", "1.1"))
+                .addOriginalDep("B", createModuleKey("B", "1.0"))
+                .addDep("C", createModuleKey("C", "1.1"))
+                .addOriginalDep("C", createModuleKey("C", "1.0"))
+                .addDep("D", createModuleKey("D", "1.0"))
+                .addDep("E", createModuleKey("E", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("B", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
+            ModuleBuilder.create("B", "1.1").buildEntry(),
+            ModuleBuilder.create("C", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("C", "1.1", 1).buildEntry(),
+            ModuleBuilder.create("C", "2.0", 2).buildEntry(),
+            ModuleBuilder.create("D", "1.0").addDep("B", createModuleKey("B", "1.1")).buildEntry(),
+            ModuleBuilder.create("E", "1.0").addDep("C", createModuleKey("C", "1.1")).buildEntry());
   }
 
   @Test
@@ -291,7 +364,8 @@ public class SelectionTest {
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    assertThat(Selection.run(depGraph, overrides).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, overrides);
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -301,6 +375,9 @@ public class SelectionTest {
             ModuleBuilder.create("B", "1.0").buildEntry(),
             ModuleBuilder.create("B", "2.0").buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph())
+        .isEqualTo(selectionResult.getResolvedDepGraph());
   }
 
   @Test
@@ -359,7 +436,8 @@ public class SelectionTest {
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    assertThat(Selection.run(depGraph, overrides).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, overrides);
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -375,6 +453,9 @@ public class SelectionTest {
             ModuleBuilder.create("D", "1.0", 1).buildEntry(),
             ModuleBuilder.create("D", "2.0", 2).buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph())
+        .isEqualTo(selectionResult.getResolvedDepGraph());
   }
 
   @Test
@@ -404,7 +485,8 @@ public class SelectionTest {
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    assertThat(Selection.run(depGraph, overrides).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, overrides);
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -420,6 +502,9 @@ public class SelectionTest {
             ModuleBuilder.create("D", "1.0").buildEntry(),
             ModuleBuilder.create("D", "2.0").buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph())
+        .isEqualTo(selectionResult.getResolvedDepGraph());
   }
 
   @Test
@@ -478,7 +563,8 @@ public class SelectionTest {
     //   \-> B3@1.0 -> C@1.7  [originally C@1.5]
     //   \-> B4@1.0 -> C@1.7  [allowed]
     //   \-> B5@1.0 -> C@2.0  [allowed]
-    assertThat(Selection.run(depGraph, overrides).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, overrides);
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -503,6 +589,33 @@ public class SelectionTest {
             ModuleBuilder.create("C", "1.7", 1).buildEntry(),
             ModuleBuilder.create("C", "2.0", 2).buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph().entrySet())
+        .containsExactly(
+            ModuleBuilder.create("A", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("B1", createModuleKey("B1", "1.0"))
+                .addDep("B2", createModuleKey("B2", "1.0"))
+                .addDep("B3", createModuleKey("B3", "1.0"))
+                .addDep("B4", createModuleKey("B4", "1.0"))
+                .addDep("B5", createModuleKey("B5", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("B1", "1.0")
+                .addDep("C", createModuleKey("C", "1.3"))
+                .addOriginalDep("C", createModuleKey("C", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("B2", "1.0").addDep("C", createModuleKey("C", "1.3")).buildEntry(),
+            ModuleBuilder.create("B3", "1.0")
+                .addDep("C", createModuleKey("C", "1.7"))
+                .addOriginalDep("C", createModuleKey("C", "1.5"))
+                .buildEntry(),
+            ModuleBuilder.create("B4", "1.0").addDep("C", createModuleKey("C", "1.7")).buildEntry(),
+            ModuleBuilder.create("B5", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
+            ModuleBuilder.create("C", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("C", "1.3", 1).buildEntry(),
+            ModuleBuilder.create("C", "1.5", 1).buildEntry(),
+            ModuleBuilder.create("C", "1.7", 1).buildEntry(),
+            ModuleBuilder.create("C", "2.0", 2).buildEntry());
   }
 
   @Test
@@ -651,7 +764,8 @@ public class SelectionTest {
     //   \          \-> B4@1.1
     //   \-> B4@1.1
     // C@1.5 and C@3.0, the versions violating the allowlist, are gone.
-    assertThat(Selection.run(depGraph, overrides).entrySet())
+    SelectionResult selectionResult = Selection.run(depGraph, overrides);
+    assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
             ModuleBuilder.create("A", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
@@ -675,5 +789,33 @@ public class SelectionTest {
             ModuleBuilder.create("C", "1.0", 1).buildEntry(),
             ModuleBuilder.create("C", "2.0", 2).buildEntry())
         .inOrder();
+
+    assertThat(selectionResult.getUnprunedDepGraph().entrySet())
+        .containsExactly(
+            ModuleBuilder.create("A", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("B1", createModuleKey("B1", "1.0"))
+                .addDep("B2", createModuleKey("B2", "1.1"))
+                .addOriginalDep("B2", createModuleKey("B2", "1.0"))
+                .addDep("B3", createModuleKey("B3", "1.0"))
+                .addDep("B4", createModuleKey("B4", "1.1"))
+                .addOriginalDep("B4", createModuleKey("B4", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("B1", "1.0")
+                .addDep("C", createModuleKey("C", "1.0"))
+                .addDep("B2", createModuleKey("B2", "1.1"))
+                .buildEntry(),
+            ModuleBuilder.create("B2", "1.0").addDep("C", createModuleKey("C", "1.5")).buildEntry(),
+            ModuleBuilder.create("B2", "1.1").buildEntry(),
+            ModuleBuilder.create("B3", "1.0")
+                .addDep("C", createModuleKey("C", "2.0"))
+                .addDep("B4", createModuleKey("B4", "1.1"))
+                .buildEntry(),
+            ModuleBuilder.create("B4", "1.0").addDep("C", createModuleKey("C", "3.0")).buildEntry(),
+            ModuleBuilder.create("B4", "1.1").buildEntry(),
+            ModuleBuilder.create("C", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("C", "1.5", 1).buildEntry(),
+            ModuleBuilder.create("C", "2.0", 2).buildEntry(),
+            ModuleBuilder.create("C", "3.0", 3).buildEntry());
   }
 }
