@@ -100,7 +100,7 @@ public class CoreLibraryDesugar {
 
     @Option(
         name = "min_sdk_version",
-        defaultValue = "1",
+        defaultValue = "13", // Same as Constants.MIN_API_LEVEL.
         category = "misc",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
