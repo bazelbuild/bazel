@@ -694,6 +694,43 @@ EOF
   expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from test_toolchain"'
 }
 
+function test_toolchain_use_in_aspect_with_output_file {
+  local -r pkg="${FUNCNAME[0]}"
+  write_test_toolchain "${pkg}"
+  write_test_aspect "${pkg}"
+  write_register_toolchain "${pkg}"
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/demo.bzl" <<EOF
+def _impl(ctx):
+    output = ctx.outputs.out
+    ctx.actions.write(output = output, content = ctx.attr.message)
+
+demo = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+        'out': attr.output(),
+    }
+)
+EOF
+  cat > "${pkg}/demo/BUILD" <<EOF
+load(':demo.bzl', 'demo')
+demo(
+    name = 'use',
+    message = 'bar from demo',
+    out = 'use.log',
+)
+EOF
+
+  # Also test aspects executing on an output file.
+  bazel build \
+    --aspects //${pkg}/toolchain:aspect_use_toolchain.bzl%use_toolchain \
+    "//${pkg}/demo:use.log" &> $TEST_log || fail "Build failed"
+  # TODO(b/232128775): Re-enable once aspect toolchain merging is fixed.
+  #expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from test_toolchain"'
+}
+
 function test_toolchain_use_in_aspect_non_required_toolchain {
   local -r pkg="${FUNCNAME[0]}"
   write_test_toolchain "${pkg}"
