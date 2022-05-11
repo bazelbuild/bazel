@@ -76,6 +76,8 @@ public class DeployArchiveBuilder {
   @Nullable private PathFragment javaHome;
   @Nullable private Artifact libModules;
   private NestedSet<Artifact> hermeticInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private NestedSet<String> addExports;
+  private NestedSet<String> addOpens;
 
   /** Type of compression to apply to output archive. */
   public enum Compression {
@@ -201,6 +203,16 @@ public class DeployArchiveBuilder {
     return this;
   }
 
+  public DeployArchiveBuilder setAddExports(NestedSet<String> addExports) {
+    this.addExports = addExports;
+    return this;
+  }
+
+  public DeployArchiveBuilder setAddOpens(NestedSet<String> addOpens) {
+    this.addOpens = addOpens;
+    return this;
+  }
+
   public static CustomCommandLine.Builder defaultSingleJarCommandLineWithoutOneVersion(
       Artifact outputJar,
       String javaMainClass,
@@ -214,7 +226,9 @@ public class DeployArchiveBuilder {
       boolean multiReleaseDeployJars,
       PathFragment javaHome,
       Artifact libModules,
-      NestedSet<Artifact> hermeticInputs) {
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
     return defaultSingleJarCommandLine(
         outputJar,
         javaMainClass,
@@ -230,7 +244,9 @@ public class DeployArchiveBuilder {
         /* multiReleaseDeployJars= */ multiReleaseDeployJars,
         javaHome,
         libModules,
-        hermeticInputs);
+        hermeticInputs,
+        addExports,
+        addOpens);
   }
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(
@@ -248,7 +264,9 @@ public class DeployArchiveBuilder {
       boolean multiReleaseDeployJars,
       PathFragment javaHome,
       Artifact libModules,
-      NestedSet<Artifact> hermeticInputs) {
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
@@ -298,6 +316,8 @@ public class DeployArchiveBuilder {
     args.addPath("--hermetic_java_home", javaHome);
     args.addExecPath("--jdk_lib_modules", libModules);
     args.addExecPaths("--resources", hermeticInputs);
+    args.addAll("--add_exports", addExports);
+    args.addAll("--add_opens", addOpens);
     return args;
   }
 
@@ -414,7 +434,9 @@ public class DeployArchiveBuilder {
             /* multiReleaseDeployJars= */ multiReleaseDeployJars,
             javaHome,
             libModules,
-            hermeticInputs);
+            hermeticInputs,
+            addExports,
+            addOpens);
     if (checkDesugarDeps) {
       commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
     }

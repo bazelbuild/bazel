@@ -571,7 +571,9 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean multiReleaseDeployJars,
       PathFragment javaHome,
       Artifact libModules,
-      NestedSet<Artifact> hermeticInputs) {
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,
@@ -585,7 +587,9 @@ public class BazelJavaSemantics implements JavaSemantics {
             /* multiReleaseDeployJars= */ multiReleaseDeployJars,
             javaHome,
             libModules,
-            hermeticInputs)
+            hermeticInputs,
+            addExports,
+            addOpens)
         .build();
   }
 

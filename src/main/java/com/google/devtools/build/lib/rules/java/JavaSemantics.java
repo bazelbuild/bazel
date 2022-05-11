@@ -283,7 +283,9 @@ public interface JavaSemantics {
       boolean multiReleaseDeployJars,
       PathFragment javaHome,
       Artifact libModules,
-      NestedSet<Artifact> hermeticInputs);
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens);
 
   /**
    * Creates the action that writes the Java executable stub script.

@@ -60,7 +60,9 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 /* multiReleaseDeployJars= */ false,
                 /* javaHome= */ null,
                 /* libModules= */ null,
-                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addExports= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addOpens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
 
     assertThat(command.arguments()).doesNotContain("--exclude_build_data");
@@ -87,7 +89,9 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 /* multiReleaseDeployJars= */ false,
                 /* javaHome= */ null,
                 /* libModules= */ null,
-                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addExports= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addOpens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
 
     assertThat(command.arguments()).contains("--exclude_build_data");
@@ -114,7 +118,9 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 /* multiReleaseDeployJars= */ false,
                 /* javaHome= */ null,
                 /* libModules= */ null,
-                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addExports= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addOpens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments()).contains("--java_launcher");
   }
@@ -140,7 +146,9 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 /* multiReleaseDeployJars= */ false,
                 /* javaHome= */ null,
                 /* libModules= */ null,
-                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addExports= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addOpens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments()).contains("--compression");
   }
@@ -166,7 +174,9 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 /* multiReleaseDeployJars= */ false,
                 /* javaHome= */ null,
                 /* libModules= */ null,
-                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addExports= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addOpens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments()).doesNotContain("--compression");
   }
@@ -196,7 +206,9 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
                 /* multiReleaseDeployJars= */ false,
                 /* javaHome= */ null,
                 /* libModules= */ null,
-                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+                /* hermeticInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addExports= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* addOpens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     assertThat(command.arguments())
         .containsAtLeast("--enforce_one_version", "--succeed_on_found_violations");

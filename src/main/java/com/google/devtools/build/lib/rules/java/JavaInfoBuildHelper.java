@@ -222,6 +222,12 @@ final class JavaInfoBuildHelper {
     return concat(transitiveSourceJars, sourceJars);
   }
 
+  private static JavaModuleFlagsProvider createJavaModuleFlagsProvider(
+      List<String> addExports, List<String> addOpens, Iterable<JavaInfo> transitiveDeps) {
+    return JavaModuleFlagsProvider.create(
+        addExports, addOpens, streamProviders(transitiveDeps, JavaModuleFlagsProvider.class));
+  }
+
   private JavaPluginInfo mergeExportedJavaPluginInfo(
       Iterable<JavaPluginInfo> plugins, Iterable<JavaInfo> javaInfos) {
     return JavaPluginInfo.mergeWithoutJavaOutputs(
@@ -260,6 +266,8 @@ final class JavaInfoBuildHelper {
       boolean createOutputSourceJar,
       JavaSemantics javaSemantics,
       Object injectingRuleKind,
+      List<String> addExports,
+      List<String> addOpens,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -284,6 +292,7 @@ final class JavaInfoBuildHelper {
                     .addAll(
                         JavaCommon.computePerPackageJavacOpts(
                             starlarkRuleContext.getRuleContext(), toolchainProvider))
+                    .addAll(JavaModuleFlagsProvider.toFlags(addExports, addOpens))
                     .addAll(tokenize(javacOpts))
                     .build());
 
@@ -353,6 +362,9 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
+        .addProvider(
+            JavaModuleFlagsProvider.class,
+            createJavaModuleFlagsProvider(addExports, addOpens, concat(runtimeDeps, exports, deps)))
         .setNeverlink(neverlink)
         .build();
   }

@@ -73,7 +73,9 @@ def basic_java_library(
         neverlink = False,
         enable_compile_jar_action = True,
         coverage_config = None,
-        proguard_specs = None):
+        proguard_specs = None,
+        add_exports = [],
+        add_opens = []):
     """
     Creates actions that compile and lint Java sources, sets up coverage and returns JavaInfo, InstrumentedFilesInfo and output groups.
 
@@ -103,6 +105,8 @@ def basic_java_library(
         compilation, `support_files` and `env` is returned in InstrumentedFilesInfo.
       proguard_specs: (list[File]) Files to be used as Proguard specification.
         Proguard validation is done only when the parameter is set.
+      add_exports: (list[str]) Allow this library to access the given <module>/<package>.
+      add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
     Returns:
       (dict[str, Provider],
         {files_to_build: list[File],
@@ -138,6 +142,8 @@ def basic_java_library(
         neverlink,
         ctx.fragments.java.strict_java_deps,
         enable_compile_jar_action,
+        add_exports = add_exports,
+        add_opens = add_opens,
     )
     target = {"JavaInfo": java_info}
 

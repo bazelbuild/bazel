@@ -93,6 +93,8 @@ public class JavaStarlarkCommon
       Boolean enableJSpecify,
       boolean createOutputSourceJar,
       Object injectingRuleKind,
+      Sequence<?> addExports, // <String> expected
+      Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -171,6 +173,8 @@ public class JavaStarlarkCommon
             createOutputSourceJar,
             javaSemantics,
             injectingRuleKind,
+            Sequence.cast(addExports, String.class, "add_exports"),
+            Sequence.cast(addOpens, String.class, "add_opens"),
             thread);
   }
 
