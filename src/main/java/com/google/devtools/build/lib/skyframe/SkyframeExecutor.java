@@ -332,8 +332,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   private boolean analysisCacheInvalidated = false;
 
-  private boolean keepBuildConfigurationNodesWhenDiscardingAnalysis = false;
-
   /** True if loading and analysis nodes were cleared (discarded) after analysis to save memory. */
   private boolean analysisCacheCleared;
 
@@ -1123,35 +1121,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected final void deleteAnalysisNodes() {
     memoizingEvaluator.delete(
-        keepBuildConfigurationNodesWhenDiscardingAnalysis
-            ? shouldDeleteActionNodesWhenDroppingAnalysis()
-                ? SkyframeExecutor::basicAnalysisInvalidatingPredicateWithActions
-                : SkyframeExecutor::basicAnalysisInvalidatingPredicate
-            : shouldDeleteActionNodesWhenDroppingAnalysis()
-                ? SkyframeExecutor::fullAnalysisInvalidatingPredicateWithActions
-                : SkyframeExecutor::fullAnalysisInvalidatingPredicate);
+        shouldDeleteActionNodesWhenDroppingAnalysis()
+            ? SkyframeExecutor::analysisInvalidatingPredicateWithActions
+            : SkyframeExecutor::analysisInvalidatingPredicate);
   }
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
   // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
-  private static boolean basicAnalysisInvalidatingPredicate(SkyKey key) {
-    return key instanceof ArtifactNestedSetKey || key instanceof ActionLookupKey;
+  // Also BuildConfigurationKey to prevent memory leak (b/191875929).
+  private static boolean analysisInvalidatingPredicate(SkyKey key) {
+    return key instanceof ArtifactNestedSetKey
+        || key instanceof ActionLookupKey
+        || key instanceof BuildConfigurationKey;
   }
 
   // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
   // en masse is cheaper than deleting via graph traversal (b/192863968).
-  private static boolean basicAnalysisInvalidatingPredicateWithActions(SkyKey key) {
-    return basicAnalysisInvalidatingPredicate(key) || key instanceof ActionLookupData;
-  }
-
-  // We may also want to remove BuildConfigurationKey to fix a minor memory leak there.
-  private static boolean fullAnalysisInvalidatingPredicate(SkyKey key) {
-    return basicAnalysisInvalidatingPredicate(key) || key instanceof BuildConfigurationKey;
-  }
-
-  private static boolean fullAnalysisInvalidatingPredicateWithActions(SkyKey key) {
-    return basicAnalysisInvalidatingPredicateWithActions(key)
-        || key instanceof BuildConfigurationKey;
+  private static boolean analysisInvalidatingPredicateWithActions(SkyKey key) {
+    return analysisInvalidatingPredicate(key) || key instanceof ActionLookupData;
   }
 
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
@@ -2676,9 +2663,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     updateSkyFunctionsSemaphoreSize(options);
-    AnalysisOptions analysisOptions = options.getOptions(AnalysisOptions.class);
-    keepBuildConfigurationNodesWhenDiscardingAnalysis =
-        analysisOptions == null || analysisOptions.keepConfigNodes;
     syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, options);
 
     if (lastAnalysisDiscarded) {
