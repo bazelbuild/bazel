@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -296,7 +297,7 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn() throws Exception {
-    setUpExecutionContext(/* remoteOptions= */ null);
+    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
 
     Artifact input = ActionsTestUtil.createArtifact(rootDir, scratch.file("/execroot/foo", "1"));
     scratch.file("/execroot/out1", "123");
@@ -372,7 +373,7 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn_noPlatform_noLoggedPlatform() throws Exception {
-    setUpExecutionContext(/* remoteOptions= */ null);
+    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
 
     Spawn spawn = new SpawnBuilder("cmd").build();
 
@@ -399,7 +400,7 @@ public class AbstractSpawnStrategyTest {
             " value: \"1\"",
             "}");
 
-    setUpExecutionContext(remoteOptions);
+    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
     Spawn spawn = new SpawnBuilder("cmd").build();
     assertThrows(
         SpawnExecException.class,
@@ -412,6 +413,22 @@ public class AbstractSpawnStrategyTest {
             .build();
     SpawnExec expected = defaultSpawnExecBuilder("cmd").setPlatform(platform).build();
     verify(messageOutput).write(expected); // output will reflect default properties
+  }
+
+  @Test
+  public void testLogSpawn_spawnMetrics() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.executionLogSpawnMetrics = true;
+
+    setUpExecutionContext(executionOptions, /* remoteOptions= */ null);
+
+    assertThrows(
+        SpawnExecException.class,
+        () ->
+            new TestedSpawnStrategy(execRoot, spawnRunner)
+                .exec(SIMPLE_SPAWN, actionExecutionContext));
+
+    verify(messageOutput).write(argThat((m) -> ((SpawnExec) m).hasMetrics()));
   }
 
   @Test
@@ -428,7 +445,7 @@ public class AbstractSpawnStrategyTest {
             " name: \"a\"",
             " value: \"1\"",
             "}");
-    setUpExecutionContext(remoteOptions);
+    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
 
     PlatformInfo platformInfo =
         PlatformInfo.builder()
@@ -462,11 +479,14 @@ public class AbstractSpawnStrategyTest {
     verify(messageOutput).write(expected); // output will reflect default properties
   }
 
-  private void setUpExecutionContext(RemoteOptions remoteOptions) throws Exception {
+  private void setUpExecutionContext(ExecutionOptions executionOptions, RemoteOptions remoteOptions)
+      throws Exception {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
-        .thenReturn(new SpawnLogContext(execRoot, messageOutput, remoteOptions));
+        .thenReturn(
+            new SpawnLogContext(
+                execRoot, messageOutput, executionOptions, remoteOptions, SyscallCache.NO_CACHE));
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(
             FutureSpawn.immediate(
