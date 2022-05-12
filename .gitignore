@@ -27,3 +27,4 @@
 # User-specific .bazelrc
 user.bazelrc
 bin/bazel
+tmp/
