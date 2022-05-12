@@ -28,6 +28,7 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathStripper.ActionStager;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -87,7 +88,7 @@ public final class SandboxHelpers {
       throws IOException {
     for (PathFragment output : Iterables.concat(outputs.files(), outputs.dirs())) {
       Path source = sourceRoot.getRelative(output);
-      Path target = targetRoot.getRelative(output);
+      Path target = targetRoot.getRelative(outputs.actionStager().unstrip(output));
       if (source.isFile() || source.isSymbolicLink()) {
         // Ensure the target directory exists in the target. The directories for the action outputs
         // have already been created, but the spawn outputs may be different from the overall action
@@ -540,12 +541,19 @@ public final class SandboxHelpers {
 
     public abstract ImmutableSet<PathFragment> dirs();
 
+    public abstract ActionStager actionStager();
+
     private static final SandboxOutputs EMPTY_OUTPUTS =
-        SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
+        SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of(), ActionStager.NOOP);
 
     public static SandboxOutputs create(
         ImmutableSet<PathFragment> files, ImmutableSet<PathFragment> dirs) {
-      return new AutoValue_SandboxHelpers_SandboxOutputs(files, dirs);
+      return new AutoValue_SandboxHelpers_SandboxOutputs(files, dirs, ActionStager.NOOP);
+    }
+
+    public static SandboxOutputs create(
+        ImmutableSet<PathFragment> files, ImmutableSet<PathFragment> dirs, ActionStager actionStager) {
+      return new AutoValue_SandboxHelpers_SandboxOutputs(files, dirs, actionStager);
     }
 
     public static SandboxOutputs getEmptyInstance() {
@@ -557,14 +565,14 @@ public final class SandboxHelpers {
     ImmutableSet.Builder<PathFragment> files = ImmutableSet.builder();
     ImmutableSet.Builder<PathFragment> dirs = ImmutableSet.builder();
     for (ActionInput output : spawn.getOutputFiles()) {
-      PathFragment path = PathFragment.create(output.getExecPathString());
+      PathFragment path = spawn.getActionStager().strip(output.getExecPath());
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         dirs.add(path);
       } else {
         files.add(path);
       }
     }
-    return SandboxOutputs.create(files.build(), dirs.build());
+    return SandboxOutputs.create(files.build(), dirs.build(), spawn.getActionStager());
   }
 
   /**
