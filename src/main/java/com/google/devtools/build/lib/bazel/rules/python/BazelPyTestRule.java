@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -58,6 +59,13 @@ public final class BazelPyTestRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .value(env.getToolsLabel("//tools/launcher:launcher")))
         .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        // Add the script as an attribute in order for py_test to output code coverage results for
+        // code covered by CC binaries invocations.
+        .add(
+            attr("$collect_cc_coverage", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .singleArtifact()
+                .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         .build();
   }
 
