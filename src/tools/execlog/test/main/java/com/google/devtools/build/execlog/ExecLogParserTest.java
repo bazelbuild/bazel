@@ -185,7 +185,7 @@ public final class ExecLogParserTest {
 
   public void test(List<String> golden, List<String> input, List<String> expectedOutput)
       throws Exception {
-    ReorderingParser p = new ReorderingParser(getGolden(golden), fakeParserFromStrings(input));
+    ReorderingParser p = new ReorderingParser(getGolden(golden), fakeParserFromStrings(input), "0");
 
     List<String> got = new ArrayList<>();
 
@@ -301,11 +301,47 @@ public final class ExecLogParserTest {
     SpawnExec c = SpawnExec.newBuilder().addListedOutputs("c").addCommandArgs("ccom").build();
     Parser input = new FakeParser(Arrays.asList(c, b, a));
 
-    ReorderingParser p = new ReorderingParser(getGolden(golden), input);
+    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "0");
 
     assertThat(p.getNext()).isEqualTo(a);
     assertThat(p.getNext()).isEqualTo(b);
     assertThat(p.getNext()).isEqualTo(c);
+    assertThat(p.getNext()).isNull();
+  }
+
+  @Test
+  public void reorderUniqueActionsWithShardSort() throws Exception {
+    List<String> golden = Arrays.asList();
+
+    // Include extra command arguments not present in golden
+    SpawnExec shard_1 = SpawnExec.newBuilder().addListedOutputs("shard_1").build();
+    SpawnExec shard_2 = SpawnExec.newBuilder().addListedOutputs("shard_2").build();
+    SpawnExec shard_3 = SpawnExec.newBuilder().addListedOutputs("shard_3").build();
+    Parser input = new FakeParser(Arrays.asList(shard_2, shard_3, shard_1));
+
+    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "1");
+
+    assertThat(p.getNext()).isEqualTo(shard_1);
+    assertThat(p.getNext()).isEqualTo(shard_2);
+    assertThat(p.getNext()).isEqualTo(shard_3);
+    assertThat(p.getNext()).isNull();
+  }
+
+  @Test
+  public void reorderUniqueActionsWithoutShardSort() throws Exception {
+    List<String> golden = Arrays.asList();
+
+    // Include extra command arguments not present in golden
+    SpawnExec shard_1 = SpawnExec.newBuilder().addListedOutputs("shard_1").build();
+    SpawnExec shard_2 = SpawnExec.newBuilder().addListedOutputs("shard_2").build();
+    SpawnExec shard_3 = SpawnExec.newBuilder().addListedOutputs("shard_3").build();
+    Parser input = new FakeParser(Arrays.asList(shard_2, shard_3, shard_1));
+
+    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "0");
+
+    assertThat(p.getNext()).isEqualTo(shard_2);
+    assertThat(p.getNext()).isEqualTo(shard_3);
+    assertThat(p.getNext()).isEqualTo(shard_1);
     assertThat(p.getNext()).isNull();
   }
 }

@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A tool to inspect and parse the Bazel execution log.
@@ -86,6 +88,7 @@ final class ExecLogParser {
       // Value: the position of the action in the file (e.g., 0th, 1st etc).
       private final Map<String, Integer> positions;
       private int index;
+      private boolean isShardSorted;
 
       public Golden() {
         positions = new HashMap<>();
@@ -120,8 +123,9 @@ final class ExecLogParser {
 
     private final Golden golden;
 
-    ReorderingParser(Golden golden, Parser input) throws IOException {
+    ReorderingParser(Golden golden, Parser input, String shardSorted) throws IOException {
       this.golden = golden;
+      this.golden.isShardSorted = (shardSorted == "1") ? true : false;
       processInputFile(input);
     }
 
@@ -130,9 +134,27 @@ final class ExecLogParser {
     // actions in input that are not in the golden, in order received.
     Queue<SpawnExec> uniqueActions;
 
+    // use regex expression to find shard value in file
+    private int getShard(SpawnExec ex) {
+      Pattern pattern = Pattern.compile("shard_[1-9][0-9]?");
+      Matcher matcher = pattern.matcher(ex.toString());
+      if (matcher.find())
+        return Integer.parseInt(matcher.group(0).substring(6));
+      return -1;
+    }
+
     private void processInputFile(Parser input) throws IOException {
       sameActions = new PriorityQueue<>((e1, e2) -> (e1.position - e2.position));
-      uniqueActions = new ArrayDeque<>();
+      if (golden.isShardSorted) {
+        uniqueActions = new PriorityQueue<>((e1, e2) -> {
+          int shard_1 = getShard(e1), shard_2 = getShard(e2);
+          return shard_1 - shard_2;
+        });
+        System.out.println("Sort with shard.");
+      } else {
+        uniqueActions = new ArrayDeque<>();
+        System.out.println("Sort with unshard.");
+      }
 
       SpawnExec ex;
       while ((ex = input.getNext()) != null) {
@@ -236,7 +258,7 @@ final class ExecLogParser {
         Parser parser = new FilteringLogParser(file2, options.restrictToRunner);
         // ReorderingParser will read the whole golden on initialization,
         // so it is safe to close after.
-        parser = new ReorderingParser(golden, parser);
+        parser = new ReorderingParser(golden, parser, options.shardSorted);
         output(parser, output, null);
       }
     }
