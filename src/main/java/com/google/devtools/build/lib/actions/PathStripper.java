@@ -75,6 +75,37 @@ import net.starlark.java.eval.EvalException;
  * NestedSet, Artifact, BuildConfigurationValue)}.
  */
 public final class PathStripper {
+
+  public interface PathMapper extends ActionStager, CommandAdjuster {
+
+    PathMapper NOOP = new PathMapper() {
+      @Override
+      public String getExecPathString(ActionInput artifact) {
+        return artifact.getExecPathString();
+      }
+
+      @Override
+      public PathFragment strip(PathFragment execPath) {
+        return execPath;
+      }
+
+      @Override
+      public String strip(DerivedArtifact artifact) {
+        return getExecPathString(artifact);
+      }
+
+      @Override
+      public List<String> stripCustomStarlarkArgs(List<String> args) {
+        return args;
+      }
+
+      @Override
+      public boolean isNoop() {
+        return true;
+      }
+    };
+  }
+
   /**
    * Support for stripping config paths from an action's inputs and outputs.
    *

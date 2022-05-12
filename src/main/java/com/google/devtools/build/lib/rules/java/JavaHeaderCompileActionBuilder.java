@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -449,7 +450,8 @@ public class JavaHeaderCompileActionBuilder {
               /* executeUnconditionally= */ false,
               /* extraActionInfoSupplier= */ null,
               /* resultConsumer= */ resultConsumer,
-              /*stripOutputPaths= */ stripOutputPaths));
+              /*stripOutputPaths= */ stripOutputPaths,
+              /*applyContentBasedPathMapping= */ false));
       return;
     }
 

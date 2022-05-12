@@ -115,7 +115,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       String mnemonic,
       Optional<Artifact> unusedInputsList,
       Optional<Action> shadowedAction,
-      boolean stripOutputPaths) {
+      boolean stripOutputPaths,
+      boolean applyContentBasedPathMapping) {
     super(
         owner,
         tools,
@@ -136,7 +137,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         /* executeUnconditionally */ false,
         /* extraActionInfoSupplier */ null,
         /* resultConsumer */ null,
-        stripOutputPaths);
+        stripOutputPaths,
+        applyContentBasedPathMapping);
 
     this.allStarlarkActionInputs = inputs;
     this.unusedInputsList = unusedInputsList;
@@ -330,6 +332,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       throws CommandLineExpansionException, InterruptedException {
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext.getMetadataHandler(),
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
         /*envResolved=*/ true,
         actionExecutionContext.getTopLevelFilesets(),
@@ -415,7 +418,9 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           mnemonic,
           unusedInputsList,
           shadowedAction,
-          stripOutputPaths(mnemonic, inputsAndTools, primaryOutput, configuration));
+          stripOutputPaths(mnemonic, inputsAndTools, primaryOutput, configuration),
+          configuration.getOptions().get(CoreOptions.class).contentBasedPathMapping.contains(
+              mnemonic));
     }
 
     /**

@@ -91,7 +91,8 @@ public final class ExtraAction extends SpawnAction {
         false,
         null,
         null,
-        /*stripOutputPaths=*/ false);
+        /*stripOutputPaths=*/ false,
+        /*applyContentBasedPathMapping=*/ false);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
 
@@ -155,6 +156,7 @@ public final class ExtraAction extends SpawnAction {
     }
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext.getMetadataHandler(),
         actionExecutionContext.getClientEnv(),
         /*envResolved=*/ false,
         actionExecutionContext.getTopLevelFilesets(),

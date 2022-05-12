@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -776,6 +777,28 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public OutputPathsMode outputPathsMode;
 
   @Option(
+      name = "experimental_content_based_path_mapping",
+      converter = CommaSeparatedNonEmptyOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.EXECUTION
+      },
+      help =
+          "A comma-separated list of mnemonics of Starlark actions to which content-based path "
+              + "mapping should be applied. This is highly experimental. This optimization aims to "
+              + "allow for (disk and remote) cache hits across different configurations. To "
+              + "qualify, actions must not be adding the \"dirname\", \"path\", or \"root\" of any "
+              + "File object directly to their command line or environment. Instead, add the File "
+              + "objects to Args, using \"map_each\" callbacks for path manipulations. Actions "
+              + "opted into content-based path mapping can only be executed in symlink-based "
+              + "sandboxes or with remote execution.")
+  public List<String> contentBasedPathMapping;
+
+  @Option(
       name = "enable_runfiles",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -987,6 +1010,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.isExec = false;
     exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     exec.outputPathsMode = outputPathsMode;
+    exec.contentBasedPathMapping = contentBasedPathMapping;
     exec.enableRunfiles = enableRunfiles;
     exec.executionInfoModifier = executionInfoModifier;
     exec.commandLineBuildVariables = commandLineBuildVariables;

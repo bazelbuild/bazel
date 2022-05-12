@@ -259,6 +259,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Spawn spawn =
         action.getSpawn(
             (artifact, outputs) -> outputs.add(artifact),
+            null,
             ImmutableMap.of(),
             /*envResolved=*/ false,
             ImmutableMap.of(),

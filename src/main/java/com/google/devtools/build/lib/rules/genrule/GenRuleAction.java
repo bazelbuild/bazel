@@ -68,7 +68,8 @@ public final class GenRuleAction extends SpawnAction {
         false,
         null,
         null,
-        /*stripOutputPaths=*/ false);
+        /*stripOutputPaths=*/ false,
+        /*applyContentBasedPathMapping=*/ false);
   }
 
   @Override
