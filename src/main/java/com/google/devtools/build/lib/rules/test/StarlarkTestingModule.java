@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
-import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.test.TestingModuleApi;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -31,13 +31,14 @@ public class StarlarkTestingModule implements TestingModuleApi {
   }
 
   @Override
-  public TestEnvironmentInfo testEnvironment(
+  public RunEnvironmentInfo testEnvironment(
       Dict<?, ?> environment /* <String, String> */,
       Sequence<?> inheritedEnvironment /* <String> */)
       throws EvalException {
-    return new TestEnvironmentInfo(
+    return new RunEnvironmentInfo(
         Dict.cast(environment, String.class, String.class, "environment"),
         StarlarkList.immutableCopyOf(
-            Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")));
+            Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")),
+        /* shouldErrorOnNonExecutableRule */ false);
   }
 }
