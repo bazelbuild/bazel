@@ -1457,4 +1457,45 @@ EOF
   FOO=1 bazel test //pkg:foo_test &> "$TEST_log" || fail "Should have inherited FOO env."
 }
 
+function test_cc_import_shared_library_in_cc_test_deps() {
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'shared',
+  srcs = ['shared.cc'],
+  linkshared = True,
+)
+
+cc_import(
+  name = 'imported_shared',
+  shared_library = ':shared',
+)
+
+cc_test(
+  name = 'foo_test',
+  srcs = ['foo_test.cc'],
+  deps = [':imported_shared'],
+)
+EOF
+
+  cat > pkg/shared.cc <<EOF
+extern "C" int add(int a, int b) {
+  return a + b;
+}
+EOF
+
+  cat > pkg/foo_test.cc <<EOF
+extern "C" int add(int a, int b);
+
+int main() {
+  if (add(42, 42) != 84) {
+    return 1;
+  }
+  return 0;
+}
+EOF
+
+  bazel test --experimental_starlark_cc_import //pkg:foo_test &> "$TEST_log" || fail "Expected test to pass"
+}
+
 run_suite "cc_integration_test"
