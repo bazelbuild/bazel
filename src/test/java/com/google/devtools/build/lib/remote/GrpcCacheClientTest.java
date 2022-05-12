@@ -70,10 +70,12 @@ import io.grpc.ServerInterceptors;
 import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -180,6 +182,56 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     // assert
     assertThat(cancelled.get()).isTrue();
+  }
+
+  @Test
+  public void testChunkerResetAfterError() throws Exception {
+    // arrange
+    GrpcCacheClient client = newClient();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(
+              StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {
+                responseObserver.onError(Status.DATA_LOSS.asRuntimeException());
+              }
+
+              @Override
+              public void onCompleted() {}
+
+              @Override
+              public void onError(Throwable t) {}
+            };
+          }
+        });
+    byte[] data = new byte[20];
+    Digest digest = DIGEST_UTIL.compute(data);
+    AtomicBoolean closed = new AtomicBoolean();
+    Chunker chunker =
+        new Chunker(
+            () ->
+                new ByteArrayInputStream(data) {
+
+                  @Override
+                  public void close() throws IOException {
+                    super.close();
+                    closed.set(true);
+                  }
+                },
+            data.length,
+            2,
+            false);
+
+    // act
+    Throwable t =
+        assertThrows(ExecutionException.class, client.uploadChunker(context, digest, chunker)::get);
+
+    // assert
+    assertThat(Status.fromThrowable(t.getCause()).getCode()).isEqualTo(Status.Code.DATA_LOSS);
+    assertThat(closed.get()).isTrue();
   }
 
   @Test
