@@ -125,7 +125,7 @@ final class ExecLogParser {
 
     ReorderingParser(Golden golden, Parser input, String shardSorted) throws IOException {
       this.golden = golden;
-      this.golden.isShardSorted = (shardSorted == "1") ? true : false;
+      this.golden.isShardSorted = (shardSorted == "true") ? true : false;
       processInputFile(input);
     }
 
@@ -150,10 +150,8 @@ final class ExecLogParser {
           int shard_1 = getShard(e1), shard_2 = getShard(e2);
           return shard_1 - shard_2;
         });
-        System.out.println("Sort with shard.");
       } else {
         uniqueActions = new ArrayDeque<>();
-        System.out.println("Sort with unshard.");
       }
 
       SpawnExec ex;

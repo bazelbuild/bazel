@@ -185,7 +185,7 @@ public final class ExecLogParserTest {
 
   public void test(List<String> golden, List<String> input, List<String> expectedOutput)
       throws Exception {
-    ReorderingParser p = new ReorderingParser(getGolden(golden), fakeParserFromStrings(input), "0");
+    ReorderingParser p = new ReorderingParser(getGolden(golden), fakeParserFromStrings(input), "false");
 
     List<String> got = new ArrayList<>();
 
@@ -301,7 +301,7 @@ public final class ExecLogParserTest {
     SpawnExec c = SpawnExec.newBuilder().addListedOutputs("c").addCommandArgs("ccom").build();
     Parser input = new FakeParser(Arrays.asList(c, b, a));
 
-    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "0");
+    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "false");
 
     assertThat(p.getNext()).isEqualTo(a);
     assertThat(p.getNext()).isEqualTo(b);
@@ -319,7 +319,7 @@ public final class ExecLogParserTest {
     SpawnExec shard_3 = SpawnExec.newBuilder().addListedOutputs("shard_3").build();
     Parser input = new FakeParser(Arrays.asList(shard_2, shard_3, shard_1));
 
-    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "1");
+    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "true");
 
     assertThat(p.getNext()).isEqualTo(shard_1);
     assertThat(p.getNext()).isEqualTo(shard_2);
@@ -337,7 +337,7 @@ public final class ExecLogParserTest {
     SpawnExec shard_3 = SpawnExec.newBuilder().addListedOutputs("shard_3").build();
     Parser input = new FakeParser(Arrays.asList(shard_2, shard_3, shard_1));
 
-    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "0");
+    ReorderingParser p = new ReorderingParser(getGolden(golden), input, "false");
 
     assertThat(p.getNext()).isEqualTo(shard_2);
     assertThat(p.getNext()).isEqualTo(shard_3);
