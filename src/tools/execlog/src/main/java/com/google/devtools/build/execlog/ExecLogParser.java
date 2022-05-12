@@ -145,15 +145,14 @@ final class ExecLogParser {
 
     private void processInputFile(Parser input) throws IOException {
       sameActions = new PriorityQueue<>((e1, e2) -> (e1.position - e2.position));
+      //determine whether to use arraydeque or priority queue with shard_sorted parameter
       if (golden.isShardSorted) {
         uniqueActions = new PriorityQueue<>((e1, e2) -> {
           int shard_1 = getShard(e1), shard_2 = getShard(e2);
           return shard_1 - shard_2;
         });
-        System.out.println("Sort with shard.");
       } else {
         uniqueActions = new ArrayDeque<>();
-        System.out.println("Sort with unshard.");
       }
 
       SpawnExec ex;
