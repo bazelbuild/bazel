@@ -34,10 +34,10 @@ public final class ActionEnvironmentTest {
     // entries added by env2 override the existing entries
     ActionEnvironment env2 = env1.addFixedVariables(ImmutableMap.of("FOO", "foo2"));
 
-    assertThat(env1.getFixedEnv().toMap()).containsExactly("FOO", "foo1", "BAR", "bar");
+    assertThat(env1.getFixedEnv()).containsExactly("FOO", "foo1", "BAR", "bar");
     assertThat(env1.getInheritedEnv()).containsExactly("baz");
 
-    assertThat(env2.getFixedEnv().toMap()).containsExactly("FOO", "foo2", "BAR", "bar");
+    assertThat(env2.getFixedEnv()).containsExactly("FOO", "foo2", "BAR", "bar");
     assertThat(env2.getInheritedEnv()).containsExactly("baz");
   }
 }
