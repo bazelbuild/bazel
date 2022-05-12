@@ -63,7 +63,7 @@ public class ParserOptions extends OptionsBase {
 
   @Option(
           name = "shard_sorted",
-          defaultValue = "0",
+          defaultValue = "false",
           category = "logging",
           documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
           effectTags = {OptionEffectTag.UNKNOWN},

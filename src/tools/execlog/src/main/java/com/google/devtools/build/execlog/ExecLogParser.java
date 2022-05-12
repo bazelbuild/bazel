@@ -125,7 +125,7 @@ final class ExecLogParser {
 
     ReorderingParser(Golden golden, Parser input, String shardSorted) throws IOException {
       this.golden = golden;
-      this.golden.isShardSorted = (shardSorted == "1") ? true : false;
+      this.golden.isShardSorted = (shardSorted == "true") ? true : false;
       processInputFile(input);
     }
 
