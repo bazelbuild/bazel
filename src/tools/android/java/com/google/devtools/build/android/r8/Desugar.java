@@ -27,6 +27,7 @@ import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
+import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
@@ -420,6 +421,15 @@ public class Desugar {
                 missingTypeDiagnostic.getContextType().getDescriptor()),
             DescriptorUtils.descriptorToBinaryName(
                 missingTypeDiagnostic.getMissingType().getDescriptor()));
+      }
+      // TODO(b/232351017): Remove this again.
+      if (warning instanceof StringDiagnostic
+          && warning
+              .getDiagnosticMessage()
+              .contains(
+                  "Retargeting non final method Encoded method java.nio.channels.FileChannel")) {
+        // Ignore.
+        return;
       }
       DiagnosticsHandler.super.warning(warning);
     }
