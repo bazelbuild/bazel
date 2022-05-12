@@ -77,6 +77,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       OutputFormatter formatter,
       AbstractBlazeQueryEnvironment<Target> queryEnv,
       QueryRuntimeHelper queryRuntimeHelper) {
+    System.out.println("QueryCommand.doquery");
     QueryExpression expr;
     try (SilentCloseable closeable = Profiler.instance().profile("QueryExpression.parse")) {
       expr = QueryExpression.parse(query, queryEnv);

@@ -85,6 +85,10 @@ public final class Bazel {
           com.google.devtools.build.lib.runtime.BlockWaitingModule.class);
 
   public static void main(String[] args) {
+    System.out.println("\nArguments: ");
+    for (String arg : args)
+      System.out.print(arg + " ");
+    System.out.println();
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
     BlazeRuntime.main(BAZEL_MODULES, args);
   }

@@ -77,6 +77,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
    */
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    System.out.println("QueryEnvironmentBasedCommand.exec");
     env.getEventBus()
         .post(
             new NoBuildEvent(
@@ -99,6 +100,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
+    System.out.println("QueryEnvironmentBasedCommand.execInternal");
     BlazeRuntime runtime = env.getRuntime();
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 

@@ -287,6 +287,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       long waitTimeInMs,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       List<Any> commandExtensions) {
+    System.out.println("BlazeCommandDispatcher.execExclusively");
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
@@ -580,6 +581,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
       options = optionHandler.getOptionsResult();
 
+      System.out.println("Dispatcher.exec");
       // Run the command.
       result = command.exec(env, options);
 

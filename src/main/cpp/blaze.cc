@@ -25,6 +25,7 @@
 // - mutual exclusion between batch invocations.
 #include "src/main/cpp/blaze.h"
 
+#include <iostream>
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
