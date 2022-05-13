@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
@@ -137,8 +138,9 @@ final class JavaInfoBuildHelper {
             javaOutput.getGeneratedClassJar(),
             javaOutput.getGeneratedSourceJar(),
             JavaPluginInfo.empty(),
-            JavaInfo.fetchProvidersFromList(
-                concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
+            JavaInfo.streamProviders(concat(compileTimeDeps, exports), JavaGenJarsProvider.class)
+                .filter(not(JavaGenJarsProvider::isEmpty))
+                .collect(toImmutableList())));
 
     javaInfoBuilder.setRuntimeJars(ImmutableList.of(javaOutput.getClassJar()));
 
@@ -333,7 +335,9 @@ final class JavaInfoBuildHelper {
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
-            JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
+            JavaInfo.streamProviders(concat(deps, exports), JavaGenJarsProvider.class)
+                .filter(not(JavaGenJarsProvider::isEmpty))
+                .collect(toImmutableList()),
             ImmutableList.copyOf(annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =

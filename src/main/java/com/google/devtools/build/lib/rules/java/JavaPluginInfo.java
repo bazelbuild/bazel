@@ -174,8 +174,12 @@ public abstract class JavaPluginInfo extends NativeInfo
     List<JavaPluginData> plugins = new ArrayList<>();
     List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfo provider : providers) {
-      plugins.add(provider.plugins());
-      apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
+      if (!provider.plugins().isEmpty()) {
+        plugins.add(provider.plugins());
+      }
+      if (!provider.apiGeneratingPlugins().isEmpty()) {
+        apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
+      }
     }
     if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
       return JavaPluginInfo.empty();

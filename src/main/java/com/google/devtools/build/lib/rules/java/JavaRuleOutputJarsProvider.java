@@ -241,6 +241,9 @@ public final class JavaRuleOutputJarsProvider
   }
 
   public static JavaRuleOutputJarsProvider merge(Collection<JavaRuleOutputJarsProvider> providers) {
+    if (providers.isEmpty()) {
+      return EMPTY;
+    }
     Builder builder = new Builder();
     for (JavaRuleOutputJarsProvider provider : providers) {
       builder.addJavaOutput(provider.getJavaOutputs());
