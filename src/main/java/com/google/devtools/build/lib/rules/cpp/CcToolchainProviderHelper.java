@@ -370,17 +370,33 @@ public class CcToolchainProviderHelper {
     return variables.build();
   }
 
+  private static String generatedErrorString(String toolName, String pathStr) {
+    //Simplify path
+    StringBuilder pathBuilder = new StringBuilder();
+    char[] buf = pathStr.toCharArray();
+    int current = 0;
+    while (current < buf.length) {
+        pathBuilder.append(buf[current]);
+        if (buf[current] == '/') {
+            do {
+                current++;
+            } while (current < buf.length && buf[current] == '/');
+        } else current++;
+    }
+    return "The path fragment '" + pathBuilder.toString() + "' for tool '" + toolName + "' is not normalized.";
+  }
+
   private static ImmutableMap<String, PathFragment> computeToolPaths(
       CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment crosstoolTopPathFragment)
       throws EvalException {
     Map<String, PathFragment> toolPathsCollector = Maps.newHashMap();
     for (Pair<String, String> tool : ccToolchainConfigInfo.getToolPaths()) {
-      String pathStr = tool.getSecond();
+      String toolName = tool.getFirst(), pathStr = tool.getSecond();
       if (!PathFragment.isNormalized(pathStr)) {
-        throw new IllegalArgumentException("The include path '" + pathStr + "' is not normalized.");
+        throw new IllegalArgumentException(generatedErrorString(toolName, pathStr));
       }
       PathFragment path = PathFragment.create(pathStr);
-      toolPathsCollector.put(tool.getFirst(), crosstoolTopPathFragment.getRelative(path));
+      toolPathsCollector.put(toolName, crosstoolTopPathFragment.getRelative(path));
     }
 
     if (toolPathsCollector.isEmpty()) {
