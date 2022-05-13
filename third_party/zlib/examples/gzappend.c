@@ -137,7 +137,7 @@ local void rotate(unsigned char *list, unsigned len, unsigned rot)
     /* do simple left shift by one */
     if (rot == 1) {
         tmp = *list;
-        memcpy(list, list + 1, len - 1);
+        memmove(list, list + 1, len - 1);
         *last = tmp;
         return;
     }
