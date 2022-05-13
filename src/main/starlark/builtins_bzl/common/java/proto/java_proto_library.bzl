@@ -73,7 +73,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
         exports,
     )
 
-    transitive_jars = [dep[JavaProtoAspectInfo].jars for dep in ctx.rule.attr.deps]
+    transitive_jars = [dep[JavaProtoAspectInfo].jars for dep in ctx.rule.attr.deps if JavaProtoAspectInfo in dep]
     return [
         java_info,
         JavaProtoAspectInfo(jars = depset(jars, transitive = transitive_jars)),
