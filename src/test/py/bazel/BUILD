@@ -269,3 +269,29 @@ py_test(
         ":test_base",
     ],
 )
+
+py_library(
+    name = "bum",
+    srcs = ["bum.py"],
+)
+
+py_binary(
+    name = "bar",
+    srcs = ["bar.py"],
+    deps = [":bum"],
+)
+
+py_binary(
+    name = "foo",
+    srcs = ["foo.py"],
+    data = ["//src/test/py/bazel:bar"],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
+)
+
+filegroup(
+    name = "foo-zip",
+    srcs = [":foo"],
+    output_group = "python_zip_file",
+)

@@ -90,14 +90,14 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-# This is a mock version of bazelbuild/rules_python that contains only
-# @rules_python//python:defs.bzl. It is used by protobuf.
-# TODO(#9029): We could potentially replace this with the real @rules_python.
-new_local_repository(
+http_archive(
     name = "rules_python",
-    build_file = "//third_party/rules_python:BUILD",
-    path = "./third_party/rules_python",
-    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
+    sha256 = "cdf6b84084aad8f10bf20b46b77cb48d83c319ebe6458a18e9d2cebf57807cdd",
+    strip_prefix = "rules_python-0.8.1",
+    urls = [
+        "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.8.1.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_python/archive/refs/tags/0.8.1.tar.gz",
+    ],
 )
 
 local_repository(
