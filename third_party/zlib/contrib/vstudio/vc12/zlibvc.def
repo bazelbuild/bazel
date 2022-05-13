@@ -151,3 +151,8 @@ EXPORTS
         deflateGetDictionary                    @173
         adler32_z                               @174
         crc32_z                                 @175
+
+; zlib1 v1.2.12 added:
+		crc32_combine_gen						@176
+		crc32_combine_gen64						@177
+		crc32_combine_op						@178
