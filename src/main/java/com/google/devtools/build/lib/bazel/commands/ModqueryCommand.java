@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModqueryExecutor;
@@ -72,7 +73,7 @@ public final class ModqueryCommand implements BlazeCommand {
     BazelModuleInspectorValue moduleInspector;
 
     try {
-      // Don't know what it does but was used in fetch
+      // Don't know exactly what it does, used in 'fetch'
       env.syncPackageLoading(options);
 
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -80,7 +81,7 @@ public final class ModqueryCommand implements BlazeCommand {
 
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
-              // Don't know what it does but was used in fetch
+              // Don't know exactly what it does, used in 'fetch'
               .setNumThreads(threadsOption.threads)
               .setEventHandler(env.getReporter())
               .build();
@@ -97,13 +98,13 @@ public final class ModqueryCommand implements BlazeCommand {
                   .prepareAndGet(ImmutableSet.of(BazelModuleInspectorValue.KEY), evaluationContext)
                   .get(BazelModuleInspectorValue.KEY);
 
-      // Don't know what it does but was used in fetch
+      // Don't know exactly what it does, used in 'fetch'
     } catch (InterruptedException e) {
       String errorMessage = "Modquery interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
       return BlazeCommandResult.detailedExitCode(
           InterruptedFailureDetails.detailedExitCode(errorMessage));
-      // Don't know what it does but was used in fetch
+      // Don't know exactly what it does, used in 'fetch'
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
@@ -166,6 +167,7 @@ public final class ModqueryCommand implements BlazeCommand {
     }
     ImmutableList<ImmutableSet<ModuleKey>> argsKeysList = argsKeysListBuilder.build();
 
+    /* Extract and check the --from argument */
     ImmutableSet<ModuleKey> fromKeys;
     try {
       fromKeys =
@@ -188,6 +190,12 @@ public final class ModqueryCommand implements BlazeCommand {
       modqueryExecutor.show(argsKeysList.get(0));
     }
 
+    printer.printLn("");
+    printer.printLn("");
+    printer.printLn(modqueryOptions.toString());
+    printer.printLn("");
+    printer.printLn(argsKeysList.toString());
+
     return BlazeCommandResult.success();
   }
 
@@ -202,8 +210,8 @@ public final class ModqueryCommand implements BlazeCommand {
     return allTargetKeys.build();
   }
 
-  // Helper to check the module-version argument exists and retrieve its present version(s) if not
-  // specified
+  // Helper to check the module-version argument exists and retrieve its present version(s)
+  // (ModuleKey(s)) if not specified
   private static ImmutableSet<ModuleKey> targetToModuleKeySet(
       TargetModule target, ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex)
       throws InvalidArgumentException {

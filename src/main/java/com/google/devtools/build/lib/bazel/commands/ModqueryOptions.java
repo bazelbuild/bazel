@@ -86,7 +86,7 @@ public class ModqueryOptions extends OptionsBase {
       defaultValue = "utf8",
       converter = CharsetConverter.class,
       documentationCategory = OptionDocumentationCategory.MODQUERY,
-      effectTags = {OptionEffectTag.EXECUTION},
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "Chooses the character set to use for the tree. Only affects text output. Valid values are \"utf8\" or \"ascii\". Default is \"utf8\"")
   public Charset charset;
@@ -96,7 +96,7 @@ public class ModqueryOptions extends OptionsBase {
       defaultValue = "indent",
       converter = PrefixConverter.class,
       documentationCategory = OptionDocumentationCategory.MODQUERY,
-      effectTags = {OptionEffectTag.EXECUTION},
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "Sets how each line is displayed (only affects `text` output). The prefix value can be one of \"indent\", \"depth\" or \"none\". The default is \"indent\"")
   public Prefix prefix;
@@ -120,6 +120,7 @@ public class ModqueryOptions extends OptionsBase {
     EXPLAIN(1),
     SHOW(1);
 
+    /* Store the number of arguments that it accepts for easy pre-check */
     private final int argNumber;
 
     QueryType(int argNumber) {
@@ -183,27 +184,6 @@ public class ModqueryOptions extends OptionsBase {
     }
   }
 
-  public static class TargetModuleListConverter implements Converter<ImmutableList<TargetModule>> {
-
-    @Override
-    public ImmutableList<TargetModule> convert(String input) throws OptionsParsingException {
-      CommaSeparatedNonEmptyOptionListConverter listConverter =
-          new CommaSeparatedNonEmptyOptionListConverter();
-      TargetModuleConverter targetModuleConverter = new TargetModuleConverter();
-      List<String> targetStrings = listConverter.convert(input);
-      ImmutableList.Builder<TargetModule> targetModules = new ImmutableList.Builder<>();
-      for (String targetInput : targetStrings) {
-        targetModules.add(targetModuleConverter.convert(targetInput));
-      }
-      return targetModules.build();
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a list of <module>s separated by comma";
-    }
-  }
-
   /**
    * Argument of a modquery converted from the form &lt;name&gt;@&lt;version&gt; or &lt;name&gt;.
    */
@@ -215,9 +195,11 @@ public class ModqueryOptions extends OptionsBase {
 
     abstract String getName();
 
+    /**
+     * If it is null, it represents any (one or multiple) present versions of the module in the dep
+     * graph, which is different from the empty version
+     */
     @Nullable
-    /* If it is null, it represents any (one or multiple) present versions of the module in the dep
-    graph, which is different from the empty version */
     abstract Version getVersion();
   }
 
@@ -256,6 +238,28 @@ public class ModqueryOptions extends OptionsBase {
     @Override
     public String getTypeDescription() {
       return "root, <module>@<version> or <module>";
+    }
+  }
+
+  /** Converts a comma-separated module list argument (i.e. A@1.0,B@2.0) */
+  public static class TargetModuleListConverter implements Converter<ImmutableList<TargetModule>> {
+
+    @Override
+    public ImmutableList<TargetModule> convert(String input) throws OptionsParsingException {
+      CommaSeparatedNonEmptyOptionListConverter listConverter =
+          new CommaSeparatedNonEmptyOptionListConverter();
+      TargetModuleConverter targetModuleConverter = new TargetModuleConverter();
+      List<String> targetStrings = listConverter.convert(input);
+      ImmutableList.Builder<TargetModule> targetModules = new ImmutableList.Builder<>();
+      for (String targetInput : targetStrings) {
+        targetModules.add(targetModuleConverter.convert(targetInput));
+      }
+      return targetModules.build();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a list of <module>s separated by comma";
     }
   }
 }
