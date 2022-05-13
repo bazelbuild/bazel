@@ -358,7 +358,11 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
             JavaSourceJarsProvider.class,
-            createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
+            createOutputSourceJar
+                ? createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps))
+                : JavaSourceJarsProvider.create(
+                    // TODO(b/207058960): Refactor. This is used for proto optimisation.
+                    NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJars), sourceJars))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
