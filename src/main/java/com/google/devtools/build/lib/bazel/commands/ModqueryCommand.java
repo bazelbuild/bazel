@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModqueryExecutor;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.QueryType;
-import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.TargetModuleConverter;
+import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.QueryTypeConverter;
+import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.TargetModule;
+import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.TargetModuleListConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -42,10 +44,9 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.skyframe.EvaluationContext;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
-import java.util.Arrays;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
@@ -124,126 +125,131 @@ public final class ModqueryCommand implements BlazeCommand {
     Preconditions.checkArgument(modqueryOptions != null);
 
     if (options.getResidue().isEmpty()) {
-      modqueryExecutor.transitiveDeps(ModuleKey.ROOT);
-      return BlazeCommandResult.success();
+      String errorMessage =
+          String.format("No query type specified, choose one from : %s.", QueryType.printValues());
+      return reportAndCreateFailureResult(env, errorMessage, Code.MODQUERY_COMMAND_UNKNOWN);
     }
 
-    String input = options.getResidue().get(0);
+    String queryInput = options.getResidue().get(0);
     QueryType query;
     try {
-      query = QueryType.valueOf(input.toUpperCase());
-    } catch (IllegalArgumentException e) {
+      query = new QueryTypeConverter().convert(queryInput);
+    } catch (OptionsParsingException e) {
       String errorMessage =
-          String.format(
-              "Invalid query type, choose one from : (%s).", Arrays.toString(QueryType.values()));
+          String.format("Invalid query type, choose one from : %s.", QueryType.printValues());
       return reportAndCreateFailureResult(env, errorMessage, Code.MODQUERY_COMMAND_UNKNOWN);
     }
 
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
-    TargetModuleConverter converter = new TargetModuleConverter();
+    if (query.getArgNumber() != args.size()) {
+      return reportAndCreateFailureResult(
+          env,
+          String.format(
+              "invalid number of arguments (provided %d, required %d).",
+              args.size(), query.getArgNumber()),
+          Code.MISSING_ARGUMENTS);
+    }
 
-    if (query == QueryType.DEPS) {
-      if (args.size() != 1) {
-        return reportAndCreateFailureResult(
-            env,
-            String.format("invalid number of arguments (provided %d, required 1).", args.size()),
-            Code.MISSING_ARGUMENTS);
-      }
+    TargetModuleListConverter converter = new TargetModuleListConverter();
+    ImmutableList.Builder<ImmutableSet<ModuleKey>> argsKeysListBuilder =
+        new ImmutableList.Builder<>();
+
+    for (String arg : args) {
       try {
-        ModuleKey target =
-            targetToModuleKey(converter.convert(args.get(0)), moduleInspector.getModulesIndex());
-        modqueryExecutor.deps(target);
-        return BlazeCommandResult.success();
-      } catch (Exception e) {
-        return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
-      }
-    } else if (query == QueryType.TRANSITIVE_DEPS) {
-      if (args.size() != 1) {
-        return reportAndCreateFailureResult(
-            env,
-            String.format("invalid number of arguments (provided %d, required 1).", args.size()),
-            Code.MISSING_ARGUMENTS);
-      }
-      try {
-        ModuleKey target =
-            targetToModuleKey(converter.convert(args.get(0)), moduleInspector.getModulesIndex());
-        modqueryExecutor.transitiveDeps(target);
-        return BlazeCommandResult.success();
-      } catch (Exception e) {
-        return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
-      }
-    } else if (query == QueryType.ALL_PATHS) {
-      if (args.size() != 2) {
-        return reportAndCreateFailureResult(
-            env,
-            String.format("invalid number of arguments (provided %d, required 2).", args.size()),
-            Code.MISSING_ARGUMENTS);
-      }
-      try {
-        ModuleKey from =
-            targetToModuleKey(converter.convert(args.get(0)), moduleInspector.getModulesIndex());
-        ModuleKey to =
-            targetToModuleKey(converter.convert(args.get(1)), moduleInspector.getModulesIndex());
-        modqueryExecutor.allPaths(from, to);
-        return BlazeCommandResult.success();
-      } catch (Exception e) {
-        return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
-      }
-    } else if (query == QueryType.PATH) {
-      if (args.size() != 2) {
-        return reportAndCreateFailureResult(
-            env,
-            String.format("invalid number of arguments (provided %d, required 2).", args.size()),
-            Code.MISSING_ARGUMENTS);
-      }
-      try {
-        ModuleKey from =
-            targetToModuleKey(converter.convert(args.get(0)), moduleInspector.getModulesIndex());
-        ModuleKey to =
-            targetToModuleKey(converter.convert(args.get(1)), moduleInspector.getModulesIndex());
-        modqueryExecutor.allPaths(from, to);
-        return BlazeCommandResult.success();
-      } catch (Exception e) {
-        return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
-      }
-    } else {
-      // else if (query == QueryType.EXPLAIN)
-      Preconditions.checkArgument(query == QueryType.EXPLAIN);
-      if (args.size() != 1) {
-        return reportAndCreateFailureResult(
-            env,
-            String.format("invalid number of arguments (provided %d, required 2).", args.size()),
-            Code.MISSING_ARGUMENTS);
-      }
-      try {
-        ImmutableSet<ModuleKey> targets =
-            targetToModuleKeySet(
-                converter.convert(args.get(0)), moduleInspector.getModulesIndex(), true);
-        modqueryExecutor.explain(targets);
-        return BlazeCommandResult.success();
-      } catch (Exception e) {
+        ImmutableList<TargetModule> targetList = converter.convert(arg);
+        ImmutableSet<ModuleKey> argModuleKeys =
+            targetListToModuleKeySet(targetList, moduleInspector.getModulesIndex());
+        argsKeysListBuilder.add(argModuleKeys);
+      } catch (OptionsParsingException | InvalidArgumentException e) {
         return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
       }
     }
+    ImmutableList<ImmutableSet<ModuleKey>> argsKeysList = argsKeysListBuilder.build();
+
+    ImmutableSet<ModuleKey> fromKeys;
+    try {
+      fromKeys =
+          targetListToModuleKeySet(modqueryOptions.modulesFrom, moduleInspector.getModulesIndex());
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
+    }
+
+    if (query == QueryType.TREE) {
+      modqueryExecutor.tree(fromKeys);
+    } else if (query == QueryType.DEPS) {
+      modqueryExecutor.deps(argsKeysList.get(0));
+    } else if (query == QueryType.PATH) {
+      modqueryExecutor.path(fromKeys, argsKeysList.get(0));
+    } else if (query == QueryType.ALL_PATHS) {
+      modqueryExecutor.allPaths(fromKeys, argsKeysList.get(0));
+    } else if (query == QueryType.EXPLAIN) {
+      modqueryExecutor.explain(argsKeysList.get(0));
+    } else if (query == QueryType.SHOW) {
+      modqueryExecutor.show(argsKeysList.get(0));
+    }
+
+    return BlazeCommandResult.success();
+  }
+
+  private static ImmutableSet<ModuleKey> targetListToModuleKeySet(
+      ImmutableList<TargetModule> targetList,
+      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex)
+      throws InvalidArgumentException {
+    ImmutableSet.Builder<ModuleKey> allTargetKeys = new ImmutableSet.Builder<>();
+    for (TargetModule targetModule : targetList) {
+      allTargetKeys.addAll(targetToModuleKeySet(targetModule, modulesIndex));
+    }
+    return allTargetKeys.build();
+  }
+
+  // Helper to check the module-version argument exists and retrieve its present version(s) if not
+  // specified
+  private static ImmutableSet<ModuleKey> targetToModuleKeySet(
+      TargetModule target, ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex)
+      throws InvalidArgumentException {
+    if (target.getName().equals("") && target.getVersion() == Version.EMPTY) {
+      return ImmutableSet.of(ModuleKey.ROOT);
+    }
+    ImmutableSet<ModuleKey> existingKeys = modulesIndex.get(target.getName());
+
+    if (existingKeys == null) {
+      throw new InvalidArgumentException(
+          String.format("Module %s does not exist in the dependency graph.", target.getName()));
+    }
+
+    if (target.getVersion() == null) {
+      return existingKeys;
+    }
+    ModuleKey key = ModuleKey.create(target.getName(), target.getVersion());
+    if (!existingKeys.contains(key)) {
+      throw new InvalidArgumentException(
+          String.format(
+              "Module version %s@%s does not exist, available versions: %s.",
+              target.getName(), target.getVersion(), existingKeys));
+    }
+    return ImmutableSet.of(key);
   }
 
   private static BlazeCommandResult reportAndCreateFailureResult(
       CommandEnvironment env, String message, Code detailedCode) {
-    env.getReporter().handle(Event.error(message));
-    return createFailureResult(env, message, detailedCode);
+    if (message.charAt(message.length() - 1) != '.') {
+      message = message.concat(".");
+    }
+    String fullMessage =
+        String.format(
+            message.concat(" Type '%s help modquery' for syntax and help."),
+            env.getRuntime().getProductName());
+    env.getReporter().handle(Event.error(fullMessage));
+    return createFailureResult(fullMessage, detailedCode);
   }
 
-  private static BlazeCommandResult createFailureResult(
-      CommandEnvironment env, String message, Code detailedCode) {
+  private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
                 .setModqueryCommand(
                     FailureDetails.ModqueryCommand.newBuilder().setCode(detailedCode).build())
-                .setMessage(
-                    String.format(
-                        message + " Type '%s help modquery' for syntax and help.",
-                        env.getRuntime().getProductName()))
+                .setMessage(message)
                 .build()));
   }
 
@@ -251,65 +257,6 @@ public final class ModqueryCommand implements BlazeCommand {
   private static class InvalidArgumentException extends Exception {
     private InvalidArgumentException(String message) {
       super(message);
-    }
-  }
-
-  // Helper to check the module-version argument exists and retrieve its present version(s) if not
-  // specified
-  private static ImmutableSet<ModuleKey> targetToModuleKeySet(
-      TargetModule target,
-      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
-      boolean allowMore)
-      throws InvalidArgumentException {
-    ImmutableSet<ModuleKey> existingKeys = modulesIndex.get(target.getName());
-
-    if (existingKeys == null) {
-      throw new InvalidArgumentException(
-          String.format("Module %s does not exist in the dependency graph.", target.getName()));
-    }
-    if (target.getVersion() == null) {
-      if (!allowMore && existingKeys.size() > 1) {
-        throw new InvalidArgumentException(
-            String.format(
-                "The argument %s can only specify a single module version, please select one of:"
-                    + " (%s).",
-                target.getName(), existingKeys));
-      }
-      return ImmutableSet.copyOf(existingKeys);
-    } else {
-      ModuleKey key = ModuleKey.create(target.getName(), target.getVersion());
-      if (!existingKeys.contains(key)) {
-        throw new InvalidArgumentException(
-            String.format(
-                "Module version %s@%s does not exist, available versions: (%s).",
-                target.getName(), target.getVersion(), existingKeys));
-      }
-      return ImmutableSet.of(key);
-    }
-  }
-
-  // Shortcut for targetToModuleKey which should return a single ModuleKey and throw an exception if
-  // more keys with the same name are found
-  private static ModuleKey targetToModuleKey(
-      TargetModule target, ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex)
-      throws InvalidArgumentException {
-    return targetToModuleKeySet(target, modulesIndex, false).asList().get(0);
-  }
-
-  /**
-   * Argument of a modquery converted from the form &lt;name&gt;@&lt;version&gt; or &lt;name&gt;.
-   */
-  @AutoValue
-  abstract static class TargetModule {
-    abstract String getName();
-
-    @Nullable
-    /* If it is null, it represents any (one or multiple) present versions of the module in the dep
-    graph, which is different from the empty version */
-    abstract Version getVersion();
-
-    static TargetModule create(String name, Version version) {
-      return new AutoValue_ModqueryCommand_TargetModule(name, version);
     }
   }
 }

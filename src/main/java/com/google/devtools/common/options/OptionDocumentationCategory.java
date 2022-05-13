@@ -55,8 +55,8 @@ public enum OptionDocumentationCategory {
   LOGGING,
 
   /**
-   * This option affects how strictly Bazel enforces valid build inputs (rule definitions,
-   * flag combinations, etc).
+   * This option affects how strictly Bazel enforces valid build inputs (rule definitions, flag
+   * combinations, etc).
    */
   INPUT_STRICTNESS,
 
@@ -79,8 +79,8 @@ public enum OptionDocumentationCategory {
   OUTPUT_PARAMETERS,
 
   /**
-   * This option provides information about signing outputs of the build. (For example, signing
-   * an iOS application with a certificate.)
+   * This option provides information about signing outputs of the build. (For example, signing an
+   * iOS application with a certificate.)
    */
   SIGNING,
 
@@ -90,9 +90,7 @@ public enum OptionDocumentationCategory {
    */
   STARLARK_SEMANTICS,
 
-  /**
-   * This option dictates information about the test environment or test runner.
-   */
+  /** This option dictates information about the test environment or test runner. */
   TESTING,
 
   /**
@@ -106,6 +104,9 @@ public enum OptionDocumentationCategory {
   /** This option relates to query output and semantics. */
   QUERY,
 
+  /** This option relates to modquery (external dependencies) output and semantics. */
+  MODQUERY,
+
   /**
    * This option specifies or alters a generic input to a Bazel command. This category should only
    * be used if the input is generic and does not fall into other categories, such as toolchain-
@@ -115,7 +116,4 @@ public enum OptionDocumentationCategory {
 
   /** A category of options to configure Bazel's remote caching and execution capabilities. */
   REMOTE,
-
-  /** This option relates to modquery (external dependencies) output and semantics. */
-  MODQUERY
 }

@@ -60,31 +60,3 @@ java_library(
         "//third_party:jsr305",
     ],
 )
-
-java_binary(
-    name = "ModqueryCommand",
-    srcs = ["ModqueryCommand.java"],
-    deps = [
-        ":commands",
-        "//src/main/java/com/google/devtools/build/lib:keep-going-option",
-        "//src/main/java/com/google/devtools/build/lib:loading-phase-threads-option",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)

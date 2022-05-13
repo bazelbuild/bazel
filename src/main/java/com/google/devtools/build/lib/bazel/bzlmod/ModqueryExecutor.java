@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import java.util.Map.Entry;
 
 /**
@@ -42,17 +43,22 @@ public class ModqueryExecutor {
     this.printer = printer;
   }
 
-  public void deps(ModuleKey target) {
-    for (Entry<ModuleKey, ResolutionReason> e : depGraph.get(target).getDeps().entrySet()) {
-      printer.printLn(e.getKey() + " " + e.getValue().toString());
+  public void tree(ImmutableSet<ModuleKey> from) {}
+
+  public void deps(ImmutableSet<ModuleKey> targets) {
+    for (ModuleKey target : targets) {
+      printer.printLn(Mode.INFO.toString() + target + Mode.DEFAULT);
+      for (Entry<ModuleKey, ResolutionReason> e : depGraph.get(target).getDeps().entrySet()) {
+        printer.printLn(e.getKey() + " " + e.getValue().toString());
+      }
     }
   }
 
-  public void transitiveDeps(ModuleKey target) {}
+  public void path(ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> to) {}
 
-  public void path(ModuleKey from, ModuleKey to) {}
-
-  public void allPaths(ModuleKey from, ModuleKey to) {}
+  public void allPaths(ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> to) {}
 
   public void explain(ImmutableSet<ModuleKey> targets) {}
+
+  public void show(ImmutableSet<ModuleKey> targets) {}
 }
