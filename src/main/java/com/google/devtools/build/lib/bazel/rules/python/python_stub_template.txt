@@ -106,7 +106,14 @@ def FindModuleSpace():
     if os.path.isdir(module_space):
       return module_space
 
-    runfiles_pattern = r'(.*\.runfiles)' + (r'\\' if IsWindows() else '/') + '.*'
+    slash_pattern = r'\\' if IsWindows() else '/'
+    runfiles_pattern = r'(.*\.runfiles)' + slash_pattern + '.*'
+    matchobj = re.match(runfiles_pattern, stub_filename)
+    if matchobj:
+      return matchobj.group(1)
+
+    # bazel pyz archives create a directory named "runfiles".  Try that next:
+    runfiles_pattern = r'(.*' + slash_pattern + 'runfiles)' + slash_pattern + '.*'
     matchobj = re.match(runfiles_pattern, stub_filename)
     if matchobj:
       return matchobj.group(1)
