@@ -67,7 +67,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
         deps.append(proto_toolchain_info.runtime[JavaInfo])
     java_info, jars = java_compile_for_protos(
         ctx,
-        "lib" + ctx.label.name + "-speed.jar",
+        "-speed.jar",
         source_jar,
         deps,
         exports,
@@ -79,7 +79,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
         JavaProtoAspectInfo(jars = depset(jars, transitive = transitive_jars)),
     ]
 
-def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], exports = [], injecting_rule_kind = "java_proto_library"):
+def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = [], exports = [], injecting_rule_kind = "java_proto_library"):
     """Compiles Java source jar returned by proto compiler.
 
     Use this call for java_xxx_proto_library. It uses java_common.compile with
@@ -93,7 +93,7 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
 
     Args:
       ctx: (RuleContext) Used to call `java_common.compile`
-      output_jar_name: (str) How to name the output jar.
+      output_jar_suffix: (str) How to name the output jar. For example: `-speed.jar`.
       source_jar: (File) Input source jar (may be `None`).
       deps: (list[JavaInfo]) `deps` of the `proto_library`.
       exports: (list[JavaInfo]) `exports` of the `proto_library`.
@@ -104,7 +104,8 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
       and runtime jar, when they are created.
     """
     if source_jar != None:
-        output_jar = ctx.actions.declare_file(output_jar_name)
+        path, sep, filename = ctx.label.name.rpartition("/")
+        output_jar = ctx.actions.declare_file(path + sep + "lib" + filename + output_jar_suffix)
         java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
         java_info = java_common.compile(
             ctx,
