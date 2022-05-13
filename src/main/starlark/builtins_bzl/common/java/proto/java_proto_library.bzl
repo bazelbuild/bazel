@@ -173,6 +173,8 @@ java_proto_library = rule(
     implementation = bazel_java_proto_library_rule,
     attrs = {
         "deps": attr.label_list(providers = [ProtoInfo], aspects = [bazel_java_proto_aspect]),
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        "distribs": attr.string_list(),
     },
     provides = [JavaInfo],
 )
