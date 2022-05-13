@@ -41,6 +41,10 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static final String PROVIDER_NAME = "JavaPluginInfo";
   public static final Provider PROVIDER = new Provider();
 
+  private static final JavaPluginInfo EMPTY =
+      new AutoValue_JavaPluginInfo(
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
+
   @Override
   public Provider getProvider() {
     return PROVIDER;
@@ -91,6 +95,11 @@ public abstract class JavaPluginInfo extends NativeInfo
   @Immutable
   @AutoValue
   public abstract static class JavaPluginData implements JavaPluginInfoApi.JavaPluginDataApi {
+    private static final JavaPluginData EMPTY =
+        create(
+            NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+            NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+            NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
 
     public static JavaPluginData create(
         NestedSet<String> processorClasses,
@@ -101,10 +110,7 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
 
     public static JavaPluginData empty() {
-      return create(
-          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
+      return EMPTY;
     }
 
     public static JavaPluginData merge(Iterable<JavaPluginData> plugins) {
@@ -171,6 +177,9 @@ public abstract class JavaPluginInfo extends NativeInfo
       plugins.add(provider.plugins());
       apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
     }
+    if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
+      return JavaPluginInfo.empty();
+    }
     return new AutoValue_JavaPluginInfo(
         ImmutableList.of(),
         JavaPluginData.merge(plugins),
@@ -184,8 +193,7 @@ public abstract class JavaPluginInfo extends NativeInfo
   }
 
   public static JavaPluginInfo empty() {
-    return new AutoValue_JavaPluginInfo(
-        ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
+    return EMPTY;
   }
 
   public abstract JavaPluginData plugins();
