@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 # third party libraries
-from rules_python.python.runfiles import runfiles
+from real_rules_python.python.runfiles import runfiles
 
 r = runfiles.Create()
 env = dict(os.environ)

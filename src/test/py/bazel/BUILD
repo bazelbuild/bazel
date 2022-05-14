@@ -286,7 +286,7 @@ py_binary(
     srcs = ["foo.py"],
     data = ["//src/test/py/bazel:bar"],
     deps = [
-        "@rules_python//python/runfiles",
+        "@real_rules_python//python/runfiles",
     ],
 )
 
