@@ -107,7 +107,6 @@ http_archive(
     strip_prefix = "rules_python-0.8.1",
     urls = [
         "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.8.1.tar.gz",
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_python/archive/refs/tags/0.8.1.tar.gz",
     ],
 )
 
