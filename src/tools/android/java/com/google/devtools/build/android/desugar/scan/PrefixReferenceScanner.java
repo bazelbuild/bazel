@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar.scan;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableSet;
+import org.objectweb.asm.Opcodes;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
@@ -52,7 +53,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private final String prefix;
 
   public PrefixReferenceScanner(String prefix) {
-    super(Opcodes.ASM8);
+    super(Opcodes.ASM9);
     this.prefix = prefix;
   }
 
@@ -228,7 +229,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private class PrefixReferenceMethodVisitor extends MethodVisitor {
 
     public PrefixReferenceMethodVisitor() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -362,7 +363,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private class PrefixReferenceFieldVisitor extends FieldVisitor {
 
     public PrefixReferenceFieldVisitor() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -382,7 +383,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private class PrefixReferenceAnnotationVisitor extends AnnotationVisitor {
 
     public PrefixReferenceAnnotationVisitor() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override

@@ -19,6 +19,7 @@ import static com.google.devtools.build.android.desugar.io.BitFlags.isStatic;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.Opcodes;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ final class BytecodeTypeInference extends MethodVisitor {
   private final String methodSignature;
 
   BytecodeTypeInference(int access, String owner, String name, String methodDescriptor) {
-    super(Opcodes.ASM8);
+    super(Opcodes.ASM9);
     localVariableSlots = createInitialLocalVariableTypes(access, owner, name, methodDescriptor);
     previousFrame = FrameInfo.create(ImmutableList.copyOf(localVariableSlots), ImmutableList.of());
     this.methodSignature = owner + "." + name + methodDescriptor;

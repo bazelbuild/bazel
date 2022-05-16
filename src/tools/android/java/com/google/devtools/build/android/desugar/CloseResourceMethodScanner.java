@@ -14,10 +14,10 @@
 package com.google.devtools.build.android.desugar;
 
 import com.google.common.base.Preconditions;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /**
  * A class scanner to check whether the class has the synthetic method $closeResource(Throwable,
@@ -30,7 +30,7 @@ public class CloseResourceMethodScanner extends ClassVisitor {
   private int classFileVersion;
 
   public CloseResourceMethodScanner() {
-    super(Opcodes.ASM8);
+    super(Opcodes.ASM9);
   }
 
   @Override
@@ -73,7 +73,7 @@ public class CloseResourceMethodScanner extends ClassVisitor {
     private boolean hasStackMapFrame;
 
     public StackMapFrameCollector(String name, String desc) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       methodSignature = internalName + '.' + name + desc;
     }
 

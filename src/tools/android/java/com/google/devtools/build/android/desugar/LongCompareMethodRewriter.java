@@ -17,9 +17,9 @@ import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.LCMP;
 
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /**
  * This class rewrites any call to Long.compare with the JVM instruction lcmp that is semantically
@@ -30,7 +30,7 @@ public class LongCompareMethodRewriter extends ClassVisitor {
   private final CoreLibraryRewriter rewriter;
 
   public LongCompareMethodRewriter(ClassVisitor cv, CoreLibraryRewriter rewriter) {
-    super(Opcodes.ASM8, cv);
+    super(Opcodes.ASM9, cv);
     this.rewriter = rewriter;
   }
 
@@ -44,7 +44,7 @@ public class LongCompareMethodRewriter extends ClassVisitor {
   private class LongCompareMethodVisitor extends MethodVisitor {
 
     public LongCompareMethodVisitor(MethodVisitor visitor) {
-      super(Opcodes.ASM8, visitor);
+      super(Opcodes.ASM9, visitor);
     }
 
     @Override

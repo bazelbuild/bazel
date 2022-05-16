@@ -15,10 +15,10 @@ package com.google.devtools.build.android.desugar;
 
 import com.google.devtools.build.android.desugar.ClassSignatureParser.ClassSignature;
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import org.objectweb.asm.Opcodes;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.Opcodes;
 
 /**
  * Visitor that renames emulated interfaces and marks classes that extend emulated interfaces to
@@ -33,7 +33,7 @@ public class EmulatedInterfaceRewriter extends ClassVisitor {
   private final CoreLibrarySupport support;
 
   public EmulatedInterfaceRewriter(ClassVisitor dest, CoreLibrarySupport support) {
-    super(Opcodes.ASM8, dest);
+    super(Opcodes.ASM9, dest);
     this.support = support;
   }
 

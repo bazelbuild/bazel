@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 import com.google.devtools.build.android.desugar.testdata.ClassCallingRequireNonNull;
+import org.objectweb.asm.Opcodes;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -27,7 +28,6 @@ import org.junit.runners.JUnit4;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /**
  * This test case tests the desugaring feature for Objects.requireNonNull. This feature replaces any
@@ -46,7 +46,7 @@ public class DesugarObjectsRequireNonNullTest {
       AtomicInteger counterForSupplier = new AtomicInteger(0);
 
       reader.accept(
-          new ClassVisitor(Opcodes.ASM8) {
+          new ClassVisitor(Opcodes.ASM9) {
             @Override
             public MethodVisitor visitMethod(
                 int access, String name, String desc, String signature, String[] exceptions) {
