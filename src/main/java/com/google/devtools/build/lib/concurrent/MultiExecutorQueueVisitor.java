@@ -81,7 +81,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   }
 
   @Override
-  public final void execute(Runnable runnable, ThreadPoolType threadPoolType) {
+  public void execute(Runnable runnable, ThreadPoolType threadPoolType) {
     super.executeWithExecutorService(runnable, getExecutorServiceByThreadPoolType(threadPoolType));
   }
 
