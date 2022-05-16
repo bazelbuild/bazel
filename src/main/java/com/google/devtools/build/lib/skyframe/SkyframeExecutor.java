@@ -2975,7 +2975,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     protected boolean ignoreInvalidations = false;
     /** This receiver is only needed for execution, so it is null otherwise. */
     @Nullable EvaluationProgressReceiver executionProgressReceiver = null;
-    /** This receiver is only needed for loading, so it is null otherwise. */
+
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (ignoreInvalidations) {
