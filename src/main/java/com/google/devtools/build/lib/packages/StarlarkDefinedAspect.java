@@ -90,7 +90,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.applyToGeneratingRules = applyToGeneratingRules;
   }
 
-
   public StarlarkCallable getImplementation() {
     return implementation;
   }
@@ -138,27 +137,21 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private static final ImmutableList<String> ALL_ATTR_ASPECTS = ImmutableList.of("*");
 
   /**
-   * The <code>AspectDefinition</code> is a function of the aspect's definition + its parameters, so
-   * we can cache that.
+   * The <code>AspectDefinition</code> is a function of the aspect's parameters, so we can cache
+   * that.
    *
-   * <p>StarlarkDefinedAspect key: Weak keys use reference comparison, so the values are freed when
-   * aspect's definition changes or when it's evicted from the skyframe.
-   *
-   * <p>AspectParameters key: parameters of Starlark aspects are combinatorially limited (only bool,
-   * int and enum types). Using strong keys possibly results in a small memory leak. Weak keys don't
-   * work because reference equality is used and AspectParameters are created per target.
+   * <p>Parameters of Starlark aspects are combinatorially limited (only bool, int and enum types).
+   * Using strong keys possibly results in a small memory leak. Weak keys don't work because
+   * reference equality is used and AspectParameters are created per target.
    */
-  private static final LoadingCache<
-          StarlarkDefinedAspect, LoadingCache<AspectParameters, AspectDefinition>>
-      definitionCache =
-          Caffeine.newBuilder()
-              .weakKeys()
-              .build(
-                  starlarkDefinedAspect ->
-                      Caffeine.newBuilder().build(starlarkDefinedAspect::buildDefinition));
+  private transient LoadingCache<AspectParameters, AspectDefinition> definitionCache =
+      Caffeine.newBuilder().build(this::buildDefinition);
 
   public AspectDefinition getDefinition(AspectParameters aspectParams) {
-    return definitionCache.get(this).get(aspectParams);
+    if (definitionCache == null) {
+      definitionCache = Caffeine.newBuilder().build(this::buildDefinition);
+    }
+    return definitionCache.get(aspectParams);
   }
 
   private AspectDefinition buildDefinition(AspectParameters aspectParams) {
@@ -172,7 +165,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     }
 
     for (Attribute attribute : attributes) {
-      Attribute attr = attribute;  // Might be reassigned.
+      Attribute attr = attribute; // Might be reassigned.
       if (!aspectParams.getAttribute(attr.getName()).isEmpty()) {
         Type<?> attrType = attr.getType();
         String attrName = attr.getName();
