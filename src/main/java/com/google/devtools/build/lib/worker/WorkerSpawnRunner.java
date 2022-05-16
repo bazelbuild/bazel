@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
-import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandleWithWorker;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -387,12 +387,18 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       Stopwatch queueStopwatch = Stopwatch.createStarted();
       if (workerOptions.workerAsResource) {
+        ResourceSet resourceSet =
+            ResourceSet.createWithWorkerKey(
+                spawn.getLocalResources().getMemoryMb(),
+                spawn.getLocalResources().getCpuUsage(),
+                spawn.getLocalResources().getLocalTestCount(),
+                key);
+
         // Worker doesn't automatically return to pool after closing of the handle.
-        try (ResourceHandleWithWorker handle =
-            resourceManager.acquireWorkerResources(
+        try (ResourceHandle handle =
+            resourceManager.acquireResources(
                 owner,
-                spawn.getLocalResources(),
-                key,
+                resourceSet,
                 context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
           workerOwner.setWorker(handle.getWorker());
           workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
@@ -430,6 +436,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
           response =
               executeRequest(
                   spawn, context, inputFiles, outputs, workerOwner, key, request, spawnMetrics);
+        } catch (IOException e) {
+          restoreInterrupt(e);
+          String message =
+              "The IOException is thrown from worker allocation, but"
+                  + " there is no worker allocation here.";
+          throw createUserExecException(e, message, Code.BORROW_FAILURE);
         }
       }
 
