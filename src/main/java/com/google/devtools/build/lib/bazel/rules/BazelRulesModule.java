@@ -85,10 +85,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableCrosstool;
 
@@ -153,10 +150,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
 
@@ -222,10 +216,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help =
             "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
                 + "CROSSTOOL fields.")
@@ -236,10 +227,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean enableLegacyToolchainStarlarkApi;
 
@@ -248,10 +236,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean disableLegacyToolchainStarlarkApi;
 
@@ -357,10 +342,7 @@ public final class BazelRulesModule extends BlazeModule {
           OptionEffectTag.UNKNOWN,
         },
         oldName = "experimental_cc_coverage",
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean useGcovCoverage;
 
@@ -525,6 +507,14 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean useDistinctHostConfiguration;
+
+    @Option(
+        name = "experimental_keep_config_nodes_on_analysis_discard",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean keepConfigNodes;
   }
 
   @Override

@@ -168,6 +168,12 @@ public interface JavaInfoApi<
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   CcInfoApi<FileT> getCcLinkParamInfo();
 
+  @StarlarkMethod(
+      name = "module_flags_info",
+      doc = "Returns the Java module flag configuration.",
+      structField = true)
+  JavaModuleFlagsProviderApi getJavaModuleFlagsInfo();
+
   /** Provider class for {@link JavaInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface JavaInfoProviderApi extends ProviderApi {

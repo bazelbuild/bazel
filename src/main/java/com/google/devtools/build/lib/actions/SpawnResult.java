@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -268,6 +269,23 @@ public interface SpawnResult {
   /** Whether the spawn result was obtained through remote strategy. */
   boolean wasRemote();
 
+  /** A unique identifier for the spawn. */
+  @AutoValue
+  @Immutable
+  public abstract class Digest {
+    public abstract String getHash();
+
+    public abstract Long getSizeBytes();
+
+    public static Digest of(String hash, Long sizeBytes) {
+      return new AutoValue_SpawnResult_Digest(hash, sizeBytes);
+    }
+  }
+
+  default Optional<Digest> getDigest() {
+    return Optional.empty();
+  }
+
   /** Basic implementation of {@link SpawnResult}. */
   @Immutable
   @ThreadSafe
@@ -294,7 +312,9 @@ public interface SpawnResult {
     // Invariant: Either both have a value or both are null.
     @Nullable private final ActionInput inMemoryOutputFile;
     @Nullable private final ByteString inMemoryContents;
+
     private final boolean remote;
+    private final Optional<Digest> digest;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -320,6 +340,7 @@ public interface SpawnResult {
       this.inMemoryContents = builder.inMemoryContents;
       this.actionMetadataLog = builder.actionMetadataLog;
       this.remote = builder.remote;
+      this.digest = builder.digest;
     }
 
     @Override
@@ -456,6 +477,11 @@ public interface SpawnResult {
     public boolean wasRemote() {
       return remote;
     }
+
+    @Override
+    public Optional<Digest> getDigest() {
+      return digest;
+    }
   }
 
   /** Builder class for {@link SpawnResult}. */
@@ -482,7 +508,9 @@ public interface SpawnResult {
     // Invariant: Either both have a value or both are null.
     @Nullable private ActionInput inMemoryOutputFile;
     @Nullable private ByteString inMemoryContents;
+
     private boolean remote;
+    private Optional<Digest> digest = Optional.empty();
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
@@ -615,6 +643,11 @@ public interface SpawnResult {
 
     public Builder setRemote(boolean remote) {
       this.remote = remote;
+      return this;
+    }
+
+    public Builder setDigest(Optional<Digest> digest) {
+      this.digest = digest;
       return this;
     }
   }

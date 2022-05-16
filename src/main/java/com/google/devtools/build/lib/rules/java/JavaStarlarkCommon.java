@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfigured
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -93,6 +93,8 @@ public class JavaStarlarkCommon
       Boolean enableJSpecify,
       boolean createOutputSourceJar,
       Object injectingRuleKind,
+      Sequence<?> addExports, // <String> expected
+      Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -171,6 +173,8 @@ public class JavaStarlarkCommon
             createOutputSourceJar,
             javaSemantics,
             injectingRuleKind,
+            Sequence.cast(addExports, String.class, "add_exports"),
+            Sequence.cast(addOpens, String.class, "add_opens"),
             thread);
   }
 
@@ -338,7 +342,7 @@ public class JavaStarlarkCommon
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
     if (!PRIVATE_STARLARKIFACTION_ALLOWLIST.contains(label.getPackageName())
-        && !label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }

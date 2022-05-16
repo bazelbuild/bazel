@@ -158,7 +158,7 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "SuccessfulLocalRepositoryLookupValue(" + repositoryName + ")";
+      return "SuccessfulLocalRepositoryLookupValue(" + repositoryName.getNameWithAt() + ")";
     }
 
     @Override

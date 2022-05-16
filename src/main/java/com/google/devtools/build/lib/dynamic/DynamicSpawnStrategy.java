@@ -158,30 +158,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         || canExecRemote(spawn, executionPolicy, actionContextRegistry, dynamicStrategyRegistry);
   }
 
-  private boolean canExecLocal(
-      Spawn spawn,
-      ExecutionPolicy mainSpawnExecutionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
-    if (!canExecLocalSpawn(
-        spawn, mainSpawnExecutionPolicy, actionContextRegistry, dynamicStrategyRegistry)) {
-      return false;
-    }
-    // Present if there is a extra local spawn. Unset if not.
-    Optional<Boolean> canLocalSpawn =
-        getExtraSpawnForLocalExecution
-            .apply(spawn)
-            .map(
-                extraSpawn ->
-                    canExecLocalSpawn(
-                        extraSpawn,
-                        getExecutionPolicy.apply(extraSpawn),
-                        actionContextRegistry,
-                        dynamicStrategyRegistry));
-    return canLocalSpawn.orElse(true);
-  }
-
-  private static boolean canExecLocalSpawn(
+  private static boolean canExecLocal(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
       ActionContext.ActionContextRegistry actionContextRegistry,

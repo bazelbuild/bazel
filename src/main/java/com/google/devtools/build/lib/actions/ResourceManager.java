@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
-import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
+import javax.annotation.Nullable;
 
 /**
  * Used to keep track of resources consumed by the Blaze action execution threads and throttle them
@@ -69,39 +69,28 @@ public class ResourceManager {
    * ResourcePriority)} that must be closed in order to free the resources again.
    */
   public static class ResourceHandle implements AutoCloseable {
-    final ResourceManager rm;
-    final ActionExecutionMetadata actionMetadata;
-    final ResourceSet resourceSet;
+    private final ResourceManager rm;
+    private final ActionExecutionMetadata actionMetadata;
+    private final ResourceSet resourceSet;
+    private final Worker worker;
 
-    public ResourceHandle(ResourceManager rm, ActionExecutionMetadata actionMetadata,
-        ResourceSet resources) {
+    private ResourceHandle(
+        ResourceManager rm,
+        ActionExecutionMetadata actionMetadata,
+        ResourceSet resources,
+        Worker worker) {
       this.rm = rm;
       this.actionMetadata = actionMetadata;
       this.resourceSet = resources;
-    }
-
-    /**
-     * Closing the ResourceHandle releases the resources associated with it.
-     */
-    @Override
-    public void close() {
-      rm.releaseResources(actionMetadata, resourceSet);
-    }
-  }
-
-  /**
-   * A handle returned by {@link #acquireWorkerResources(ActionExecutionMetadata, ResourceSet,
-   * WorkerKey, ResourcePriority)} that must be closed in order to free the resources again.
-   */
-  public static class ResourceHandleWithWorker implements AutoCloseable {
-    final ResourceHandle resourceHandle;
-    final Worker worker;
-
-    public ResourceHandleWithWorker(ResourceHandle resourceHandle, Worker worker) {
-      this.resourceHandle = resourceHandle;
       this.worker = worker;
     }
 
+    private ResourceHandle(
+        ResourceManager rm, ActionExecutionMetadata actionMetadata, ResourceSet resources) {
+      this(rm, actionMetadata, resources, /* worker= */ null);
+    }
+
+    @Nullable
     public Worker getWorker() {
       return worker;
     }
@@ -109,16 +98,17 @@ public class ResourceManager {
     /** Closing the ResourceHandle releases the resources associated with it. */
     @Override
     public void close() {
-      this.resourceHandle.close();
+      rm.releaseResources(actionMetadata, resourceSet);
     }
   }
 
-  private final ThreadLocal<Boolean> threadLocked = new ThreadLocal<Boolean>() {
-    @Override
-    protected Boolean initialValue() {
-      return false;
-    }
-  };
+  private final ThreadLocal<Boolean> threadLocked =
+      new ThreadLocal<Boolean>() {
+        @Override
+        protected Boolean initialValue() {
+          return false;
+        }
+      };
 
   /**
    * Defines the possible priorities of resources. The earlier elements in this enum will get first
@@ -135,9 +125,7 @@ public class ResourceManager {
     static ResourceManager instance = new ResourceManager();
   }
 
-  /**
-   * Returns singleton instance of the resource manager.
-   */
+  /** Returns singleton instance of the resource manager. */
   public static ResourceManager instance() {
     return Singleton.instance;
   }
@@ -192,16 +180,17 @@ public class ResourceManager {
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
 
-  private ResourceManager() {
-  }
+  private ResourceManager() {}
 
-  @VisibleForTesting public static ResourceManager instanceForTestingOnly() {
+  @VisibleForTesting
+  public static ResourceManager instanceForTestingOnly() {
     return new ResourceManager();
   }
 
   /**
    * Resets resource manager state and releases all thread locks.
-   * Note - it does not reset available resources. Use separate call to setAvailableResources().
+   *
+   * <p>Note - it does not reset available resources. Use separate call to setAvailableResources().
    */
   public synchronized void resetResourceUsage() {
     usedCpu = 0;
@@ -222,8 +211,9 @@ public class ResourceManager {
   }
 
   /**
-   * Sets available resources using given resource set. Must be called
-   * at least once before using resource manager.
+   * Sets available resources using given resource set.
+   *
+   * <p>Must be called at least once before using resource manager.
    */
   public synchronized void setAvailableResources(ResourceSet resources) {
     Preconditions.checkNotNull(resources);
@@ -257,31 +247,21 @@ public class ResourceManager {
   }
 
   /**
-   * Acuqires requested resource set and worker. Will block if resource is not available. The worker
-   * isn't released as part of the AutoCloseable.
-   */
-  public ResourceHandleWithWorker acquireWorkerResources(
-      ActionExecutionMetadata owner,
-      ResourceSet resources,
-      WorkerKey workerKey,
-      ResourcePriority priority)
-      throws InterruptedException, IOException {
-    Worker worker = this.workerPool.borrowObject(workerKey);
-    ResourceHandle handle = acquireResources(owner, resources, priority);
-    return new ResourceHandleWithWorker(handle, worker);
-  }
-
-  /**
    * Acquires requested resource set. Will block if resource is not available. NB! This method must
    * be thread-safe!
    */
   public ResourceHandle acquireResources(
       ActionExecutionMetadata owner, ResourceSet resources, ResourcePriority priority)
-      throws InterruptedException {
+      throws InterruptedException, IOException {
     Preconditions.checkNotNull(
         resources, "acquireResources called with resources == NULL during %s", owner);
     Preconditions.checkState(
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
+
+    Worker worker = null;
+    if (resources.getWorkerKey() != null) {
+      worker = this.workerPool.borrowObject(resources.getWorkerKey());
+    }
 
     AutoProfiler p =
         profiled("Acquiring resources for: " + owner.describe(), ProfilerTask.ACTION_LOCK);
@@ -313,7 +293,7 @@ public class ResourceManager {
       p.complete();
     }
 
-    return new ResourceHandle(this, owner, resources);
+    return new ResourceHandle(this, owner, resources, worker);
   }
 
   /**
@@ -499,7 +479,7 @@ public class ResourceManager {
     if (localMemoryEstimate && OS.getCurrent() == OS.LINUX) {
       try {
         ProcMeminfoParser memInfo = new ProcMeminfoParser();
-        double totalFreeRam = memInfo.getFreeRamKb() / 1024;
+        double totalFreeRam = memInfo.getFreeRamKb() / 1024.0;
         double reserveMemory = staticResources.getMemoryMb();
         remainingRam = totalFreeRam - reserveMemory;
       } catch (IOException e) {

@@ -907,7 +907,7 @@ constraint_value(name = "small_machine", constraint_setting = ":machine_size")
 
 platform(
     name = "my_host_platform",
-    parents = ["@bazel_tools//platforms:host_platform"],
+    parents = ["@local_config_platform//:host"],
     constraint_values = [
         ":large_machine"
     ]

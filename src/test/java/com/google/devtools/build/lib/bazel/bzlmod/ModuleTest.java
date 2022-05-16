@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,7 +30,7 @@ public class ModuleTest {
   @Test
   public void withDepKeysTransformed() throws Exception {
     assertThat(
-            Module.builder()
+            ModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar", "2.0"))
                 .build()
@@ -38,9 +39,11 @@ public class ModuleTest {
                         createModuleKey(
                             key.getName() + "_new", key.getVersion().getOriginal() + ".1")))
         .isEqualTo(
-            Module.builder()
+            ModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
+                .addOriginalDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
+                .addOriginalDep("dep_bar", createModuleKey("bar", "2.0"))
                 .build());
   }
 
@@ -48,10 +51,7 @@ public class ModuleTest {
   public void getRepoMapping() throws Exception {
     ModuleKey key = createModuleKey("test_module", "1.0");
     Module module =
-        Module.builder()
-            .setName(key.getName())
-            .setVersion(key.getVersion())
-            .setKey(key)
+        ModuleBuilder.create(key.getName(), key.getVersion())
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))
             .addDep("my_root", ModuleKey.ROOT)
@@ -73,9 +73,7 @@ public class ModuleTest {
   @Test
   public void getRepoMapping_asMainModule() throws Exception {
     Module module =
-        Module.builder()
-            .setName("test_module")
-            .setVersion(Version.parse("1.0"))
+        ModuleBuilder.create("test_module", "1.0")
             .setKey(ModuleKey.ROOT)
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))

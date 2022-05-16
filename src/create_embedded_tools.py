@@ -28,6 +28,7 @@ from src.create_embedded_tools_lib import copy_zip_to_zip
 from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
+    ('*MODULE.tools', lambda x: 'MODULE.bazel'),
     ('*tools/jdk/BUILD.tools', lambda x: 'tools/jdk/BUILD'),
     ('*tools/build_defs/repo/BUILD.repo',
      lambda x: 'tools/build_defs/repo/BUILD'),

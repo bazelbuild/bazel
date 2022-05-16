@@ -145,6 +145,8 @@ int OutputJar::Doit(Options *options) {
   if (options_->multi_release) {
     manifest_.EnableMultiRelease();
   }
+  manifest_.AddExports(options_->add_exports);
+  manifest_.AddOpens(options_->add_opens);
   if (!options_->hermetic_java_home.empty()) {
     manifest_.AppendLine("Hermetic-Java-Home: " + options_->hermetic_java_home);
   }

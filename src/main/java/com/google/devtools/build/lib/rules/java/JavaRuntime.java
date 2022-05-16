@@ -86,6 +86,12 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     PathFragment javaHomeRunfilesPath =
         javaBinaryRunfilesPath.getParentDirectory().getParentDirectory();
 
+    NestedSet<Artifact> hermeticInputs =
+        PrerequisiteArtifacts.nestedSet(ruleContext, "hermetic_srcs");
+    filesBuilder.addTransitive(hermeticInputs);
+
+    Artifact libModules = ruleContext.getPrerequisiteArtifact("lib_modules");
+
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     // TODO(cushon): clean up uses of java_runtime in data deps and remove this
@@ -100,7 +106,9 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             javaHome,
             javaBinaryExecPath,
             javaHomeRunfilesPath,
-            javaBinaryRunfilesPath);
+            javaBinaryRunfilesPath,
+            hermeticInputs,
+            libModules);
 
     TemplateVariableInfo templateVariableInfo =
         new TemplateVariableInfo(

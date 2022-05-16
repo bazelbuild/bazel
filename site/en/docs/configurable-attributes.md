@@ -41,7 +41,7 @@ config_setting(
 ```
 
 This declares a `cc_binary` that "chooses" its deps based on the flags at the
-command line. Specficially, `deps` becomes:
+command line. Specifically, `deps` becomes:
 
 <table>
   <tr style="background: #E9E9E9; font-weight: bold">

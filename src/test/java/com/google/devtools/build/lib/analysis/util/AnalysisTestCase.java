@@ -343,7 +343,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected AnalysisResult update(
       EventBus eventBus,
       FlagBuilder config,
-      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableSet<Label> explicitTargetPatterns,
       ImmutableList<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
       String... labels)

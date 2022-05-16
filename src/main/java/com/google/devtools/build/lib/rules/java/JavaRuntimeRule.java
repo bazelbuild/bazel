@@ -42,6 +42,18 @@ public final class JavaRuntimeRule implements RuleDefinition {
         All files in the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(hermetic_srcs) -->
+        Files in the runtime needed for hermetic deployments.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("hermetic_srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(lib_modules) -->
+        The lib/modules file needed for hermetic deployments.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("lib_modules", LABEL)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(java) -->
         The path to the java executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

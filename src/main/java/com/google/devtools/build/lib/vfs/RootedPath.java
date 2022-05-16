@@ -72,8 +72,8 @@ public class RootedPath implements Comparable<RootedPath>, FileStateKey {
   }
 
   /**
-   * Returns a rooted path representing {@code path} under one of the package roots, or under the
-   * filesystem root if it's not under any package root.
+   * Returns a rooted path representing {@code path} under one of the specified roots, or under the
+   * file system root if it's not under any of the roots in {@code packagePathRoots}.
    */
   public static RootedPath toRootedPathMaybeUnderRoot(Path path, Iterable<Root> packagePathRoots) {
     for (Root root : packagePathRoots) {

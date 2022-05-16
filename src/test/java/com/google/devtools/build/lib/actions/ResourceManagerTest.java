@@ -16,8 +16,12 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -26,28 +30,40 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.Worker;
+import com.google.devtools.build.lib.worker.WorkerFactory;
+import com.google.devtools.build.lib.worker.WorkerKey;
+import com.google.devtools.build.lib.worker.WorkerPool;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
 
 /** Tests for {@link ResourceManager}. */
 @RunWith(JUnit4.class)
-public class ResourceManagerTest {
+public final class ResourceManagerTest {
 
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
   private final ResourceManager rm = ResourceManager.instanceForTestingOnly();
+  @Mock private Worker worker;
   private AtomicInteger counter;
   CyclicBarrier sync;
   CyclicBarrier sync2;
 
   @Before
-  public final void configureResourceManager() throws Exception  {
+  public void configureResourceManager() throws Exception {
     rm.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
@@ -55,16 +71,45 @@ public class ResourceManagerTest {
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
     rm.setPrioritizeLocalActions(true);
+    rm.setWorkerPool(createWorkerPool());
+  }
+
+  private WorkerPool createWorkerPool() {
+    return new WorkerPool(
+        new WorkerPool.WorkerPoolConfig(
+            new WorkerFactory(fs.getPath("/workerBase")) {
+              @Override
+              public Worker create(WorkerKey key) {
+                return worker;
+              }
+
+              @Override
+              public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
+                return true;
+              }
+            },
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of()));
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests, ResourcePriority priority)
-      throws InterruptedException {
+      throws InterruptedException, IOException {
     return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests), priority);
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests)
-      throws InterruptedException {
+      throws InterruptedException, IOException {
     return acquire(ram, cpu, tests, ResourcePriority.LOCAL);
+  }
+
+  private ResourceHandle acquire(double ram, double cpu, int tests, String mnemonic)
+      throws InterruptedException, IOException {
+
+    return rm.acquireResources(
+        resourceOwner,
+        ResourceSet.createWithWorkerKey(ram, cpu, tests, createWorkerKey(mnemonic)),
+        ResourcePriority.LOCAL);
   }
 
   private ResourceHandle acquireNonblocking(double ram, double cpu, int tests) {
@@ -77,6 +122,20 @@ public class ResourceManagerTest {
 
   private void validate(int count) {
     assertThat(counter.incrementAndGet()).isEqualTo(count);
+  }
+
+  private WorkerKey createWorkerKey(String mnemonic) {
+    return new WorkerKey(
+        /* args= */ ImmutableList.of(),
+        /* env= */ ImmutableMap.of(),
+        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+        /* mnemonic= */ mnemonic,
+        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+        /* workerFilesWithDigests= */ ImmutableSortedMap.of(),
+        /* sandboxed= */ false,
+        /* multiplex= */ false,
+        /* cancellable= */ false,
+        WorkerProtocolFormat.PROTO);
   }
 
   @Test
@@ -605,6 +664,19 @@ public class ResourceManagerTest {
             });
     thread.start();
     return sync;
+  }
+
+  @Test
+  public void testAcquireWithWorker_acquireAndRelease() throws Exception {
+    int memory = 100;
+
+    assertThat(rm.inUse()).isFalse();
+    acquire(memory, 1, 0, "dummy");
+    assertThat(rm.inUse()).isTrue();
+    release(memory, 1, 0);
+    // When that RAM is released,
+    // Then Resource Manager will not be "in use":
+    assertThat(rm.inUse()).isFalse();
   }
 
   private static class ResourceOwnerStub implements ActionExecutionMetadata {

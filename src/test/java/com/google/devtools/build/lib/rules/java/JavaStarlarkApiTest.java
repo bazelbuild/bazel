@@ -1784,7 +1784,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
     @SuppressWarnings("unchecked")
-    Sequence<Artifact> sourceJars = (Sequence<Artifact>) (info.getValue("source_jars"));
+    Sequence<Artifact> sourceJars = (Sequence<Artifact>) info.getValue("source_jars");
     assertThat(prettyArtifactNames(sourceJars)).containsExactly("foo/libmy_java_lib_a-src.jar");
 
     assertThat(prettyArtifactNames(sourceJars)).doesNotContain("foo/libmy_java_lib_b-src.jar");

@@ -1,0 +1,20 @@
+module(
+    name = "bazel_tools",
+    toolchains_to_register = [
+        "@local_config_sh//:local_sh_toolchain",
+    ],
+)
+
+bazel_dep(name = "rules_cc", version = "0.0.1")
+bazel_dep(name = "rules_java", version = "5.0.0")
+bazel_dep(name = "rules_proto", version = "4.0.0")
+bazel_dep(name = "rules_python", version = "0.4.0")
+
+bazel_dep(name = "platforms", version = "0.0.4")
+bazel_dep(name = "protobuf", version = "3.19.0", repo_name = "com_google_protobuf")
+
+cc_configure = use_extension("@rules_cc//bzlmod:extensions.bzl", "cc_configure")
+use_repo(cc_configure, "local_config_cc", "local_config_xcode")
+
+sh_configure_extension = use_extension("//tools/sh:sh_configure.bzl", "sh_configure_extension")
+use_repo(sh_configure_extension, "local_config_sh")

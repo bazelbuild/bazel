@@ -34,6 +34,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalR
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
+import static com.google.devtools.build.lib.util.StringUtil.encodeBytestringUtf8;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -139,6 +141,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
@@ -224,7 +227,7 @@ public class RemoteExecutionService {
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
     for (ActionInput output : outputs) {
-      String pathString = remotePathResolver.localPathToOutputPath(output);
+      String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         outputDirectories.add(pathString);
       } else {
@@ -239,16 +242,21 @@ public class RemoteExecutionService {
     if (platform != null) {
       command.setPlatform(platform);
     }
-    command.addAllArguments(arguments);
+    for (String arg : arguments) {
+      command.addArguments(decodeBytestringUtf8(arg));
+    }
     // Sorting the environment pairs by variable name.
     TreeSet<String> variables = new TreeSet<>(env.keySet());
     for (String var : variables) {
-      command.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
+      command
+          .addEnvironmentVariablesBuilder()
+          .setName(decodeBytestringUtf8(var))
+          .setValue(decodeBytestringUtf8(env.get(var)));
     }
 
     String workingDirectory = remotePathResolver.getWorkingDirectory();
     if (!Strings.isNullOrEmpty(workingDirectory)) {
-      command.setWorkingDirectory(workingDirectory);
+      command.setWorkingDirectory(decodeBytestringUtf8(workingDirectory));
     }
     return command.build();
   }
@@ -305,8 +313,25 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {
+    TreeMap<PathFragment, ActionInput> outputDirMap = new TreeMap<>();
+    for (ActionInput output : spawn.getOutputFiles()) {
+      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+        outputDirMap.put(
+            PathFragment.create(remotePathResolver.getWorkingDirectory())
+                .getRelative(remotePathResolver.localPathToOutputPath(output.getExecPath())),
+            output);
+      }
+    }
+    return outputDirMap;
+  }
+
   private MerkleTree buildInputMerkleTree(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ForbiddenActionInputException {
+    // Add output directories to inputs so that they are created as empty directories by the
+    // executor. The spec only requires the executor to create the parent directory of an output
+    // directory, which differs from the behavior of both local and sandboxed execution.
+    SortedMap<PathFragment, ActionInput> outputDirMap = buildOutputDirMap(spawn);
     if (remoteOptions.remoteMerkleTreeCache) {
       MetadataProvider metadataProvider = context.getMetadataProvider();
       ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
@@ -316,9 +341,20 @@ public class RemoteExecutionService {
           (Object nodeKey, InputWalker walker) -> {
             subMerkleTrees.add(buildMerkleTreeVisitor(nodeKey, walker, metadataProvider));
           });
+      if (!outputDirMap.isEmpty()) {
+        subMerkleTrees.add(MerkleTree.build(outputDirMap, metadataProvider, execRoot, digestUtil));
+      }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
       SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
+      if (!outputDirMap.isEmpty()) {
+        // The map returned by getInputMapping is mutable, but must not be mutated here as it is
+        // shared with all other strategies.
+        SortedMap<PathFragment, ActionInput> newInputMap = new TreeMap<>();
+        newInputMap.putAll(inputMap);
+        newInputMap.putAll(outputDirMap);
+        inputMap = newInputMap;
+      }
       return MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     }
   }
@@ -865,7 +901,7 @@ public class RemoteExecutionService {
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectories()) {
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(dir.getPath()),
+          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(dir.getPath())),
           Futures.transformAsync(
               remoteCache.downloadBlob(
                   action.getRemoteActionExecutionContext(), dir.getTreeDigest()),
@@ -891,7 +927,8 @@ public class RemoteExecutionService {
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
     for (OutputFile outputFile : result.getOutputFiles()) {
-      Path localPath = remotePathResolver.outputPathToLocalPath(outputFile.getPath());
+      Path localPath =
+          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(outputFile.getPath()));
       files.put(
           localPath,
           new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
@@ -901,7 +938,8 @@ public class RemoteExecutionService {
     Iterable<OutputSymlink> outputSymlinks =
         Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
     for (OutputSymlink symlink : outputSymlinks) {
-      Path localPath = remotePathResolver.outputPathToLocalPath(symlink.getPath());
+      Path localPath =
+          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(symlink.getPath()));
       symlinks.put(
           localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
     }
@@ -938,9 +976,9 @@ public class RemoteExecutionService {
       // Check that all mandatory outputs are created.
       for (ActionInput output : action.getSpawn().getOutputFiles()) {
         if (action.getSpawn().isMandatoryOutput(output)) {
-          // Don't check output that is tree artifact since spawn could generate nothing under that
-          // directory. Remote server typically doesn't create directory ahead of time resulting in
-          // empty tree artifact missing from action cache entry.
+          // In the past, remote execution did not create output directories if the action didn't do
+          // this explicitly. This check only remains so that old remote cache entries that do not
+          // include empty output directories remain valid.
           if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
             continue;
           }

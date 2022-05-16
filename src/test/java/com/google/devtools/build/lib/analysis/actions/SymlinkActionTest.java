@@ -33,20 +33,20 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests {@link SymlinkAction}.
- */
-@RunWith(JUnit4.class)
+/** Tests {@link SymlinkAction}. */
+@RunWith(TestParameterInjector.class)
 public class SymlinkActionTest extends BuildViewTestCase {
+
+  @TestParameter private boolean useExecRootForSources;
 
   private Path input;
   private Artifact inputArtifact;
@@ -60,14 +60,19 @@ public class SymlinkActionTest extends BuildViewTestCase {
     inputArtifact = getSourceArtifact("input.txt");
     Path linkedInput =
         directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("input.txt");
-    FileSystemUtils.createDirectoryAndParents(linkedInput.getParentDirectory());
+    linkedInput.getParentDirectory().createDirectoryAndParents();
     linkedInput.createSymbolicLink(input);
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     outputArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     output = outputArtifact.getPath();
-    FileSystemUtils.createDirectoryAndParents(output.getParentDirectory());
-    action = SymlinkAction.toArtifact(NULL_ACTION_OWNER,
-        inputArtifact, outputArtifact, "Symlinking test");
+    output.getParentDirectory().createDirectoryAndParents();
+    action =
+        SymlinkAction.toArtifact(
+            NULL_ACTION_OWNER,
+            inputArtifact,
+            outputArtifact,
+            "Symlinking test",
+            useExecRootForSources);
   }
 
   @Test

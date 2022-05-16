@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -79,13 +80,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
-  // TODO(b/200024947): Make this public.
   /**
    * Parses a raw label string that contains the canonical form of a label. It must be of the form
    * {@code [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it must be a canonical
    * repo name, otherwise the label will be assumed to be in the main repo.
    */
-  private static Label parseCanonical(String raw) throws LabelSyntaxException {
+  public static Label parseCanonical(String raw) throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
     parts.checkPkgIsAbsolute();
     RepositoryName repoName =
@@ -106,13 +106,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return repoMapping.get(RepositoryName.createUnvalidated(parts.repo));
   }
 
-  // TODO(b/200024947): Make this public.
   /**
    * Parses a raw label string within the context of a current repo. It must be of the form {@code
    * [@repo]//foo/bar[:quux]}. If the {@code @repo} part is present, it will undergo {@code
    * repoMapping}, otherwise the label will be assumed to be in {@code currentRepo}.
    */
-  private static Label parseWithRepoContext(
+  public static Label parseWithRepoContext(
       String raw, RepositoryName currentRepo, RepositoryMapping repoMapping)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
@@ -122,7 +121,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
-  // TODO(b/200024947): Make this public.
   /**
    * Parses a raw label string within the context of a current package. It can be of a
    * package-relative form ({@code :quux}). Otherwise, it must be of the form {@code
@@ -130,7 +128,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * repoMapping}, otherwise the label will be assumed to be in the repo of {@code
    * packageIdentifier}.
    */
-  private static Label parseWithPackageContext(
+  public static Label parseWithPackageContext(
       String raw, PackageIdentifier packageIdentifier, RepositoryMapping repoMapping)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
@@ -368,7 +366,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   public String getUnambiguousCanonicalForm() {
-    return packageIdentifier.getRepository()
+    return packageIdentifier.getRepository().getNameWithAt()
         + "//"
         + packageIdentifier.getPackageFragment()
         + ":"
@@ -423,11 +421,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
-   * @param thread the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
+   * @param thread the Starlark thread.
    */
   @StarlarkMethod(
       name = "relative",
       doc =
+          // TODO(#14503): Fix the documentation.
           "Resolves a label that is either absolute (starts with <code>//</code>) or relative to "
               + "the current package. If this label is in a remote repository, the argument will "
               + "be resolved relative to that repository. If the argument contains a repository "
@@ -456,20 +455,9 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
-    HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
-    return getRelativeWithRemapping(relName, hrm.getRepoMappingForCurrentBzlFile(thread));
-  }
-
-  /**
-   * An interface for retrieving a repository mapping that's applicable for the repo containing the
-   * current .bzl file (more precisely, the .bzl file where the function at the innermost Starlark
-   * stack frame lives).
-   *
-   * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
-   * that type here because logically it belongs in Bazel, above this package.
-   */
-  public interface HasRepoMapping {
-    RepositoryMapping getRepoMappingForCurrentBzlFile(StarlarkThread thread);
+    return getRelativeWithRemapping(
+        relName,
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping());
   }
 
   /**

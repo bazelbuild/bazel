@@ -21,7 +21,10 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
@@ -38,6 +41,8 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import org.junit.Before;
@@ -75,6 +80,27 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(getSkyframeExecutor().getDifferencerForTesting(), false);
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         getSkyframeExecutor().getDifferencerForTesting(), CheckDirectDepsMode.WARNING);
+  }
+
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    // Make sure we don't have built-in modules affecting the dependency graph.
+    return new AnalysisMock.Delegate(super.getAnalysisMock()) {
+      @Override
+      public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+          BlazeDirectories directories) {
+        return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+            .putAll(
+                Maps.filterKeys(
+                    super.getSkyFunctions(directories),
+                    fnName -> !fnName.equals(SkyFunctions.MODULE_FILE)))
+            .put(
+                SkyFunctions.MODULE_FILE,
+                new ModuleFileFunction(
+                    FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace(), ImmutableMap.of()))
+            .buildOrThrow();
+      }
+    };
   }
 
   public static RepositoryMappingValue withMappingAllowingFallback(

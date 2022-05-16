@@ -422,6 +422,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // subtract network time consumed here to ensure wall clock during fetch is not double
     // counted, and metrics time computation does not exceed total time
     return createSpawnResult(
+        action.getActionKey(),
         result.getExitCode(),
         cacheHit,
         cacheName,

@@ -59,7 +59,9 @@ def compile_action(
         javacopts = [],
         neverlink = False,
         strict_deps = "ERROR",
-        enable_compile_jar_action = True):
+        enable_compile_jar_action = True,
+        add_exports = [],
+        add_opens = []):
     """
     Creates actions that compile Java sources, produce source jar, and produce header jar and returns JavaInfo.
 
@@ -117,6 +119,8 @@ def compile_action(
         creation. If set to False, it forces use of the full class jar in the
         compilation classpaths of any dependants. Doing so is intended for use
         by non-library targets such as binaries that do not have dependants.
+      add_exports: (list[str]) Allow this library to access the given <module>/<package>.
+      add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
 
     Returns:
       ((JavaInfo, {files_to_build: list[File],
@@ -149,6 +153,8 @@ def compile_action(
         output_source_jar = output_source_jar,
         strict_deps = _filter_strict_deps(strict_deps),
         enable_compile_jar_action = enable_compile_jar_action,
+        add_exports = add_exports,
+        add_opens = add_opens,
     )
 
     compilation_info = struct(
@@ -215,6 +221,8 @@ COMPILE_ACTION = create_dep(
         ),
         "javacopts": attr.string_list(),
         "neverlink": attr.bool(),
+        "add_exports": attr.string_list(),
+        "add_opens": attr.string_list(),
         "_java_toolchain": attr.label(
             default = semantics.JAVA_TOOLCHAIN_LABEL,
             providers = [java_common.JavaToolchainInfo],

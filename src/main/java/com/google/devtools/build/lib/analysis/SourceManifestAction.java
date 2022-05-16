@@ -188,6 +188,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     runfiles.fingerprint(fp);
   }
 
+  @Override
+  public String describeKey() {
+    return String.format(
+        "GUID: %s\nremotableSourceManifestActions: %s\nrunfiles: %s\n",
+        GUID, remotableSourceManifestActions, runfiles.describeFingerprint());
+  }
+
   /** Supported manifest writing strategies. */
   public enum ManifestType implements ManifestWriter {
 

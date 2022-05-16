@@ -110,8 +110,7 @@ public final class ArtifactFunction implements SkyFunction {
       throws ArtifactFunctionException, InterruptedException {
     Artifact artifact = (Artifact) skyKey;
     if (!artifact.hasKnownGeneratingAction()) {
-      // If the artifact has no known generating action, it is either a source artifact, or a
-      // NinjaMysteryArtifact, which undergoes the same handling here.
+      // If the artifact has no known generating action, it is a source artifact.
       return createSourceValue(artifact, env);
     }
     Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;

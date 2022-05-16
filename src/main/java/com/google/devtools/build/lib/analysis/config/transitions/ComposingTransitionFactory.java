@@ -85,16 +85,16 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     return new AutoValue_ComposingTransitionFactory<T>(transitionFactory1, transitionFactory2);
   }
 
-  abstract TransitionFactory<T> transitionFactory1();
-
-  abstract TransitionFactory<T> transitionFactory2();
-
   @Override
   public ConfigurationTransition create(T data) {
     ConfigurationTransition transition1 = transitionFactory1().create(data);
     ConfigurationTransition transition2 = transitionFactory2().create(data);
     return new ComposingTransition(transition1, transition2);
   }
+
+  abstract TransitionFactory<T> transitionFactory1();
+
+  abstract TransitionFactory<T> transitionFactory2();
 
   @Override
   public boolean isHost() {

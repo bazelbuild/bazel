@@ -747,6 +747,30 @@ EOF
       "$(cat foo/expected_lexicographical_result)" "$(cat bazel-bin/foo/q)"
 }
 
+function test_graphless_query_resilient_to_cycles() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "a", deps = [":b"])
+sh_library(name = "b", deps = [":c"])
+sh_library(name = "c", deps = [":a"])
+sh_library(name = "d")
+EOF
+
+  for command in \
+      "somepath(//foo:a, //foo:c)" \
+      "somepath(//foo:a, //foo:d)" \
+      "somepath(//foo:c, //foo:d)" \
+      "allpaths(//foo:a, //foo:d)" \
+      "deps(//foo:a)" \
+      "rdeps(//foo:a, //foo:d)" \
+      "same_pkg_direct_rdeps(//foo:b)"
+  do
+    bazel query --experimental_graphless_query=true \
+        "$command" || fail "Expected success"
+  done
+}
+
 function test_lexicographical_output_does_not_affect_order_output_no() {
   rm -rf foo
   mkdir -p foo

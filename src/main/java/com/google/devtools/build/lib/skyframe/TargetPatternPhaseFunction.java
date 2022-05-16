@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,23 +68,12 @@ import java.util.Set;
  * resolved Targets.
  */
 final class TargetPatternPhaseFunction implements SkyFunction {
-
-  private final ExternalPackageHelper externalPackageHelper;
-
-  public TargetPatternPhaseFunction(ExternalPackageHelper externalPackageHelper) {
-    this.externalPackageHelper = externalPackageHelper;
-  }
+  public TargetPatternPhaseFunction() {}
 
   @Override
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
     WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
-    ImmutableSortedSet<String> notSymlinkedInExecrootDirectories =
-        externalPackageHelper.getNotSymlinkedInExecrootDirectories(env);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (repositoryMappingValue == null) {
@@ -235,8 +222,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             testsToRunLabels,
             targets.hasError(),
             expandedTargets.hasError(),
-            workspaceName.getName(),
-            notSymlinkedInExecrootDirectories);
+            workspaceName.getName());
 
     env.getListener()
         .post(

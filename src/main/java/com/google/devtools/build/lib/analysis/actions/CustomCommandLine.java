@@ -1291,9 +1291,9 @@ public class CustomCommandLine extends CommandLine {
   }
 
   @Override
-  public ImmutableList<String> arguments(ArtifactExpander artifactExpander)
+  public ImmutableList<String> arguments(@Nullable ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
-    return argumentsInternal(Preconditions.checkNotNull(artifactExpander));
+    return argumentsInternal(artifactExpander);
   }
 
   private ImmutableList<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander)

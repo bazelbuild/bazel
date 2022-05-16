@@ -48,7 +48,7 @@ EOF
   assert_contains "no-cache:" output1
   assert_contains "no-remote:" output1
 
-  bazel aquery --experimental_allow_tags_propagation 'mnemonic("CppLink", outputs(".*/libtest.a", //test:test))' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation 'mnemonic("CppArchive", outputs(".*/libtest.a", //test:test))' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {" output1

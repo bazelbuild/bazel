@@ -184,6 +184,14 @@ public interface MemoizingEvaluator {
   void dumpSummary(PrintStream out);
 
   /**
+   * Writes a list of counts of each node type in the graph to the given output stream.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpCount(PrintStream out);
+
+  /**
    * Writes a detailed summary of the graph to the given output stream, omitting keys that do not
    * match the given filter.
    *

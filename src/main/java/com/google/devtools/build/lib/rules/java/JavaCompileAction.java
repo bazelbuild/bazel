@@ -692,6 +692,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       }
     }
 
+    // No paths to rewrite.
+    if (executorJdeps.getDependencyCount() == 0) {
+      return executorJdeps;
+    }
+
     // Rewrite the .jdeps proto with full paths.
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {

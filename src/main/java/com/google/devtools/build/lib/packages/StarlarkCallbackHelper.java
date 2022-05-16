@@ -41,7 +41,7 @@ public final class StarlarkCallbackHelper {
   // thread that instantiated a rule, must be propagated to
   // the child threads (implicit outputs, attribute defaults).
   // This includes any other thread-local state, such as
-  // the Label.HasRepoMapping or PackageFactory.PackageContext.
+  // PackageFactory.PackageContext.
   // TODO(adonovan): it would be cleaner and less error prone to
   // perform these callbacks in the actual loading-phase thread,
   // at the end of BUILD file execution.

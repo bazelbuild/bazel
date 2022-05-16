@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -159,16 +160,22 @@ public class JavaProtoAspectCommon {
 
   /** Returns the toolchain that specifies how to generate code from {@code .proto} files. */
   public ProtoLangToolchainProvider getProtoToolchainProvider() {
+    return checkNotNull(ProtoLangToolchainProvider.get(ruleContext, protoToolchainAttr));
+  }
+
+  /**
+   * Returns the Starlark toolchain that specifies how to generate code from {@code .proto} files.
+   */
+  public StarlarkInfo getStarlarkProtoToolchainProvider() {
     return checkNotNull(
-        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.PROVIDER));
+        ProtoLangToolchainProvider.getStarlarkProvider(ruleContext, protoToolchainAttr));
   }
 
   /**
    * Returns the toolchain that specifies how to generate Java-lite code from {@code .proto} files.
    */
   static ProtoLangToolchainProvider getLiteProtoToolchainProvider(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(
-        LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
+    return ProtoLangToolchainProvider.get(ruleContext, LITE_PROTO_TOOLCHAIN_ATTR);
   }
 
   /**
@@ -206,9 +213,9 @@ public class JavaProtoAspectCommon {
 
     boolean shouldGenerate =
         ProtoCommon.shouldGenerateCode(
-            ruleContext, protoTarget, getProtoToolchainProvider(), ruleName);
+            ruleContext, protoTarget, getStarlarkProtoToolchainProvider(), ruleName);
     if (rpcSupport != null) {
-      Optional<ProtoLangToolchainProvider> toolchain = rpcSupport.getToolchain(ruleContext);
+      Optional<StarlarkInfo> toolchain = rpcSupport.getToolchain(ruleContext);
       if (toolchain.isPresent()) {
         if (!ProtoCommon.shouldGenerateCode(ruleContext, protoTarget, toolchain.get(), ruleName)) {
           shouldGenerate = false;

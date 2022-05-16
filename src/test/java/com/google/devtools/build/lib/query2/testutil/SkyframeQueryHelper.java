@@ -363,7 +363,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   @Override
   public void assertPackageNotLoaded(String packageName) throws Exception {
     MemoizingEvaluator evaluator = skyframeExecutor.getEvaluator();
-    SkyKey key = PackageValue.key(PackageIdentifier.parse(packageName));
+    SkyKey key = PackageValue.key(PackageIdentifier.createInMainRepo(packageName));
     if (evaluator.getExistingValue(key) != null
         || evaluator.getExistingErrorForTesting(key) != null) {
       throw new IllegalStateException("Package was loaded: " + packageName);

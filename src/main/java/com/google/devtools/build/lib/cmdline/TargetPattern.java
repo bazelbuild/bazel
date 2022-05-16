@@ -22,13 +22,10 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
-import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
@@ -226,8 +223,8 @@ public abstract class TargetPattern {
     throw new IllegalStateException();
   }
 
-  /** For patterns of type {@link Type#SINGLE_TARGET}, returns the target path. */
-  public String getSingleTargetPath() {
+  /** For patterns of type {@link Type#SINGLE_TARGET}, returns the label to the target. */
+  public Label getSingleTargetLabel() {
     throw new IllegalStateException();
   }
 
@@ -261,13 +258,11 @@ public abstract class TargetPattern {
 
   private static final class SingleTarget extends TargetPattern {
 
-    private final String targetName;
-    private final PackageIdentifier directory;
+    private final Label target;
 
-    private SingleTarget(String targetName, PackageIdentifier directory, String originalPattern) {
+    private SingleTarget(Label target, String originalPattern) {
       super(originalPattern);
-      this.targetName = Preconditions.checkNotNull(targetName);
-      this.directory = Preconditions.checkNotNull(directory);
+      this.target = Preconditions.checkNotNull(target);
     }
 
     @Override
@@ -278,17 +273,17 @@ public abstract class TargetPattern {
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
-      callback.process(resolver.getExplicitTarget(label(targetName)).getTargets());
+      callback.process(resolver.getExplicitTarget(target).getTargets());
     }
 
     @Override
     public PackageIdentifier getDirectory() {
-      return directory;
+      return target.getPackageIdentifier();
     }
 
     @Override
     public RepositoryName getRepository() {
-      return directory.getRepository();
+      return target.getRepository();
     }
 
     @Override
@@ -297,8 +292,8 @@ public abstract class TargetPattern {
     }
 
     @Override
-    public String getSingleTargetPath() {
-      return targetName;
+    public Label getSingleTargetLabel() {
+      return target;
     }
 
     @Override
@@ -315,12 +310,12 @@ public abstract class TargetPattern {
         return false;
       }
       SingleTarget that = (SingleTarget) o;
-      return targetName.equals(that.targetName) && directory.equals(that.directory);
+      return target.equals(that.target);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(getType(), targetName, directory);
+      return Objects.hash(getType(), target);
     }
   }
 
@@ -340,22 +335,25 @@ public abstract class TargetPattern {
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException, InconsistentFilesystemException {
-      if (resolver.isPackage(PackageIdentifier.createInMainRepo(path))) {
+      PackageIdentifier pathAsPackage = PackageIdentifier.createInMainRepo(path);
+      if (resolver.isPackage(pathAsPackage)) {
         // User has specified a package name. lookout for default target.
-        callback.process(resolver.getExplicitTarget(label("//" + path)).getTargets());
+        callback.process(
+            resolver
+                .getExplicitTarget(
+                    label(pathAsPackage, pathAsPackage.getPackageFragment().getBaseName()))
+                .getTargets());
       } else {
         List<String> pieces = SLASH_SPLITTER.splitToList(path);
 
         // Interprets the label as a file target.  This loop stops as soon as the
         // first BUILD file is found (i.e. longest prefix match).
         for (int i = pieces.size() - 1; i >= 0; i--) {
-          String packageName = SLASH_JOINER.join(pieces.subList(0, i));
-          if (resolver.isPackage(PackageIdentifier.createInMainRepo(packageName))) {
+          PackageIdentifier pkg =
+              PackageIdentifier.createInMainRepo(SLASH_JOINER.join(pieces.subList(0, i)));
+          if (resolver.isPackage(pkg)) {
             String targetName = SLASH_JOINER.join(pieces.subList(i, pieces.size()));
-            callback.process(
-                resolver
-                    .getExplicitTarget(label("//" + packageName + ":" + targetName))
-                    .getTargets());
+            callback.process(resolver.getExplicitTarget(label(pkg, targetName)).getTargets());
             return;
           }
         }
@@ -962,15 +960,7 @@ public abstract class TargetPattern {
 
       if (packagePart.endsWith("/...")) {
         String realPackagePart = packagePart.substring(0, packagePart.length() - "/...".length());
-        PackageIdentifier packageIdentifier;
-        try {
-          packageIdentifier =
-              PackageIdentifier.parse(repository.getNameWithAt() + "//" + realPackagePart);
-        } catch (LabelSyntaxException e) {
-          throw new TargetParsingException(
-              "Invalid package name '" + realPackagePart + "': " + e.getMessage(),
-              TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-        }
+        PackageIdentifier packageIdentifier = createPackageIdentifier(repository, realPackagePart);
         if (targetPart.isEmpty() || ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
           return new TargetsBelowDirectory(originalPattern, packageIdentifier, true);
         } else if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
@@ -979,46 +969,35 @@ public abstract class TargetPattern {
       }
 
       if (ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
-        PackageIdentifier packageIdentifier;
-        try {
-          packageIdentifier =
-              PackageIdentifier.parse(repository.getNameWithAt() + "//" + packagePart);
-        } catch (LabelSyntaxException e) {
-          throw new TargetParsingException(
-              "Invalid package name '" + packagePart + "': " + e.getMessage(),
-              TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-        }
         return new TargetsInPackage(
-            originalPattern, packageIdentifier, targetPart, wasOriginallyAbsolute, true, true);
+            originalPattern,
+            createPackageIdentifier(repository, packagePart),
+            targetPart,
+            wasOriginallyAbsolute,
+            true,
+            true);
       }
 
       if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
-        PackageIdentifier packageIdentifier;
-        try {
-          packageIdentifier =
-              PackageIdentifier.parse(repository.getNameWithAt() + "//" + packagePart);
-        } catch (LabelSyntaxException e) {
-          throw new TargetParsingException(
-              "Invalid package name '" + packagePart + "': " + e.getMessage(),
-              TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-        }
         return new TargetsInPackage(
-            originalPattern, packageIdentifier, targetPart, wasOriginallyAbsolute, false, true);
+            originalPattern,
+            createPackageIdentifier(repository, packagePart),
+            targetPart,
+            wasOriginallyAbsolute,
+            false,
+            true);
       }
 
       if (includesRepo || wasOriginallyAbsolute || pattern.contains(":")) {
-        PackageIdentifier packageIdentifier;
-        String fullLabel = repository.getNameWithAt() + "//" + pattern;
+        Label label;
         try {
-          PackageAndTarget packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
-          packageIdentifier =
-              PackageIdentifier.create(
-                  repository, PathFragment.create(packageAndTarget.getPackageName()));
-        } catch (BadLabelException e) {
-          String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
-          throw new TargetParsingException(error, TargetPatterns.Code.TARGET_FORMAT_INVALID);
+          label = Label.parseCanonical(repository.getNameWithAt() + "//" + pattern);
+        } catch (LabelSyntaxException e) {
+          throw new TargetParsingException(
+              "invalid target format '" + originalPattern + "': " + e.getMessage(),
+              TargetPatterns.Code.TARGET_FORMAT_INVALID);
         }
-        return new SingleTarget(fullLabel, packageIdentifier, originalPattern);
+        return new SingleTarget(label, originalPattern);
       }
 
       // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic
@@ -1031,14 +1010,23 @@ public abstract class TargetPattern {
       if (slashIndex > 0) {
         packageName = pattern.substring(0, slashIndex);
       }
-      try {
-        PackageIdentifier.parse("//" + packageName);
-      } catch (LabelSyntaxException e) {
+      String pkgError = LabelValidator.validatePackageName(packageName);
+      if (pkgError != null) {
         throw new TargetParsingException(
-            "Bad target pattern '" + originalPattern + "': " + e.getMessage(),
+            "Bad target pattern '" + originalPattern + "': " + pkgError,
             TargetPatterns.Code.LABEL_SYNTAX_ERROR);
       }
       return new InterpretPathAsTarget(pattern, originalPattern);
+    }
+
+    private PackageIdentifier createPackageIdentifier(RepositoryName repoName, String pkg)
+        throws TargetParsingException {
+      String pkgError = LabelValidator.validatePackageName(pkg);
+      if (pkgError != null) {
+        throw new TargetParsingException(
+            "Invalid package name '" + pkg + "': " + pkgError, Code.LABEL_SYNTAX_ERROR);
+      }
+      return PackageIdentifier.create(repoName, PathFragment.create(pkg));
     }
 
     /**
@@ -1077,15 +1065,15 @@ public abstract class TargetPattern {
     }
   }
 
-  // Parse 'label' as a Label, mapping LabelSyntaxException into
-  // TargetParsingException.
-  private static Label label(String label) throws TargetParsingException {
+  // Creates a label from parts, mapping LabelSyntaxException into TargetParsingException.
+  private static Label label(PackageIdentifier pkg, String targetName)
+      throws TargetParsingException {
     try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
+      return Label.create(pkg, targetName);
     } catch (LabelSyntaxException e) {
       throw new TargetParsingException(
-          "invalid target format: '"
-              + StringUtilities.sanitizeControlChars(label)
+          "invalid target name: '"
+              + StringUtilities.sanitizeControlChars(targetName)
               + "'; "
               + StringUtilities.sanitizeControlChars(e.getMessage()),
           TargetPatterns.Code.TARGET_FORMAT_INVALID);

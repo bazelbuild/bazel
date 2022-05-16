@@ -47,7 +47,6 @@ public class AutoRegistry {
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
           "com.google.devtools.build.lib.vfs",
-          "com.google.devtools.build.lib.bazel.rules.ninja",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
           "com.google.devtools.build.skyframe.SkyFunctionEnvironment");

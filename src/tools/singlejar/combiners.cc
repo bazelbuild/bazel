@@ -15,6 +15,10 @@
 #include "src/tools/singlejar/combiners.h"
 
 #include <cctype>
+#include <iostream>
+#include <iterator>
+#include <sstream>
+#include <string>
 
 #include "src/tools/singlejar/diag.h"
 
@@ -188,7 +192,35 @@ static const size_t MULTI_RELEASE_LENGTH = strlen(MULTI_RELEASE);
 static const char *MULTI_RELEASE_PREFIX = "Multi-Release: ";
 static const size_t MULTI_RELEASE_PREFIX_LENGTH = strlen(MULTI_RELEASE_PREFIX);
 
+static const char *ADD_EXPORTS_PREFIX = "Add-Exports: ";
+static const size_t ADD_EXPORTS_PREFIX_LENGTH = strlen(ADD_EXPORTS_PREFIX);
+
+static const char *ADD_OPENS_PREFIX = "Add-Opens: ";
+static const size_t ADD_OPENS_PREFIX_LENGTH = strlen(ADD_OPENS_PREFIX);
+
 void ManifestCombiner::EnableMultiRelease() { multi_release_ = true; }
+
+void ManifestCombiner::AddExports(const std::vector<std::string> &add_exports) {
+  add_exports_.insert(std::end(add_exports_), std::begin(add_exports),
+                      std::end(add_exports));
+}
+
+void ManifestCombiner::AddOpens(const std::vector<std::string> &add_opens) {
+  add_opens_.insert(std::end(add_opens_), std::begin(add_opens),
+                    std::end(add_opens));
+}
+
+bool ManifestCombiner::HandleModuleFlags(std::vector<std::string> &output,
+                                         const char *key, size_t key_length,
+                                         std::string line) {
+  if (line.find(key, 0, key_length) == std::string::npos) {
+    return false;
+  }
+  std::istringstream iss(line.substr(key_length));
+  std::copy(std::istream_iterator<std::string>(iss),
+            std::istream_iterator<std::string>(), std::back_inserter(output));
+  return true;
+}
 
 void ManifestCombiner::AppendLine(const std::string &line) {
   if (line.find(MULTI_RELEASE_PREFIX, 0, MULTI_RELEASE_PREFIX_LENGTH) !=
@@ -199,6 +231,16 @@ void ManifestCombiner::AppendLine(const std::string &line) {
                std::string::npos) {
       multi_release_ = false;
     }
+    return;
+  }
+  // Handle 'Add-Exports:' and 'Add-Opens:' lines in --deploy_manifest_lines and
+  // merge them with the --add_exports= and --add_opens= flags.
+  if (HandleModuleFlags(add_exports_, ADD_EXPORTS_PREFIX,
+                        ADD_EXPORTS_PREFIX_LENGTH, line)) {
+    return;
+  }
+  if (HandleModuleFlags(add_opens_, ADD_OPENS_PREFIX, ADD_OPENS_PREFIX_LENGTH,
+                        line)) {
     return;
   }
   concatenator_->Append(line);
@@ -215,11 +257,31 @@ bool ManifestCombiner::Merge(const CDH *cdh, const LH *lh) {
   return true;
 }
 
+void ManifestCombiner::OutputModuleFlags(std::vector<std::string> &flags,
+                                         const char *key) {
+  std::sort(flags.begin(), flags.end());
+  flags.erase(std::unique(flags.begin(), flags.end()), flags.end());
+  if (!flags.empty()) {
+    concatenator_->Append(key);
+    bool first = true;
+    for (const auto &flag : flags) {
+      if (!first) {
+        concatenator_->Append(" ");
+      }
+      concatenator_->Append(flag);
+      first = false;
+    }
+    concatenator_->Append("\r\n");
+  }
+}
+
 void *ManifestCombiner::OutputEntry(bool compress) {
   if (multi_release_) {
     concatenator_->Append(MULTI_RELEASE);
     concatenator_->Append("\r\n");
   }
+  OutputModuleFlags(add_exports_, ADD_EXPORTS_PREFIX);
+  OutputModuleFlags(add_opens_, ADD_OPENS_PREFIX);
   concatenator_->Append("\r\n");
   return concatenator_->OutputEntry(compress);
 }

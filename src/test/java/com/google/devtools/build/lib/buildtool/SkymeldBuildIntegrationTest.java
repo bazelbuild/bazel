@@ -67,6 +67,31 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         ")");
   }
 
+  private void writeAnalysisFailureAspectBzl() throws IOException {
+    write(
+        "foo/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  malformed",
+        "",
+        "analysis_err_aspect = aspect(implementation = _aspect_impl)");
+  }
+
+  private void writeExecutionFailureAspectBzl() throws IOException {
+    write(
+        "foo/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  output = ctx.actions.declare_file('aspect_output')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [output],",
+        "    command = 'false',",
+        "  )",
+        "  return [OutputGroupInfo(",
+        "    files = depset([output])",
+        "  )]",
+        "",
+        "execution_err_aspect = aspect(implementation = _aspect_impl)");
+  }
+
   private void assertSingleOutputBuilt(String target) throws Exception {
     assertThat(Iterables.getOnlyElement(getArtifacts(target)).getPath().isFile()).isTrue();
   }
@@ -93,8 +118,59 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void onlyExecutionFailure(@TestParameter boolean keepGoing) throws Exception {
+  public void aspectAnalysisFailure_consistentWithNonSkymeld(
+      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+      throws Exception {
     addOptions("--keep_going=" + keepGoing);
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    writeMyRuleBzl();
+    writeAnalysisFailureAspectBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+
+    addOptions("--aspects=//foo:aspect.bzl%analysis_err_aspect", "--output_groups=files");
+    if (keepGoing) {
+      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+    } else {
+      assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
+    }
+    events.assertContainsError("compilation of module 'foo/aspect.bzl' failed");
+  }
+
+  @Test
+  public void aspectExecutionFailure_consistentWithNonSkymeld(
+      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+      throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    writeMyRuleBzl();
+    writeExecutionFailureAspectBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+
+    addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+    events.assertContainsError(
+        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing command");
+
+    // TODO(b/227138583) Update this.
+    if (mergedAnalysisExecution) {
+      assertThat(getAnalyzedTargetsLabel()).contains("//foo:foo");
+    }
+  }
+
+  @Test
+  public void targetExecutionFailure_consistentWithNonSkymeld(
+      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+      throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     writeMyRuleBzl();
     write(
         "foo/BUILD",
@@ -111,16 +187,23 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError(
         "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
 
-    assertThat(getAnalyzedTargetsLabel()).contains("//foo:execution_failure");
-    if (keepGoing) {
-      assertThat(getAnalyzedTargetsLabel()).containsExactly("//foo:foo", "//foo:execution_failure");
-      assertThat(getBuiltTargetsLabel()).containsExactly("//foo:foo");
+    // TODO(b/227138583) Update this.
+    if (mergedAnalysisExecution) {
+      assertThat(getAnalyzedTargetsLabel()).contains("//foo:execution_failure");
+      if (keepGoing) {
+        assertThat(getAnalyzedTargetsLabel())
+            .containsExactly("//foo:foo", "//foo:execution_failure");
+        assertThat(getBuiltTargetsLabel()).containsExactly("//foo:foo");
+      }
     }
   }
 
   @Test
-  public void onlyAnalysisFailure(@TestParameter boolean keepGoing) throws Exception {
+  public void targetAnalysisFailure_consistentWithNonSkymeld(
+      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+      throws Exception {
     addOptions("--keep_going=" + keepGoing);
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     writeMyRuleBzl();
     write(
         "foo/BUILD",
@@ -140,11 +223,14 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     }
     events.assertContainsError("rule '//foo:missing' does not exist");
 
-    if (keepGoing) {
-      assertThat(getAnalyzedTargetsLabel()).contains("//foo:foo");
-      assertThat(getBuiltTargetsLabel()).containsExactly("//foo:foo");
-    } else {
-      assertThat(getBuildResultListener().getBuiltTargets()).isEmpty();
+    // TODO(b/227138583) Update this.
+    if (mergedAnalysisExecution) {
+      if (keepGoing) {
+        assertThat(getAnalyzedTargetsLabel()).contains("//foo:foo");
+        assertThat(getBuiltTargetsLabel()).containsExactly("//foo:foo");
+      } else {
+        assertThat(getBuildResultListener().getBuiltTargets()).isEmpty();
+      }
     }
   }
 

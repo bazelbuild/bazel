@@ -645,8 +645,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
-          "If enabled, Bazel allows the use of ctx.action.{declare_symlink,symlink}, thus "
-              + "allowing the user to create symlinks (resolved and unresolved)")
+          "If enabled, Bazel allows the use of ctx.action.declare_symlink() and the use of "
+              + "ctx.actions.symlink() without a target file, thus allowing the creation of "
+              + "unresolved symlinks")
   public boolean allowUnresolvedSymlinks;
 
   /** Values for --experimental_output_paths. */

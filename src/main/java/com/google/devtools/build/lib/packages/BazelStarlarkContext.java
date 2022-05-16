@@ -20,13 +20,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.HashMap;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -37,9 +35,7 @@ import net.starlark.java.eval.StarlarkThread;
 // allowlist. The toolsRepository info will be duplicated between this class and RDE but we can
 // enforce consistency with a precondition check.
 public final class BazelStarlarkContext
-    implements RuleDefinitionEnvironment,
-        Label.HasRepoMapping,
-        StarlarkThread.UncheckedExceptionContext {
+    implements RuleDefinitionEnvironment, StarlarkThread.UncheckedExceptionContext {
 
   /** The phase to which this Starlark thread belongs. */
   public enum Phase {
@@ -56,7 +52,6 @@ public final class BazelStarlarkContext
   /** Save this BazelStarlarkContext in the specified Starlark thread. */
   public void storeInThread(StarlarkThread thread) {
     thread.setThreadLocal(BazelStarlarkContext.class, this);
-    thread.setThreadLocal(Label.HasRepoMapping.class, this);
     thread.setUncheckedExceptionContext(this);
   }
 
@@ -120,18 +115,6 @@ public final class BazelStarlarkContext
   @Nullable
   public ImmutableMap<String, Class<?>> getFragmentNameToClass() {
     return fragmentNameToClass;
-  }
-
-  /**
-   * Returns a map of {@code RepositoryName}s where the keys are repository names that are written
-   * in the BUILD files and the values are new repository names chosen by the main repository.
-   */
-  @Override
-  public RepositoryMapping getRepoMappingForCurrentBzlFile(StarlarkThread thread) {
-    // TODO(b/200024947): Find a better place for this. We don't want Label to have to depend on
-    //   StarlarkModuleContext, but having the logic in BazelStarlarkContext is purely a historical
-    //   misstep.
-    return BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping();
   }
 
   /**

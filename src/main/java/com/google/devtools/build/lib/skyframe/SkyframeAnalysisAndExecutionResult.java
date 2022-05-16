@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -51,24 +50,6 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
   @Nullable
   public DetailedExitCode getRepresentativeExecutionExitCode() {
     return representativeExecutionExitCode;
-  }
-
-  /**
-   * Returns an equivalent {@link SkyframeAnalysisAndExecutionResult}, except with errored targets
-   * removed from the configured target list.
-   */
-  @Override
-  public SkyframeAnalysisAndExecutionResult withAdditionalErroredTargets(
-      ImmutableSet<ConfiguredTarget> erroredTargets) {
-    return new SkyframeAnalysisAndExecutionResult(
-        hasLoadingError(),
-        /*hasAnalysisError=*/ true,
-        hasActionConflicts(),
-        Sets.difference(getConfiguredTargets(), erroredTargets).immutableCopy(),
-        getWalkableGraph(),
-        getAspects(),
-        getPackageRoots(),
-        representativeExecutionExitCode);
   }
 
   public static SkyframeAnalysisAndExecutionResult success(
