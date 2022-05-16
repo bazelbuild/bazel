@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
@@ -137,8 +138,9 @@ final class JavaInfoBuildHelper {
             javaOutput.getGeneratedClassJar(),
             javaOutput.getGeneratedSourceJar(),
             JavaPluginInfo.empty(),
-            JavaInfo.fetchProvidersFromList(
-                concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
+            JavaInfo.streamProviders(concat(compileTimeDeps, exports), JavaGenJarsProvider.class)
+                .filter(not(JavaGenJarsProvider::isEmpty))
+                .collect(toImmutableList())));
 
     javaInfoBuilder.setRuntimeJars(ImmutableList.of(javaOutput.getClassJar()));
 
@@ -222,6 +224,12 @@ final class JavaInfoBuildHelper {
     return concat(transitiveSourceJars, sourceJars);
   }
 
+  private static JavaModuleFlagsProvider createJavaModuleFlagsProvider(
+      List<String> addExports, List<String> addOpens, Iterable<JavaInfo> transitiveDeps) {
+    return JavaModuleFlagsProvider.create(
+        addExports, addOpens, streamProviders(transitiveDeps, JavaModuleFlagsProvider.class));
+  }
+
   private JavaPluginInfo mergeExportedJavaPluginInfo(
       Iterable<JavaPluginInfo> plugins, Iterable<JavaInfo> javaInfos) {
     return JavaPluginInfo.mergeWithoutJavaOutputs(
@@ -260,6 +268,8 @@ final class JavaInfoBuildHelper {
       boolean createOutputSourceJar,
       JavaSemantics javaSemantics,
       Object injectingRuleKind,
+      List<String> addExports,
+      List<String> addOpens,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -284,6 +294,7 @@ final class JavaInfoBuildHelper {
                     .addAll(
                         JavaCommon.computePerPackageJavacOpts(
                             starlarkRuleContext.getRuleContext(), toolchainProvider))
+                    .addAll(JavaModuleFlagsProvider.toFlags(addExports, addOpens))
                     .addAll(tokenize(javacOpts))
                     .build());
 
@@ -324,7 +335,9 @@ final class JavaInfoBuildHelper {
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
-            JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
+            JavaInfo.streamProviders(concat(deps, exports), JavaGenJarsProvider.class)
+                .filter(not(JavaGenJarsProvider::isEmpty))
+                .collect(toImmutableList()),
             ImmutableList.copyOf(annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
@@ -349,10 +362,17 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
             JavaSourceJarsProvider.class,
-            createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
+            createOutputSourceJar
+                ? createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps))
+                : JavaSourceJarsProvider.create(
+                    // TODO(b/207058960): Refactor. This is used for proto optimisation.
+                    NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJars), sourceJars))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
+        .addProvider(
+            JavaModuleFlagsProvider.class,
+            createJavaModuleFlagsProvider(addExports, addOpens, concat(runtimeDeps, exports, deps)))
         .setNeverlink(neverlink)
         .build();
   }

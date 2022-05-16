@@ -215,3 +215,21 @@ java_library(
         "//third_party:guava",
     ],
 )
+
+java_library(
+    name = "inspection",
+    srcs = [
+        "BazelModuleInspectorFunction.java",
+        "BazelModuleInspectorValue.java",
+    ],
+    deps = [
+        ":common",
+        ":resolution",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)

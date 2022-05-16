@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
@@ -30,6 +31,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -69,6 +71,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -119,6 +122,17 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     if (!ruleContext.attributes().get("use_launcher", Type.BOOLEAN)
         && ruleContext.attributes().isAttributeValueExplicitlySpecified("launcher")) {
       ruleContext.ruleError("launcher specified but use_launcher is false");
+    }
+
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("add_exports")
+        && Allowlist.hasAllowlist(ruleContext, "java_add_exports_allowlist")
+        && !Allowlist.isAvailable(ruleContext, "java_add_exports_allowlist")) {
+      ruleContext.ruleError("setting add_exports is not permitted");
+    }
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("add_opens")
+        && Allowlist.hasAllowlist(ruleContext, "java_add_opens_allowlist")
+        && !Allowlist.isAvailable(ruleContext, "java_add_opens_allowlist")) {
+      ruleContext.ruleError("setting add_opens is not permitted");
     }
 
     semantics.checkRule(ruleContext, common);
@@ -263,6 +277,19 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     Iterables.addAll(
         jvmFlags, semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
+
+    JavaModuleFlagsProvider javaModuleFlagsProvider =
+        JavaModuleFlagsProvider.create(
+            ruleContext,
+            JavaInfo.getProvidersFromListOfTargets(
+                JavaModuleFlagsProvider.class, common.targetsTreatedAsDeps(ClasspathType.BOTH))
+                .stream());
+
+    javaModuleFlagsProvider.toFlags().stream()
+        // Share strings in the heap with the equivalent javacopt flags, which are also interned
+        .map(StringCanonicalizer::intern)
+        .forEach(jvmFlags::add);
+
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -386,6 +413,22 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     Artifact jsa = createSharedArchive(ruleContext, javaArtifacts, attributes);
 
+    if (ruleContext.isAttrDefined("hermetic", BOOLEAN)
+        && ruleContext.attributes().get("hermetic", BOOLEAN)) {
+      if (!createExecutable) {
+        ruleContext.ruleError("hermetic specified but create_executable is false");
+      }
+      JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
+      if (javaRuntime.libModules() == null) {
+        ruleContext.attributeError(
+            "hermetic", "hermetic specified but java_runtime.lib_modules is absent");
+      }
+      deployArchiveBuilder
+          .setJavaHome(javaRuntime.javaHomePathFragment())
+          .setLibModules(javaRuntime.libModules())
+          .setHermeticInputs(javaRuntime.hermeticInputs());
+    }
+
     deployArchiveBuilder
         .setOutputJar(deployJar)
         .setJavaStartClass(mainClass)
@@ -402,6 +445,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             JavaToolchainProvider.from(ruleContext).getOneVersionAllowlist())
         .setMultiReleaseDeployJars(javaConfig.multiReleaseDeployJars())
         .setSharedArchive(jsa)
+        .setAddExports(javaModuleFlagsProvider.addExports())
+        .setAddOpens(javaModuleFlagsProvider.addOpens())
         .build();
 
     Artifact unstrippedDeployJar =

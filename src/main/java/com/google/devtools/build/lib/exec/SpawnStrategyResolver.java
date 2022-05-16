@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -36,8 +34,6 @@ import java.util.stream.Collectors;
  * SpawnStrategyRegistry}) and uses it to execute the spawn.
  */
 public final class SpawnStrategyResolver implements ActionContext {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   /**
    * Executes the given spawn with the {@linkplain SpawnStrategyRegistry highest priority strategy}
    * that can be found for it.
@@ -119,18 +115,8 @@ public final class SpawnStrategyResolver implements ActionContext {
                 .setMessage(message)
                 .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
                 .build());
-      } else {
-        // Extra logging to debug b/194373457
-        logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
-            "Spawn %s resolved with fallback to strategies %s",
-            spawn.getResourceOwner().describe(), fallbackStrategies);
       }
       return fallbackStrategies;
-    } else {
-      // Extra logging to debug b/194373457
-      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
-          "Spawn %s resolved to strategies %s",
-          spawn.getResourceOwner().describe(), execableStrategies);
     }
 
     return execableStrategies;

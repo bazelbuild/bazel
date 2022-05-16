@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -108,8 +107,6 @@ public class WorkspaceFileValue implements SkyValue {
   // Mapping of the relative paths of the incrementally updated managed directories
   // to the managing external repositories
   private final ImmutableMap<PathFragment, RepositoryName> managedDirectories;
-  // Directories to be excluded from symlinking to the execroot.
-  private final ImmutableSortedSet<String> doNotSymlinkInExecrootPaths;
 
   /**
    * Create a WorkspaceFileValue containing the various values necessary to compute the split
@@ -128,7 +125,6 @@ public class WorkspaceFileValue implements SkyValue {
    *     second one and so on).
    * @param hasNext Is there a next part in the WORKSPACE file or this part the last one?
    * @param managedDirectories Mapping of the relative paths of the incrementally updated managed
-   * @param doNotSymlinkInExecrootPaths directories to be excluded from symlinking to the execroot
    */
   public WorkspaceFileValue(
       Package pkg,
@@ -138,8 +134,7 @@ public class WorkspaceFileValue implements SkyValue {
       RootedPath path,
       int idx,
       boolean hasNext,
-      ImmutableMap<PathFragment, RepositoryName> managedDirectories,
-      ImmutableSortedSet<String> doNotSymlinkInExecrootPaths) {
+      ImmutableMap<PathFragment, RepositoryName> managedDirectories) {
     this.pkg = Preconditions.checkNotNull(pkg);
     this.idx = idx;
     this.path = path;
@@ -149,7 +144,6 @@ public class WorkspaceFileValue implements SkyValue {
     this.loadToChunkMap = ImmutableMap.copyOf(loadToChunkMap);
     this.repositoryMapping = pkg.getExternalPackageRepositoryMappings();
     this.managedDirectories = managedDirectories;
-    this.doNotSymlinkInExecrootPaths = doNotSymlinkInExecrootPaths;
   }
 
   /**
@@ -234,9 +228,5 @@ public class WorkspaceFileValue implements SkyValue {
 
   public ImmutableMap<PathFragment, RepositoryName> getManagedDirectories() {
     return managedDirectories;
-  }
-
-  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
-    return doNotSymlinkInExecrootPaths;
   }
 }

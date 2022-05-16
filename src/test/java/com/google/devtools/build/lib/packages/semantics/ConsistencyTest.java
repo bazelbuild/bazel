@@ -125,7 +125,6 @@ public class ConsistencyTest {
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
-        "--experimental_ninja_actions=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
@@ -167,7 +166,6 @@ public class ConsistencyTest {
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY, rand.nextBoolean())

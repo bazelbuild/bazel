@@ -90,22 +90,16 @@ public class RepositoryMappingFunction implements SkyFunction {
       }
 
       // Now try and see if this is a repo generated from a module extension.
-      // @bazel_tools and @local_config_platform are loaded most of the time, but we don't want
-      // them to always trigger module extension resolution.
-      // Keep this in sync with {@BzlmodRepoRuleFunction}
-      if (!repositoryName.equals(RepositoryName.BAZEL_TOOLS)
-          && !repositoryName.equals(RepositoryName.LOCAL_CONFIG_PLATFORM)) {
-        ModuleExtensionResolutionValue moduleExtensionResolutionValue =
-            (ModuleExtensionResolutionValue) env.getValue(ModuleExtensionResolutionValue.KEY);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        mapping =
-            computeForModuleExtensionRepo(
-                repositoryName, bazelModuleResolutionValue, moduleExtensionResolutionValue);
-        if (mapping.isPresent()) {
-          return RepositoryMappingValue.withMapping(mapping.get());
-        }
+      ModuleExtensionResolutionValue moduleExtensionResolutionValue =
+          (ModuleExtensionResolutionValue) env.getValue(ModuleExtensionResolutionValue.KEY);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      mapping =
+          computeForModuleExtensionRepo(
+              repositoryName, bazelModuleResolutionValue, moduleExtensionResolutionValue);
+      if (mapping.isPresent()) {
+        return RepositoryMappingValue.withMapping(mapping.get());
       }
     }
 

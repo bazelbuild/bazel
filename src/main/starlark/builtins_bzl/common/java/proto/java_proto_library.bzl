@@ -15,8 +15,7 @@
 """The implementation of the `java_proto_library` rule and its aspect."""
 
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
-load(":common/proto/providers.bzl", "ProtoLangToolchainInfo")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 
 java_common = _builtins.toplevel.java_common
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -68,19 +67,19 @@ def _bazel_java_proto_aspect_impl(target, ctx):
         deps.append(proto_toolchain_info.runtime[JavaInfo])
     java_info, jars = java_compile_for_protos(
         ctx,
-        "lib" + ctx.label.name + "-speed.jar",
+        "-speed.jar",
         source_jar,
         deps,
         exports,
     )
 
-    transitive_jars = [dep[JavaProtoAspectInfo].jars for dep in ctx.rule.attr.deps]
+    transitive_jars = [dep[JavaProtoAspectInfo].jars for dep in ctx.rule.attr.deps if JavaProtoAspectInfo in dep]
     return [
         java_info,
         JavaProtoAspectInfo(jars = depset(jars, transitive = transitive_jars)),
     ]
 
-def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], exports = []):
+def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = [], exports = [], injecting_rule_kind = "java_proto_library"):
     """Compiles Java source jar returned by proto compiler.
 
     Use this call for java_xxx_proto_library. It uses java_common.compile with
@@ -94,16 +93,19 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
 
     Args:
       ctx: (RuleContext) Used to call `java_common.compile`
-      output_jar_name: (str) How to name the output jar.
+      output_jar_suffix: (str) How to name the output jar. For example: `-speed.jar`.
       source_jar: (File) Input source jar (may be `None`).
       deps: (list[JavaInfo]) `deps` of the `proto_library`.
       exports: (list[JavaInfo]) `exports` of the `proto_library`.
+      injecting_rule_kind: (str) Rule kind requesting the compilation.
+        It's embedded into META-INF of the produced runtime jar, for debugging.
     Returns:
       ((JavaInfo, list[File])) JavaInfo of this target and list containing source
       and runtime jar, when they are created.
     """
     if source_jar != None:
-        output_jar = ctx.actions.declare_file(output_jar_name)
+        path, sep, filename = ctx.label.name.rpartition("/")
+        output_jar = ctx.actions.declare_file(path + sep + "lib" + filename + output_jar_suffix)
         java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
         java_info = java_common.compile(
             ctx,
@@ -112,7 +114,7 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
             exports = exports,
             output = output_jar,
             output_source_jar = source_jar,
-            injecting_rule_kind = "java_proto_library",
+            injecting_rule_kind = injecting_rule_kind,
             javac_opts = java_toolchain.compatible_javacopts("proto"),
             enable_jspecify = False,
             create_output_source_jar = False,
@@ -172,6 +174,8 @@ java_proto_library = rule(
     implementation = bazel_java_proto_library_rule,
     attrs = {
         "deps": attr.label_list(providers = [ProtoInfo], aspects = [bazel_java_proto_aspect]),
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        "distribs": attr.string_list(),
     },
     provides = [JavaInfo],
 )

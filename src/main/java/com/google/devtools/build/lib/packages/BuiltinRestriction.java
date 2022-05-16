@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;

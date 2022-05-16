@@ -17,6 +17,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 
@@ -60,6 +61,9 @@ public final class BazelMockCcSupport extends MockCcSupport {
     setupCcToolchainConfig(config, getToolchainConfigs());
     createParseHeadersAndLayeringCheckWhitelist(config);
     createStarlarkLooseHeadersWhitelist(config, "//...");
+    config.append(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
+        "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
   }
 
   @Override

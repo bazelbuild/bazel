@@ -136,7 +136,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   public static RepositoryDirectoryValue.Builder symlinkRepoRoot(
-      Path source, Path destination, String userDefinedPath, Environment env)
+      BlazeDirectories directories,
+      Path source,
+      Path destination,
+      String userDefinedPath,
+      Environment env)
       throws RepositoryFunctionException, InterruptedException {
     try {
       source.createSymbolicLink(destination);
@@ -153,8 +157,17 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     // Check that the target directory exists and is a directory.
     // Note that we have to check `destination` and not `source` here, otherwise we'd have a
     // circular dependency between SkyValues.
-    RootedPath targetDirRootedPath =
-        RootedPath.toRootedPath(Root.absoluteRoot(destination.getFileSystem()), destination);
+    RootedPath targetDirRootedPath;
+    if (destination.startsWith(directories.getInstallBase())) {
+      // The install base only changes with the Bazel binary so it's acceptable not to add its
+      // ancestors as Skyframe dependencies.
+      targetDirRootedPath =
+          RootedPath.toRootedPath(Root.fromPath(destination), PathFragment.EMPTY_FRAGMENT);
+    } else {
+      targetDirRootedPath =
+          RootedPath.toRootedPath(Root.absoluteRoot(destination.getFileSystem()), destination);
+    }
+
     FileValue targetDirValue;
     try {
       targetDirValue =
@@ -361,8 +374,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (!repoRoot.exists()) {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
-          new IOException("to fix, run\n\tbazel fetch //...\nExternal repository " + repositoryName
-              + " not found and fetching repositories is disabled."),
+          new IOException(
+              "to fix, run\n\tbazel fetch //...\nExternal repository "
+                  + repositoryName.getNameWithAt()
+                  + " not found and fetching repositories is disabled."),
           Transience.TRANSIENT);
     }
 
@@ -472,7 +487,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     setupRepositoryRoot(repoRoot);
     RepositoryDirectoryValue.Builder directoryValue =
         symlinkRepoRoot(
-            repoRoot, directories.getWorkspace().getRelative(sourcePath), pathAttr, env);
+            directories,
+            repoRoot,
+            directories.getWorkspace().getRelative(sourcePath),
+            pathAttr,
+            env);
     if (directoryValue == null) {
       return null;
     }
@@ -660,9 +679,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     final String message;
 
     RepositoryFetching(String name, boolean finished) {
-      this.id = name;
-      this.finished = finished;
-      this.message = finished ? "finished." : "fetching";
+      this(name, finished, finished ? "finished." : "fetching");
     }
 
     RepositoryFetching(String name, boolean finished, String message) {

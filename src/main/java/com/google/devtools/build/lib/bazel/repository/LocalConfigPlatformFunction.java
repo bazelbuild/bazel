@@ -67,6 +67,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     try {
       outputDirectory.createDirectoryAndParents();
       RepositoryFunction.writeFile(outputDirectory, "WORKSPACE", workspaceFileContent(name));
+      RepositoryFunction.writeFile(outputDirectory, "MODULE.bazel", moduleFileContent(name));
       RepositoryFunction.writeFile(outputDirectory, "BUILD.bazel", buildFileContent(name));
       RepositoryFunction.writeFile(
           outputDirectory, "constraints.bzl", constraintFileContent(hostCpu, hostOs));
@@ -151,6 +152,17 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
         ImmutableList.of(
             "# DO NOT EDIT: automatically generated WORKSPACE file for local_config_platform",
             "workspace(name = \"%s\")"),
+        repositoryName);
+  }
+
+  private static String moduleFileContent(String repositoryName) {
+    return format(
+        ImmutableList.of(
+            "# DO NOT EDIT: automatically generated MODULE file for local_config_platform",
+            "module(name = \"%s\")",
+            // Try to keep this updated with the src/MODULE.tools file. (Due to MVS, even if this is
+            // not kept up to date, we'll use the latest version anyhow)
+            "bazel_dep(name = \"platforms\", version = \"0.0.4\")"),
         repositoryName);
   }
 

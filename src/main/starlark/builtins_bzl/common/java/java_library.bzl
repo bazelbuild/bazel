@@ -35,7 +35,9 @@ def bazel_java_library_rule(
         resources = [],
         javacopts = [],
         neverlink = False,
-        proguard_specs = []):
+        proguard_specs = [],
+        add_exports = [],
+        add_opens = []):
     """Implements java_library.
 
     Use this call when you need to produce a fully fledged java_library from
@@ -54,6 +56,8 @@ def bazel_java_library_rule(
       javacopts: (list[str]) Extra compiler options for this library.
       neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
       proguard_specs: (list[File]) Files to be used as Proguard specification.
+      add_exports: (list[str]) Allow this library to access the given <module>/<package>.
+      add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
     Returns:
       (list[provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
@@ -74,6 +78,8 @@ def bazel_java_library_rule(
         javacopts,
         neverlink,
         proguard_specs = proguard_specs,
+        add_exports = add_exports,
+        add_opens = add_opens,
     )
 
     target["DefaultInfo"] = construct_defaultinfo(
@@ -101,6 +107,8 @@ def _proxy(ctx):
         ctx.attr.javacopts,
         ctx.attr.neverlink,
         ctx.files.proguard_specs,
+        ctx.attr.add_exports,
+        ctx.attr.add_opens,
     ).values()
 
 JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS
@@ -152,6 +160,8 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
         "neverlink": attr.bool(),
         "resource_strip_prefix": attr.string(),
         "proguard_specs": attr.label_list(allow_files = True),
+        "add_exports": attr.string_list(),
+        "add_opens": attr.string_list(),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     },
 )

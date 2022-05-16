@@ -90,13 +90,31 @@ TEST(OptionsTest, SingleOptargs) {
 }
 
 TEST(OptionsTest, MultiOptargs) {
-    const char *args[] = {"--output", "output_file",
-                        "--sources", "jar1", "jar2",
-                        "--resources", "res1", "res2",
-                        "--classpath_resources", "cpres1", "cpres2",
-                        "--sources", "jar3",
-                        "--include_prefixes", "prefix1", "prefix2",
-                        "--nocompress_suffixes", ".png", ".so"};
+  const char *args[] = {"--output",
+                        "output_file",
+                        "--sources",
+                        "jar1",
+                        "jar2",
+                        "--resources",
+                        "res1",
+                        "res2",
+                        "--classpath_resources",
+                        "cpres1",
+                        "cpres2",
+                        "--sources",
+                        "jar3",
+                        "--include_prefixes",
+                        "prefix1",
+                        "prefix2",
+                        "--nocompress_suffixes",
+                        ".png",
+                        ".so",
+                        "--add_exports",
+                        "export1",
+                        "export2",
+                        "--add_opens",
+                        "open1",
+                        "open2"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -116,6 +134,12 @@ TEST(OptionsTest, MultiOptargs) {
   EXPECT_EQ(2UL, options.nocompress_suffixes.size());
   EXPECT_EQ(".png", options.nocompress_suffixes[0]);
   EXPECT_EQ(".so", options.nocompress_suffixes[1]);
+  EXPECT_EQ(2UL, options.add_exports.size());
+  EXPECT_EQ("export1", options.add_exports[0]);
+  EXPECT_EQ("export2", options.add_exports[1]);
+  EXPECT_EQ(2UL, options.add_opens.size());
+  EXPECT_EQ("open1", options.add_opens[0]);
+  EXPECT_EQ("open2", options.add_opens[1]);
 }
 
 TEST(OptionsTest, EmptyMultiOptargs) {

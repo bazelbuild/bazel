@@ -19,12 +19,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -49,7 +47,7 @@ public class JavaProtoStarlarkCommon
       ProtoCommon.compile(
           starlarkRuleContext.getRuleContext(),
           target,
-          getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
+          getStarlarkProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
           ImmutableList.of(sourceJar),
           sourceJar.getExecPathString(),
           "Generating JavaLite proto_library %{label}");
@@ -65,22 +63,6 @@ public class JavaProtoStarlarkCommon
 
   @Override
   @Nullable
-  public JavaInfo getRuntimeToolchainProvider(
-      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
-    TransitiveInfoCollection runtime =
-        getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr).runtime();
-    if (runtime == null) {
-      return null;
-    }
-    return JavaInfo.Builder.create()
-        .addProvider(
-            JavaCompilationArgsProvider.class,
-            JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
-        .build();
-  }
-
-  @Override
-  @Nullable
   public TransitiveInfoCollectionApi getRuntime(
       StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
     return getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr).runtime();
@@ -90,6 +72,13 @@ public class JavaProtoStarlarkCommon
       StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
     ConfiguredTarget javaliteToolchain =
         (ConfiguredTarget) checkNotNull(starlarkRuleContext.getAttr().getValue(protoToolchainAttr));
-    return checkNotNull(javaliteToolchain.get(ProtoLangToolchainProvider.PROVIDER));
+    return checkNotNull(ProtoLangToolchainProvider.get(javaliteToolchain));
+  }
+
+  private static StarlarkInfo getStarlarkProtoToolchainProvider(
+      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
+    ConfiguredTarget javaliteToolchain =
+        (ConfiguredTarget) checkNotNull(starlarkRuleContext.getAttr().getValue(protoToolchainAttr));
+    return checkNotNull(ProtoLangToolchainProvider.getStarlarkProvider(javaliteToolchain));
   }
 }

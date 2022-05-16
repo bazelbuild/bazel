@@ -19,8 +19,8 @@ import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfi
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.HashSet;

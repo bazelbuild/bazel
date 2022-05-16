@@ -198,7 +198,7 @@ public class BuildView {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       Set<String> multiCpu,
-      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
@@ -406,6 +406,8 @@ public class BuildView {
                 viewOptions.cpuHeavySkyKeysThreadPoolSize);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       } else {
+        skyframeExecutor.setRuleContextConstraintSemantics(
+            (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
@@ -415,6 +417,7 @@ public class BuildView {
                 labelToTargetMap,
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
+                explicitTargetPatterns,
                 eventBus,
                 bugReporter,
                 keepGoing,
@@ -605,8 +608,7 @@ public class BuildView {
           exclusiveTests,
           topLevelOptions,
           loadingResult.getWorkspaceName(),
-          topLevelTargetsWithConfigs.getTargetsAndConfigs(),
-          loadingResult.getNotSymlinkedInExecrootDirectories());
+          topLevelTargetsWithConfigs.getTargetsAndConfigs());
     }
 
 
@@ -650,8 +652,7 @@ public class BuildView {
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
-        topLevelTargetsWithConfigs.getTargetsAndConfigs(),
-        loadingResult.getNotSymlinkedInExecrootDirectories());
+        topLevelTargetsWithConfigs.getTargetsAndConfigs());
   }
 
   /**

@@ -90,7 +90,8 @@ public interface PythonSemantics {
       RuleConfiguredTargetBuilder builder)
       throws InterruptedException, RuleErrorException;
 
-  CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
+  CcInfo buildCcInfoProvider(
+      RuleContext ruleContext, Iterable<? extends TransitiveInfoCollection> deps);
 
   /**
    * Called when building executables or packages to fill in missing empty __init__.py files if the

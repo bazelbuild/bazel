@@ -83,8 +83,9 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
       }
     }
 
-    // Verify that all mandatory toolchain type requirements are present.
     ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains = toolchainsBuilder.buildOrThrow();
+
+    // Verify that all mandatory toolchain type requirements are present.
     for (ToolchainTypeRequirement toolchainTypeRequirement :
         unloadedToolchainContext.toolchainTypes()) {
       if (toolchainTypeRequirement.mandatory()) {

@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 package(default_visibility = ["//src:__subpackages__"])
 

@@ -29,9 +29,6 @@ build:macos --macos_minimum_os=10.10
 
 # Enable Bzlmod
 build:bzlmod --experimental_enable_bzlmod
-# TODO(pcloudy): The following should be removed after fixing https://github.com/bazelbuild/bazel/issues/14279
-build:bzlmod --crosstool_top=@rules_cc.0.0.1.cc_configure.local_config_cc//:toolchain
-build:bzlmod --xcode_version_config=@rules_cc.0.0.1.cc_configure.local_config_xcode//:host_xcodes
 
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11

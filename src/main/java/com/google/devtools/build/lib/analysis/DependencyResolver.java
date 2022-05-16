@@ -225,6 +225,7 @@ public abstract class DependencyResolver {
             attributeMap,
             node.getConfiguration());
       }
+      addToolchainDeps(toolchainContexts, outgoingLabels);
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingLabels);
     } else if (target instanceof EnvironmentGroup) {
@@ -525,6 +526,12 @@ public abstract class DependencyResolver {
           rule.getPackage().getDefaultRestrictedTo());
     }
 
+    addToolchainDeps(toolchainContexts, outgoingLabels);
+  }
+
+  private void addToolchainDeps(
+      ToolchainCollection<ToolchainContext> toolchainContexts,
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
     if (toolchainContexts != null) {
       for (Map.Entry<String, ToolchainContext> entry :
           toolchainContexts.getContextMap().entrySet()) {

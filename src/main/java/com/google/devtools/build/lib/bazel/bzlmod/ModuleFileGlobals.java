@@ -57,9 +57,28 @@ public class ModuleFileGlobals {
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
-  public ModuleFileGlobals(ModuleKey key, @Nullable Registry registry, boolean ignoreDevDeps) {
+  public ModuleFileGlobals(
+      ImmutableMap<String, NonRegistryOverride> builtinModules,
+      ModuleKey key,
+      @Nullable Registry registry,
+      boolean ignoreDevDeps) {
     module = Module.builder().setKey(key).setRegistry(registry);
     this.ignoreDevDeps = ignoreDevDeps;
+    if (ModuleKey.ROOT.equals(key)) {
+      overrides.putAll(builtinModules);
+    }
+    for (String builtinModule : builtinModules.keySet()) {
+      if (key.getName().equals(builtinModule)) {
+        // The built-in module does not depend on itself.
+        continue;
+      }
+      deps.put(builtinModule, ModuleKey.create(builtinModule, Version.EMPTY));
+      try {
+        addRepoNameUsage(builtinModule, "as a built-in dependency", Location.BUILTIN);
+      } catch (EvalException e) {
+        throw new IllegalStateException(e);
+      }
+    }
   }
 
   @AutoValue
@@ -697,6 +716,7 @@ public class ModuleFileGlobals {
   public Module buildModule() {
     return module
         .setDeps(ImmutableMap.copyOf(deps))
+        .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(
             extensionProxies.stream()
                 .map(ModuleExtensionProxy::buildUsage)

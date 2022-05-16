@@ -233,12 +233,12 @@ upper_tabs:
         path: /docs/remote-execution-sandbox
       - title: Non-hermetic WORKSPACE rules
         path: /docs/workspace-log
-      - title: Remote—Debug remote chaching
+      - title: Remote—Debug remote caching
         path: /docs/remote-execution-caching-debug
       - heading: Remote caching
       - title: Overview
         path: /docs/remote-caching
-      - title: Local—Debug remote chaching
+      - title: Local—Debug remote caching
         path: /docs/remote-caching-debug
       - heading: Persistent workers
       - title: Overview

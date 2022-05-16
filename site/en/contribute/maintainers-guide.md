@@ -169,7 +169,7 @@ issues.
     *   Contact: [ahumesky](https://github.com/ahumesky){: .external}
 *   [`team-Bazel`](https://github.com/bazelbuild/bazel/labels/team-Bazel){: .external}: General Bazel product/strategy issues
     * Contact: [sventiffe](https://github.com/sventiffe){: .external}
-*   [`team-Build-Language`](https://github.com/bazelbuild/bazel/labels/team-Build-Language): Issues for the BUILD and .bzl APIs
+*   [`team-Build-Language`](https://github.com/bazelbuild/bazel/labels/team-Build-Language): Issues for the BUILD, .bzl APIs and Stardoc.
     * Contact: [brandjon](https://github.com/brandjon)
 *   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team
     * Contact: [gregestren](https://github.com/gregestren){: .external}

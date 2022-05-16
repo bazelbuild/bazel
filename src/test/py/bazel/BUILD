@@ -261,6 +261,9 @@ py_test(
     name = "bazel_module_test",
     size = "large",
     srcs = ["bzlmod/bazel_module_test.py"],
+    tags = [
+        "requires-network",
+    ],
     deps = [
         ":bzlmod_test_utils",
         ":test_base",

@@ -33,6 +33,12 @@ bazel_dep(name = "rules_python", version = "0.4.0")
 bazel_dep(name = "rules_java", version = "5.0.0")
 bazel_dep(name = "rules_proto", version = "4.0.0")
 
+# In-direct dependencies
+# - abseil-cpp: Bazel doesn't need to see abseil-cpp directly, but it does
+#   need a newer version to be able to build on latest macOS.
+bazel_dep(name = "abseil-cpp", version = "20211102.0")
+
+
 # TODO(pcloudy): Remove this when rules_jvm_external adopts Bzlmod.
 single_version_override(
   module_name = "protobuf",

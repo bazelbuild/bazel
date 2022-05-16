@@ -28,7 +28,11 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 
-/** Implements {code proto_lang_toolchain}. */
+/**
+ * Implements {code proto_lang_toolchain}.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public class ProtoLangToolchainRule implements RuleDefinition {
   private static final Label DEFAULT_PROTO_COMPILER =
       Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
@@ -116,7 +120,6 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                 .exec()
                 .value(PROTO_COMPILER))
         .requiresConfigurationFragments(ProtoConfiguration.class)
-        .advertiseStarlarkProvider(ProtoLangToolchainProvider.PROVIDER.id())
         .removeAttribute("data")
         .removeAttribute("deps")
         .build();
@@ -127,7 +130,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("proto_lang_toolchain")
         .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
-        .factoryClass(ProtoLangToolchain.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

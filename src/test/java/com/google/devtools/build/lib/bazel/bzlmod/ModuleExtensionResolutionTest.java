@@ -158,7 +158,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(FileValue.FILE, new FileFunction(packageLocator))
+                .put(FileValue.FILE, new FileFunction(packageLocator, directories))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(
@@ -168,7 +168,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot))
+                    new ModuleFileFunction(registryFactory, workspaceRoot, ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(packageFactory, hashFunction))
                 .put(

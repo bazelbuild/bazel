@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -67,10 +68,15 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
 import io.grpc.Status;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -149,6 +155,84 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     // Upload all missing inputs (that is, the virtual action input from above)
     client.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), /*force=*/ true);
+  }
+
+  @Test
+  public void downloadBlob_cancelled_cancelRequest() throws IOException {
+    // Test that if the download future is cancelled, the download itself is also cancelled.
+
+    // arrange
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    AtomicBoolean cancelled = new AtomicBoolean();
+    // Mock a byte stream whose read method never finish.
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            ((ServerCallStreamObserver<ReadResponse>) responseObserver)
+                .setOnCancelHandler(() -> cancelled.set(true));
+          }
+        });
+    GrpcCacheClient cacheClient = newClient();
+
+    // act
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      ListenableFuture<Void> download = cacheClient.downloadBlob(context, digest, out);
+      download.cancel(/* mayInterruptIfRunning= */ true);
+    }
+
+    // assert
+    assertThat(cancelled.get()).isTrue();
+  }
+
+  @Test
+  public void testChunkerResetAfterError() throws Exception {
+    // arrange
+    GrpcCacheClient client = newClient();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(
+              StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {
+                responseObserver.onError(Status.DATA_LOSS.asRuntimeException());
+              }
+
+              @Override
+              public void onCompleted() {}
+
+              @Override
+              public void onError(Throwable t) {}
+            };
+          }
+        });
+    byte[] data = new byte[20];
+    Digest digest = DIGEST_UTIL.compute(data);
+    CountDownLatch latch = new CountDownLatch(1);
+    Chunker chunker =
+        new Chunker(
+            () ->
+                new ByteArrayInputStream(data) {
+
+                  @Override
+                  public void close() throws IOException {
+                    super.close();
+                    latch.countDown();
+                  }
+                },
+            data.length,
+            2,
+            false);
+
+    // act
+    Throwable t =
+        assertThrows(ExecutionException.class, client.uploadChunker(context, digest, chunker)::get);
+
+    // assert
+    assertThat(Status.fromThrowable(t.getCause()).getCode()).isEqualTo(Status.Code.DATA_LOSS);
+    latch.await();
   }
 
   @Test

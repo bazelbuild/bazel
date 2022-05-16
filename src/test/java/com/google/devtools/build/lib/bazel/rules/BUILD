@@ -12,7 +12,6 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/ninja:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:srcs",
     ],

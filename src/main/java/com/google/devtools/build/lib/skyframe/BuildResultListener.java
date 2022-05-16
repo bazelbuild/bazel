@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectBuiltEv
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +44,8 @@ public class BuildResultListener {
   private final Set<ConfiguredTarget> analyzedTargets = ConcurrentHashMap.newKeySet();
   private final Set<ConfiguredTarget> analyzedTests = ConcurrentHashMap.newKeySet();
   private final Map<AspectKey, ConfiguredAspect> analyzedAspects = Maps.newConcurrentMap();
+  // Also includes test targets.
+  private final Set<ConfiguredTarget> skippedTargets = ConcurrentHashMap.newKeySet();
   // Also includes test targets.
   private final Set<ConfiguredTargetKey> builtTargets = ConcurrentHashMap.newKeySet();
   private final Set<AspectKey> builtAspects = ConcurrentHashMap.newKeySet();
@@ -67,6 +70,12 @@ public class BuildResultListener {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void addSkippedTarget(TopLevelTargetSkippedEvent event) {
+    skippedTargets.add(event.configuredTarget());
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void addBuiltTarget(TopLevelTargetBuiltEvent event) {
     builtTargets.add(event.configuredTargetKey());
   }
@@ -87,6 +96,10 @@ public class BuildResultListener {
 
   public ImmutableMap<AspectKey, ConfiguredAspect> getAnalyzedAspects() {
     return ImmutableMap.copyOf(analyzedAspects);
+  }
+
+  public ImmutableSet<ConfiguredTarget> getSkippedTargets() {
+    return ImmutableSet.copyOf(skippedTargets);
   }
 
   public ImmutableSet<ConfiguredTargetKey> getBuiltTargets() {

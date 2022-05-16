@@ -3,7 +3,7 @@ Book: /_book.yaml
 
 # Test encyclopedia
 
-An Exhaustive Specification of the Test Execution Environment
+An exhaustive specification of the test execution environment.
 
 ## Background {:#background}
 
@@ -451,6 +451,11 @@ The initial environment block shall be composed as follows:
       the <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
              class="external">JUnit test result schema</a>.</td>
     <td>optional</td>
+  </tr>
+  <tr>
+    <td><code>BAZEL_TEST</code></td>
+    <td>Signifies test executable is being driven by <code>bazel test</code></td>
+    <td>required</td>
   </tr>
 </table>
 

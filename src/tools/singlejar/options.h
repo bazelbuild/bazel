@@ -66,6 +66,8 @@ class Options {
   bool check_desugar_deps;
   bool multi_release;
   std::string hermetic_java_home;
+  std::vector<std::string> add_exports;
+  std::vector<std::string> add_opens;
 
  protected:
   /*

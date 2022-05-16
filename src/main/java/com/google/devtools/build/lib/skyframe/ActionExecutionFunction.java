@@ -909,8 +909,15 @@ public final class ActionExecutionFunction implements SkyFunction {
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
     //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
+
+    // Environment#getOrderedValuesAndExceptions iterates over its given Iterable 3 times total.
+    // Since our discoveredInputs itself comes from InputDiscoveryState#filterKnownDiscoveredInputs,
+    // we create a single list once to avoid repeating the overhead of TransformedIterable and
+    // ActionInputMap#getMetadata.
+    ImmutableList<SkyKey> discoveredInputsAsArtifactKeys =
+        ImmutableList.copyOf(Iterables.transform(discoveredInputs, Artifact::key));
     SkyframeIterableResult nonMandatoryDiscovered =
-        env.getOrderedValuesAndExceptions(Iterables.transform(discoveredInputs, Artifact::key));
+        env.getOrderedValuesAndExceptions(discoveredInputsAsArtifactKeys);
     if (!nonMandatoryDiscovered.hasNext()) {
       return DiscoveredState.NO_DISCOVERED_DATA;
     }

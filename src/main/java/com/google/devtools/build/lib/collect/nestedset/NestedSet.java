@@ -261,7 +261,7 @@ public final class NestedSet<E> {
     Preconditions.checkState(!(children instanceof ListenableFuture));
     boolean hasChildren =
         children instanceof Object[]
-            && (Arrays.stream((Object[]) children).anyMatch(child -> child instanceof Object[]));
+            && Arrays.stream((Object[]) children).anyMatch(child -> child instanceof Object[]);
     byte[] memo = hasChildren ? null : NO_MEMO;
     return new NestedSet<>(order, approxDepth, children, memo);
   }
@@ -344,6 +344,12 @@ public final class NestedSet<E> {
     return isSingleton(children);
   }
 
+  private static boolean isSingleton(Object children) {
+    // Singleton sets are special cased in serialization, and make no calls to storage.  Therefore,
+    // we know that any NestedSet with a ListenableFuture member is not a singleton.
+    return !(children instanceof Object[] || children instanceof ListenableFuture);
+  }
+
   /**
    * Returns the approximate depth of the nested set graph. The empty set has depth zero. A leaf
    * node with a single element has depth 1. A non-leaf node has a depth one greater than its
@@ -354,12 +360,6 @@ public final class NestedSet<E> {
    */
   public int getApproxDepth() {
     return this.depthAndOrder >>> 2;
-  }
-
-  private static boolean isSingleton(Object children) {
-    // Singleton sets are special cased in serialization, and make no calls to storage.  Therefore,
-    // we know that any NestedSet with a ListenableFuture member is not a singleton.
-    return !(children instanceof Object[] || children instanceof ListenableFuture);
   }
 
   /** Returns true if this set depends on data from storage. */

@@ -122,6 +122,7 @@ final class RemoteSpawnCache implements SpawnCache {
               .setNetworkTime(action.getNetworkTime().getDuration());
           SpawnResult spawnResult =
               createSpawnResult(
+                  action.getActionKey(),
                   result.getExitCode(),
                   /*cacheHit=*/ true,
                   result.cacheName(),

@@ -18,10 +18,12 @@ import com.google.common.base.Splitter;
 import com.google.common.primitives.Doubles;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import javax.annotation.Nullable;
 
 /**
  * Instances of this class represent an estimate of the resource consumption for a particular
@@ -44,10 +46,19 @@ public class ResourceSet implements ResourceSetOrBuilder {
   /** The number of local tests. */
   private final int localTestCount;
 
-  private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
+  /** The workerKey of used worker. Null if no worker is used. */
+  @Nullable private final WorkerKey workerKey;
+
+  private ResourceSet(
+      double memoryMb, double cpuUsage, int localTestCount, @Nullable WorkerKey workerKey) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;
     this.localTestCount = localTestCount;
+    this.workerKey = workerKey;
+  }
+
+  private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
+    this(memoryMb, cpuUsage, localTestCount, /* workerKey= */ null);
   }
 
   /**
@@ -78,15 +89,29 @@ public class ResourceSet implements ResourceSetOrBuilder {
    * represent available resources.
    */
   public static ResourceSet create(double memoryMb, double cpuUsage, int localTestCount) {
-    if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0) {
+    return createWithWorkerKey(memoryMb, cpuUsage, localTestCount, /* workerKey= */ null);
+  }
+
+  public static ResourceSet createWithWorkerKey(
+      double memoryMb, double cpuUsage, int localTestCount, WorkerKey workerKey) {
+    if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0 && workerKey == null) {
       return ZERO;
     }
-    return new ResourceSet(memoryMb, cpuUsage, localTestCount);
+    return new ResourceSet(memoryMb, cpuUsage, localTestCount, workerKey);
   }
 
   /** Returns the amount of real memory (resident set size) used in MB. */
   public double getMemoryMb() {
     return memoryMb;
+  }
+
+  /**
+   * Returns the workerKey of worker.
+   *
+   * <p>If there is no worker requested, then returns null
+   */
+  public WorkerKey getWorkerKey() {
+    return workerKey;
   }
 
   /**

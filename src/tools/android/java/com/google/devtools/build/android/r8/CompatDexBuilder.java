@@ -243,7 +243,7 @@ public class CompatDexBuilder {
     builder
         .setProgramConsumer(consumer)
         .setMode(mode)
-        .setMinApiLevel(13) // H_MR2.
+        .setMinApiLevel(Constants.MIN_API_LEVEL)
         .setDisableDesugaring(true)
         .setIntermediate(true);
     try (InputStream stream = zipFile.getInputStream(classEntry)) {

@@ -444,6 +444,14 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment executionLogBinaryFile;
 
   @Option(
+      name = "experimental_execution_log_spawn_metrics",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Include spawn metrics in the executed spawns log.")
+  public boolean executionLogSpawnMetrics;
+
+  @Option(
       name = "execution_log_json_file",
       defaultValue = "null",
       category = "verbosity",

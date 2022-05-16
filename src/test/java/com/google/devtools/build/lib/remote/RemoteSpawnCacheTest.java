@@ -88,11 +88,13 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.SortedMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
@@ -263,10 +265,11 @@ public class RemoteSpawnCacheTest {
     // arrange
     RemoteSpawnCache cache = createRemoteSpawnCache();
     RemoteExecutionService service = cache.getRemoteExecutionService();
+    ArgumentCaptor<ActionKey> actionKeyCaptor = ArgumentCaptor.forClass(ActionKey.class);
     ActionResult actionResult = ActionResult.getDefaultInstance();
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
-            any(ActionKey.class),
+            actionKeyCaptor.capture(),
             /* inlineOutErr= */ eq(false)))
         .thenAnswer(
             new Answer<CachedActionResult>() {
@@ -304,6 +307,12 @@ public class RemoteSpawnCacheTest {
         .downloadOutputs(
             any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult))));
     verify(service, never()).uploadOutputs(any(), any());
+    assertThat(result.getDigest())
+        .isEqualTo(
+            Optional.of(
+                SpawnResult.Digest.of(
+                    actionKeyCaptor.getValue().getDigest().getHash(),
+                    actionKeyCaptor.getValue().getDigest().getSizeBytes())));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();

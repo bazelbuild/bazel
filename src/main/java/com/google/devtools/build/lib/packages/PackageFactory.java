@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -760,7 +761,8 @@ public final class PackageFactory {
                 return;
               }
 
-              Expression excludeDirectories = null, include = null;
+              Expression excludeDirectories = null;
+              Expression include = null;
               List<Argument> arguments = call.getArguments();
               for (int i = 0; i < arguments.size(); i++) {
                 Argument arg = arguments.get(i);

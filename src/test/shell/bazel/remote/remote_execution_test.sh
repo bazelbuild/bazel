@@ -71,6 +71,11 @@ else
   declare -r EXE_EXT=""
 fi
 
+function has_utf8_locale() {
+  charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "UTF-8" ]]
+}
+
 function test_remote_grpc_cache_with_protocol() {
   # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
   mkdir -p a
@@ -999,63 +1004,6 @@ EOF
            --remote_executor=grpc://localhost:${worker_port} \
            //a:starlark_output_dir_test \
            || fail "Failed to run //a:starlark_output_dir_test with remote execution"
-}
-
-function generate_empty_treeartifact_build() {
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-load(":output_dir.bzl", "gen_output_dir")
-gen_output_dir(
-    name = "output-dir",
-    outdir = "dir",
-)
-EOF
-  cat > a/output_dir.bzl <<'EOF'
-def _gen_output_dir_impl(ctx):
-    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
-    ctx.actions.run_shell(
-        outputs = [output_dir],
-        inputs = [],
-        command = "",
-        arguments = [output_dir.path],
-    )
-    return [
-        DefaultInfo(files = depset(direct = [output_dir])),
-    ]
-
-gen_output_dir = rule(
-    implementation = _gen_output_dir_impl,
-    attrs = {
-        "outdir": attr.string(mandatory = True),
-    },
-)
-EOF
-}
-
-function test_empty_treeartifact_works_with_remote_execution() {
-  # Test that empty tree artifact works with remote execution
-  generate_empty_treeartifact_build
-
-  bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
-    //a:output-dir >& $TEST_log || fail "Failed to build"
-}
-
-function test_empty_treeartifact_works_with_remote_cache() {
-  # Test that empty tree artifact works with remote cache
-  generate_empty_treeartifact_build
-
-  bazel build \
-    --remote_cache=grpc://localhost:${worker_port} \
-    //a:output-dir >& $TEST_log || fail "Failed to build"
-
-  bazel clean
-
-  bazel build \
-    --remote_cache=grpc://localhost:${worker_port} \
-    //a:output-dir >& $TEST_log || fail "Failed to build"
-
-  expect_log "remote cache hit"
 }
 
 function test_downloads_minimal() {
@@ -3071,6 +3019,156 @@ end_of_record"
   assert_equals "$expected_result" "$(cat bazel-testlogs/java/factorial/fact-test/coverage.dat)"
 }
 
+function generate_empty_tree_artifact_as_inputs() {
+  touch WORKSPACE
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_d = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_d],
+        command = "mkdir -p %s" % empty_d.path,
+    )
+    f = ctx.actions.declare_file("%s/file" % ctx.label.name)
+    ctx.actions.run_shell(
+        inputs = [empty_d],
+        outputs = [f],
+        command = "touch %s && cd %s && pwd" % (f.path, empty_d.path),
+    )
+    return [DefaultInfo(files = depset([f]))]
+
+r = rule(implementation = _r)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+EOF
+}
+
+function test_empty_tree_artifact_as_inputs() {
+  # Test that when an empty tree artifact is the input, an empty directory is
+  # created in the remote executor for action to read.
+  generate_empty_tree_artifact_as_inputs
+
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_merkle_tree_cache \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_sibling_repository_layout \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
+}
+
+function test_empty_tree_artifact_as_inputs_remote_cache() {
+  # Test that when empty tree artifact works for remote cache.
+  generate_empty_tree_artifact_as_inputs
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  expect_log "remote cache hit"
+}
+
+function generate_tree_artifact_output() {
+  touch WORKSPACE
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_dir = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_dir],
+        command = "cd %s && pwd" % empty_dir.path,
+    )
+    non_empty_dir = ctx.actions.declare_directory("%s/non_empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [non_empty_dir],
+        command = "cd %s && pwd && touch out" % non_empty_dir.path,
+    )
+    return [DefaultInfo(files = depset([empty_dir, non_empty_dir]))]
+
+r = rule(implementation = _r)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+EOF
+}
+
+function test_create_tree_artifact_outputs() {
+  # Test that if a tree artifact is declared as an input, then the corresponding
+  # empty directory is created before the action executes remotely.
+  generate_tree_artifact_output
+
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_merkle_tree_cache \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_sibling_repository_layout \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+}
+
+function test_create_tree_artifact_outputs_remote_cache() {
+  # Test that implicitly created empty directories corresponding to empty tree
+  # artifacts outputs are correctly cached in the remote cache.
+  generate_tree_artifact_output
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:a &>$TEST_log || fail "expected build to succeed"
+
+  expect_log "2 remote cache hit"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+}
+
 # Runs coverage with `cc_test` and RE then checks the coverage file is returned.
 # Older versions of gcov are not supported with bazel coverage and so will be skipped.
 # See the above `test_java_rbe_coverage_produces_report` for more information.
@@ -3769,6 +3867,144 @@ EOF
     //a:test >& $TEST_log || "Failed to build //a:test"
 
   expect_log "5 processes: 2 disk cache hit, 3 internal"
+}
+
+# Bazel assumes that non-ASCII characters in file contents (and, in
+# non-Windows systems, file paths) are UTF-8, but stores them internally by
+# parsing the raw UTF-8 bytes as if they were ISO-8859-1 characters.
+#
+# This test verifies that the inverse transformation is applied when sending
+# these inputs through the remote execution protocol. The Protobuf libraries
+# for Java assume that `String` values are encoded in UTF-16, and passing
+# raw bytes will cause double-encoding.
+function test_unicode() {
+  # The in-tree remote execution worker only supports non-ASCII paths when
+  # running in a UTF-8 locale.
+  if ! "$is_windows"; then
+    if ! has_utf8_locale; then
+      echo "Skipping test due to lack of UTF-8 locale."
+      echo "Available locales:"
+      locale -a
+      return
+    fi
+  fi
+
+  # Restart the remote execution worker with LC_ALL set.
+  tear_down
+  LC_ALL=en_US.UTF-8 set_up
+
+  # The test inputs contain both globbed and unglobbed input paths, to verify
+  # consistent behavior on Windows where file paths are Unicode but Starlark
+  # strings are UTF-8.
+  cat > BUILD <<EOF
+load("//:rules.bzl", "test_unicode")
+test_unicode(
+  name = "test_unicode",
+  inputs = glob(["inputs/**/A_*"]) + [
+    "inputs/入力/B_🌱.txt",
+  ],
+)
+EOF
+
+  cat > rules.bzl <<'EOF'
+def _test_unicode(ctx):
+  out_dir = ctx.actions.declare_directory(ctx.attr.name + "_outs/出力/🌱.d")
+  out_file = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/🌱.txt")
+  out_report = ctx.actions.declare_file(ctx.attr.name + "_report.txt")
+  ctx.actions.run_shell(
+    inputs = ctx.files.inputs,
+    outputs = [out_dir, out_file, out_report],
+    command = """
+set -eu
+
+report="$3"
+touch "${report}"
+
+echo '[input tree]' >> "${report}"
+find inputs | sort >> "${report}"
+echo '' >> "${report}"
+
+echo '[input file A]' >> "${report}"
+cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/A_\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
+echo '' >> "${report}"
+
+echo '[input file B]' >> "${report}"
+cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/B_\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
+echo '' >> "${report}"
+
+echo '[environment]' >> "${report}"
+env | grep -v BASH_EXECUTION_STRING | grep TEST_UNICODE_ >> "${report}"
+echo '' >> "${report}"
+
+mkdir -p "$1"
+echo 'output dir content' > "$1"/dir_content.txt
+echo 'output file content' > "$2"
+""",
+    arguments = [out_dir.path, out_file.path, out_report.path],
+    env = {"TEST_UNICODE_🌱": "🌱"},
+  )
+  return DefaultInfo(files=depset([out_dir, out_file, out_report]))
+
+test_unicode = rule(
+  implementation = _test_unicode,
+  attrs = {
+    "inputs": attr.label_list(allow_files = True),
+  },
+)
+EOF
+
+  # inputs/入力/A_🌱.txt and inputs/入力/B_🌱.txt
+  mkdir -p $'inputs/\xe5\x85\xa5\xe5\x8a\x9b'
+  echo 'input content A' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/A_\xf0\x9f\x8c\xb1.txt'
+  echo 'input content B' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/B_\xf0\x9f\x8c\xb1.txt'
+
+  # On UNIX platforms, Bazel assumes that file paths are encoded in UTF-8. The
+  # system must have either an ISO-8859-1 or UTF-8 locale available so that
+  # Bazel can read the original bytes of the file path.
+  #
+  # If no ISO-8859-1 locale is available, the JVM might fall back to US-ASCII
+  # rather than trying UTF-8. Setting `LC_ALL=en_US.UTF-8` prevents this.
+  bazel shutdown
+  LC_ALL=en_US.UTF-8 bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //:test_unicode >& $TEST_log \
+      || fail "Failed to build //:test_unicode with remote execution"
+  expect_log "2 processes: 1 internal, 1 remote."
+
+  # Don't leak LC_ALL into other tests.
+  bazel shutdown
+
+  # Expect action outputs with correct structure and content.
+  mkdir -p ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d'
+  cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d/dir_content.txt' <<EOF
+output dir content
+EOF
+  cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt' <<EOF
+output file content
+EOF
+
+  diff -r bazel-bin/test_unicode_outs ${TEST_TMPDIR}/test_unicode_outs \
+      || fail "Remote execution generated different result"
+
+  cat > ${TEST_TMPDIR}/test_report_expected <<EOF
+[input tree]
+inputs
+inputs/入力
+inputs/入力/A_🌱.txt
+inputs/入力/B_🌱.txt
+
+[input file A]
+input content A
+
+[input file B]
+input content B
+
+[environment]
+TEST_UNICODE_🌱=🌱
+
+EOF
+  diff bazel-bin/test_unicode_report.txt ${TEST_TMPDIR}/test_report_expected \
+      || fail "Remote execution generated different result"
 }
 
 run_suite "Remote execution and remote cache tests"

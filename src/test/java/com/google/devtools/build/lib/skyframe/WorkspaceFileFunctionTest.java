@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -484,59 +483,6 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
     assertThat(testManagedDirectoriesKnowledge.getLastWorkspaceName()).isEqualTo("changed");
     assertThat(testManagedDirectoriesKnowledge.getCnt()).isEqualTo(2);
-  }
-
-  @Test
-  public void testDoNotSymlinkInExecroot() throws Exception {
-    StarlarkSemantics semantics = getStarlarkSemantics();
-    Injectable injectable = getSkyframeExecutor().injectable();
-
-    try {
-      StarlarkSemantics semanticsWithNinjaActions =
-          StarlarkSemantics.builder()
-              .setBool(BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS, true)
-              .build();
-      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithNinjaActions);
-
-      assertThat(
-              parseWorkspaceFileValue("toplevel_output_directories(paths = [\"out\"])")
-                  .getDoNotSymlinkInExecrootPaths())
-          .containsExactly("out");
-      assertThat(
-              parseWorkspaceFileValue(
-                      "toplevel_output_directories(paths = [\"out\", \"one more with"
-                          + " space\"])")
-                  .getDoNotSymlinkInExecrootPaths())
-          .containsExactly("out", "one more with space");
-      // Empty sequence is allowed.
-      assertThat(
-              parseWorkspaceFileValue("toplevel_output_directories(paths = [])")
-                  .getDoNotSymlinkInExecrootPaths())
-          .isEmpty();
-
-      // Test now intentionally introduces errors.
-      reporter.removeHandler(failFastHandler);
-
-      parseWorkspaceFileValueWithError(
-          "toplevel_output_directories should not "
-              + "contain duplicate values: \"out\" is specified more then once.",
-          "toplevel_output_directories(paths = [\"out\", \"out\"])");
-      parseWorkspaceFileValueWithError(
-          "toplevel_output_directories can only accept "
-              + "top level directories under workspace, \"out/subdir\" "
-              + "can not be specified as an attribute.",
-          "toplevel_output_directories(paths = [\"out/subdir\"])");
-      parseWorkspaceFileValueWithError(
-          "Empty path can not be passed to " + "toplevel_output_directories.",
-          "toplevel_output_directories(paths = [\"\"])");
-      parseWorkspaceFileValueWithError(
-          "toplevel_output_directories can only "
-              + "accept top level directories under workspace, \"/usr/local/bin\" "
-              + "can not be specified as an attribute.",
-          "toplevel_output_directories(paths = [\"/usr/local/bin\"])");
-    } finally {
-      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
-    }
   }
 
   @Test

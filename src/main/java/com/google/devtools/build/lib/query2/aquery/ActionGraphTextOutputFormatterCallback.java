@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -199,7 +201,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Inputs: [")
           .append(
               action.getInputs().toList().stream()
-                  .map(input -> input.getExecPathString())
+                  .map(input -> escapeBytestringUtf8(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n")
@@ -208,9 +210,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getOutputs().stream()
                   .map(
                       output ->
-                          output.isTreeArtifact()
-                              ? output.getExecPathString() + " (TreeArtifact)"
-                              : output.getExecPathString())
+                          escapeBytestringUtf8(
+                              output.isTreeArtifact()
+                                  ? output.getExecPathString() + " (TreeArtifact)"
+                                  : output.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n");
@@ -229,7 +232,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                 Streams.stream(fixedEnvironment)
                     .map(
                         environmentVariable ->
-                            environmentVariable.getKey() + "=" + environmentVariable.getValue())
+                            escapeBytestringUtf8(
+                                environmentVariable.getKey()
+                                    + "="
+                                    + environmentVariable.getValue()))
                     .sorted()
                     .collect(Collectors.joining(", ")))
             .append("]\n");
@@ -259,7 +265,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               CommandFailureUtils.describeCommand(
                   CommandDescriptionForm.COMPLETE,
                   /* prettyPrintArgs= */ true,
-                  ((CommandAction) action).getArguments(),
+                  ((CommandAction) action)
+                      .getArguments().stream()
+                          .map(a -> escapeBytestringUtf8(a))
+                          .collect(toImmutableList()),
                   /* environment= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
@@ -329,5 +338,38 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       paramFileNameToContentMap = new HashMap<>();
     }
     return paramFileNameToContentMap;
+  }
+
+  /**
+   * Decode a bytestring that might contain UTF-8, and escape any characters outside the basic
+   * printable ASCII range.
+   *
+   * <p>This function is intended for human consumption in debug output that needs to be durable
+   * against unusual encoding settings, and does not guarantee that the escaping process is
+   * reverseable.
+   *
+   * <p>Characters other than printable ASCII but within the Basic Multilingual Plane are formatted
+   * with `\\uXXXX`. Characters outside the BMP are formatted as `\\UXXXXXXXX`.
+   */
+  public static String escapeBytestringUtf8(String maybeUtf8) {
+    if (maybeUtf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
+      return maybeUtf8;
+    }
+
+    final String decoded = decodeBytestringUtf8(maybeUtf8);
+    final StringBuilder sb = new StringBuilder(decoded.length() * 8);
+    decoded
+        .codePoints()
+        .forEach(
+            c -> {
+              if (c >= 0x20 && c < 0x7F) {
+                sb.appendCodePoint(c);
+              } else if (c <= 0xFFFF) {
+                sb.append(String.format("\\u%04X", c));
+              } else {
+                sb.append(String.format("\\U%08X", c));
+              }
+            });
+    return sb.toString();
   }
 }

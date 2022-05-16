@@ -141,6 +141,8 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("BUILD_DRIVER");
   public static final SkyFunctionName BAZEL_MODULE_RESOLUTION =
       SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
+  public static final SkyFunctionName BAZEL_MODULE_INSPECTION =
+      SkyFunctionName.createHermetic("BAZEL_MODULE_INSPECTION");
   public static final SkyFunctionName MODULE_EXTENSION_RESOLUTION =
       SkyFunctionName.createHermetic("MODULE_EXTENSION_RESOLUTION");
   public static final SkyFunctionName SINGLE_EXTENSION_USAGES =

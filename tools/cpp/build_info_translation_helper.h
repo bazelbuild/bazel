@@ -35,19 +35,6 @@ class BuildInfoTranslationHelper {
   absl::Status ParseVersionFile(
       std::unordered_map<std::string, std::string>& file_map);
 
-  enum KeyType {
-    STRING = 0,
-    INTEGER = 1,
-  };
-
-  using KeyMap = std::unordered_map<
-      std::string, std::pair<KeyType, std::pair<std::string, std::string> > >;
-
-  virtual KeyMap getStableKeys() = 0;
-  virtual KeyMap getVolatileKeys() = 0;
-
-  virtual ~BuildInfoTranslationHelper() = 0;
-
  private:
   std::string info_file_path_;
   std::string version_file_path_;

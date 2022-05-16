@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -43,7 +42,6 @@ public class AnalysisResult {
   private final PackageRoots packageRoots;
   private final String workspaceName;
   private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
-  private final ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot;
 
   AnalysisResult(
       BuildConfigurationCollection configurations,
@@ -59,8 +57,7 @@ public class AnalysisResult {
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
-      ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     this.configurations = configurations;
     this.targetsToBuild = targetsToBuild;
     this.aspects = aspects;
@@ -75,7 +72,6 @@ public class AnalysisResult {
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
-    this.nonSymlinkedDirectoriesUnderExecRoot = nonSymlinkedDirectoriesUnderExecRoot;
   }
 
   public BuildConfigurationCollection getConfigurationCollection() {
@@ -159,10 +155,6 @@ public class AnalysisResult {
     return topLevelTargetsWithConfigs;
   }
 
-  public ImmutableSortedSet<String> getNonSymlinkedDirectoriesUnderExecRoot() {
-    return nonSymlinkedDirectoriesUnderExecRoot;
-  }
-
   /**
    * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
    * tests.
@@ -182,7 +174,6 @@ public class AnalysisResult {
         topLevelContext,
         packageRoots,
         workspaceName,
-        topLevelTargetsWithConfigs,
-        nonSymlinkedDirectoriesUnderExecRoot);
+        topLevelTargetsWithConfigs);
   }
 }

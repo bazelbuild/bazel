@@ -13,7 +13,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh:srcs",
