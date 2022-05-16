@@ -776,15 +776,6 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Allow all files for legacy compatibility. All uses of this method should be audited and then
-     * removed. In some cases, it's correct to allow any file, but mostly the set of files should be
-     * restricted to a reasonable set.
-     */
-    public Builder<TYPE> legacyAllowAnyFileType() {
-      return allowedFileTypes(FileTypeSet.ANY_FILE);
-    }
-
-    /**
      * If this is a label or label-list attribute, then this sets the allowed file types for file
      * labels occurring in the attribute. If the attribute contains labels that correspond to files
      * of any other type, then an error is produced during the analysis phase.
@@ -794,6 +785,15 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> allowedFileTypes(FileType... allowedFileTypes) {
       return allowedFileTypes(FileTypeSet.of(allowedFileTypes));
+    }
+
+    /**
+     * Allow all files for legacy compatibility. All uses of this method should be audited and then
+     * removed. In some cases, it's correct to allow any file, but mostly the set of files should be
+     * restricted to a reasonable set.
+     */
+    public Builder<TYPE> legacyAllowAnyFileType() {
+      return allowedFileTypes(FileTypeSet.ANY_FILE);
     }
 
     /**
@@ -1753,7 +1753,7 @@ public final class Attribute implements Comparable<Attribute> {
       RequiredProviders requiredProviders,
       ImmutableList<AspectDetails<?>> aspects) {
     Preconditions.checkArgument(
-        (NoTransition.isInstance(transitionFactory))
+        NoTransition.isInstance(transitionFactory)
             || type.getLabelClass() == LabelClass.DEPENDENCY
             || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
         "Configuration transitions can only be specified for label or label list attributes");

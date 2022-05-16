@@ -761,7 +761,8 @@ public final class PackageFactory {
                 return;
               }
 
-              Expression excludeDirectories = null, include = null;
+              Expression excludeDirectories = null;
+              Expression include = null;
               List<Argument> arguments = call.getArguments();
               for (int i = 0; i < arguments.size(); i++) {
                 Argument arg = arguments.get(i);

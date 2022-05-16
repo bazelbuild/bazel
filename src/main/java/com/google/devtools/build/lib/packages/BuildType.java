@@ -492,7 +492,7 @@ public final class BuildType {
       try {
         printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
       } catch (EvalException e) {
-        throw new IllegalStateException("this list should have been validated on creation");
+        throw new IllegalStateException("this list should have been validated on creation", e);
       }
     }
   }
