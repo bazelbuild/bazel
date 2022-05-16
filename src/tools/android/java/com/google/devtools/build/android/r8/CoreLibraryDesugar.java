@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8;
 
+import static com.android.tools.r8.CompilationMode.RELEASE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.EXCLUDE_PATH_ENTRIES;
 
@@ -184,6 +185,7 @@ public class CoreLibraryDesugar {
             .addClasspathResourceProvider(classpath)
             .addProgramFiles(input)
             .setMinApiLevel(options.minSdkVersion)
+            .setMode(RELEASE)
             .setProgramConsumer(consumer);
     bootclasspathProviders.forEach(builder::addLibraryResourceProvider);
     if (desugaredLibConfig != null) {
