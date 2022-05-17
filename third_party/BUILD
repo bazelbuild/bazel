@@ -46,6 +46,7 @@ filegroup(
         "//third_party/zlib:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
+        "@rules_license//:srcs",
     ],
 )
 
