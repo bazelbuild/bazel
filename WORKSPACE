@@ -100,6 +100,14 @@ new_local_repository(
     workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
 )
 
+# Rules license must always be referred to as @rules_license even if imported
+# in to third_party. That allows the full classname of the providers to be
+# aligned across all rule sets.
+local_repository(
+    name = "rules_license",
+    path = "./third_party/rules_license",
+)
+
 local_repository(
     name = "googleapis",
     path = "./third_party/googleapis/",
