@@ -186,11 +186,6 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "go_library(name = 'context',",
         "           srcs = [ 'context.go' ])");
-    config.create("third_party/py/six/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "licenses(['notice'])",
-        "py_library(name = 'six',",
-        "           srcs = [ '__init__.py' ])");
     // TODO(b/77901188): remove once j_p_l migration is complete
     config.create(
         "third_party/java/jsr250_annotations/BUILD",
