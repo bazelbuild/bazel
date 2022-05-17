@@ -15,13 +15,17 @@
 # To get the checksum of the versioned documentation tree tarball, run the
 # following command with the selected Bazel version:
 #
-# $ curl -fs https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-0.20.0.tar | sha256sum | cut -d" " -f1
-# bb79a63810bf1b0aa1f89bd3bbbeb4a547a30ab9af70c9be656cc6866f4b015b
+# $ curl -fs https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-5.1.1.tar | sha256sum | cut -d" " -f1
+# 7e72e01349c180a948d8a0c2c8cbbdb65212e05a01c2baab246050a0af46d2b3
 #
 # This list must be kept in sync with `doc_versions` variable in //site:_config.yml
 """This module contains the versions and hashes of Bazel's documentation tarballs."""
 
 DOC_VERSIONS = [
+    {
+        "version": "5.1.1",
+        "sha256": "7e72e01349c180a948d8a0c2c8cbbdb65212e05a01c2baab246050a0af46d2b3",
+    },
     {
         "version": "5.1.0",
         "sha256": "4bc66add6ce214cee731a9ac121fe9a0c26b3144ac18ecd82e35488cb9b84392",
