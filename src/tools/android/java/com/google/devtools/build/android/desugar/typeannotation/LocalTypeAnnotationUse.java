@@ -13,18 +13,18 @@
 
 package com.google.devtools.build.android.desugar.typeannotation;
 
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.TypePath;
 
 /** Desugars bytecode instructions with references to type annotations. */
 public class LocalTypeAnnotationUse extends ClassVisitor {
 
   public LocalTypeAnnotationUse(ClassVisitor classVisitor) {
-    super(Opcodes.ASM8, classVisitor);
+    super(Opcodes.ASM9, classVisitor);
   }
 
   @Override

@@ -26,6 +26,7 @@ import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import org.objectweb.asm.Opcodes;
 import java.util.Arrays;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
@@ -86,7 +87,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
 
   public IndyStringConcatDesugaring(
       ClassMemberUseCounter classMemberUseCounter, ClassVisitor classVisitor, boolean coreLibrary) {
-    super(Opcodes.ASM8, classVisitor);
+    super(Opcodes.ASM9, classVisitor);
     this.classMemberUseCounter = classMemberUseCounter;
     this.invokeStringConcatReplacementSite =
         coreLibrary

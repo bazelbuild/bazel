@@ -26,6 +26,7 @@ import com.google.devtools.build.android.desugar.langmodel.DesugarMethodAttribut
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -62,7 +63,7 @@ public final class ClassMetadataCollector extends ClassVisitor {
   ClassMetadataCollector(
       ClassMemberRecordBuilder nestAnalysisBasedMemberRecord,
       ClassAttributeRecordBuilder classAttributeRecord) {
-    super(Opcodes.ASM8);
+    super(Opcodes.ASM9);
     this.nestAnalysisBasedMemberRecord = nestAnalysisBasedMemberRecord;
     this.classAttributeRecord = classAttributeRecord;
     this.classAttributesBuilder = ClassAttributes.builder();
@@ -174,7 +175,7 @@ public final class ClassMetadataCollector extends ClassVisitor {
         MethodKey enclosingMethodKey,
         ClassAttributesBuilder classAttributesBuilder,
         ClassMemberRecordBuilder nestAnalysisBasedMemberRecord) {
-      super(Opcodes.ASM8, methodVisitor);
+      super(Opcodes.ASM9, methodVisitor);
       this.enclosingMethodKey = enclosingMethodKey;
       this.classAttributesBuilder = classAttributesBuilder;
       this.nestAnalysisBasedMemberRecord = nestAnalysisBasedMemberRecord;

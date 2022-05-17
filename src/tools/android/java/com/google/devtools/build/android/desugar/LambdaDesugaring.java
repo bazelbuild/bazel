@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import org.objectweb.asm.Opcodes;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -80,7 +81,7 @@ class LambdaDesugaring extends ClassVisitor {
       ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic,
       ClassAttributeRecord classAttributeRecord,
       boolean allowDefaultMethods) {
-    super(Opcodes.ASM8, dest);
+    super(Opcodes.ASM9, dest);
     this.targetLoader = targetLoader;
     this.lambdas = lambdas;
     this.aggregateInterfaceLambdaMethods = aggregateInterfaceLambdaMethods;
@@ -391,7 +392,7 @@ class LambdaDesugaring extends ClassVisitor {
         String desc,
         String signature,
         String[] exceptions) {
-      super(Opcodes.ASM8, access, name, desc, signature, exceptions);
+      super(Opcodes.ASM9, access, name, desc, signature, exceptions);
       this.dest = checkNotNull(dest, "Null destination for %s.%s : %s", internalName, name, desc);
     }
 

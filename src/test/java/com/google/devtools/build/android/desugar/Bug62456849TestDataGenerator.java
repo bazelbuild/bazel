@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.io.ByteStreams;
+import org.objectweb.asm.Opcodes;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -87,7 +88,7 @@ public class Bug62456849TestDataGenerator {
       ClassReader reader = new ClassReader(content);
       ClassWriter writer = new ClassWriter(0);
       ClassVisitor converter =
-          new ClassVisitor(Opcodes.ASM8, writer) {
+          new ClassVisitor(Opcodes.ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(
                 int access, String name, String desc, String signature, String[] exceptions) {
