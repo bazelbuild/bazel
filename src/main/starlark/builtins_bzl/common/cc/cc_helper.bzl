@@ -148,6 +148,8 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
 
     return library.dynamic_library
 
+_CPP_TOOLCHAIN_TYPE = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"
+
 def _find_cpp_toolchain(ctx):
     """
     Finds the c++ toolchain.
@@ -164,9 +166,9 @@ def _find_cpp_toolchain(ctx):
 
     # Check the incompatible flag for toolchain resolution.
     if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if not "@" + semantics.get_repo() + "//tools/cpp:toolchain_type" in ctx.toolchains:
+        if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
             fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
-        toolchain_info = ctx.toolchains["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"]
+        toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
         if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
             return toolchain_info.cc
         return toolchain_info
@@ -177,6 +179,27 @@ def _find_cpp_toolchain(ctx):
 
     # We didn't find anything.
     fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
+
+# buildifier: disable=unused-variable
+def _use_cpp_toolchain(mandatory = True):
+    """
+    Helper to depend on the c++ toolchain.
+
+    Usage:
+    ```
+    my_rule = rule(
+        toolchains = [other toolchain types] + use_cpp_toolchain(),
+    )
+    ```
+
+    Args:
+      mandatory: Whether or not it should be an error if the toolchain cannot be resolved.
+        Currently ignored, this will be enabled when optional toolchain types are added.
+
+    Returns:
+      A list that can be used as the value for `rule.toolchains`.
+    """
+    return [_CPP_TOOLCHAIN_TYPE]
 
 def _collect_compilation_prerequisites(ctx, compilation_context):
     direct = []
@@ -854,6 +877,7 @@ cc_helper = struct(
     get_dynamic_libraries_for_runtime = _get_dynamic_libraries_for_runtime,
     get_dynamic_library_for_runtime_or_none = _get_dynamic_library_for_runtime_or_none,
     find_cpp_toolchain = _find_cpp_toolchain,
+    use_cpp_toolchain = _use_cpp_toolchain,
     build_output_groups_for_emitting_compile_providers = _build_output_groups_for_emitting_compile_providers,
     merge_output_groups = _merge_output_groups,
     rule_error = _rule_error,
