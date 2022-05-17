@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.ThreadSafe;
@@ -33,7 +32,6 @@ public class TempPathGenerator {
     return tempDir.getChild(index.getAndIncrement() + ".tmp");
   }
 
-  @VisibleForTesting
   public Path getTempDir() {
     return tempDir;
   }

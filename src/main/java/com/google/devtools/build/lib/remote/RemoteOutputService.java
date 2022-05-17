@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -76,13 +77,18 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      EventHandler eventHandler, UUID buildId, boolean finalizeActions) {
+      EventHandler eventHandler, UUID buildId, boolean finalizeActions) throws AbruptExitException {
+    if (actionInputFetcher != null) {
+      actionInputFetcher.startBuild(eventHandler);
+    }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 
   @Override
   public void finalizeBuild(boolean buildSuccessful) {
-    // Intentionally left empty.
+    if (actionInputFetcher != null) {
+      actionInputFetcher.finalizeBuild();
+    }
   }
 
   @Override
