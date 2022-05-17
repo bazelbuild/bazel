@@ -71,8 +71,7 @@ public final class AndroidPlatformsTransition implements PatchTransition {
     PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
     // Set the value of --platforms for this target and its dependencies.
     // 1. If --android_platforms is set, use a value from that.
-    // 2. If --default_android_platform is set, use that.
-    // 3. Otherwise, leave --platforms alone (this will probably lead to build errors).
+    // 2. Otherwise, leave --platforms alone (this will probably lead to build errors).
     if (!androidOptions.androidPlatforms.isEmpty()) {
       // If the current value of --platforms is not one of the values of --android_platforms, change
       // it to be the first one. If the curent --platforms is part of --android_platforms, leave it
@@ -82,8 +81,6 @@ public final class AndroidPlatformsTransition implements PatchTransition {
       if (!androidOptions.androidPlatforms.containsAll(newPlatformOptions.platforms)) {
         newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
       }
-    } else if (androidOptions.defaultAndroidPlatform != null) {
-      newPlatformOptions.platforms = ImmutableList.of(androidOptions.defaultAndroidPlatform);
     }
 
     // If we are using toolchain resolution for Android, also use it for CPP.
