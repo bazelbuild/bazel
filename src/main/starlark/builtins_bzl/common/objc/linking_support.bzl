@@ -76,7 +76,7 @@ def _link_multi_arch_static_library(ctx, split_target_triplets = None):
             avoid_cc_providers = avoid_cc_providers,
         )
 
-        name = ctx.label.name + "-" + split_transition_key + "-fl"
+        name = ctx.label.name + "-" + cc_toolchain.target_gnu_system_name + "-fl"
 
         linking_outputs = compilation_support.register_fully_link_action(
             common_variables,

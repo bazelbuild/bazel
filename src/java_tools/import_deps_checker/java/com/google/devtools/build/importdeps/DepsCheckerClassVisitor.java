@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import org.objectweb.asm.Opcodes;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
@@ -43,7 +44,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private final DepsCheckerMethodVisitor defaultMethodChecker = new DepsCheckerMethodVisitor();
 
   public DepsCheckerClassVisitor(ClassCache classCache, ResultCollector resultCollector) {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM9);
     this.classCache = classCache;
     this.resultCollector = resultCollector;
   }
@@ -229,7 +230,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerAnnotationVisitor extends AnnotationVisitor {
 
     DepsCheckerAnnotationVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -270,7 +271,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerFieldVisitor extends FieldVisitor {
 
     DepsCheckerFieldVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -291,7 +292,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerMethodVisitor extends MethodVisitor {
 
     DepsCheckerMethodVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override

@@ -15,6 +15,7 @@ package com.google.devtools.build.android.desugar;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.Opcodes;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -28,7 +29,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.Textifier;
 
 /** Print the types of the operand stack for each method. */
@@ -64,7 +64,7 @@ public class ByteCodeTypePrinter {
     private final PrintWriter printWriter;
 
     public ClassWithTypeDumper(PrintWriter printWriter) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       this.printWriter = printWriter;
     }
 
@@ -96,7 +96,7 @@ public class ByteCodeTypePrinter {
   private static final class TextifierExt extends Textifier {
 
     public TextifierExt() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     public void print(String string) {
@@ -112,7 +112,7 @@ public class ByteCodeTypePrinter {
 
     public MethodIrTypeDumper(
         MethodVisitor visitor, BytecodeTypeInference inference, PrintWriter printWriter) {
-      super(Opcodes.ASM8, visitor);
+      super(Opcodes.ASM9, visitor);
       this.inference = inference;
       this.printWriter = printWriter;
     }

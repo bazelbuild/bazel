@@ -19,9 +19,9 @@ import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 import static org.objectweb.asm.Opcodes.POP;
 
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /**
  * This class desugars any call to Objects.requireNonNull(Object o), Objects.requireNonNull(Object
@@ -33,7 +33,7 @@ public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
   private final CoreLibraryRewriter rewriter;
 
   public ObjectsRequireNonNullMethodRewriter(ClassVisitor cv, CoreLibraryRewriter rewriter) {
-    super(Opcodes.ASM8, cv);
+    super(Opcodes.ASM9, cv);
     this.rewriter = rewriter;
   }
 
@@ -47,7 +47,7 @@ public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
   private class ObjectsMethodInlinerMethodVisitor extends MethodVisitor {
 
     public ObjectsMethodInlinerMethodVisitor(MethodVisitor mv) {
-      super(Opcodes.ASM8, mv);
+      super(Opcodes.ASM9, mv);
     }
 
     @Override

@@ -19,6 +19,7 @@ package com.google.devtools.build.android.desugar.typehierarchy;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy.TypeHierarchyBuilder;
+import org.objectweb.asm.Opcodes;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +27,6 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.Opcodes;
 
 /** The public APs that collects type hierarchy information from IO operations. */
 public class TypeHierarchyScavenger {
@@ -42,7 +42,10 @@ public class TypeHierarchyScavenger {
           ClassReader cr = new ClassReader(inputStream);
           TypeHierarchyClassVisitor cv =
               new TypeHierarchyClassVisitor(
-                  Opcodes.ASM8, contentProvider.getBinaryPathName(), typeHierarchyBuilder, null);
+                  Opcodes.ASM9,
+                  contentProvider.getBinaryPathName(),
+                  typeHierarchyBuilder,
+                  null);
           cr.accept(cv, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
         } catch (IOException e) {
           throw new IOError(e);

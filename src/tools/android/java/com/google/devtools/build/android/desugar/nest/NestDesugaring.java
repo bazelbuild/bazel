@@ -23,6 +23,7 @@ import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import org.objectweb.asm.Opcodes;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -55,7 +56,7 @@ public final class NestDesugaring extends ClassVisitor {
   private boolean isNestHostWithNestCompanion;
 
   public NestDesugaring(ClassVisitor classVisitor, NestDigest nestDigest) {
-    super(Opcodes.ASM8, classVisitor);
+    super(Opcodes.ASM9, classVisitor);
     this.nestDigest = nestDigest;
   }
 

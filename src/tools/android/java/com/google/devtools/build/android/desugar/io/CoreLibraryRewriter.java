@@ -15,6 +15,7 @@ package com.google.devtools.build.android.desugar.io;
 
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.TypeMapper;
+import org.objectweb.asm.Opcodes;
 import java.io.IOException;
 import java.io.InputStream;
 import javax.annotation.Nullable;
@@ -22,7 +23,6 @@ import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.Remapper;
 
@@ -165,7 +165,7 @@ public class CoreLibraryRewriter {
     private String finalClassName;
 
     UnprefixingClassWriter(int flags) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       this.writer = new ClassWriter(flags);
       this.cv = this.writer;
       if (!prefix.isEmpty()) {
