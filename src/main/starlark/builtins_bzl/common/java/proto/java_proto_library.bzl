@@ -47,7 +47,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
       runtime jars.
     """
 
-    proto_toolchain_info = ctx.attr._java_proto_toolchain[ProtoLangToolchainInfo]
+    proto_toolchain_info = ctx.attr._aspect_java_proto_toolchain[ProtoLangToolchainInfo]
     source_jar = None
     if proto_common.experimental_should_generate_code(target, proto_toolchain_info, "java_proto_library"):
         # Generate source jar using proto compiler.
@@ -130,7 +130,7 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
 bazel_java_proto_aspect = aspect(
     implementation = _bazel_java_proto_aspect_impl,
     attrs = {
-        "_java_proto_toolchain": attr.label(
+        "_aspect_java_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java"),
         ),
         "_java_toolchain": attr.label(
