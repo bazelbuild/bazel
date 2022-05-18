@@ -62,34 +62,7 @@ nav: docs
             <div class="right-sidebar">
                 <ul class="gh-links">
                     <li><a href="https://github.com/bazelbuild/bazel/issues/new?title=Documentation issue: {{ page.title }}&body=Documentation URL: https://docs.bazel.build{{ page.url }}&labels=type: documentation"><i class="fa fa-github"></i> Create issue</a></li>
-                    <li id="gh-edit-list-item" class="default-hidden" aria-hidden="true"><a id="gh-edit" class="gh-edit default-hidden"><i class="fa fa-pencil" aria-hidden="true"></i> Edit this page</a></li>
                 </ul>
-                <script>
-                 var versionDocsURLRegex = /\/versions\/[\w\.]+\/(.*)/;
-                 var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/docs/';
-                 var editButton = document.getElementById('gh-edit');
-                 var editButtonListItem = document.getElementById('gh-edit-list-item');
-                 // if there is an edit button and we are not in the Build Encyclopedia
-                 // or other generated files.
-                 if (editButton
-                     && window.location.pathname.match(versionDocsURLRegex)
-                     && window.location.pathname.lastIndexOf('/be/') == -1
-                     && window.location.pathname.lastIndexOf('/repo/') == -1
-                     && window.location.pathname.lastIndexOf('/skylark/lib/') == -1
-                     && window.location.pathname.lastIndexOf('/command-line-reference.html') == -1) {
-                     var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
-                     // some pages are not using markdown :(
-                     if (docFile !== 'user-manual.html'
-                         && docFile !== 'build-ref.html'
-                         && docFile !== 'query.html'
-                         && docFile !== 'test-encyclopedia.html') {
-                         docFile = docFile.replace('html', 'md');
-                     }
-                     editButton.href = ghDocsBazeURL + docFile;
-                     editButton.style.visibility = 'visible';
-                     editButtonListItem.style.visibility = 'visible';
-                 }
-                </script>
 
                 {{ content | toc_only }}
             </div>
