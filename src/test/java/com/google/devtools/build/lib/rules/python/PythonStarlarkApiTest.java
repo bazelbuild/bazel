@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,16 +28,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PythonStarlarkApiTest extends BuildViewTestCase {
 
-  /**
-   * Defines userlib in //pkg:rules.bzl, which acts as a Starlark-defined version of py_library.
-   *
-   * <p>If {@code legacyProviderAllowed} is true, both the legacy and modern providers are returned.
-   * Otherwise only the modern provider is returned. In both cases the modern provider of the
-   * dependency is consumed while the native one is ignored.
-   */
-  private void defineUserlibRule(boolean legacyProviderAllowed) throws Exception {
-    String returnExpr =
-        legacyProviderAllowed ? "struct(py=legacy_info, providers=[modern_info])" : "[modern_info]";
+  /** Defines userlib in //pkg:rules.bzl, which acts as a Starlark-defined version of py_library. */
+  private void defineUserlibRule() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
         "def _userlib_impl(ctx):",
@@ -59,19 +50,13 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    has_py3_only_sources = \\",
         "        any([py.has_py3_only_sources for py in dep_infos]) or \\",
         "        ctx.attr.has_py3_only_sources",
-        "    legacy_info = struct(",
+        "    info = PyInfo(",
         "        transitive_sources = transitive_sources,",
         "        uses_shared_libraries = uses_shared_libraries,",
         "        imports = imports,",
         "        has_py2_only_sources = has_py2_only_sources,",
         "        has_py3_only_sources = has_py3_only_sources)",
-        "    modern_info = PyInfo(",
-        "        transitive_sources = transitive_sources,",
-        "        uses_shared_libraries = uses_shared_libraries,",
-        "        imports = imports,",
-        "        has_py2_only_sources = has_py2_only_sources,",
-        "        has_py3_only_sources = has_py3_only_sources)",
-        "    return " + returnExpr,
+        "    return [info]",
         "",
         "userlib = rule(",
         "    implementation = _userlib_impl,",
@@ -87,19 +72,8 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void librarySandwich_LegacyProviderAllowed() throws Exception {
-    doLibrarySandwichTest(/*legacyProviderAllowed=*/ true);
-  }
-
-  @Test
-  public void librarySandwich_LegacyProviderDisallowed() throws Exception {
-    doLibrarySandwichTest(/*legacyProviderAllowed=*/ false);
-  }
-
-  private void doLibrarySandwichTest(boolean legacyProviderAllowed) throws Exception {
-    useConfiguration(
-        "--incompatible_disallow_legacy_py_provider=" + (legacyProviderAllowed ? "false" : "true"));
-    defineUserlibRule(legacyProviderAllowed);
+  public void librarySandwich() throws Exception {
+    defineUserlibRule();
     scratch.file(
         "pkg/BUILD",
         "load(':rules.bzl', 'userlib')",
@@ -125,31 +99,17 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//pkg:upperuserlib");
 
-    if (legacyProviderAllowed) {
-      StructImpl legacyInfo = PyProviderUtils.getLegacyProvider(target);
-      assertThat(PyStructUtils.getTransitiveSources(legacyInfo).toList())
-          .containsExactly(
-              getSourceArtifact("pkg/loweruserlib.py"),
-              getSourceArtifact("pkg/pylib.py"),
-              getSourceArtifact("pkg/upperuserlib.py"));
-      assertThat(PyStructUtils.getUsesSharedLibraries(legacyInfo)).isTrue();
-      assertThat(PyStructUtils.getImports(legacyInfo).toList())
-          .containsExactly("loweruserlib_path", "upperuserlib_path");
-      assertThat(PyStructUtils.getHasPy2OnlySources(legacyInfo)).isTrue();
-      assertThat(PyStructUtils.getHasPy3OnlySources(legacyInfo)).isTrue();
-    }
-
-    PyInfo modernInfo = PyProviderUtils.getModernProvider(target);
-    assertThat(modernInfo.getTransitiveSources().toList(Artifact.class))
+    PyInfo info = target.get(PyInfo.PROVIDER);
+    assertThat(info.getTransitiveSources().toList(Artifact.class))
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
-    assertThat(modernInfo.getUsesSharedLibraries()).isTrue();
-    assertThat(modernInfo.getImports().toList(String.class))
+    assertThat(info.getUsesSharedLibraries()).isTrue();
+    assertThat(info.getImports().toList(String.class))
         .containsExactly("loweruserlib_path", "upperuserlib_path");
-    assertThat(modernInfo.getHasPy2OnlySources()).isTrue();
-    assertThat(modernInfo.getHasPy3OnlySources()).isTrue();
+    assertThat(info.getHasPy2OnlySources()).isTrue();
+    assertThat(info.getHasPy3OnlySources()).isTrue();
   }
 
   @Test
