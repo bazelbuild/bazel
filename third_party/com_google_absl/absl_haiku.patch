@@ -1,0 +1,22 @@
+From 1c0c5b773743002bddd25fd838a152ae807eadfd Mon Sep 17 00:00:00 2001
+From: Gerasim Troeglazov <3dEyes@gmail.com>
+Date: Wed, 2 Feb 2022 15:04:07 +1000
+Subject: Disable dynamic symbol lookup for in-memory Elf images
+
+
+diff --git a/absl/debugging/internal/elf_mem_image.h b/absl/debugging/internal/elf_mem_image.h
+index a894bd4..949aef7 100644
+--- a/absl/debugging/internal/elf_mem_image.h
++++ b/absl/debugging/internal/elf_mem_image.h
+@@ -32,7 +32,7 @@
+ #endif
+ 
+ #if defined(__ELF__) && !defined(__native_client__) && !defined(__asmjs__) && \
+-    !defined(__wasm__)
++    !defined(__wasm__) && !defined(__HAIKU__)
+ #define ABSL_HAVE_ELF_MEM_IMAGE 1
+ #endif
+ 
+-- 
+2.30.2
+

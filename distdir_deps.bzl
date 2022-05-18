@@ -175,6 +175,10 @@ DIST_DEPS = {
     },
     "com_google_absl": {
         "archive": "20211102.0.tar.gz",
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party:com_google_absl/absl_haiku.patch",
+        ],
         "sha256": "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
         "urls": [
             "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
