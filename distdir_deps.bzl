@@ -152,6 +152,10 @@ DIST_DEPS = {
             "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
             "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         ],
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party/c-ares:cares_haiku.patch",
+        ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
