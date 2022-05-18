@@ -84,6 +84,7 @@ filegroup(
         "//tools/osx:bzl_srcs",
         "//tools/python:bzl_srcs",
         "//tools/sh:bzl_srcs",
+        "//tools/test:bzl_srcs",
         "//tools/windows:bzl_srcs",
     ],
 )

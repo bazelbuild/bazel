@@ -65,3 +65,8 @@ filegroup(
         "//conditions:default": ["dummy.sh"],
     }),
 )
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = ["extensions.bzl"],
+)
