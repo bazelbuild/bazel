@@ -3,6 +3,10 @@ package(default_visibility = ["//src:__subpackages__"])
 cc_binary(
     name = "daemonize",
     srcs = ["daemonize.c"],
+    linkopts = select({
+        "//src/conditions:haiku": ["-lbsd"],
+        "//conditions:default": []
+    }),
 )
 
 cc_library(
@@ -22,6 +26,14 @@ cc_library(
         ":logging",
         "//src/main/protobuf:execution_statistics_cc_proto",
     ],
+    linkopts = select({
+        "//src/conditions:haiku": ["-lbsd"],
+        "//conditions:default": []
+    }),
+    local_defines = select({
+        "//src/conditions:haiku": ["_DEFAULT_SOURCE"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_binary(
@@ -40,6 +52,7 @@ cc_binary(
     linkopts = select({
         "//src/conditions:windows": [],
         "//src/conditions:darwin": ["-lm"],
+        "//src/conditions:haiku": [],
         "//conditions:default": [
             "-lm",
             "-lrt",
@@ -72,6 +85,7 @@ cc_binary(
         "//src/conditions:darwin": ["dummy-sandbox.c"],
         "//src/conditions:freebsd": ["dummy-sandbox.c"],
         "//src/conditions:openbsd": ["dummy-sandbox.c"],
+        "//src/conditions:haiku": ["dummy-sandbox.c"],
         "//src/conditions:windows": ["dummy-sandbox.c"],
         "//conditions:default": [
             "linux-sandbox.cc",
@@ -86,6 +100,7 @@ cc_binary(
         "//src/conditions:darwin": [],
         "//src/conditions:freebsd": [],
         "//src/conditions:openbsd": [],
+        "//src/conditions:haiku": [],
         "//src/conditions:windows": [],
         "//conditions:default": [
             "-lm",
@@ -96,6 +111,7 @@ cc_binary(
         "//src/conditions:darwin": [],
         "//src/conditions:freebsd": [],
         "//src/conditions:openbsd": [],
+        "//src/conditions:haiku": [],
         "//src/conditions:windows": [],
         "//conditions:default": [
             ":logging",
