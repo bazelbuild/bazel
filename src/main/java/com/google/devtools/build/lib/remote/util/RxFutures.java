@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.CompletableEmitter;
@@ -189,12 +191,18 @@ public class RxFutures {
    * the {@link Completable} will automatically be cancelled.
    */
   public static ListenableFuture<Void> toListenableFuture(Completable completable) {
-    CompletableFuture<Void> future = new CompletableFuture<>();
+    SettableFuture<Void> future = SettableFuture.create();
     completable.subscribe(
         new CompletableObserver() {
           @Override
           public void onSubscribe(Disposable d) {
-            future.setCancelCallback(d);
+            future.addListener(
+                () -> {
+                  if (future.isCancelled()) {
+                    d.dispose();
+                  }
+                },
+                directExecutor());
           }
 
           @Override
@@ -222,12 +230,18 @@ public class RxFutures {
    * the {@link Single} will automatically be cancelled.
    */
   public static <T> ListenableFuture<T> toListenableFuture(Single<T> single) {
-    CompletableFuture<T> future = new CompletableFuture<>();
+    SettableFuture<T> future = SettableFuture.create();
     single.subscribe(
         new SingleObserver<T>() {
           @Override
           public void onSubscribe(Disposable d) {
-            future.setCancelCallback(d);
+            future.addListener(
+                () -> {
+                  if (future.isCancelled()) {
+                    d.dispose();
+                  }
+                },
+                directExecutor());
           }
 
           @Override
