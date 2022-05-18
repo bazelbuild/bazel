@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -198,108 +199,109 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void setTestManagedDirectoriesKnowledge() throws Exception {
-    StarlarkSemantics semantics = getStarlarkSemantics();
+    StarlarkSemantics semantics =
+        getStarlarkSemantics().toBuilder()
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_MANAGE_DIRECTORIES, false)
+            .build();
     Injectable injectable = getSkyframeExecutor().injectable();
-    try {
-      TestManagedDirectoriesListener listener = new TestManagedDirectoriesListener();
-      ManagedDirectoriesKnowledgeImpl knowledge = new ManagedDirectoriesKnowledgeImpl(listener);
+    PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
 
-      RepositoryName one = RepositoryName.create("repo1");
-      RepositoryName two = RepositoryName.create("repo2");
-      RepositoryName three = RepositoryName.create("repo3");
+    TestManagedDirectoriesListener listener = new TestManagedDirectoriesListener();
+    ManagedDirectoriesKnowledgeImpl knowledge = new ManagedDirectoriesKnowledgeImpl(listener);
 
-      PathFragment pf1 = PathFragment.create("dir1");
-      PathFragment pf2 = PathFragment.create("dir2");
-      PathFragment pf3 = PathFragment.create("dir3");
+    RepositoryName one = RepositoryName.create("repo1");
+    RepositoryName two = RepositoryName.create("repo2");
+    RepositoryName three = RepositoryName.create("repo3");
 
-      assertThat(knowledge.getManagedDirectories(one)).isEmpty();
-      assertThat(knowledge.getOwnerRepository(pf1)).isNull();
+    PathFragment pf1 = PathFragment.create("dir1");
+    PathFragment pf2 = PathFragment.create("dir2");
+    PathFragment pf3 = PathFragment.create("dir3");
 
-      WorkspaceFileValue workspaceFileValue = createWorkspaceFileValueForTest();
-      boolean isChanged = knowledge.workspaceHeaderReloaded(null, workspaceFileValue);
+    assertThat(knowledge.getManagedDirectories(one)).isEmpty();
+    assertThat(knowledge.getOwnerRepository(pf1)).isNull();
 
-      assertThat(isChanged).isTrue();
-      assertThat(listener.getRepositoryNames()).containsExactly(one, two);
+    WorkspaceFileValue workspaceFileValue = createWorkspaceFileValueForTest();
+    boolean isChanged = knowledge.workspaceHeaderReloaded(null, workspaceFileValue);
 
-      assertThat(knowledge.getManagedDirectories(one)).containsExactly(pf1, pf2);
-      assertThat(knowledge.getManagedDirectories(two)).containsExactly(pf3);
-      assertThat(knowledge.getManagedDirectories(three)).isEmpty();
+    assertThat(isChanged).isTrue();
+    assertThat(listener.getRepositoryNames()).containsExactly(one, two);
 
-      assertThat(knowledge.getOwnerRepository(pf1)).isEqualTo(one);
-      assertThat(knowledge.getOwnerRepository(pf2)).isEqualTo(one);
-      assertThat(knowledge.getOwnerRepository(pf3)).isEqualTo(two);
+    assertThat(knowledge.getManagedDirectories(one)).containsExactly(pf1, pf2);
+    assertThat(knowledge.getManagedDirectories(two)).containsExactly(pf3);
+    assertThat(knowledge.getManagedDirectories(three)).isEmpty();
 
-      // Nothing changed, let's test the behavior.
-      listener.reset();
-      isChanged = knowledge.workspaceHeaderReloaded(workspaceFileValue, workspaceFileValue);
-      assertThat(isChanged).isFalse();
-      assertThat(listener.getRepositoryNames()).containsExactly(one, two);
+    assertThat(knowledge.getOwnerRepository(pf1)).isEqualTo(one);
+    assertThat(knowledge.getOwnerRepository(pf2)).isEqualTo(one);
+    assertThat(knowledge.getOwnerRepository(pf3)).isEqualTo(two);
 
-      assertThat(knowledge.getManagedDirectories(one)).containsExactly(pf1, pf2);
-      assertThat(knowledge.getManagedDirectories(two)).containsExactly(pf3);
-      assertThat(knowledge.getManagedDirectories(three)).isEmpty();
+    // Nothing changed, let's test the behavior.
+    listener.reset();
+    isChanged = knowledge.workspaceHeaderReloaded(workspaceFileValue, workspaceFileValue);
+    assertThat(isChanged).isFalse();
+    assertThat(listener.getRepositoryNames()).containsExactly(one, two);
 
-      assertThat(knowledge.getOwnerRepository(pf1)).isEqualTo(one);
-      assertThat(knowledge.getOwnerRepository(pf2)).isEqualTo(one);
-      assertThat(knowledge.getOwnerRepository(pf3)).isEqualTo(two);
-    } finally {
-      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
-    }
+    assertThat(knowledge.getManagedDirectories(one)).containsExactly(pf1, pf2);
+    assertThat(knowledge.getManagedDirectories(two)).containsExactly(pf3);
+    assertThat(knowledge.getManagedDirectories(three)).isEmpty();
+
+    assertThat(knowledge.getOwnerRepository(pf1)).isEqualTo(one);
+    assertThat(knowledge.getOwnerRepository(pf2)).isEqualTo(one);
+    assertThat(knowledge.getOwnerRepository(pf3)).isEqualTo(two);
   }
 
   @Test
   public void testManagedDirectories() throws Exception {
-    StarlarkSemantics semantics = getStarlarkSemantics();
+    StarlarkSemantics semantics =
+        getStarlarkSemantics().toBuilder()
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_MANAGE_DIRECTORIES, false)
+            .build();
     Injectable injectable = getSkyframeExecutor().injectable();
-    try {
-      createWorkspaceFileValueForTest();
+    PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
+    createWorkspaceFileValueForTest();
 
-      // Test intentionally introduces errors.
-      reporter.removeHandler(failFastHandler);
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
 
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': 'dir1', '@repo2': ['dir3']}",
-          "managed_directories attribute value should be of the type attr.string_list_dict(),"
-              + " mapping repository name to the list of managed directories.");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': 'dir1', '@repo2': ['dir3']}",
+        "managed_directories attribute value should be of the type attr.string_list_dict(),"
+            + " mapping repository name to the list of managed directories.");
 
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['dir1'], '@repo2': ['dir1']}",
-          "managed_directories attribute should not contain multiple (or duplicate) repository"
-              + " mappings for the same directory ('dir1').");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['dir1'], '@repo2': ['dir1']}",
+        "managed_directories attribute should not contain multiple (or duplicate) repository"
+            + " mappings for the same directory ('dir1').");
 
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['']}", "Expected managed directory path to be non-empty string.");
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['/abc']}",
-          "Expected managed directory path ('/abc') to be relative to the workspace root.");
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['../abc']}",
-          "Expected managed directory path ('../abc') to be under the workspace root.");
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['a/b', 'a/b']}",
-          "managed_directories attribute should not contain multiple (or duplicate)"
-              + " repository mappings for the same directory ('a/b').");
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': [], '@repo1': [] }", "dictionary expression has duplicate key: \"@repo1\"");
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['a/b'], '@repo2': ['a/b/c/..'] }",
-          "managed_directories attribute should not contain multiple (or duplicate)"
-              + " repository mappings for the same directory ('a/b/c/..').");
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['a'], '@repo2': ['a/b'] }",
-          "managed_directories attribute value can not contain nested mappings."
-              + " 'a/b' is a descendant of 'a'.");
-      assertManagedDirectoriesParsingError(
-          "{'@repo1': ['a/b'], '@repo2': ['a'] }",
-          "managed_directories attribute value can not contain nested mappings."
-              + " 'a/b' is a descendant of 'a'.");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['']}", "Expected managed directory path to be non-empty string.");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['/abc']}",
+        "Expected managed directory path ('/abc') to be relative to the workspace root.");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['../abc']}",
+        "Expected managed directory path ('../abc') to be under the workspace root.");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['a/b', 'a/b']}",
+        "managed_directories attribute should not contain multiple (or duplicate)"
+            + " repository mappings for the same directory ('a/b').");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': [], '@repo1': [] }", "dictionary expression has duplicate key: \"@repo1\"");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['a/b'], '@repo2': ['a/b/c/..'] }",
+        "managed_directories attribute should not contain multiple (or duplicate)"
+            + " repository mappings for the same directory ('a/b/c/..').");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['a'], '@repo2': ['a/b'] }",
+        "managed_directories attribute value can not contain nested mappings."
+            + " 'a/b' is a descendant of 'a'.");
+    assertManagedDirectoriesParsingError(
+        "{'@repo1': ['a/b'], '@repo2': ['a'] }",
+        "managed_directories attribute value can not contain nested mappings."
+            + " 'a/b' is a descendant of 'a'.");
 
-      assertManagedDirectoriesParsingError(
-          "{'repo1': []}",
-          "Cannot parse repository name 'repo1'. Repository name should start with '@'.");
-    } finally {
-      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
-    }
+    assertManagedDirectoriesParsingError(
+        "{'repo1': []}",
+        "Cannot parse repository name 'repo1'. Repository name should start with '@'.");
   }
 
   private WorkspaceFileValue createWorkspaceFileValueForTest() throws Exception {
