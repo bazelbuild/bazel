@@ -140,6 +140,12 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "haiku",
+    constraint_values = ["@platforms//os:haiku"],
+    visibility  = ["//visibility:public"],
+)
+
 cc_library(
     name = "malloc",
 )
@@ -458,9 +464,11 @@ cc_library(
     hdrs = ["java_tools/src/tools/singlejar/diag.h"],
     copts = SUPRESSED_WARNINGS,
     defines = select({
+        ":haiku": ["_DEFAULT_SOURCE"],
         "//conditions:default": [],
     }),
     linkopts = select({
+        ":haiku": ["-lbsd"],
         "//conditions:default": [],
     }),
     strip_include_prefix = "java_tools",
@@ -573,9 +581,11 @@ cc_library(
     name = "zip_headers",
     hdrs = ["java_tools/src/tools/singlejar/zip_headers.h"],
     defines = select({
+        ":haiku": ["_DEFAULT_SOURCE"],
         "//conditions:default": [],
     }),
     linkopts = select({
+        ":haiku": ["-lbsd"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],

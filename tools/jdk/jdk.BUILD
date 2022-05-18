@@ -39,6 +39,12 @@ filegroup(
 )
 
 filegroup(
+    name = "jni_md_header-haiku",
+    srcs = ["include/haiku/jni_md.h"],
+    deprecation = DEPRECATION_MESSAGE,
+)
+
+filegroup(
     name = "jni_md_header-windows",
     srcs = ["include/win32/jni_md.h"],
     deprecation = DEPRECATION_MESSAGE,
