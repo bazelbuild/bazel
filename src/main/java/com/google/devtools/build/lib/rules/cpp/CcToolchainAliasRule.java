@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import javax.annotation.Nullable;
@@ -52,12 +51,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .requiresConfigurationFragments(PlatformConfiguration.class)
-        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-        // optional.
-        .addToolchainTypes(
-            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
-                .mandatory(true)
-                .build())
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 
