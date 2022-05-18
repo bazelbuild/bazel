@@ -851,7 +851,9 @@ static bool UnlimitResource(const int resource, const bool allow_infinity) {
 bool UnlimitResources() {
   bool success = true;
   success &= UnlimitResource(RLIMIT_NOFILE, false);
+#ifdef RLIMIT_NPROC // Not present on Haiku.
   success &= UnlimitResource(RLIMIT_NPROC, false);
+#endif
   return success;
 }
 

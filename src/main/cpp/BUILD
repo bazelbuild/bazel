@@ -30,6 +30,10 @@ cc_library(
             "blaze_util_bsd.cc",
             "blaze_util_posix.cc",
         ],
+        "//src/conditions:haiku": [
+            "blaze_util_haiku.cc",
+            "blaze_util_posix.cc",
+        ],
         "//src/conditions:windows": [
             "blaze_util_windows.cc",
         ],
@@ -50,6 +54,9 @@ cc_library(
         "//src/conditions:freebsd": [
         ],
         "//src/conditions:openbsd": [
+        ],
+        "//src/conditions:haiku": [
+            "-lbe",
         ],
         "//src/conditions:windows": WIN_LINK_OPTS,
         "//conditions:default": [
@@ -112,6 +119,8 @@ cc_binary(
         ],
         "//src/conditions:openbsd": [
         ],
+        "//src/conditions:haiku": [
+        ],
         "//src/conditions:windows": [
         ],
         "//conditions:default": [
@@ -160,6 +169,9 @@ cc_library(
         ],
         # For posix platforms, this can include environment variables in the
         # form ${var_name}. Braces are required.
+        "//src/conditions:haiku" : [
+            "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"/system/settings/bazel.bazelrc\\\""
+        ],
         "//conditions:default": [
             "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"/etc/bazel.bazelrc\\\"",
         ],

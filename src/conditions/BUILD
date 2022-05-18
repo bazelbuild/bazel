@@ -166,6 +166,12 @@ config_setting(
 )
 
 config_setting(
+    name = "haiku",
+    constraint_values = ["@platforms//os:haiku"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "windows",
     constraint_values = ["@platforms//os:windows"],
     visibility = ["//visibility:public"],

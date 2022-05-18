@@ -13,6 +13,12 @@ config_setting(
 )
 
 config_setting(
+    name = "haiku",
+    constraint_values = ["@platforms//os:haiku"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "darwin",
     constraint_values = ["@platforms//os:macos"],
     visibility = ["//visibility:public"],

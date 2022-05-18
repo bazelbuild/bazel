@@ -1433,7 +1433,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
 
   const char *want_locale = "en_US.ISO-8859-1";
   bool override_locale = true;
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__HAIKU__)
   locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, (locale_t)0);
   if (iso_locale == 0) {
     // ISO-8859-1 locale not available, use whatever the user has defined.
