@@ -977,13 +977,13 @@ public abstract class BuildIntegrationTestCase {
     return getCommandEnvironment().getBuildResultListener();
   }
 
-  protected ImmutableList<String> getAnalyzedTargetsLabel() {
+  protected ImmutableList<String> getLabelsOfAnalyzedTargets() {
     return getBuildResultListener().getAnalyzedTargets().stream()
         .map(x -> x.getLabel().toString())
         .collect(toImmutableList());
   }
 
-  protected ImmutableList<String> getBuiltTargetsLabel() {
+  protected ImmutableList<String> getLabelsOfBuiltTargets() {
     return getBuildResultListener().getBuiltTargets().stream()
         .map(x -> x.getLabel().toString())
         .collect(toImmutableList());
