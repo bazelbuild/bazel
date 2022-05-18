@@ -151,7 +151,7 @@ issues.
   addressed in an future release and/or an easy workaround exists.
 * [**P3**](https://github.com/bazelbuild/bazel/labels/P3){: .external} - Desirable minor bug
   fix or enhancement with small impact. Not prioritized into Bazel roadmaps or
-  any imminent release. May never be fixed.
+  any imminent release, however community contributions are encouraged.
 * [**P4**](https://github.com/bazelbuild/bazel/labels/P4){: .external} - Low priority defect
   or feature request that is unlikely to get closed. Can also be kept open for a
   potential re-prioritization if more users are impacted.
