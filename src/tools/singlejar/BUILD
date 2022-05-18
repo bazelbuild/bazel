@@ -380,9 +380,11 @@ cc_library(
     name = "diag",
     hdrs = ["diag.h"],
     defines = select({
+        "//src/conditions:haiku": ["_DEFAULT_SOURCE"],
         "//conditions:default": [],
     }),
     linkopts = select({
+        "//src/conditions:haiku": ["-lbsd"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
@@ -392,9 +394,11 @@ cc_library(
     name = "zip_headers",
     hdrs = ["zip_headers.h"],
     defines = select({
+        "//src/conditions:haiku": ["_DEFAULT_SOURCE"],
         "//conditions:default": [],
     }),
     linkopts = select({
+        "//src/conditions:haiku": ["-lbsd"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],

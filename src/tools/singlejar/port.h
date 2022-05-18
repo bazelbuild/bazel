@@ -32,7 +32,7 @@
 typedef off_t off64_t;
 #elif defined(_WIN32)
 typedef __int64 off64_t;
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__HAIKU__)
 typedef int64_t off64_t;
 #endif
 static_assert(sizeof(off64_t) == 8, "File offset type must be 64-bit");
