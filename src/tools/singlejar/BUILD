@@ -114,7 +114,6 @@ cc_test(
     size = "large",
     srcs = [
         "combiners_test.cc",
-        ":zip_headers",
         ":zlib_interface",
     ],
     data = [
@@ -124,6 +123,7 @@ cc_test(
     exec_compatible_with = ["//:highcpu_machine"],
     deps = [
         ":combiners",
+        ":zip_headers",
         ":input_jar",
         ":test_util",
         "//third_party/zlib",
@@ -135,11 +135,11 @@ cc_test(
     name = "desugar_checking_test",
     srcs = [
         "desugar_checking_test.cc",
-        ":zip_headers",
         ":zlib_interface",
     ],
     deps = [
         ":combiners",
+        ":zip_headers",
         ":desugar_checking",
         ":input_jar",
         "//third_party/zlib",
@@ -308,6 +308,7 @@ cc_test(
     tags = ["manual"],
     deps = [
         ":input_jar",
+        ":zip_headers",
         ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
@@ -319,9 +320,9 @@ cc_test(
     size = "small",
     srcs = [
         "zip_headers_test.cc",
-        ":zip_headers",
     ],
     deps = [
+        ":zip_headers",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -357,10 +358,10 @@ cc_library(
     srcs = [
         "combiners.cc",
         ":transient_bytes",
-        ":zip_headers",
     ],
     hdrs = ["combiners.h"],
     deps = [
+        ":zip_headers",
         "//third_party/zlib",
     ],
 )
@@ -378,6 +379,24 @@ cc_library(
 cc_library(
     name = "diag",
     hdrs = ["diag.h"],
+    defines = select({
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "zip_headers",
+    hdrs = ["zip_headers.h"],
+    defines = select({
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:private"],
 )
 
@@ -413,6 +432,7 @@ cc_library(
     ],
     deps = [
         ":diag",
+        ":zip_headers",
         ":mapped_file",
     ],
 )
@@ -435,11 +455,11 @@ cc_library(
     srcs = [
         "output_jar.cc",
         "output_jar.h",
-        ":zip_headers",
     ],
     hdrs = ["output_jar.h"],
     deps = [
         ":combiners",
+        ":zip_headers",
         ":diag",
         ":input_jar",
         ":mapped_file",
@@ -479,11 +499,6 @@ filegroup(
         "zlib_interface.h",
         ":zip_headers",
     ],
-)
-
-filegroup(
-    name = "zip_headers",
-    srcs = ["zip_headers.h"],
 )
 
 filegroup(

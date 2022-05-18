@@ -427,6 +427,7 @@ cc_library(
     strip_include_prefix = "java_tools",
     deps = [
         "//java_tools/zlib",
+        ":zip_headers"
     ],
 )
 
@@ -456,6 +457,12 @@ cc_library(
     name = "diag",
     hdrs = ["java_tools/src/tools/singlejar/diag.h"],
     copts = SUPRESSED_WARNINGS,
+    defines = select({
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "//conditions:default": [],
+    }),
     strip_include_prefix = "java_tools",
     visibility = ["//visibility:private"],
 )
@@ -499,6 +506,7 @@ cc_library(
     strip_include_prefix = "java_tools",
     deps = [
         ":diag",
+        ":zip_headers",
         ":mapped_file",
     ],
 )
@@ -523,7 +531,6 @@ cc_library(
     srcs = [
         "java_tools/src/tools/singlejar/output_jar.cc",
         "java_tools/src/tools/singlejar/output_jar.h",
-        ":zip_headers",
     ],
     hdrs = ["java_tools/src/tools/singlejar/output_jar.h"],
     copts = SUPRESSED_WARNINGS,
@@ -532,6 +539,7 @@ cc_library(
         ":combiners",
         ":cpp_util",
         ":diag",
+        ":zip_headers",
         ":input_jar",
         ":mapped_file",
         ":options",
@@ -557,13 +565,20 @@ filegroup(
         "java_tools/src/tools/singlejar/diag.h",
         "java_tools/src/tools/singlejar/transient_bytes.h",
         "java_tools/src/tools/singlejar/zlib_interface.h",
-        ":zip_headers",
+        "java_tools/src/tools/singlejar/zip_headers.h",
     ],
 )
 
-filegroup(
+cc_library(
     name = "zip_headers",
-    srcs = ["java_tools/src/tools/singlejar/zip_headers.h"],
+    hdrs = ["java_tools/src/tools/singlejar/zip_headers.h"],
+    defines = select({
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:private"],
 )
 
 ################### Proguard ###################
