@@ -89,6 +89,11 @@ alias(
 )
 
 alias(
+    name = "haiku",
+    actual = "@platforms//os:haiku",
+)
+
+alias(
     name = "android",
     actual = "@platforms//os:android",
 )
@@ -127,6 +132,7 @@ platform(
         "@platforms//os:osx",
         "@platforms//os:freebsd",
         "@platforms//os:openbsd",
+        "@platforms//os:haiku",
         "@platforms//os:linux",
         "@platforms//os:windows",
     ],
@@ -150,6 +156,7 @@ platform(
         "@platforms//os:osx",
         "@platforms//os:freebsd",
         "@platforms//os:openbsd",
+        "@platforms//os:haiku",
         "@platforms//os:linux",
         "@platforms//os:windows",
     ],

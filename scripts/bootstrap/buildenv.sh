@@ -98,6 +98,11 @@ openbsd)
   JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-11}"
   ;;
 
+haiku)
+  # JAVA_HOME must point to a Java installation.
+  JAVA_HOME="${JAVA_HOME:-/system/lib/openjdk11}"
+  ;;
+
 darwin)
   if [[ -z "$JAVA_HOME" ]]; then
     JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \

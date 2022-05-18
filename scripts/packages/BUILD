@@ -24,6 +24,7 @@ filegroup(
         ],
         "//src/conditions:freebsd": [],
         "//src/conditions:openbsd": [],
+        "//src/conditions:haiku": [],
         "//src/conditions:darwin": [
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",

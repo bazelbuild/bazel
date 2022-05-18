@@ -568,6 +568,7 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:linux_s390x": "*.so *.jnilib *.dll",
     "//src/conditions:freebsd": "*.so *.jnilib *.dll",
     "//src/conditions:openbsd": "*.so *.jnilib *.dll",
+    "//src/conditions:haiku": "*.so *.jnilib *.dll",
     # Default is to play it safe -- better have a big binary than a slow binary
     #   The empty string means nothing is to be removed from the library;
     #   the rule command tests for the empty string explictly to avoid
@@ -797,6 +798,11 @@ config_setting(
 config_setting(
     name = "openbsd",
     values = {"host_cpu": "openbsd"},
+)
+
+config_setting(
+    name = "haiku",
+    values = {"host_cpu": "haiku"},
 )
 
 config_setting(
