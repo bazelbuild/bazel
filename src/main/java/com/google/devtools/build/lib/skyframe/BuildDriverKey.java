@@ -104,14 +104,22 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
     if (other instanceof BuildDriverKey) {
       BuildDriverKey otherBuildDriverKey = (BuildDriverKey) other;
       return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
-          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext);
+          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext)
+          && testType.equals(otherBuildDriverKey.testType)
+          && strictActionConflictCheck == otherBuildDriverKey.strictActionConflictCheck
+          && explicitlyRequested == otherBuildDriverKey.explicitlyRequested;
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(actionLookupKey, topLevelArtifactContext);
+    return Objects.hash(
+        actionLookupKey,
+        topLevelArtifactContext,
+        testType,
+        strictActionConflictCheck,
+        explicitlyRequested);
   }
 
   @Override
