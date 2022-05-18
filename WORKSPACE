@@ -100,16 +100,6 @@ new_local_repository(
     workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
 )
 
-# This is the real rules_python.  It's needed for a specific bug reproduction case.
-http_archive(
-    name = "real_rules_python",
-    sha256 = "cdf6b84084aad8f10bf20b46b77cb48d83c319ebe6458a18e9d2cebf57807cdd",
-    strip_prefix = "rules_python-0.8.1",
-    urls = [
-        "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.8.1.tar.gz",
-    ],
-)
-
 local_repository(
     name = "googleapis",
     path = "./third_party/googleapis/",

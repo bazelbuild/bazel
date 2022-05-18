@@ -271,27 +271,27 @@ py_test(
 )
 
 py_library(
-    name = "bum",
-    srcs = ["bum.py"],
+    name = "buildzip_bum",
+    srcs = ["buildzip_bum.py"],
 )
 
 py_binary(
-    name = "bar",
-    srcs = ["bar.py"],
-    deps = [":bum"],
+    name = "buildzip_bar",
+    srcs = ["buildzip_bar.py"],
+    deps = [":buildzip_bum"],
 )
 
 py_binary(
-    name = "foo",
-    srcs = ["foo.py"],
-    data = ["//src/test/py/bazel:bar"],
+    name = "buildzip_foo",
+    srcs = ["buildzip_foo.py"],
+    data = ["//src/test/py/bazel:buildzip_bar"],
     deps = [
         "@real_rules_python//python/runfiles",
     ],
 )
 
 filegroup(
-    name = "foo-zip",
-    srcs = [":foo"],
+    name = "buildzip_foo-zip",
+    srcs = [":buildzip_foo"],
     output_group = "python_zip_file",
 )
