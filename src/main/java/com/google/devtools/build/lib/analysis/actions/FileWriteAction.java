@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -205,11 +204,6 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       }
       return new String(uncompressedBytes, ISO_8859_1);
     }
-  }
-
-  @VisibleForTesting
-  boolean usesCompression() {
-    return fileContents instanceof CompressedString;
   }
 
   /**
