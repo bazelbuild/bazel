@@ -63,8 +63,8 @@ public class CommonCommandOptions extends OptionsBase {
           "If true, Bazel picks up host-OS-specific config lines from bazelrc files. For example, "
               + "if the host OS is Linux and you run bazel build, Bazel picks up lines starting "
               + "with build:linux. Supported OS identifiers are linux, macos, windows, freebsd, "
-              + "and openbsd. Enabling this flag is equivalent to using --config=linux on Linux, "
-              + "--config=windows on Windows, etc.")
+              + "openbsd and haiku. Enabling this flag is equivalent to using --config=linux on "
+              + "Linux, --config=windows on Windows, etc.")
   public boolean enablePlatformSpecificConfig;
 
   @Option(

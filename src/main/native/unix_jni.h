@@ -25,8 +25,8 @@
 
 namespace blaze_jni {
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-// stat64 is deprecated on OS X/BSD.
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__HAIKU__)
+// stat64 is deprecated on OS X/BSD, and doesn't exist on Haiku.
 typedef struct stat portable_stat_struct;
 #define portable_stat ::stat
 #define portable_lstat ::lstat

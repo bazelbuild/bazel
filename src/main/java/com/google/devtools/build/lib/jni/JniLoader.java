@@ -40,6 +40,7 @@ public final class JniLoader {
         case LINUX:
         case FREEBSD:
         case OPENBSD:
+        case HAIKU:
         case UNKNOWN:
           loadLibrary("main/native/libunix_jni.so");
           break;
