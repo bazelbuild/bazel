@@ -137,6 +137,8 @@ DIST_DEPS = {
         "patches": [
             "//third_party/grpc:grpc_1.41.0.patch",
             "//third_party/grpc:grpc_1.41.0.win_arm64.patch",
+            "//third_party/grpc:grpc_1.41.0.haiku.patch",
+            "//third_party/grpc:grpc_1.41.0.cares_haiku.patch",
         ],
         "used_in": [
             "additional_distfiles",
