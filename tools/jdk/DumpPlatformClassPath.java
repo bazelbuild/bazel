@@ -97,7 +97,6 @@ public class DumpPlatformClassPath {
             context);
     StandardJavaFileManager fileManager =
         (StandardJavaFileManager) context.get(JavaFileManager.class);
-    System.err.println(targetJavabase);
 
     SortedMap<String, InputStream> entries = new TreeMap<>();
     for (JavaFileObject fileObject :
