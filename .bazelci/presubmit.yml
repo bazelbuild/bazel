@@ -295,6 +295,8 @@ tasks:
       # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
+      # We hit connection timeout error for downl with RBE, see b/217865760
+      - "-//src/test/py/bazel:bazel_module_test"
   kythe_ubuntu2004:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
