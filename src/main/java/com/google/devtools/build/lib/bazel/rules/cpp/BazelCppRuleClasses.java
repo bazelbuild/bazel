@@ -573,7 +573,7 @@ public class BazelCppRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$cc_binary_base")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(CcRule.class)
+          .ancestors(CcRule.class, CppRuleClasses.CcLinkingRule.class)
           .build();
     }
   }
