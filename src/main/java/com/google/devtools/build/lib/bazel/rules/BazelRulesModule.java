@@ -294,6 +294,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op")
     public boolean experimentalMultiThreadedDigest;
+
+    @Option(
+        name = "incompatible_override_toolchain_transition",
+        defaultValue = "true",
+        deprecationWarning = "This is now always set, please remove this flag.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.UNKNOWN,
+        help = "Deprecated, this is no longer in use and should be removed.")
+    public boolean overrideToolchainTransition;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
