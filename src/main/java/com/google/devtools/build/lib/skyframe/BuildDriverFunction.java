@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
@@ -172,7 +173,9 @@ public class BuildDriverFunction implements SkyFunction {
             // result summary.
             if (!NOT_TEST.equals(buildDriverKey.getTestType())) {
               env.getListener()
-                  .post(TestAnalyzedEvent.createSkipped(configuredTarget, buildConfigurationValue));
+                  .post(
+                      TestAnalyzedEvent.create(
+                          configuredTarget, buildConfigurationValue, /*isSkipped=*/ true));
             }
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
@@ -301,7 +304,10 @@ public class BuildDriverFunction implements SkyFunction {
       return;
     }
 
-    env.getListener().post(TestAnalyzedEvent.create(configuredTarget, buildConfigurationValue));
+    env.getListener()
+        .post(
+            TestAnalyzedEvent.create(
+                configuredTarget, buildConfigurationValue, /*isSkipped=*/ false));
 
     if (PARALLEL.equals(buildDriverKey.getTestType())) {
       // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.

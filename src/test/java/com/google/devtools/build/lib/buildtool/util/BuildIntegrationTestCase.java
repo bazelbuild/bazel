@@ -196,7 +196,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   @Before
-  public final void createFilesAndMocks() throws Exception  {
+  public final void createFilesAndMocks() throws Exception {
     runPriorToBeforeMethods();
     events.setFailFast(false);
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
@@ -218,8 +218,7 @@ public abstract class BuildIntegrationTestCase {
             workspace,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    binTools =
-        IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
+    binTools = IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
     mockToolsConfig = new MockToolsConfig(workspace, realFileSystem());
     setupMockTools();
     createRuntimeWrapper();
@@ -311,7 +310,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   @After
-  public final void cleanUp() throws Exception  {
+  public final void cleanUp() throws Exception {
     if (subscriberException.getException() != null) {
       throwIfUnchecked(subscriberException.getException());
       throw new RuntimeException(subscriberException.getException());
@@ -398,8 +397,8 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Called in #setUp before creating the workspace directory. Subclasses should override this
-   * if they want to a non-standard filesystem setup, e.g. introduce symlinked directories.
+   * Called in #setUp before creating the workspace directory. Subclasses should override this if
+   * they want to a non-standard filesystem setup, e.g. introduce symlinked directories.
    */
   protected void beforeCreatingWorkspace(@SuppressWarnings("unused") Path workspace)
       throws Exception {}
@@ -640,9 +639,7 @@ public abstract class BuildIntegrationTestCase {
     return getSkyframeExecutor().getConfiguredTargetForTesting(eventHandler, label, config);
   }
 
-  /**
-   * Gets all the already computed configured targets.
-   */
+  /** Gets all the already computed configured targets. */
   protected Iterable<ConfiguredTarget> getAllConfiguredTargets() {
     return SkyframeExecutorTestUtils.getAllExistingConfiguredTargets(getSkyframeExecutor());
   }
@@ -709,8 +706,9 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Creates a BuildRequest for either blaze build or blaze analyze, using the
-   * currently-installed request options.
+   * Creates a BuildRequest for either blaze build or blaze analyze, using the currently-installed
+   * request options.
+   *
    * @param commandName blaze build or analyze command
    * @param targets the targets to be built
    */
@@ -719,9 +717,7 @@ public abstract class BuildIntegrationTestCase {
     return runtimeWrapper.createRequest(commandName, Arrays.asList(targets));
   }
 
-  /**
-   * Utility function: parse a string as a label.
-   */
+  /** Utility function: parse a string as a label. */
   protected static Label label(String labelString) throws LabelSyntaxException {
     return Label.parseAbsolute(labelString, ImmutableMap.of());
   }
@@ -731,10 +727,7 @@ public abstract class BuildIntegrationTestCase {
     return run(executable.getPath(), null, environment, arguments);
   }
 
-  /**
-   * This runs an executable using the executor instance configured for
-   * this test.
-   */
+  /** This runs an executable using the executor instance configured for this test. */
   protected String run(Path executable, String... arguments) throws Exception {
     Map<String, String> environment = null;
     return run(executable, null, environment, arguments);
@@ -807,9 +800,7 @@ public abstract class BuildIntegrationTestCase {
     return writeAbsolute(path, lines);
   }
 
-  /**
-   * Same as {@link #write}, but with an absolute path.
-   */
+  /** Same as {@link #write}, but with an absolute path. */
   protected Path writeAbsolute(Path path, String... lines) throws IOException {
     // Check that the path string encoding matches what is returned by NativePosixFiles. Otherwise,
     // tests may lose fidelity.
@@ -834,9 +825,9 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * The TimestampGranularityMonitor operates on the files created by the
-   * request and thus does not help here. Calling this method ensures that files
-   * we modify as part of the test environment are considered as changed.
+   * The TimestampGranularityMonitor operates on the files created by the request and thus does not
+   * help here. Calling this method ensures that files we modify as part of the test environment are
+   * considered as changed.
    */
   protected static void waitForTimestampGranularity() throws Exception {
     // Ext4 has a nanosecond granularity. Empirically, tmpfs supports ~5ms increments on
@@ -918,23 +909,17 @@ public abstract class BuildIntegrationTestCase {
         .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
 
-  /**
-   * Returns the BuildRequest of the last call to buildTarget().
-   */
+  /** Returns the BuildRequest of the last call to buildTarget(). */
   protected BuildRequest getRequest() {
     return runtimeWrapper.getLastRequest();
   }
 
-  /**
-   * Returns the BuildResultof the last call to buildTarget().
-   */
+  /** Returns the BuildResultof the last call to buildTarget(). */
   protected BuildResult getResult() {
     return runtimeWrapper.getLastResult();
   }
 
-  /**
-   * Returns the {@link BlazeRuntime} in use.
-   */
+  /** Returns the {@link BlazeRuntime} in use. */
   protected BlazeRuntime getRuntime() {
     return runtimeWrapper.getRuntime();
   }
@@ -983,8 +968,32 @@ public abstract class BuildIntegrationTestCase {
         .collect(toImmutableList());
   }
 
+  protected ImmutableList<String> getLabelsOfAnalyzedAspects() {
+    return getBuildResultListener().getAnalyzedAspects().keySet().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
+  }
+
   protected ImmutableList<String> getLabelsOfBuiltTargets() {
     return getBuildResultListener().getBuiltTargets().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
+  }
+
+  protected ImmutableList<String> getLabelsOfBuiltAspects() {
+    return getBuildResultListener().getBuiltAspects().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
+  }
+
+  protected ImmutableList<String> getLabelsOfSkippedTargets() {
+    return getBuildResultListener().getSkippedTargets().stream()
+        .map(x -> x.getLabel().toString())
+        .collect(toImmutableList());
+  }
+
+  protected ImmutableList<String> getLabelsOfAnalyzedTests() {
+    return getBuildResultListener().getAnalyzedTests().stream()
         .map(x -> x.getLabel().toString())
         .collect(toImmutableList());
   }

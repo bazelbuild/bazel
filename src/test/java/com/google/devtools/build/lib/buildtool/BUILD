@@ -649,3 +649,20 @@ java_test(
         "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
+
+java_test(
+    name = "BuildResultListenerIntegrationTest",
+    srcs = ["BuildResultListenerIntegrationTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
+    ],
+)

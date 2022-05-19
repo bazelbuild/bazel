@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -28,13 +26,14 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Integration tests for project Skymeld: interleaving Skyframe's analysis and execution phases. */
+/** Integration test for {@link com.google.devtools.build.lib.skyframe.BuildResultListener}. */
 @RunWith(TestParameterInjector.class)
-public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
+public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase {
+  @TestParameter boolean mergedAnalysisExecution;
 
   @Before
-  public void setUp() {
-    addOptions("--experimental_merged_skyframe_analysis_execution");
+  public final void setUp() {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
   }
 
   /** A simple rule that has srcs, deps and writes these attributes to its output. */
@@ -92,13 +91,36 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "execution_err_aspect = aspect(implementation = _aspect_impl)");
   }
 
-  private void assertSingleOutputBuilt(String target) throws Exception {
-    assertThat(Iterables.getOnlyElement(getArtifacts(target)).getPath().isFile()).isTrue();
+  private void writeSuccessfulAspectBzl() throws IOException {
+    write(
+        "foo/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  print('hello')",
+        "  return []",
+        "",
+        "successful_aspect = aspect(implementation = _aspect_impl)");
+  }
+
+  private void writeEnvironmentRules(String... defaults) throws Exception {
+    StringBuilder defaultsBuilder = new StringBuilder();
+    for (String defaultEnv : defaults) {
+      defaultsBuilder.append("'").append(defaultEnv).append("', ");
+    }
+
+    write(
+        "buildenv/BUILD",
+        "environment_group(",
+        "    name = 'group',",
+        "    environments = [':one', ':two'],",
+        "    defaults = [" + defaultsBuilder + "])",
+        "environment(name = 'one')",
+        "environment(name = 'two')");
   }
 
   @Test
   public void multiTargetBuild_success() throws Exception {
     writeMyRuleBzl();
+    writeSuccessfulAspectBzl();
     write(
         "foo/BUILD",
         "load('//foo:my_rule.bzl', 'my_rule')",
@@ -106,23 +128,19 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "my_rule(name = 'foo', srcs = ['foo.in'])");
     write("foo/foo.in");
     write("foo/bar.in");
+    addOptions("--aspects=//foo:aspect.bzl%successful_aspect");
 
     BuildResult result = buildTarget("//foo:foo", "//foo:bar");
 
     assertThat(result.getSuccess()).isTrue();
-    assertSingleOutputBuilt("//foo:foo");
-    assertSingleOutputBuilt("//foo:bar");
-
     assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo", "//foo:bar");
     assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo", "//foo:bar");
+    assertThat(getLabelsOfAnalyzedAspects()).containsExactly("//foo:foo", "//foo:bar");
+    assertThat(getLabelsOfBuiltAspects()).containsExactly("//foo:foo", "//foo:bar");
   }
 
   @Test
-  public void aspectAnalysisFailure_consistentWithNonSkymeld(
-      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void aspectAnalysisFailure_consistentWithNonSkymeld() throws Exception {
     writeMyRuleBzl();
     writeAnalysisFailureAspectBzl();
     write(
@@ -132,20 +150,16 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write("foo/foo.in");
 
     addOptions("--aspects=//foo:aspect.bzl%analysis_err_aspect", "--output_groups=files");
-    if (keepGoing) {
-      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
-    } else {
-      assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
-    }
-    events.assertContainsError("compilation of module 'foo/aspect.bzl' failed");
+
+    assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
+
+    assertThat(getLabelsOfAnalyzedAspects()).isEmpty();
   }
 
   @Test
-  public void aspectExecutionFailure_consistentWithNonSkymeld(
-      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+  public void aspectExecutionFailure_consistentWithNonSkymeld(@TestParameter boolean keepGoing)
       throws Exception {
     addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     writeMyRuleBzl();
     writeExecutionFailureAspectBzl();
     write(
@@ -155,17 +169,17 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write("foo/foo.in");
 
     addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
+
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
-    events.assertContainsError(
-        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing command");
+
+    assertThat(getLabelsOfAnalyzedAspects()).contains("//foo:foo");
+    assertThat(getLabelsOfBuiltAspects()).isEmpty();
   }
 
   @Test
-  public void targetExecutionFailure_consistentWithNonSkymeld(
-      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+  public void targetExecutionFailure_consistentWithNonSkymeld(@TestParameter boolean keepGoing)
       throws Exception {
     addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     writeMyRuleBzl();
     write(
         "foo/BUILD",
@@ -176,19 +190,19 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
     assertThrows(
         BuildFailedException.class, () -> buildTarget("//foo:foo", "//foo:execution_failure"));
+
+    assertThat(getLabelsOfAnalyzedTargets()).contains("//foo:execution_failure");
     if (keepGoing) {
-      assertSingleOutputBuilt("//foo:foo");
+      assertThat(getLabelsOfAnalyzedTargets())
+          .containsExactly("//foo:foo", "//foo:execution_failure");
+      assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo");
     }
-    events.assertContainsError(
-        "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
   }
 
   @Test
-  public void targetAnalysisFailure_consistentWithNonSkymeld(
-      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+  public void targetAnalysisFailure_consistentWithNonSkymeld(@TestParameter boolean keepGoing)
       throws Exception {
     addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     writeMyRuleBzl();
     write(
         "foo/BUILD",
@@ -200,104 +214,29 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     if (keepGoing) {
       assertThrows(
           BuildFailedException.class, () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
-      assertSingleOutputBuilt("//foo:foo");
+      assertThat(getLabelsOfAnalyzedTargets()).contains("//foo:foo");
+      assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo");
     } else {
       assertThrows(
           ViewCreationFailedException.class,
           () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
+      assertThat(getBuildResultListener().getBuiltTargets()).isEmpty();
     }
-    events.assertContainsError("rule '//foo:missing' does not exist");
   }
 
   @Test
-  public void analysisAndExecutionFailure_keepGoing_bothReported() throws Exception {
-    addOptions("--keep_going");
-    writeMyRuleBzl();
+  public void targetSkipped_consistentWithNonSkymeld() throws Exception {
+    writeEnvironmentRules();
     write(
         "foo/BUILD",
-        "load('//foo:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'execution_failure', srcs = ['missing'])",
-        "my_rule(name = 'analysis_failure', srcs = ['foo.in'], deps = [':missing'])");
-    write("foo/foo.in");
+        "sh_library(name = 'good', srcs = ['bar.sh'], restricted_to = ['//buildenv:one'])",
+        "sh_library(name = 'bad', srcs = ['bar.sh'], compatible_with = ['//buildenv:two'])");
+    write("foo/bar.sh");
+    addOptions("--auto_cpu_environment_group=//buildenv:group", "--cpu=one");
 
-    assertThrows(
-        BuildFailedException.class,
-        () -> buildTarget("//foo:analysis_failure", "//foo:execution_failure"));
-    events.assertContainsError(
-        "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
-    events.assertContainsError("rule '//foo:missing' does not exist");
-
-    assertThat(getLabelsOfAnalyzedTargets()).contains("//foo:execution_failure");
-    assertThat(getLabelsOfBuiltTargets()).isEmpty();
-  }
-
-  @Test
-  public void symlinkPlantedLocalAction_success() throws Exception {
-    addOptions("--spawn_strategy=standalone");
-    write(
-        "foo/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cp $< $@'",
-        ")");
-    write("foo/foo.in");
-
-    BuildResult result = buildTarget("//foo:foo");
-
-    assertThat(result.getSuccess()).isTrue();
-    assertSingleOutputBuilt("//foo:foo");
-  }
-
-  @Test
-  public void symlinksPlanted() throws Exception {
-    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
-    writeMyRuleBzl();
-    Path fooDir =
-        write(
-                "foo/BUILD",
-                "load('//foo:my_rule.bzl', 'my_rule')",
-                "my_rule(name = 'foo', srcs = ['foo.in'])")
-            .getParentDirectory();
-    write("foo/foo.in");
-    Path unusedDir = write("unused/dummy").getParentDirectory();
-
-    // Before the build: no symlink.
-    assertThat(execroot.getRelative("foo").exists()).isFalse();
-
-    buildTarget("//foo:foo");
-
-    // After the build: symlinks to the source directory, even unused packages.
-    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
-    assertThat(execroot.getRelative("unused").resolveSymbolicLinks()).isEqualTo(unusedDir);
-  }
-
-  @Test
-  public void symlinksReplantedEachBuild() throws Exception {
-    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
-    writeMyRuleBzl();
-    Path fooDir =
-        write(
-                "foo/BUILD",
-                "load('//foo:my_rule.bzl', 'my_rule')",
-                "my_rule(name = 'foo', srcs = ['foo.in'])")
-            .getParentDirectory();
-    write("foo/foo.in");
-    Path unusedDir = write("unused/dummy").getParentDirectory();
-
-    buildTarget("//foo:foo");
-
-    // After the 1st build: symlinks to the source directory, even unused packages.
-    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
-    assertThat(execroot.getRelative("unused").resolveSymbolicLinks()).isEqualTo(unusedDir);
-
-    unusedDir.deleteTree();
-
-    buildTarget("//foo:foo");
-
-    // After the 2nd build: symlink to unusedDir is gone, since the package itself was deleted.
-    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
-    assertThat(execroot.getRelative("unused").exists()).isFalse();
+    buildTarget("//foo:all");
+    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:good", "//foo:bad");
+    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:good");
+    assertThat(getLabelsOfSkippedTargets()).containsExactly("//foo:bad");
   }
 }

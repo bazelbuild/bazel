@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -46,10 +47,15 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -57,6 +63,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -271,7 +278,36 @@ public final class AnalysisPhaseRunner {
                 analysisResult.getTargetsToTest(),
                 analysisResult.getTargetsToSkip(),
                 configurationMap));
+    postTopLevelStatusEvents(env, analysisResult, configurationMap);
+
     return analysisResult;
+  }
+
+  /** Post the appropriate {@link com.google.devtools.build.lib.skyframe.TopLevelStatusEvents}. */
+  private static void postTopLevelStatusEvents(
+      CommandEnvironment env,
+      AnalysisResult analysisResult,
+      Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
+    for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
+      env.getEventBus().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
+      if (analysisResult.getTargetsToSkip().contains(configuredTarget)) {
+        env.getEventBus().post(TopLevelTargetSkippedEvent.create(configuredTarget));
+      }
+
+      if (analysisResult.getTargetsToTest() != null
+          && analysisResult.getTargetsToTest().contains(configuredTarget)) {
+        env.getEventBus()
+            .post(
+                TestAnalyzedEvent.create(
+                    configuredTarget,
+                    configurationMap.get(configuredTarget.getConfigurationKey()),
+                    /*isSkipped=*/ analysisResult.getTargetsToSkip().contains(configuredTarget)));
+      }
+    }
+
+    for (Entry<AspectKey, ConfiguredAspect> entry : analysisResult.getAspectsMap().entrySet()) {
+      env.getEventBus().post(AspectAnalyzedEvent.create(entry.getKey(), entry.getValue()));
+    }
   }
 
   static void reportTargets(
