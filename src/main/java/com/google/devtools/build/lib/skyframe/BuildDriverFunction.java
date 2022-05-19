@@ -179,7 +179,7 @@ public class BuildDriverFunction implements SkyFunction {
             }
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
-            return new BuildDriverValue(topLevelSkyValue);
+            return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
           }
         } catch (TargetCompatibilityCheckException e) {
           throw new BuildDriverFunctionException(e);
@@ -209,7 +209,7 @@ public class BuildDriverFunction implements SkyFunction {
           topLevelSkyValue, ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget());
     }
 
-    return new BuildDriverValue(topLevelSkyValue);
+    return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
   }
 
   /**

@@ -29,18 +29,21 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   private final TestType testType;
   private final boolean strictActionConflictCheck;
   private final boolean explicitlyRequested;
+  private final boolean isTopLevelAspectDriver;
 
   private BuildDriverKey(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
+      boolean isTopLevelAspectDriver,
       TestType testType) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.strictActionConflictCheck = strictActionConflictCheck;
-    this.testType = testType;
     this.explicitlyRequested = explicitlyRequested;
+    this.isTopLevelAspectDriver = isTopLevelAspectDriver;
+    this.testType = testType;
   }
 
   public static BuildDriverKey ofTopLevelAspect(
@@ -53,6 +56,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
         topLevelArtifactContext,
         strictActionConflictCheck,
         explicitlyRequested,
+        /*isTopLevelAspectDriver=*/ true,
         TestType.NOT_TEST);
   }
 
@@ -67,6 +71,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
         topLevelArtifactContext,
         strictActionConflictCheck,
         explicitlyRequested,
+        /*isTopLevelAspectDriver=*/ false,
         testType);
   }
 
@@ -92,6 +97,10 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
 
   public boolean isExplicitlyRequested() {
     return explicitlyRequested;
+  }
+
+  public boolean isTopLevelAspectDriver() {
+    return isTopLevelAspectDriver;
   }
 
   @Override

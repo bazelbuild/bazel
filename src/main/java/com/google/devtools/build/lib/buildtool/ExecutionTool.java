@@ -332,7 +332,10 @@ public class ExecutionTool {
     // TODO(leba): count test actions
     ExecutionProgressReceiver executionProgressReceiver =
         new ExecutionProgressReceiver(
-            Preconditions.checkNotNull(builtTargets), Preconditions.checkNotNull(builtAspects), 0);
+            Preconditions.checkNotNull(builtTargets),
+            Preconditions.checkNotNull(builtAspects),
+            /*exclusiveTestsCount=*/ 0,
+            env.getEventBus());
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));

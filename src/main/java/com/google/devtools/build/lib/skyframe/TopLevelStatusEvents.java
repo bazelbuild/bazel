@@ -58,7 +58,7 @@ public final class TopLevelStatusEvents {
   public abstract static class TopLevelTargetBuiltEvent implements ProgressLike {
     abstract ConfiguredTargetKey configuredTargetKey();
 
-    static TopLevelTargetBuiltEvent create(ConfiguredTargetKey configuredTargetKey) {
+    public static TopLevelTargetBuiltEvent create(ConfiguredTargetKey configuredTargetKey) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetBuiltEvent(configuredTargetKey);
     }
   }
@@ -94,11 +94,12 @@ public final class TopLevelStatusEvents {
     }
   }
 
+  /** An event that marks the successful building of an aspect. */
   @AutoValue
-  abstract static class AspectBuiltEvent implements ProgressLike {
+  public abstract static class AspectBuiltEvent implements ProgressLike {
     abstract AspectKey aspectKey();
 
-    static AspectBuiltEvent create(AspectKey aspectKey) {
+    public static AspectBuiltEvent create(AspectKey aspectKey) {
       return new AutoValue_TopLevelStatusEvents_AspectBuiltEvent(aspectKey);
     }
   }

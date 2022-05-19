@@ -239,4 +239,26 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
     assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:good");
     assertThat(getLabelsOfSkippedTargets()).containsExactly("//foo:bad");
   }
+
+  @Test
+  public void nullIncrementalBuild_correctAnalyzedAndBuiltTargets() throws Exception {
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+
+    BuildResult result = buildTarget("//foo:foo");
+
+    assertThat(result.getSuccess()).isTrue();
+    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo");
+    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo");
+
+    result = buildTarget("//foo:foo");
+
+    assertThat(result.getSuccess()).isTrue();
+    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo");
+    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo");
+  }
 }
