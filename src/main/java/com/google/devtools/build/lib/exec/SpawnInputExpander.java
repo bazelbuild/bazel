@@ -114,6 +114,7 @@ public class SpawnInputExpander {
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
+      ActionStager actionStager,
       PathFragment baseDirectory)
       throws IOException, ForbiddenActionInputException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
@@ -137,7 +138,8 @@ public class SpawnInputExpander {
             for (ActionInput input : expandedInputs) {
               addMapping(
                   inputMap,
-                  location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
+                  actionStager.stripForRunfiles(root, location)
+                      .getRelative(((TreeFileArtifact) input).getParentRelativePath()),
                   input,
                   baseDirectory);
             }
@@ -153,26 +155,15 @@ public class SpawnInputExpander {
             if (strict) {
               failIfDirectory(actionFileCache, localArtifact);
             }
-            addMapping(inputMap, location, localArtifact, baseDirectory);
+            addMapping(inputMap, actionStager.stripForRunfiles(root, location), localArtifact,
+                baseDirectory);
           }
         } else {
-          addMapping(inputMap, location, VirtualActionInput.EMPTY_MARKER, baseDirectory);
+          addMapping(inputMap, actionStager.stripForRunfiles(root, location),
+              VirtualActionInput.EMPTY_MARKER, baseDirectory);
         }
       }
     }
-  }
-
-  /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
-  public Map<PathFragment, ActionInput> addRunfilesToInputs(
-      RunfilesSupplier runfilesSupplier,
-      MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander,
-      PathFragment baseDirectory)
-      throws IOException, ForbiddenActionInputException {
-    Map<PathFragment, ActionInput> inputMap = new HashMap<>();
-    addRunfilesToInputs(
-        inputMap, runfilesSupplier, actionFileCache, artifactExpander, baseDirectory);
-    return inputMap;
   }
 
   private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
@@ -269,6 +260,7 @@ public class SpawnInputExpander {
         spawn.getRunfilesSupplier(),
         actionInputFileCache,
         artifactExpander,
+        spawn.getActionStager(),
         baseDirectory);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap, baseDirectory);
     return inputMap;
@@ -307,6 +299,7 @@ public class SpawnInputExpander {
   public void walkInputs(
       Spawn spawn,
       ArtifactExpander artifactExpander,
+      ActionStager actionStager,
       PathFragment baseDirectory,
       MetadataProvider actionInputFileCache,
       InputVisitor visitor)
@@ -321,6 +314,7 @@ public class SpawnInputExpander {
             // Assuming that artifactExpander and actionInputFileCache, different for each spawn,
             // always expand the same way.
             this, // For accessing addRunfilesToInputs.
+            actionStager,
             runfilesSupplier,
             baseDirectory),
         new InputWalker() {
@@ -329,7 +323,8 @@ public class SpawnInputExpander {
               throws IOException, ForbiddenActionInputException {
             TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
             addRunfilesToInputs(
-                inputMap, runfilesSupplier, actionInputFileCache, artifactExpander, baseDirectory);
+                inputMap, runfilesSupplier, actionInputFileCache, artifactExpander,
+                actionStager, baseDirectory);
             return inputMap;
           }
 

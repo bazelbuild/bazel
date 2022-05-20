@@ -94,6 +94,10 @@ public final class PathStripper {
       return execPath;
     }
 
+    default PathFragment stripForRunfiles(PathFragment runfilesDir, PathFragment execPath) {
+      return execPath;
+    }
+
     /**
      * Creates a new action stager for executor implementation logic to use.
      *

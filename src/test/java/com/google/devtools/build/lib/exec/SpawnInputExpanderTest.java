@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.PathStripper.ActionStager;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -80,7 +81,8 @@ public class SpawnInputExpanderTest {
     RunfilesSupplier supplier = EmptyRunfilesSupplier.INSTANCE;
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     expander.addRunfilesToInputs(
-        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).isEmpty();
   }
 
@@ -99,7 +101,8 @@ public class SpawnInputExpanderTest {
         FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 0L));
 
     expander.addRunfilesToInputs(
-        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(1);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/dir/file"), artifact);
@@ -134,7 +137,8 @@ public class SpawnInputExpanderTest {
         };
 
     expander.addRunfilesToInputs(
-        inputMappings, supplier, mockCache, filesetExpander, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, mockCache, filesetExpander, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(1);
     assertThat(inputMappings)
         .containsEntry(
@@ -163,6 +167,7 @@ public class SpawnInputExpanderTest {
                     supplier,
                     mockCache,
                     NO_ARTIFACT_EXPANDER,
+                    ActionStager.NOOP,
                     PathFragment.EMPTY_FRAGMENT));
     assertThat(expected).hasMessageThat().isEqualTo("Not a file: dir/file");
   }
@@ -181,7 +186,8 @@ public class SpawnInputExpanderTest {
 
     expander = new SpawnInputExpander(execRoot, /*strict=*/ false);
     expander.addRunfilesToInputs(
-        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(1);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/dir/file"), artifact);
@@ -210,7 +216,8 @@ public class SpawnInputExpanderTest {
         FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 12L));
 
     expander.addRunfilesToInputs(
-        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/dir/file"), artifact1);
@@ -236,7 +243,8 @@ public class SpawnInputExpanderTest {
         FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
 
     expander.addRunfilesToInputs(
-        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(1);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/symlink"), artifact);
@@ -260,7 +268,8 @@ public class SpawnInputExpanderTest {
         FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
 
     expander.addRunfilesToInputs(
-        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings).containsEntry(PathFragment.create("runfiles/symlink"), artifact);
     // If there's no other entry, Runfiles adds an empty file in the workspace to make sure the
@@ -293,7 +302,8 @@ public class SpawnInputExpanderTest {
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
 
     expander.addRunfilesToInputs(
-        inputMappings, supplier, fakeCache, artifactExpander, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, fakeCache, artifactExpander, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/treeArtifact/file1"), file1);
@@ -327,7 +337,8 @@ public class SpawnInputExpanderTest {
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
 
     expander.addRunfilesToInputs(
-        inputMappings, supplier, fakeCache, artifactExpander, PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, fakeCache, artifactExpander, ActionStager.NOOP,
+        PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/symlink/file1"), file1);

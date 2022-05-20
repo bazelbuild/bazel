@@ -127,6 +127,7 @@ public interface RemotePathResolver {
           .walkInputs(
               spawn,
               context.getArtifactExpander(),
+              spawn.getActionStager(),
               PathFragment.EMPTY_FRAGMENT,
               context.getMetadataProvider(),
               visitor);
@@ -216,6 +217,7 @@ public interface RemotePathResolver {
           .walkInputs(
               spawn,
               context.getArtifactExpander(),
+              spawn.getActionStager(),
               PathFragment.create(checkNotNull(getWorkingDirectory())),
               context.getMetadataProvider(),
               visitor);
