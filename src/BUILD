@@ -5,7 +5,7 @@ load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 load("//src:release_archive.bzl", "release_archive")
 
-package(default_applicable_licenses = ["//:license"])
+package(default_applicable_licenses = ["@io_bazel//:license"])
 
 exports_files(["jdeps_modules.golden"])
 

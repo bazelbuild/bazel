@@ -42,7 +42,7 @@ filegroup(
         "//src/main/starlark/tests/builtins_bzl:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
-    applicable_licenses = ["//:license"],
+    applicable_licenses = ["@io_bazel//:license"],
 )
 
 filegroup(
