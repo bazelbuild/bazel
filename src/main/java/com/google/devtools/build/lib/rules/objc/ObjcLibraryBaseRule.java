@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -34,12 +33,7 @@ public class ObjcLibraryBaseRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(
             AppleConfiguration.class, CppConfiguration.class, ObjcConfiguration.class)
-        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-        // optional.
-        .addToolchainTypes(
-            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
-                .mandatory(true)
-                .build())
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 

@@ -994,9 +994,7 @@ def make_cc_binary(cc_binary_attrs, **kwargs):
         exec_groups = {
             "cpp_link": exec_group(copy_from_rule = True),
         },
-        toolchains = [
-            "@" + semantics.get_repo() + "//tools/cpp:toolchain_type",
-        ],
+        toolchains = cc_helper.use_cpp_toolchain(),
         incompatible_use_toolchain_transition = True,
         executable = True,
         **kwargs

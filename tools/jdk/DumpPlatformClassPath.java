@@ -19,16 +19,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -59,12 +59,29 @@ public class DumpPlatformClassPath {
     Path output = Paths.get(args[0]);
     Path targetJavabase = Paths.get(args[1]);
 
-    boolean ok = dumpJDK9AndNewerBootClassPath(output, targetJavabase);
+    int hostMajorVersion = hostMajorVersion();
+    boolean ok;
+    if (hostMajorVersion == 8) {
+      ok = dumpJDK8BootClassPath(output, targetJavabase);
+    } else {
+      ok = dumpJDK9AndNewerBootClassPath(hostMajorVersion, output, targetJavabase);
+    }
     System.exit(ok ? 0 : 1);
   }
 
-  static boolean dumpJDK9AndNewerBootClassPath(Path output, Path targetJavabase)
-      throws IOException {
+  // JDK 8 bootclasspath handling.
+  // * JDK 8 represents a bootclasspath as a search path of jars (rt.jar, etc.).
+  // * It does not support --release or --system.
+  static boolean dumpJDK8BootClassPath(Path output, Path targetJavabase) throws IOException {
+    List<Path> bootClassPathJars = getBootClassPathJars(targetJavabase);
+    writeClassPathJars(output, bootClassPathJars);
+    return true;
+  }
+
+  // JDK > 8 --host_javabase bootclasspath handling.
+  // (The default --host_javabase is currently JDK 9.)
+  static boolean dumpJDK9AndNewerBootClassPath(
+      int hostMajorVersion, Path output, Path targetJavabase) throws IOException {
 
     // JDK 9 and newer support cross-compiling to older platform versions using the --system
     // and --release flags.
@@ -85,19 +102,17 @@ public class DumpPlatformClassPath {
     // initialized bootclasspath data back out.
 
     Context context = new Context();
-    var out = new PrintWriter(System.err, true);
     JavacTool.create()
         .getTask(
-            /* out = */ out,
+            /* out = */ null,
             /* fileManager = */ null,
             /* diagnosticListener = */ null,
-            /* options = */ Arrays.asList("-verbose", "--system", String.valueOf(targetJavabase)),
+            /* options = */ Arrays.asList("--system", String.valueOf(targetJavabase)),
             /* classes = */ null,
             /* compilationUnits = */ null,
             context);
     StandardJavaFileManager fileManager =
         (StandardJavaFileManager) context.get(JavaFileManager.class);
-    System.err.println(targetJavabase);
 
     SortedMap<String, InputStream> entries = new TreeMap<>();
     for (JavaFileObject fileObject :
@@ -182,7 +197,8 @@ public class DumpPlatformClassPath {
   }
 
   // Use a fixed timestamp for deterministic jar output.
-  static final LocalDateTime DEFAULT_TIMESTAMP = LocalDateTime.of(2010, 1, 1, 0, 0, 0);
+  private static final long FIXED_TIMESTAMP =
+      new GregorianCalendar(2010, 0, 1, 0, 0, 0).getTimeInMillis();
 
   /**
    * Add a jar entry to the given {@link JarOutputStream}, normalizing the entry timestamps to
@@ -191,13 +207,13 @@ public class DumpPlatformClassPath {
   private static void addEntry(JarOutputStream jos, String name, InputStream input)
       throws IOException {
     JarEntry je = new JarEntry(name);
-    je.setTimeLocal(DEFAULT_TIMESTAMP);
+    je.setTime(FIXED_TIMESTAMP);
     je.setMethod(ZipEntry.STORED);
     byte[] bytes = toByteArray(input);
-    // When targeting JDK > 11, patch the major version so it will be accepted by javac 9
+    // When targeting JDK >= 10, patch the major version so it will be accepted by javac 9
     // TODO(cushon): remove this after updating javac
-    if (bytes[7] > 55) {
-      bytes[7] = 55;
+    if (bytes[7] > 53) {
+      bytes[7] = 53;
     }
     je.setSize(bytes.length);
     CRC32 crc = new CRC32();
@@ -218,5 +234,26 @@ public class DumpPlatformClassPath {
       boas.write(buffer, 0, r);
     }
     return boas.toByteArray();
+  }
+
+  /**
+   * Returns the major version of the host Java runtime (e.g. '8' for JDK 8), using {@link
+   * Runtime#version} if it is available, and otherwise falling back to the {@code
+   * java.class.version} system. property.
+   */
+  static int hostMajorVersion() {
+    try {
+      Method versionMethod = Runtime.class.getMethod("version");
+      Object version = versionMethod.invoke(null);
+      return (int) version.getClass().getMethod("major").invoke(version);
+    } catch (ReflectiveOperationException e) {
+      // Runtime.version() isn't available on JDK 8; continue below
+    }
+    int version = (int) Double.parseDouble(System.getProperty("java.class.version"));
+    if (49 <= version && version <= 52) {
+      return version - (49 - 5);
+    }
+    throw new IllegalStateException(
+        "Unknown Java version: " + System.getProperty("java.specification.version"));
   }
 }

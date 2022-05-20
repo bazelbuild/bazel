@@ -613,7 +613,7 @@ cc_shared_library = rule(
             default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
         ),
     },
-    toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],  # copybara-use-repo-external-label
+    toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["google_cpp", "cpp"],
     incompatible_use_toolchain_transition = True,
 )

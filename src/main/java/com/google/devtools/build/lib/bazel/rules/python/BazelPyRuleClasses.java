@@ -32,12 +32,10 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
-import com.google.devtools.build.lib.rules.python.PyStructUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 
 /**
@@ -69,17 +67,7 @@ public final class BazelPyRuleClasses {
           <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(
-              builder
-                  .copy("deps")
-                  .mandatoryProvidersList(
-                      ImmutableList.of(
-                          // Legacy provider.
-                          // TODO(b/153363654): Remove this legacy set.
-                          ImmutableList.of(
-                              StarlarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
-                          // Modern provider.
-                          ImmutableList.of(PyInfo.PROVIDER.id())))
-                  .allowedFileTypes())
+              builder.copy("deps").mandatoryProviders(PyInfo.PROVIDER.id()).allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.
           <p>

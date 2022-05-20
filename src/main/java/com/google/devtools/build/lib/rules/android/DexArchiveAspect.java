@@ -144,38 +144,10 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     this.sdkToolchainLabel = sdkToolchainLabel;
   }
 
-  /**
-   * Don't propagate down the legacy toolchain attribute when using platform-based toolchains.
-   *
-   * <p>With platform-based toolchains, propagating down the legacy toolchain attribute means we'll
-   * dex the legacy toolchain, not the platform-based toolchain. Aside from being conceptually
-   * wrong, this breaks builds if the toolchains aren't configured the same way.
-   *
-   * <p>For example, platform-based toolchains evaluate in the host configuration while legacy
-   * toolchains evaluate in the target configuration (--incompatible_override_toolchain_transition
-   * would reduce this difference but that's not enabled). This produces "Dependencies on .jar
-   * artifacts are not allowed in Android binaries" errors ({@link AndroidBinary}). This happens
-   * because that logic compares classpaths, which use platform-based toolchains, with dexed paths,
-   * which in this example use legacy toolchains. If the paths don't match everything blows up.
-   *
-   * <p>Even if that worked, platform-based toolchain logic isn't complete unless legacy toolchains
-   * are never used anywhere. For that reason alone we also need to skip propagation.
-   */
-  private static boolean propagateDownLegacyToolchain(Object obj, String attrName) {
-    if (!attrName.equals(":android_sdk")) {
-      // Not the toolchain attribute. Carry on as usual.
-      return true;
-    }
-    AndroidConfiguration androidConfig =
-        ((BuildConfigurationValue) obj).getFragment(AndroidConfiguration.class);
-    return !androidConfig.incompatibleUseToolchainResolution();
-  }
-
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
-            .propagateViaAttribute(DexArchiveAspect::propagateDownLegacyToolchain)
             .requireStarlarkProviders(forKey(JavaInfo.PROVIDER.getKey()))
             // Latch onto Starlark toolchains in case they have a "runtime" (b/78647825)
             .requireStarlarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))

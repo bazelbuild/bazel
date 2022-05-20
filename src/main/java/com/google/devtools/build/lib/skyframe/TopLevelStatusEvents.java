@@ -33,29 +33,32 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 public final class TopLevelStatusEvents {
   private TopLevelStatusEvents() {}
 
+  /** An event that marks the successful analysis of a top-level target, including tests. */
   @AutoValue
-  abstract static class TopLevelTargetAnalyzedEvent implements ProgressLike {
+  public abstract static class TopLevelTargetAnalyzedEvent implements ProgressLike {
     abstract ConfiguredTarget configuredTarget();
 
-    static TopLevelTargetAnalyzedEvent create(ConfiguredTarget configuredTarget) {
+    public static TopLevelTargetAnalyzedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(configuredTarget);
     }
   }
 
+  /** An event that marks the skipping of a top-level target, including skipped tests. */
   @AutoValue
-  abstract static class TopLevelTargetSkippedEvent implements ProgressLike {
+  public abstract static class TopLevelTargetSkippedEvent implements ProgressLike {
     abstract ConfiguredTarget configuredTarget();
 
-    static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
+    public static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetSkippedEvent(configuredTarget);
     }
   }
 
+  /** An event that marks the successful build of a top-level target, including tests. */
   @AutoValue
-  abstract static class TopLevelTargetBuiltEvent implements ProgressLike {
+  public abstract static class TopLevelTargetBuiltEvent implements ProgressLike {
     abstract ConfiguredTargetKey configuredTargetKey();
 
-    static TopLevelTargetBuiltEvent create(ConfiguredTargetKey configuredTargetKey) {
+    public static TopLevelTargetBuiltEvent create(ConfiguredTargetKey configuredTargetKey) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetBuiltEvent(configuredTargetKey);
     }
   }
@@ -69,35 +72,34 @@ public final class TopLevelStatusEvents {
 
     public abstract boolean isSkipped();
 
-    static TestAnalyzedEvent create(
-        ConfiguredTarget configuredTarget, BuildConfigurationValue buildConfigurationValue) {
+    public static TestAnalyzedEvent create(
+        ConfiguredTarget configuredTarget,
+        BuildConfigurationValue buildConfigurationValue,
+        boolean isSkipped) {
       return new AutoValue_TopLevelStatusEvents_TestAnalyzedEvent(
-          configuredTarget, buildConfigurationValue, /*isSkipped=*/ false);
-    }
-
-    static TestAnalyzedEvent createSkipped(
-        ConfiguredTarget configuredTarget, BuildConfigurationValue buildConfigurationValue) {
-      return new AutoValue_TopLevelStatusEvents_TestAnalyzedEvent(
-          configuredTarget, buildConfigurationValue, /*isSkipped=*/ true);
+          configuredTarget, buildConfigurationValue, isSkipped);
     }
   }
 
+  /** An event that marks the successful analysis of an aspect. */
   @AutoValue
-  abstract static class AspectAnalyzedEvent implements ProgressLike {
+  public abstract static class AspectAnalyzedEvent implements ProgressLike {
     abstract AspectKey aspectKey();
 
     abstract ConfiguredAspect configuredAspect();
 
-    static AspectAnalyzedEvent create(AspectKey aspectKey, ConfiguredAspect configuredAspect) {
+    public static AspectAnalyzedEvent create(
+        AspectKey aspectKey, ConfiguredAspect configuredAspect) {
       return new AutoValue_TopLevelStatusEvents_AspectAnalyzedEvent(aspectKey, configuredAspect);
     }
   }
 
+  /** An event that marks the successful building of an aspect. */
   @AutoValue
-  abstract static class AspectBuiltEvent implements ProgressLike {
+  public abstract static class AspectBuiltEvent implements ProgressLike {
     abstract AspectKey aspectKey();
 
-    static AspectBuiltEvent create(AspectKey aspectKey) {
+    public static AspectBuiltEvent create(AspectKey aspectKey) {
       return new AutoValue_TopLevelStatusEvents_AspectBuiltEvent(aspectKey);
     }
   }

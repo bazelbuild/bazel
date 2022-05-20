@@ -79,8 +79,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void producesBothModernAndLegacyProviders_WithoutIncompatibleFlag() throws Exception {
-    useConfiguration("--incompatible_disallow_legacy_py_provider=false");
+  public void producesProvider() throws Exception {
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -88,77 +87,10 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
-    assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNotNull();
   }
 
   @Test
-  public void producesOnlyModernProvider_WithIncompatibleFlag() throws Exception {
-    useConfiguration("--incompatible_disallow_legacy_py_provider=true");
-    scratch.file(
-        "pkg/BUILD", //
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
-    assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNull();
-  }
-
-  @Test
-  public void consumesLegacyProvider_WithoutIncompatibleFlag() throws Exception {
-    useConfiguration("--incompatible_disallow_legacy_py_provider=false");
-    scratch.file(
-        "pkg/rules.bzl",
-        "def _myrule_impl(ctx):",
-        "    return struct(py=struct(transitive_sources=depset([])))",
-        "myrule = rule(",
-        "    implementation = _myrule_impl,",
-        ")");
-    scratch.file(
-        "pkg/BUILD",
-        "load(':rules.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'dep',",
-        ")",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    deps = [':dep'],",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
-  public void rejectsLegacyProvider_WithIncompatibleFlag() throws Exception {
-    useConfiguration("--incompatible_disallow_legacy_py_provider=true");
-    scratch.file(
-        "pkg/rules.bzl",
-        "def _myrule_impl(ctx):",
-        "    return struct(py=struct(transitive_sources=depset([])))",
-        "myrule = rule(",
-        "    implementation = _myrule_impl,",
-        ")");
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "In dep '//pkg:dep': The legacy 'py' provider is disallowed.",
-        // build file:
-        "load(':rules.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'dep',",
-        ")",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    deps = [':dep'],",
-        ")");
-  }
-
-  @Test
-  public void consumesModernProvider() throws Exception {
+  public void consumesProvider() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
         "def _myrule_impl(ctx):",
@@ -206,5 +138,18 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    srcs = ['foo.py'],",
         "    deps = [':dep'],",
         ")");
+  }
+
+  @Test
+  public void dataSetsUsesSharedLibrary() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    data = ['lib.so']",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target.get(PyInfo.PROVIDER).getUsesSharedLibraries()).isTrue();
   }
 }

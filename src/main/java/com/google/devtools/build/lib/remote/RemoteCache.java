@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
-import com.google.devtools.build.lib.remote.util.CompletableFuture;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -331,45 +330,20 @@ public class RemoteCache extends AbstractReferenceCounted {
     reporter.started();
     OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
 
-    CompletableFuture<Void> outerF = CompletableFuture.create();
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
-    outerF.setCancelCallback(() -> f.cancel(/* mayInterruptIfRunning= */ true));
-    Futures.addCallback(
-        f,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {
-            try {
-              out.close();
-              outerF.set(null);
-              reporter.finished();
-            } catch (IOException e) {
-              outerF.setException(e);
-            } catch (RuntimeException e) {
-              logger.atWarning().withCause(e).log("Unexpected exception");
-              outerF.setException(e);
-            }
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            try {
-              out.close();
-              reporter.finished();
-            } catch (IOException e) {
-              if (t != e) {
-                t.addSuppressed(e);
-              }
-            } catch (RuntimeException e) {
-              logger.atWarning().withCause(e).log("Unexpected exception");
-              t.addSuppressed(e);
-            } finally {
-              outerF.setException(t);
-            }
+    f.addListener(
+        () -> {
+          try {
+            out.close();
+            reporter.finished();
+          } catch (IOException e) {
+            logger.atWarning().withCause(e).log(
+                "Unexpected exception closing output stream after downloading %s/%d to %s",
+                digest.getHash(), digest.getSizeBytes(), path);
           }
         },
         directExecutor());
-    return outerF;
+    return f;
   }
 
   /**
