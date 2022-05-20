@@ -2,9 +2,18 @@
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
+
+license(
+    name = "license",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+)
 
 exports_files(["LICENSE"])
 
@@ -31,6 +40,7 @@ filegroup(
         "//src/main/starlark/tests/builtins_bzl:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
+    applicable_licenses = ["//:license"],
 )
 
 filegroup(

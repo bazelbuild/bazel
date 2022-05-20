@@ -57,6 +57,12 @@ bind(
     actual = "//third_party:guava",
 )
 
+# We must control the version of rules_license we use, so we load ours before
+# any other repo can bring it in through their deps.
+dist_http_archive(
+    name = "rules_license",
+)
+
 # For src/test/shell/bazel:test_srcs
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 
@@ -658,7 +664,3 @@ debian_deps()
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 bazel_skylib_workspace()
-
-dist_http_archive(
-    name = "rules_license",
-)

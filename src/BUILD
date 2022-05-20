@@ -5,6 +5,8 @@ load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 load("//src:release_archive.bzl", "release_archive")
 
+package(default_applicable_licenses = ["//:license"])
+
 exports_files(["jdeps_modules.golden"])
 
 md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
