@@ -68,5 +68,6 @@ gen_workspace_stanza(
         load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
     """,
     repos = ["rules_cc"],
+    use_maybe = 1,
     visibility = ["//:__pkg__"],
 )
