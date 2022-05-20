@@ -12,7 +12,9 @@ license(
     license_kinds = [
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
+    copyright_notice = "Copyright © 2014 The Bazel Authors. All rights reserved.",
     license_text = "LICENSE",
+    package_name = "bazelbuild/bazel",
 )
 
 exports_files(["LICENSE"])

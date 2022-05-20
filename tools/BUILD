@@ -9,6 +9,7 @@ filegroup(
         "//tools/buildstamp:srcs",
         "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
+        "//tools/compliance:srcs",
         "//tools/config:srcs",
         "//tools/coverage:srcs",
         "//tools/ctexplain:srcs",

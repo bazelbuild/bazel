@@ -381,6 +381,7 @@ genrule(
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
+        "//tools/compliance:__pkg__",  # For license gathering
     ],
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),
