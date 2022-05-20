@@ -23,13 +23,13 @@ import com.google.devtools.common.options.OptionsBase;
 public class BuildEventProtocolOptions extends OptionsBase {
 
   @Option(
-      name = "legacy_important_outputs",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Use this to suppress generation of the legacy important_outputs field in the "
-              + "TargetComplete event.")
+    name = "legacy_important_outputs",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "Use this to suppress generation of the legacy important_outputs field in the "
+        + "TargetComplete event."
+  )
   public boolean legacyImportantOutputs;
 
   @Option(
