@@ -686,4 +686,38 @@ EOF
   expect_log "shallow_since not allowed if a tag is specified; --depth=1 will be used for tags"
 }
 
+# Verifies that:
+# 1. Rule creates a git_repository rule with a commit hash and caches it.
+# 2. `bazel fetch` after a `clean --expunge` doesn't cause a git fetch.
+function test_git_repositry_cache_is_populated() {
+  local pluto_repo_dir=$(get_pluto_repo)
+  local cache_dir=$TEST_TMPDIR/bazel_cache
+  local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
+
+  export BAZEL_GIT_REPOSITORY_CACHE=$cache_dir
+
+  if [ -e "$cache_dir" ]; then
+    rm -rf "$cache_dir"
+  fi
+
+  # Create a workspace that clones the repository at the first commit.
+  cd $WORKSPACE_DIR
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    commit = "$commit_hash",
+    verbose = True,
+)
+EOF
+  bazel fetch @pluto//... >& $TEST_log
+  if git worktree --help > /dev/null 2>&1; then
+    expect_log "$commit_hash not found in cache"
+  fi
+  bazel clean --expunge
+  bazel fetch @pluto//... >& $TEST_log
+  expect_not_log "$commit_hash not found in cache"
+}
+
 run_suite "Starlark git_repository tests"
