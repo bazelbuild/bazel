@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.junit.Test;
@@ -219,7 +220,7 @@ public final class OptionsParserTest {
             assertThrows(OptionsParsingException.class, () -> parser.parseWithSourceFunction(
                     PriorityCategory.COMMAND_LINE,
                     sourceFunction,
-                    Arrays.asList("residue", "not", "allowed", "in", "parseWithSource")));
+                    ImmutableList.of("residue", "not", "allowed", "in", "parseWithSource")));
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue not allowed in parseWithSource");
     assertThat(parser.getResidue()).containsExactly("residue", "not", "allowed", "in", "parseWithSource");
   }
@@ -233,7 +234,7 @@ public final class OptionsParserTest {
     parser.parseWithSourceFunction(
             PriorityCategory.COMMAND_LINE,
             sourceFunction,
-            Arrays.asList("residue", "is", "allowed", "in", "parseWithSource"));
+            ImmutableList.of("residue", "is", "allowed", "in", "parseWithSource"));
     assertThat(parser.getResidue()).containsExactly("residue", "is", "allowed", "in", "parseWithSource");
   }
 
