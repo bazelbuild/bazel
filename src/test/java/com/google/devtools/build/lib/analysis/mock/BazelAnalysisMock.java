@@ -96,7 +96,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_platform",
         "local_config_xcode",
         "platforms",
-        "rules_java");
+        "rules_java",
+        "rules_license");
   }
 
   @Override
