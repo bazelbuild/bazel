@@ -61,12 +61,4 @@ public class ParserOptions extends OptionsBase {
       help = "If set, only output the executions that used the given runner.")
   public String restrictToRunner;
 
-  @Option(
-          name = "shard_sorted",
-          defaultValue = "false",
-          category = "logging",
-          documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-          effectTags = {OptionEffectTag.UNKNOWN},
-          help = "If set, the action will be ascending order base on shard value.")
-  public String shardSorted;
 }
