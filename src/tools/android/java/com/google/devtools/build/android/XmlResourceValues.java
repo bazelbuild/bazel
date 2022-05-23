@@ -244,7 +244,7 @@ public class XmlResourceValues {
         id = Optional.of(Integer.decode(idValueAttr));
       } catch (NumberFormatException e) {
         throw new XMLStreamException(
-            String.format("<public> has invalid id number %s", start), start.getLocation());
+            String.format("<public> has invalid id number %s", start), start.getLocation(), e);
       }
     }
     if (attributes.size() > 2) {

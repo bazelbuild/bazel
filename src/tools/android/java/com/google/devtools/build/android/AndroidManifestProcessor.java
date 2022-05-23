@@ -252,24 +252,6 @@ public class AndroidManifestProcessor {
     return manifest;
   }
 
-  /** Processes the manifest for a library and return the manifest Path. */
-  public Path processLibraryManifest(
-      String newManifestPackage, Path manifest, Path processedManifest, boolean logWarnings) {
-
-    if (newManifestPackage != null) {
-      processManifest(
-          /* versionCode= */ -1,
-          /* versionName= */ null,
-          manifest,
-          processedManifest,
-          MergeType.LIBRARY,
-          newManifestPackage,
-          logWarnings);
-      return processedManifest;
-    }
-    return manifest;
-  }
-
   private void processManifest(
       int versionCode,
       String versionName,
@@ -323,6 +305,24 @@ public class AndroidManifestProcessor {
     } catch (IOException | MergeFailureException e) {
       throw new ManifestProcessingException(e);
     }
+  }
+
+  /** Processes the manifest for a library and return the manifest Path. */
+  public Path processLibraryManifest(
+      String newManifestPackage, Path manifest, Path processedManifest, boolean logWarnings) {
+
+    if (newManifestPackage != null) {
+      processManifest(
+          /* versionCode= */ -1,
+          /* versionName= */ null,
+          manifest,
+          processedManifest,
+          MergeType.LIBRARY,
+          newManifestPackage,
+          logWarnings);
+      return processedManifest;
+    }
+    return manifest;
   }
 
   /**
