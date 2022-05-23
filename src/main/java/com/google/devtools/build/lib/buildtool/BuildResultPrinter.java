@@ -140,7 +140,7 @@ class BuildResultPrinter {
             TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)
                 .getImportantArtifacts()
                 .toList()) {
-          if (shouldPrint(artifact)) {
+          if (TopLevelArtifactHelper.shouldDisplay(artifact)) {
             if (headerFlag) {
               outErr.printErr("Target " + label + " up-to-date:\n");
               headerFlag = false;
@@ -195,7 +195,7 @@ class BuildResultPrinter {
             outErr.printErr("Aspect " + aspectName + " of " + label + " up-to-date:\n");
             headerFlag = false;
           }
-          if (shouldPrint(importantArtifact)) {
+          if (TopLevelArtifactHelper.shouldDisplay(importantArtifact)) {
             outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, importantArtifact));
           }
         }
@@ -214,10 +214,6 @@ class BuildResultPrinter {
     if (!success && !request.getOptions(ExecutionOptions.class).verboseFailures) {
       outErr.printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
     }
-  }
-
-  private boolean shouldPrint(Artifact artifact) {
-    return !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact();
   }
 
   private String formatArtifactForShowResults(PathPrettyPrinter prettyPrinter, Artifact artifact) {
@@ -268,17 +264,8 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> configuredTargets) {
     ImmutableList.Builder<ConfiguredTarget> result = ImmutableList.builder();
     for (ConfiguredTarget configuredTarget : configuredTargets) {
-      // TODO(bazel-team): this is quite ugly. Add a marker provider for this check.
-      if (configuredTarget instanceof InputFileConfiguredTarget) {
-        // Suppress display of source files (because we do no work to build them).
+      if (!TopLevelArtifactHelper.shouldConsiderForDisplay(configuredTarget)) {
         continue;
-      }
-      if (configuredTarget instanceof RuleConfiguredTarget) {
-        RuleConfiguredTarget ruleCt = (RuleConfiguredTarget) configuredTarget;
-        if (ruleCt.getRuleClassString().contains("$")) {
-          // Suppress display of hidden rules
-          continue;
-        }
       }
       if (configuredTarget instanceof OutputFileConfiguredTarget) {
         // Suppress display of generated files (because they appear underneath
