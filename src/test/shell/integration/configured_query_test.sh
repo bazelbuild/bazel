@@ -1416,4 +1416,73 @@ EOF
   expect_not_log "QueryException"
 }
 
+function test_files_output_mode() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/rules.bzl <<'EOF'
+def _r_impl(ctx):
+    default_file = ctx.actions.declare_file(ctx.attr.name + "_default_file")
+    output_group_only = ctx.actions.declare_file(ctx.attr.name + "_output_group_only")
+    runfile = ctx.actions.declare_file(ctx.attr.name + "_runfile")
+    executable_only = ctx.actions.declare_file(ctx.attr.name + "_executable")
+
+    files = [default_file, output_group_only, runfile, executable_only]
+
+    ctx.actions.run_shell(
+        outputs = files,
+        command = "\n".join(["touch %s" % file.path for file in files]),
+    )
+
+    return [
+        DefaultInfo(
+            executable = executable_only,
+            files = depset([default_file]),
+            runfiles = ctx.runfiles([runfile]),
+        ),
+        OutputGroupInfo(
+            foobar = [output_group_only],
+        ),
+    ]
+
+r = rule(
+    implementation = _r_impl,
+    executable = True,
+)
+EOF
+  cat > $pkg/BUILD <<'EOF'
+load(":rules.bzl", "r")
+
+r(name = "main")
+r(name = "other")
+EOF
+
+  bazel cquery "//$pkg:all" --output=files \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "$pkg/main_default_file" output
+  assert_contains "$pkg/other_default_file" output
+
+  assert_not_contains "_executable" output
+  assert_not_contains "_runfile" output
+  assert_not_contains "_output_group_only" output
+
+  bazel cquery "//$pkg:main" --output=files --output_groups=foobar \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "$pkg/main_output_group_only" output
+
+  assert_not_contains "main_default_file" output
+  assert_not_contains "main_executable" output
+  assert_not_contains "main_runfile" output
+
+  bazel cquery "//$pkg:other" --output=files --output_groups=+foobar \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "other_default_file" output
+  assert_contains "$pkg/other_output_group_only" output
+
+  assert_not_contains "other_executable" output
+  assert_not_contains "other_runfile" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
