@@ -199,7 +199,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       }
       ClassInfo info = state.classInfo().get();
       if (!info.directDep()) {
-        resultCollector.addIndirectDep(info.jarPath());
+        resultCollector.addIndirectDep(internalName, info.jarPath());
       }
     }
     return state;
