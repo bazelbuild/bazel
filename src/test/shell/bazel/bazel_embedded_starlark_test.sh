@@ -74,7 +74,6 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 pkg_tar(
   name = "fancy",
   srcs = glob(["data/**/*"]),
-  symlinks = {"link_with_colons" : "some:dangling:link"},
 )
 EOF
   bazel build $HOST_PY_FLAG :fancy &> $TEST_log \
@@ -84,8 +83,6 @@ EOF
 
   grep equal ../out/foo=bar || fail "file with equal sign not packed correctly"
   grep option ../out/--foo || fail "file with double minus not packed correctly"
-  readlink ../out/link_with_colons | grep -- 'some:dangling:link' \
-      || fail "symlink not packed"
 }
 
 test_pkg_tar_strip_directory() {
