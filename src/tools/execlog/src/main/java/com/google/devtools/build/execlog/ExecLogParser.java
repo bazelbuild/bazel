@@ -26,7 +26,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -147,7 +146,7 @@ final class ExecLogParser {
 
       uniqueActions = new PriorityQueue<>((e1, e2) -> {
         int shard_1 = getShard(e1), shard_2 = getShard(e2);
-        return shard_1 - shard_2;
+        return shard_1 == shard_2 ? 1 : shard_1 - shard_2;
       });
 
       SpawnExec ex;
