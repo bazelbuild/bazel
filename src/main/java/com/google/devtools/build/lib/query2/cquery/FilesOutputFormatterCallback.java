@@ -20,7 +20,9 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
       TopLevelArtifactContext topLevelArtifactContext) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    // Different targets may provide the same artifact, so we deduplicate the collection of all
+    // results at the end.
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/true);
     this.topLevelArtifactContext = topLevelArtifactContext;
   }
 
