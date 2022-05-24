@@ -234,7 +234,10 @@ public final class SymlinkAction extends AbstractAction {
                 "failed to create symbolic link '%s': file '%s' is not executable",
                 getPrimaryOutput().getExecPathString(), getPrimaryInput().getExecPathString());
         throw new ActionExecutionException(
-            message, this, false, createDetailedExitCode(message, Code.EXECUTABLE_INPUT_IS_NOT));
+            message,
+            this,
+            false,
+            createDetailedExitCode(message, Code.EXECUTABLE_INPUT_IS_NOT_EXECUTABLE));
       }
     } catch (IOException e) {
       String message =

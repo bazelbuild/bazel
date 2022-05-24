@@ -1082,7 +1082,7 @@ message SymlinkAction {
   enum Code {
     SYMLINK_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     EXECUTABLE_INPUT_NOT_FILE = 1 [(metadata) = { exit_code: 1 }];
-    EXECUTABLE_INPUT_IS_NOT = 2 [(metadata) = { exit_code: 1 }];
+    EXECUTABLE_INPUT_IS_NOT_EXECUTABLE = 2 [(metadata) = { exit_code: 1 }];
     EXECUTABLE_INPUT_CHECK_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
     LINK_CREATION_IO_EXCEPTION = 4 [(metadata) = { exit_code: 1 }];
     LINK_TOUCH_IO_EXCEPTION = 5 [(metadata) = { exit_code: 1 }];
