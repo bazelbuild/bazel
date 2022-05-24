@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
@@ -806,12 +807,14 @@ public class BzlLoadFunction implements SkyFunction {
 
   private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
       throws InterruptedException {
-    if (key.isBuiltins()) {
-      // Builtins .bzls never have a repo mapping defined for them, so return without requesting a
-      // RepositoryMappingValue. (NB: In addition to being a slight optimization, this avoids
-      // adding a reverse dependency on the special //external package, which helps avoid tickling
-      // some peculiarities of the Google-internal Skyframe implementation; see b/182293526 for
-      // details.)
+    if (key.isBuiltins() && !RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+      // Without Bzlmod, builtins .bzls never have a repo mapping defined for them, so return
+      // without requesting a RepositoryMappingValue. (NB: In addition to being a slight
+      // optimization, this avoids adding a reverse dependency on the special //external package,
+      // which helps avoid tickling some peculiarities of the Google-internal Skyframe
+      // implementation; see b/182293526 for details.)
+      // Otherwise, builtins .bzls should use the repo mapping of @bazel_tools, and *do* request a
+      // normal RepositoryMappingValue (see logic in RepositoryMappingFunction).
       return RepositoryMapping.ALWAYS_FALLBACK;
     }
 
