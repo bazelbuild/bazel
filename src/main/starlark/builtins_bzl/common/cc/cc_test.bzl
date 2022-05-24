@@ -16,43 +16,13 @@
 
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
 load(":common/paths.bzl", "paths")
-
-# TODO(b/198254254): We need to do a wrapper around cc_test like for
-# cc_binary, but for now it should work.
-load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects")
+load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects", "cc_binary_attrs_without_aspects")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
 platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing
-
-_cc_test_attrs = dict(cc_binary_attrs_with_aspects)
-
-# Update cc_test defaults:
-_cc_test_attrs.update(
-    _is_test = attr.bool(default = True),
-    _apple_constraints = attr.label_list(
-        default = [
-            "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
-            "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
-            "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
-            "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
-        ],
-    ),
-    _windows_constraints = attr.label_list(
-        default = [
-            "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
-        ],
-    ),
-    # Starlark tests don't get `env_inherit` by default.
-    env_inherit = attr.string_list(),
-    stamp = attr.int(values = [-1, 0, 1], default = 0),
-    linkstatic = attr.bool(default = False),
-)
-_cc_test_attrs.update(semantics.get_test_malloc_attr())
-_cc_test_attrs.update(semantics.get_test_toolchain_attr())
-_cc_test_attrs.update(semantics.get_coverage_attrs())
 
 def _cc_test_impl(ctx):
     binary_info, cc_info, providers = cc_binary_impl(ctx, [])
@@ -113,7 +83,38 @@ def _impl(ctx):
     providers.extend(test_providers)
     return _handle_legacy_return(ctx, cc_info, providers)
 
-def make_cc_test(with_linkstatic = False):
+def _make_cc_test(with_linkstatic = False, with_aspects = False):
+    _cc_test_attrs = None
+    if with_aspects:
+        _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
+    else:
+        _cc_test_attrs = dict(cc_binary_attrs_without_aspects)
+
+    # Update cc_test defaults:
+    _cc_test_attrs.update(
+        _is_test = attr.bool(default = True),
+        _apple_constraints = attr.label_list(
+            default = [
+                "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
+                "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
+                "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
+                "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
+            ],
+        ),
+        _windows_constraints = attr.label_list(
+            default = [
+                "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
+            ],
+        ),
+        # Starlark tests don't get `env_inherit` by default.
+        env_inherit = attr.string_list(),
+        stamp = attr.int(values = [-1, 0, 1], default = 0),
+        linkstatic = attr.bool(default = False),
+    )
+    _cc_test_attrs.update(semantics.get_test_malloc_attr())
+    _cc_test_attrs.update(semantics.get_test_toolchain_attr())
+    _cc_test_attrs.update(semantics.get_coverage_attrs())
+
     _cc_test_attrs.update(
         _linkstatic_explicitly_set = attr.bool(default = with_linkstatic),
     )
@@ -135,11 +136,38 @@ def make_cc_test(with_linkstatic = False):
         test = True,
     )
 
-cc_test_explicit_linkstatic = make_cc_test(with_linkstatic = True)
-cc_test_default_linkstatic = make_cc_test(with_linkstatic = False)
+_cc_test_variants = struct(
+    with_aspects = struct(
+        explicit_linkstatic = _make_cc_test(with_linkstatic = True, with_aspects = True),
+        default_linkstatic = _make_cc_test(with_aspects = True),
+    ),
+    without_aspects = struct(
+        explicit_linkstatic = _make_cc_test(with_linkstatic = True),
+        default_linkstatic = _make_cc_test(),
+    ),
+)
 
 def cc_test_wrapper(**kwargs):
-    if "linkstatic" in kwargs:
-        cc_test_explicit_linkstatic(**kwargs)
+    """Entry point for cc_test rules.
+
+    This avoids propagating aspects on certain attributes if dynamic_deps attribute is unset.
+
+    It also serves to detect if the `linkstatic` attribute was explicitly set or not.
+    This is to workaround a deficiency in Starlark attributes.
+    (See: https://github.com/bazelbuild/bazel/issues/14434)
+
+    Args:
+        **kwargs: Arguments suitable for cc_test.
+    """
+    cc_test_aspects = None
+
+    # Propagate an aspect if dynamic_deps attribute is specified.
+    if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
+        cc_test_aspects = _cc_test_variants.with_aspects
     else:
-        cc_test_default_linkstatic(**kwargs)
+        cc_test_aspects = _cc_test_variants.without_aspects
+
+    if "linkstatic" in kwargs:
+        cc_test_aspects.explicit_linkstatic(**kwargs)
+    else:
+        cc_test_aspects.default_linkstatic(**kwargs)

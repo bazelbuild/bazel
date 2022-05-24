@@ -14,14 +14,11 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
@@ -35,7 +32,6 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
-import javax.annotation.Nullable;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
@@ -70,14 +66,20 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   @Override
-  protected boolean shouldDownloadInput(ActionInput input, @Nullable FileArtifactValue metadata) {
-    return metadata != null && metadata.isRemote();
+  protected boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
+    return metadata.isRemote();
   }
 
   @Override
-  protected ListenableFuture<Void> downloadInput(
-      Path path, ActionInput input, FileArtifactValue metadata) throws IOException {
-    return downloadFileAsync(path, metadata);
+  protected ListenableFuture<Void> doDownloadFile(Path tempPath, FileArtifactValue metadata)
+      throws IOException {
+    checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
+    RequestMetadata requestMetadata =
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, metadata.getActionId(), null);
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
+
+    Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+    return remoteCache.downloadFile(context, tempPath, digest);
   }
 
   @Override
@@ -100,26 +102,5 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       }
     }
     return Completable.error(error);
-  }
-
-  private ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata)
-      throws IOException {
-    checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
-    RequestMetadata requestMetadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, metadata.getActionId(), null);
-    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
-
-    Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-
-    return remoteCache.downloadFile(context, path, digest);
-  }
-
-  /** Download file to the {@code path} with given metadata. */
-  public void downloadFile(Path path, FileArtifactValue metadata)
-      throws IOException, InterruptedException {
-    if (metadata.isRemote()) {
-      getFromFuture(
-          toListenableFuture(downloadFileIfNot(path, (p) -> downloadFileAsync(p, metadata))));
-    }
   }
 }

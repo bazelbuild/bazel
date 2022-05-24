@@ -42,7 +42,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
-import org.xml.sax.SAXException;
 
 /** Represents a collection of raw, merged resources with an optional id list. */
 public class ResourcesZip {
@@ -216,7 +215,6 @@ public class ResourcesZip {
    * @return A ShrunkProtoApk, which must be closed when finished.
    * @throws ParserConfigurationException thrown when the xml parsing not possible.
    * @throws IOException thrown when the filesystem is going pear shaped.
-   * @throws SAXException thrown when the xml parsing goes badly.
    */
   @CheckReturnValue
   public ShrunkProtoApk shrinkUsingProto(

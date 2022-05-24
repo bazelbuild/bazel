@@ -531,9 +531,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "use_workers_with_dexbuilder",
-        // TODO(b/226226799): Set this back to true once
-        // https://github.com/bazelbuild/bazel/issues/10241 is addressed
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.EXECUTION},
         help = "Whether dexbuilder supports being run in local worker mode.")

@@ -16,6 +16,7 @@ package com.google.devtools.build.importdeps;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
@@ -30,7 +31,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -137,9 +138,25 @@ public final class ImportDepsChecker implements Closeable {
   }
 
   private void emitAddDepCommandForIndirectJars(String ruleLabel, StringBuilder builder) {
-    ImmutableList<Path> indirectJars = resultCollector.getSortedIndirectDeps();
+    ImmutableMultimap<Path, String> indirectJars = resultCollector.getSortedIndirectDeps();
     if (!indirectJars.isEmpty()) {
-      ImmutableList<String> labels = extractLabels(indirectJars);
+      Set<String> labels = new LinkedHashSet<>();
+      for (var e : indirectJars.asMap().entrySet()) {
+        Path jar = e.getKey();
+        String label = extractLabel(jar);
+        builder.append("Indirect reference to classes from ");
+        if (label != null) {
+          labels.add(label);
+          builder.append(label);
+        } else {
+          builder.append(jar);
+        }
+        builder.append(" in:");
+        for (String missing : e.getValue()) {
+          builder.append('\n').append(INDENT).append(missing.replace('/', '.'));
+        }
+        builder.append('\n');
+      }
       if (ruleLabel.isEmpty() || labels.isEmpty()) {
         builder
             .append(
@@ -148,7 +165,7 @@ public final class ImportDepsChecker implements Closeable {
                     + "'query' command, and add them to the dependencies of ")
             .append(ruleLabel.isEmpty() ? inputJars : ruleLabel)
             .append('\n');
-        for (Path jar : indirectJars) {
+        for (Path jar : indirectJars.keySet()) {
           builder.append(jar).append('\n');
         }
       } else {
@@ -263,15 +280,6 @@ public final class ImportDepsChecker implements Closeable {
     } else {
       return klassName;
     }
-  }
-
-  private static ImmutableList<String> extractLabels(ImmutableList<Path> jars) {
-    return jars.stream()
-        .map(ImportDepsChecker::extractLabel)
-        .filter(Objects::nonNull)
-        .distinct()
-        .sorted()
-        .collect(ImmutableList.toImmutableList());
   }
 
   private static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");

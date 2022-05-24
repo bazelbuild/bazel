@@ -1,3 +1,39 @@
+## Release 6.0.0-pre.20220517.1 (2022-05-23)
+
+```
+Baseline: 61fd06d92706d64fbcef64f0f54cded91c88afff
+```
+
+Incompatible changes:
+
+  - Split up the C++ archive from the C++ link action and set
+    `CppArchive` as mnemonic.
+
+Important changes:
+
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather
+    than always linking statically when Windows is the _host_).
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - "blaze config" now only reports info from the last build. To
+    compare configurations across multiple builds, redirect "blaze
+    config" output to a file and run your favorite diff tool.
+  - The --incompatible_override_toolchain_transition flag is now
+    always set, and will be removed in the future. Thus,
+    --noincompatible_override_toolchain_transition has no effect, and
+    the value of the incompatible_use_toolchain_transition parameter
+    in aspect() and rule() builtins is ignored.
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather
+    than always linking statically when Windows is the _host_).
+  - Toolchain types may now be optional, in addition to mandatory.
+    See https://bazel.build/docs/toolchains#optional-toolchains for
+    further details.
+
+This release contains contributions from many people at Google, as well as Andreas Fuchs, Andrew Klotz, Benjamin Lee, Benjamin Peterson, Chris Clearwater, Christopher Peterson Sauer, Christopher Sauer, Daniel Wagner-Hall, Fabian Meumertzheim, Fredrik Medley, George Prekas, Grzegorz Lukasik, Halil Sener, homuler, John Laxson, John Millikin, Keith Smiley, Matt Clarkson, Peter Mounce, Philipp Schrader, Ryan Beasley, Saleem Abdulrasool, Takeo Sawada, ThomasCJY, Vladimir Tagakov, Xdng Yng.
+
 ## Release 6.0.0-pre.20220421.3 (2022-05-03)
 
 ```
