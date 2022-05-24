@@ -36,7 +36,7 @@ def _mini_tar_impl(ctx):
     args = ctx.actions.args()
     args.add("--output", ctx.outputs.out.path)
     args.add("--mode", ctx.attr.mode)
-    args.add( "--owner", ctx.attr.owner)
+    # args.add( "--owner", ctx.attr.owner)
     if ctx.attr.package_dir:
         args.add("--directory", ctx.attr.package_dir)
     if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
@@ -63,7 +63,7 @@ _real_mini_tar = rule(
         "mode": attr.string(default = "0555"),
         "mtime": attr.int(default = -1),
         "out": attr.output(),
-        "owner": attr.string(default = "0.0"),
+        # "owner": attr.string(default = "0.0"),
         "package_dir": attr.string(),
         "srcs": attr.label_list(allow_files = True),
 

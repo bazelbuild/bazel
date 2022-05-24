@@ -29,12 +29,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RepoWithRuleWritingTextGeneratorTest {
   private static final String BUILD_TEXT =
-      "load(\"//tools/mini_tar:tar.bzl\", \"mini_tar\")\n"
+      "load(\"//io_bazel/tools/mini_tar:tar.bzl\", \"mini_tar\")\n"
           + "load('//:helper.bzl', 'write_to_file')\n"
           + "write_to_file(name = 'write_text', filename = 'out', text ='HELLO')\n"
           + "mini_tar(name = \"mini_tar_write_text\", srcs = glob([\"*\"]),)";
   private static final String BUILD_TEXT_PARAMS =
-      "load(\"//tools/mini_tar:tar.bzl\", \"mini_tar\")\n"
+      "load(\"//io_bazel/tools/mini_tar:tar.bzl\", \"mini_tar\")\n"
           + "load('//:helper.bzl', 'write_to_file')\n"
           + "write_to_file(name = 'target', filename = 'file', text ='text')\n"
           + "mini_tar(name = \"mini_tar_target\", srcs = glob([\"*\"]),)";

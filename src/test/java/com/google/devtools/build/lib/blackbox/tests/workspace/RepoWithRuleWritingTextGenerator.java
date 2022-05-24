@@ -130,7 +130,8 @@ public class RepoWithRuleWritingTextGenerator {
       PathUtils.writeFileInDir(
           root,
           "BUILD",
-          "load(\"//tools/mini_tar:tar.bzl\", \"mini_tar\")",
+          "load(\"//io_bazel/tools/mini_tar:tar.bzl\", \"mini_tar\")",
+
           loadRule(""),
           callRule(target, outFile, outputText),
           String.format("mini_tar(name = \"%s\", srcs = glob([\"*\"]),)", getPkgTarTarget()));
