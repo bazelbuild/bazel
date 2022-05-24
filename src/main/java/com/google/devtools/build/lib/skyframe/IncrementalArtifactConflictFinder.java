@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ActionConflictsAndStats;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -79,13 +81,16 @@ public final class IncrementalArtifactConflictFinder {
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
-    constructActionGraphAndArtifactList(
-        executorService,
-        threadSafeMutableActionGraph,
-        pathFragmentTrieRoot,
-        actionLookupValues,
-        strictConflictChecks,
-        temporaryBadActionMap);
+    try (SilentCloseable c =
+        Profiler.instance().profile("IncrementalArtifactConflictFinder.findArtifactConflicts")) {
+      constructActionGraphAndArtifactList(
+          executorService,
+          threadSafeMutableActionGraph,
+          pathFragmentTrieRoot,
+          actionLookupValues,
+          strictConflictChecks,
+          temporaryBadActionMap);
+    }
 
     return ActionConflictsAndStats.create(
         ImmutableMap.copyOf(temporaryBadActionMap), threadSafeMutableActionGraph.getSize());

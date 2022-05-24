@@ -66,7 +66,7 @@ Here, a package is built from three `pkg_tar` targets:
 
 ```python
 pkg_tar(name, extension, strip_prefix, package_dir, srcs,
-mode, modes, deps, symlinks)
+mode, modes, deps)
 ```
 
 Creates a tar file from a list of inputs.
@@ -217,21 +217,6 @@ Creates a tar file from a list of inputs.
         <p>Tar files to extract and include in this tar package.</p>
         <p>
           A list of tarball labels to merge into the output tarball.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>symlinks</code></td>
-      <td>
-        <code>Dictionary, optional</code>
-        <p>Symlinks to create in the output tarball.</p>
-        <p>
-          <code>
-          symlinks = {
-           "/path/to/link": "/path/to/target",
-           ...
-          },
-          </code>
         </p>
       </td>
     </tr>

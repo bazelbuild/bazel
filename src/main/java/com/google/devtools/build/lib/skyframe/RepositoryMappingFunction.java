@@ -50,6 +50,24 @@ public class RepositoryMappingFunction implements SkyFunction {
 
     BazelModuleResolutionValue bazelModuleResolutionValue = null;
     if (Preconditions.checkNotNull(RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env))) {
+      if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
+        // Builtins .bzl files should use the repo mapping of @bazel_tools, to get access to repos
+        // such as @platforms.
+        RepositoryMappingValue bazelToolsMapping =
+            (RepositoryMappingValue)
+                env.getValue(RepositoryMappingValue.key(RepositoryName.BAZEL_TOOLS));
+        if (bazelToolsMapping == null) {
+          return null;
+        }
+        // We need to make sure that @_builtins maps to @_builtins too.
+        return RepositoryMappingValue.withMapping(
+            RepositoryMapping.create(
+                    ImmutableMap.of(
+                        StarlarkBuiltinsValue.BUILTINS_REPO, StarlarkBuiltinsValue.BUILTINS_REPO),
+                    StarlarkBuiltinsValue.BUILTINS_NAME)
+                .withAdditionalMappings(bazelToolsMapping.getRepositoryMapping()));
+      }
+
       bazelModuleResolutionValue =
           (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
       if (env.valuesMissing()) {

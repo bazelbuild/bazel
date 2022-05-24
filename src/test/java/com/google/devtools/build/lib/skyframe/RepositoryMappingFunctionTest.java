@@ -583,6 +583,39 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void builtinsRepo() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        // Add an explicit dependency on @bazel_tools since we're not using built-in modules in this
+        // test
+        "bazel_dep(name='bazel_tools',version='1.0')");
+    registry
+        .addModule(
+            createModuleKey("bazel_tools", "1.0"),
+            "module(name='bazel_tools',version='1.0')",
+            "bazel_dep(name='foo', version='1.0')")
+        .addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
+
+    RepositoryName name = RepositoryName.create("_builtins");
+    SkyKey skyKey = RepositoryMappingValue.key(name);
+    EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
+
+    assertThat(result.hasError()).isFalse();
+    assertThatEvaluationResult(result)
+        .hasEntryThat(skyKey)
+        .isEqualTo(
+            withMapping(
+                ImmutableMap.of(
+                    RepositoryName.create("bazel_tools"),
+                    RepositoryName.create("bazel_tools"), // bazel_tools is a well-known module
+                    RepositoryName.create("foo"),
+                    RepositoryName.create("foo.1.0"),
+                    RepositoryName.create("_builtins"),
+                    RepositoryName.create("_builtins")),
+                name));
+  }
+
+  @Test
   public void testEqualsAndHashCode() throws Exception {
     new EqualsTester()
         .addEqualityGroup(

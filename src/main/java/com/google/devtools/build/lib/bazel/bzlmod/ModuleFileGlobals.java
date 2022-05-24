@@ -179,7 +179,8 @@ public class ModuleFileGlobals {
       throw Starlark.errorf("the module() directive can only be called once");
     }
     moduleCalled = true;
-    // TODO(wyv): add validation logic for name (alphanumerical) & others in the future
+    // TODO(wyv): add validation logic for name (alphanumerical, start with a letter) & others in
+    //   the future
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
@@ -250,7 +251,8 @@ public class ModuleFileGlobals {
     if (repoName.isEmpty()) {
       repoName = name;
     }
-    // TODO(wyv): add validation logic for name (alphanumerical) and repoName (RepositoryName?)
+    // TODO(wyv): add validation logic for name (alphanumerical, start with a letter) and repoName
+    //   (RepositoryName?, start with a letter)
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
@@ -341,6 +343,7 @@ public class ModuleFileGlobals {
 
     void addImport(String localRepoName, String exportedName, Location location)
         throws EvalException {
+      // TODO(wyv): validate both repo names (RepositoryName.validate; starts with a letter)
       addRepoNameUsage(localRepoName, "by a use_repo() call", location);
       if (imports.containsValue(exportedName)) {
         String collisionRepoName = imports.inverse().get(exportedName);

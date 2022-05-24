@@ -92,6 +92,13 @@ public class AaptCommandBuilder {
     return this;
   }
 
+  public AaptCommandBuilder add(String flag, Optional<Path> optionalPath) {
+    Preconditions.checkNotNull(flag);
+    Preconditions.checkNotNull(optionalPath);
+    optionalPath.ifPresent(p -> add(flag, p));
+    return this;
+  }
+
   /**
    * Adds a flag to the builder multiple times, once for each value in the given collection. {@code
    * null} values will be skipped. If the collection is empty, nothing will be added. The values
@@ -160,13 +167,6 @@ public class AaptCommandBuilder {
   /** Assembles the full command line as a list. */
   public List<String> build() {
     return flags.build();
-  }
-
-  public AaptCommandBuilder add(String flag, Optional<Path> optionalPath) {
-    Preconditions.checkNotNull(flag);
-    Preconditions.checkNotNull(optionalPath);
-    optionalPath.ifPresent(p -> add(flag, p));
-    return this;
   }
 
   /** Wrapper for potentially adding flags to an AaptCommandBuilder based on a conditional. */

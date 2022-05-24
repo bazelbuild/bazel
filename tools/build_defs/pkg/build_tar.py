@@ -14,7 +14,6 @@
 """This tool build tar files from a list of inputs."""
 
 import os
-import tarfile
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
@@ -36,14 +35,6 @@ flags.DEFINE_string(
     ' is usable with non *nix OSes')
 
 flags.DEFINE_multi_string('tar', [], 'A tar file to add to the layer')
-
-flags.DEFINE_multi_string(
-    'link', [],
-    'Add a symlink a inside the layer ponting to b if a:b is specified')
-flags.register_validator(
-    'link',
-    lambda l: all(value.find(':') > 0 for value in l),
-    message='--link value should contains a : separator')
 
 flags.DEFINE_string('directory', None,
                     'Directory in which to store the file inside the layer')
@@ -145,16 +136,6 @@ class TarFile(object):
       root = self.directory
     self.tarfile.add_tar(tar, numeric=True, root=root)
 
-  def add_link(self, symlink, destination):
-    """Add a symbolic link pointing to `destination`.
-
-    Args:
-      symlink: the name of the symbolic link to add.
-      destination: where the symbolic link point to.
-    """
-    symlink = os.path.normpath(symlink)
-    self.tarfile.add_file(symlink, tarfile.SYMTYPE, link=destination)
-
 
 def unquote_and_split(arg, c):
   """Split a string at the first unquoted occurrence of a character.
@@ -239,9 +220,6 @@ def main(unused_argv):
       output.add_file(inf, tof, **file_attributes(tof))
     for tar in FLAGS.tar:
       output.add_tar(tar)
-    for link in FLAGS.link:
-      l = unquote_and_split(link, ':')
-      output.add_link(l[0], l[1])
 
 
 if __name__ == '__main__':
