@@ -295,3 +295,7 @@ def xcode_configure(xcode_locator_label, remote_xcode_label = None):
         xcode_locator = xcode_locator_label,
         remote_xcode = remote_xcode_label,
     )
+
+xcode_configure_extension = module_extension(
+    implementation = lambda ctx: xcode_configure("@bazel_tools//tools/osx:xcode_locator.m"),
+)
