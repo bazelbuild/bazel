@@ -570,11 +570,11 @@ public abstract class Type<T> {
 
     @Override
     public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
-      LinkedHashMap<KeyT, ValueT> output = new LinkedHashMap<>();
+      ImmutableMap.Builder<KeyT, ValueT> output = new ImmutableMap.Builder<>();
       for (Map<KeyT, ValueT> map: iterable){
         output.putAll(map);
       }
-      return ImmutableMap.copyOf(output);
+      return output.buildKeepingLast();
     }
 
     @Override
