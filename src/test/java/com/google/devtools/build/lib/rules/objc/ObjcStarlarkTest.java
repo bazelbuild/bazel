@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -304,13 +305,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesObjc() throws Exception {
+  public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesCcInfo() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
         "def my_rule_impl(ctx):",
-        "   objc_provider = apple_common.new_objc_provider(linkopt=depset(['mock_linkopt']))",
-        "   return [objc_provider]",
+        "   return [CcInfo()]",
         "my_rule = rule(implementation = my_rule_impl,",
         "   attrs = {})");
 
@@ -336,8 +336,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget libTarget = getConfiguredTarget("//examples/apple_starlark:lib");
-    ObjcProvider libObjcProvider = libTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(libObjcProvider.get(ObjcProvider.LINKOPT).toList()).contains("mock_linkopt");
+    assertThat(libTarget.get(CcInfo.PROVIDER)).isNotNull();
   }
 
   @Test
@@ -956,7 +955,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             "   strict_includes = depset(['path'])",
             "   created_provider = apple_common.new_objc_provider\\",
             "(strict_include=strict_includes)",
-            "   return [created_provider]");
+            "   return [created_provider, CcInfo()]");
 
     ObjcProvider starlarkProvider = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(starlarkProvider.getStrictDependencyIncludes())
