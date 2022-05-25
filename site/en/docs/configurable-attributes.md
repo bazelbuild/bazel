@@ -999,4 +999,90 @@ Caution: To prevent restarting the Bazel server, invoke `bazel config` with the
 same command line flags as the `bazel cquery`. The `config` command relies on
 the configuration nodes from the still-running server of the previous command.
 
+### Why doesn't select() work with platforms? {:#faq-select-platforms}
+
+Users frequently want to write a configurable attribute that checks whether a
+particular platform is the target platform. Unfortunately, this is not directly
+supported.
+
+The semantics of this are confusing: imagine the following BUILD file:
+
+```py
+platform(
+    name = "x86_linux_platform",
+    constraint_values = [
+        "@platforms//cpu:x86",
+        "@platforms//os:linux",
+    ],
+)
+
+cc_library(
+    name = "lib",
+    srcs = [...],
+    linkopts = select({
+        ":x86_linux_platform": ["--enable_x86_optimizations"],
+        "//conditions:default": [],
+    }),
+)
+```
+
+In this case, which select should be used if the target platform has both the
+`@platforms//cpu:x86` and `@platforms//os:linux` constraints, but is **not** the
+`:x86_linux_platform` defined here? The author of the BUILD file and the user
+who defined the separate platform may have different ideas.
+
+#### What should I do instead?
+
+Instead, you can define a `config_setting` that will match **any** platform with
+these constraints:
+
+```py
+config_setting(
+    name = "is_x86_linux",
+    constraint_values = [
+        "@platforms//cpu:x86",
+        "@platforms//os:linux",
+    ],
+)
+
+cc_library(
+    name = "lib",
+    srcs = [...],
+    linkopts = select({
+        ":is_x86_linux": ["--enable_x86_optimizations"],
+        "//conditions:default": [],
+    }),
+)
+```
+
+This has very specific semantics and is much clearer to users what conditions
+cause the conditions to be met.
+
+#### What if I really, really want to select on the platform?
+
+If your build requirements are very specific about checking the platform, you
+can check the value of the `--platforms` flag in a `config_setting`:
+
+```py
+config_setting(
+    name = "is_specific_x86_linux_platform",
+    values = {
+        "platforms": ["//package:x86_linux_platform"],
+    },
+)
+
+cc_library(
+    name = "lib",
+    srcs = [...],
+    linkopts = select({
+        ":is_specific_x86_linux_platform": ["--enable_x86_optimizations"],
+        "//conditions:default": [],
+    }),
+)
+```
+
+This is almost certainly a bad idea, will overly constraint your build, and will
+confuse users when the expected condition does not match.
+
+
 [BuildSettings]: /rules/config#user-defined-build-settings
