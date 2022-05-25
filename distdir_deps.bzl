@@ -233,6 +233,7 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
+            "test_WORKSPACE_files",
         ],
     },
     "rules_pkg": {
