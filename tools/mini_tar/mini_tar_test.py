@@ -29,22 +29,20 @@ class TarFileWriterTest(unittest.TestCase):
     """Assert that tarfile contains exactly the entry described by `content`.
 
     Args:
-        tar: the path to the TAR file to test.
-        content: an array describing the expected content of the TAR file.
-            Each entry in that list should be a dictionary where each field
-            is a field to test in the corresponding TarInfo. For
-            testing the presence of a file "x", then the entry could simply
-            be `{"name": "x"}`, the missing field will be ignored. To match
-            the content of a file entry, use the key "data".
+      tar: the path to the TAR file to test.
+      content: an array describing the expected content of the TAR file. Each
+               entry in that list should be a dictionary where each field is a
+               field to test in the corresponding TarInfo. For testing the
+               presence of a file "x", then the entry could simply be
+               `{"name": "x"}`, the missing field will be ignored. To match the
+               content of a file entry, use the key "data".
     """
     with tarfile.open(tar, "r:") as f:
       i = 0
       for current in f:
-        error_msg = "Extraneous file at end of archive %s: %s" % (
-            tar,
-            current.name
-            )
-        self.assertTrue(i < len(content), error_msg)
+        error_msg = "Extraneous file at end of archive %s: %s" % (tar,
+                                                                  current.name)
+        self.assertLess(i, len(content), error_msg)
         for k, v in content[i].items():
           if k == "data":
             value = f.extractfile(current).read()
@@ -54,16 +52,18 @@ class TarFileWriterTest(unittest.TestCase):
               "Value `%s` for key `%s` of file" % (value, k),
               "%s in archive %s does" % (current.name, tar),
               "not match expected value `%s`" % v
-              ])
+          ])
           self.assertEqual(value, v, error_msg)
         i += 1
       if i < len(content):
         self.fail("Missing file %s in archive %s" % (content[i], tar))
 
   def setUp(self):
+    super(TarFileWriterTest, self).setUp()
     self.tempfile = os.path.join(os.environ["TEST_TMPDIR"], "test.tar")
 
   def tearDown(self):
+    super(TarFileWriterTest, self).tearDown()
     if os.path.exists(self.tempfile):
       os.remove(self.tempfile)
 
@@ -91,11 +91,21 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_file_and_parents("..d")
       f.add_file_and_parents(".e")
     content = [
-        {"name": "a"},
-        {"name": "b"},
-        {"name": "b/.c"},
-        {"name": "..d"},
-        {"name": ".e"},
+        {
+            "name": "a"
+        },
+        {
+            "name": "b"
+        },
+        {
+            "name": "b/.c"
+        },
+        {
+            "name": "..d"
+        },
+        {
+            "name": ".e"
+        },
     ]
     self.assertTarFileContent(self.tempfile, content)
 
@@ -105,21 +115,53 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_file_and_parents("a/b/foo")
       f.add_parents("a/b/e/file")
     content = [
-        {"name": "a", "mode": 0o755},
-        {"name": "a/b", "mode": 0o755},
-        {"name": "a/b/c", "mode": 0o755},
-        {"name": "a/b/c/d", "mode": 0o755},
-        {"name": "a/b/foo", "mode": 0o644},
-        {"name": "a/b/e", "mode": 0o755},
+        {
+            "name": "a",
+            "mode": 0o755
+        },
+        {
+            "name": "a/b",
+            "mode": 0o755
+        },
+        {
+            "name": "a/b/c",
+            "mode": 0o755
+        },
+        {
+            "name": "a/b/c/d",
+            "mode": 0o755
+        },
+        {
+            "name": "a/b/foo",
+            "mode": 0o644
+        },
+        {
+            "name": "a/b/e",
+            "mode": 0o755
+        },
     ]
     self.assertTarFileContent(self.tempfile, content)
 
   def test_adding_tree(self):
     content = [
-        {"name": "./a", "mode": 0o750},
-        {"name": "./a/b", "data": b"ab", "mode": 0o640},
-        {"name": "./a/c", "mode": 0o750},
-        {"name": "./a/c/d", "data": b"acd", "mode": 0o640},
+        {
+            "name": "./a",
+            "mode": 0o750
+        },
+        {
+            "name": "./a/b",
+            "data": b"ab",
+            "mode": 0o640
+        },
+        {
+            "name": "./a/c",
+            "mode": 0o750
+        },
+        {
+            "name": "./a/c/d",
+            "data": b"acd",
+            "mode": 0o640
+        },
     ]
     tempdir = os.path.join(os.environ["TEST_TMPDIR"], "test_dir")
     # Iterate over the `content` array to create the directory
@@ -138,8 +180,14 @@ class TarFileWriterTest(unittest.TestCase):
     with mini_tar.TarFileWriter(self.tempfile, root_directory="foo") as f:
       f.add_file_at_dest(in_path=tempdir, dest_path="x", mode=0o640)
     n_content = [
-        {"name": "foo", "mode": 0o755},
-        {"name": "foo/x", "mode": 0o750},
+        {
+            "name": "foo",
+            "mode": 0o755
+        },
+        {
+            "name": "foo/x",
+            "mode": 0o750
+        },
     ]
     for c in content:
       nc = copy.copy(c)

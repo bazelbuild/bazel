@@ -76,6 +76,50 @@ class TestUtils {
         args);
   }
 
+  static WorkerKey createWorkerKey(
+      FileSystem fileSystem, String mnemonic, boolean proxied, String... args) {
+    return createWorkerKey(
+        WorkerProtocolFormat.PROTO,
+        fileSystem,
+        mnemonic,
+        proxied,
+        /* sandboxed= */ false,
+        /* dynamic= */ false,
+        args);
+  }
+
+  static WorkerKey createWorkerKey(WorkerProtocolFormat protocolFormat, FileSystem fs) {
+    return createWorkerKey(protocolFormat, fs, false);
+  }
+
+  static WorkerKey createWorkerKey(
+      WorkerProtocolFormat protocolFormat, FileSystem fs, boolean dynamic) {
+    return createWorkerKey(
+        protocolFormat,
+        fs,
+        /* mnemonic= */ "dummy",
+        /* proxied= */ true,
+        /* sandboxed= */ true,
+        dynamic,
+        /* args...= */ "arg1",
+        "arg2",
+        "arg3");
+  }
+
+  static WorkerKey createWorkerKey(
+      FileSystem fs, boolean multiplex, boolean sandboxed, boolean dynamic) {
+    return createWorkerKey(
+        WorkerProtocolFormat.PROTO,
+        fs,
+        /* mnemonic= */ "dummy",
+        multiplex,
+        sandboxed,
+        dynamic,
+        /* args...= */ "arg1",
+        "arg2",
+        "arg3");
+  }
+
   /**
    * Creates a worker key based on a set of options. The {@code extraRequirements} are added to the
    * {@link Spawn} execution info with the value "1". The "supports-workers" and
@@ -133,50 +177,6 @@ class TestUtils {
         workerOptions,
         dynamic,
         protocolFormat);
-  }
-
-  static WorkerKey createWorkerKey(
-      FileSystem fileSystem, String mnemonic, boolean proxied, String... args) {
-    return createWorkerKey(
-        WorkerProtocolFormat.PROTO,
-        fileSystem,
-        mnemonic,
-        proxied,
-        /* sandboxed= */ false,
-        /* dynamic= */ false,
-        args);
-  }
-
-  static WorkerKey createWorkerKey(WorkerProtocolFormat protocolFormat, FileSystem fs) {
-    return createWorkerKey(protocolFormat, fs, false);
-  }
-
-  static WorkerKey createWorkerKey(
-      WorkerProtocolFormat protocolFormat, FileSystem fs, boolean dynamic) {
-    return createWorkerKey(
-        protocolFormat,
-        fs,
-        /* mnemonic= */ "dummy",
-        /* proxied= */ true,
-        /* sandboxed= */ true,
-        dynamic,
-        /* args...= */ "arg1",
-        "arg2",
-        "arg3");
-  }
-
-  static WorkerKey createWorkerKey(
-      FileSystem fs, boolean multiplex, boolean sandboxed, boolean dynamic) {
-    return createWorkerKey(
-        WorkerProtocolFormat.PROTO,
-        fs,
-        /* mnemonic= */ "dummy",
-        multiplex,
-        sandboxed,
-        dynamic,
-        /* args...= */ "arg1",
-        "arg2",
-        "arg3");
   }
 
   /** A worker that uses a fake subprocess for I/O. */

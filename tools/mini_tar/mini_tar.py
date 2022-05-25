@@ -32,10 +32,8 @@ class TarFileWriter(object):
   def __init__(self,
                name,
                root_directory='',
-               default_gid=0,
                default_uid=0,
-               default_uname='',
-               default_gname='',
+               default_gid=0,
                default_mtime=None):
     """TarFileWriter wraps tarfile.open().
 
@@ -44,19 +42,15 @@ class TarFileWriter(object):
       root_directory: virtual root to prepend to elements in the archive.
       default_uid: uid to assign to files in the archive.
       default_gid: gid to assign to files in the archive.
-      default_uname: user name to assign to files in the archive.
-      default_gname: group name to assign to files in the archive.
-      default_mtime: default mtime to use for elements in the archive.
-          May be an integer or the value 'portable' to use the date
-          2000-01-01, which is compatible with non *nix OSes'.
+      default_mtime: default mtime to use for elements in the archive. May be an
+        integer or the value 'portable' to use the date 2000-01-01, which is
+        compatible with non *nix OSes'.
     """
     mode = 'w:'
     self.name = name
     self.root_directory = root_directory.strip('/')
     self.default_gid = default_gid
     self.default_uid = default_uid
-    self.default_uname = default_uname
-    self.default_gname = default_gname
     if default_mtime is None:
       self.default_mtime = 0
     elif default_mtime == 'portable':
@@ -109,12 +103,10 @@ class TarFileWriter(object):
       if len(components) > 1:
         add_dirs(components[0])
       self.directories.add(path)
-      tarinfo = tarfile.TarInfo(path+'/')
+      tarinfo = tarfile.TarInfo(path + '/')
       tarinfo.mtime = self.default_mtime
       tarinfo.uid = self.default_uid
       tarinfo.gid = self.default_gid
-      tarinfo.uname = self.default_uname
-      tarinfo.gname = self.default_gname
       tarinfo.type = tarfile.DIRTYPE
       tarinfo.mode = mode or 0o755
       self.tar.addfile(tarinfo, fileobj=None)
@@ -122,7 +114,6 @@ class TarFileWriter(object):
     components = path.rsplit('/', 1)
     if len(components) > 1:
       add_dirs(components[0])
-
 
   def add_tree(self, input_path, dest_path, mode=None):
     """Recursively add a tree of files.
@@ -143,14 +134,11 @@ class TarFileWriter(object):
       filelist = os.listdir(input_path)
       filelist.sort()
       for f in filelist:
-        self.add_tree(input_path = input_path + '/' + f,
-                      dest_path = dest_path + f,
-                      mode=mode)
+        self.add_tree(
+            input_path=input_path + '/' + f, dest_path=dest_path + f, mode=mode)
     else:
-      self.add_file_and_parents(dest_path,
-                                tarfile.REGTYPE,
-                                file_content=input_path,
-                                mode=mode)
+      self.add_file_and_parents(
+          dest_path, tarfile.REGTYPE, file_content=input_path, mode=mode)
 
   def add_file_and_parents(self,
                            name,
@@ -166,8 +154,8 @@ class TarFileWriter(object):
       name: the name of the file to add.
       kind: the type of the file to add, see tarfile.*TYPE.
       link: if the file is a link, the destination of the link.
-      file_content: file to read the content from. Provide either this
-          one or `content` to specifies a content for the file.
+      file_content: file to read the content from. Provide either this one or
+        `content` to specifies a content for the file.
       mode: unix permission mode of the file, default 0644 (0755).
     """
     if self.root_directory and (
@@ -189,8 +177,6 @@ class TarFileWriter(object):
     tarinfo.mtime = self.default_mtime
     tarinfo.uid = self.default_uid
     tarinfo.gid = self.default_gid
-    tarinfo.uname = self.default_uname
-    tarinfo.gname = self.default_gname
     tarinfo.type = kind
     if mode is None:
       tarinfo.mode = 0o644 if kind == tarfile.REGTYPE else 0o755
@@ -217,7 +203,7 @@ class TarFileWriter(object):
     dest = os.path.normpath(dest_path.strip('/')).replace(os.path.sep, '/')
     # If mode is unspecified, derive the mode from the file's mode.
     if mode is None:
-      mode = 0o755 if os.access(f, os.X_OK) else 0o644
+      mode = 0o755 if os.access(dest, os.X_OK) else 0o644
     self.add_file_and_parents(dest, file_content=in_path, mode=mode)
 
 
@@ -258,25 +244,19 @@ def unquote_and_split(arg, c):
 
 def main():
   parser = argparse.ArgumentParser(
-      description='Helper for building tar packages',
-      fromfile_prefix_chars='@')
+      description='Helper for building tar packages', fromfile_prefix_chars='@')
   parser.add_argument(
-      '--output',
-      required=True,
-      help='The output file, mandatory.')
+      '--output', required=True, help='The output file, mandatory.')
   parser.add_argument(
-      '--mode',
-      help='Force the mode on the added files (in octal).')
+      '--mode', help='Force the mode on the added files (in octal).')
   parser.add_argument(
       '--directory',
       help='Directory in which to store the file inside the layer')
   parser.add_argument('--file', action='append', help='input_paty=dest_path')
   parser.add_argument(
-      '--owner', default='0.0',
+      '--owner',
+      default='0.0',
       help='Specify the numeric default owner of all files. E.g. 0.0')
-  parser.add_argument(
-      '--owner_name',
-      help='Specify the owner name of all files, e.g. root.root.')
   options = parser.parse_args()
 
   # Parse modes arguments
@@ -285,10 +265,6 @@ def main():
     # Convert from octal
     default_mode = int(options.mode, 8)
 
-  default_ownername = ('', '')
-  if options.owner_name:
-    default_ownername = options.owner_name.split('.', 1)
-
   uid = gid = 0
   if options.owner:
     ids = options.owner.split('.', 1)
@@ -296,12 +272,12 @@ def main():
     gid = int(ids[1])
 
   # Add objects to the tar file
-  with TarFileWriter(name=options.output,
-                     root_directory=options.directory or '',
-                     default_uid=uid, default_gid=gid,
-                     default_uname=default_ownername[0],
-                     default_gname=default_ownername[1],
-                     default_mtime=PORTABLE_MTIME) as output:
+  with TarFileWriter(
+      name=options.output,
+      root_directory=options.directory or '',
+      default_uid=uid,
+      default_gid=gid,
+      default_mtime=PORTABLE_MTIME) as output:
     for f in options.file:
       (input_path, dest) = unquote_and_split(f, '=')
       output.add_file_at_dest(input_path, dest, mode=default_mode)

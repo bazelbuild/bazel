@@ -927,6 +927,26 @@ def _impl(ctx):
                         expand_if_available = "output_execpath",
                     ),
                 ],
+                with_features = [
+                    with_feature_set(
+                        not_features = ["libtool"],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.cpp_link_static_library],
+                flag_groups = [
+                    flag_group(flags = ["-static", "-s"]),
+                    flag_group(
+                        flags = ["-o", "%{output_execpath}"],
+                        expand_if_available = "output_execpath",
+                    ),
+                ],
+                with_features = [
+                    with_feature_set(
+                        features = ["libtool"],
+                    ),
+                ],
             ),
             flag_set(
                 actions = [ACTION_NAMES.cpp_link_static_library],
@@ -953,6 +973,14 @@ def _impl(ctx):
                         expand_if_available = "libraries_to_link",
                     ),
                 ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.cpp_link_static_library],
+                flag_groups = ([
+                    flag_group(
+                        flags = ctx.attr.archive_flags,
+                    ),
+                ] if ctx.attr.archive_flags else []),
             ),
         ],
     )
@@ -1147,6 +1175,10 @@ def _impl(ctx):
     )
 
     is_linux = ctx.attr.target_libc != "macosx"
+    libtool_feature = feature(
+        name = "libtool",
+        enabled = not is_linux,
+    )
 
     # TODO(#8303): Mac crosstool should also declare every feature.
     if is_linux:
@@ -1175,6 +1207,7 @@ def _impl(ctx):
             output_execpath_flags_feature,
             runtime_library_search_directories_feature,
             library_search_directories_feature,
+            libtool_feature,
             archiver_flags_feature,
             force_pic_flags_feature,
             fission_support_feature,
@@ -1211,6 +1244,8 @@ def _impl(ctx):
             ),
         ]
         features = [
+            libtool_feature,
+            archiver_flags_feature,
             supports_pic_feature,
         ] + (
             [
@@ -1267,6 +1302,7 @@ cc_toolchain_config = rule(
         "opt_compile_flags": attr.string_list(),
         "cxx_flags": attr.string_list(),
         "link_flags": attr.string_list(),
+        "archive_flags": attr.string_list(),
         "link_libs": attr.string_list(),
         "opt_link_flags": attr.string_list(),
         "unfiltered_compile_flags": attr.string_list(),

@@ -23,20 +23,20 @@ def _quote(filename, protect = "="):
 def _mini_tar_impl(ctx):
     """Implementation of the mini_tar rule."""
 
-    to_strip = ctx.label.package + '/'
+    to_strip = ctx.label.package + "/"
 
     def dest_path(file):
-      # print('FILE', file.path, file.short_path)
-      ret = file.short_path
-      if ret.startswith(to_strip):
-          ret = ret[len(to_strip):]
-      return ret
+        # print('FILE', file.path, file.short_path)
+        ret = file.short_path
+        if ret.startswith(to_strip):
+            ret = ret[len(to_strip):]
+        return ret
 
     # Start building the arguments.
     args = ctx.actions.args()
     args.add("--output", ctx.outputs.out.path)
     args.add("--mode", ctx.attr.mode)
-    args.add( "--owner", ctx.attr.owner)
+    args.add("--owner", ctx.attr.owner)
     if ctx.attr.package_dir:
         args.add("--directory", ctx.attr.package_dir)
     if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
