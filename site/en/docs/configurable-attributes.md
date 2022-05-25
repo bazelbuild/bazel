@@ -1081,8 +1081,7 @@ cc_library(
 )
 ```
 
-This is almost certainly a bad idea, will overly constraint your build, and will
+This is almost certainly a bad idea, will overly constrain your build, and will
 confuse users when the expected condition does not match.
-
 
 [BuildSettings]: /rules/config#user-defined-build-settings
