@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * Generator of the test local repository with:
@@ -127,10 +128,13 @@ public class RepoWithRuleWritingTextGenerator {
     Path workspace = PathUtils.writeFileInDir(root, "WORKSPACE");
     PathUtils.writeFileInDir(root, HELPER_FILE, WRITE_TEXT_TO_FILE);
     if (generateBuildFile) {
+      PathUtils.copyTree(
+          Paths.get("tools/mini_tar"), 
+          root.resolve("tools/mini_tar"));
       PathUtils.writeFileInDir(
           root,
           "BUILD",
-          "load(\"//io_bazel/tools/mini_tar:tar.bzl\", \"mini_tar\")",
+          "load(\"//tools/mini_tar:tar.bzl\", \"mini_tar\")",
 
           loadRule(""),
           callRule(target, outFile, outputText),

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 load("//tools/mini_tar:tar.bzl", "mini_tar")
-load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -19,7 +18,7 @@ py_binary(
     name = "mini_tar",
     srcs = ["mini_tar.py"],
     python_version = "PY3",
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
 )
 

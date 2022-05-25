@@ -14,6 +14,7 @@
 # limitations under the License.
 """Testing for archive."""
 
+import copy
 import os
 import tarfile
 import unittest
@@ -66,29 +67,29 @@ class TarFileWriterTest(unittest.TestCase):
     if os.path.exists(self.tempfile):
       os.remove(self.tempfile)
 
-  def testEmptyTarFile(self):
+  def test_empty_tar_file(self):
     with mini_tar.TarFileWriter(self.tempfile):
       pass
     self.assertTarFileContent(self.tempfile, [])
 
-  def testDefaultMtimeNotProvided(self):
+  def test_default_mtime_not_provided(self):
     with mini_tar.TarFileWriter(self.tempfile) as f:
       self.assertEqual(f.default_mtime, 0)
 
-  def testDefaultMtimeProvided(self):
+  def test_default_mtime_provided(self):
     with mini_tar.TarFileWriter(self.tempfile, default_mtime=1234) as f:
       self.assertEqual(f.default_mtime, 1234)
 
-  def testPortableMtime(self):
+  def test_portable_mtime(self):
     with mini_tar.TarFileWriter(self.tempfile, default_mtime="portable") as f:
       self.assertEqual(f.default_mtime, 946684800)
 
-  def testDottedFiles(self):
+  def test_files_with_dots(self):
     with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_file("a")
-      f.add_file("b/.c")
-      f.add_file("..d")
-      f.add_file(".e")
+      f.add_file_and_parents("a")
+      f.add_file_and_parents("b/.c")
+      f.add_file_and_parents("..d")
+      f.add_file_and_parents(".e")
     content = [
         {"name": "a"},
         {"name": "b"},
@@ -98,124 +99,54 @@ class TarFileWriterTest(unittest.TestCase):
     ]
     self.assertTarFileContent(self.tempfile, content)
 
-  def testAddDir(self):
-    # For some strange reason, ending slash is stripped by the test
+  def test_add_parents(self):
+    with mini_tar.TarFileWriter(self.tempfile) as f:
+      f.add_parents("a/b/c/d/file")
+      f.add_file_and_parents("a/b/foo")
+      f.add_parents("a/b/e/file")
     content = [
-        {"name": "./a", "mode": 0o755},
-        {"name": "./a/b", "data": b"ab", "mode": 0o644},
-        {"name": "./a/c", "mode": 0o755},
-        {"name": "./a/c/d", "data": b"acd", "mode": 0o644},
-        ]
+        {"name": "a", "mode": 0o755},
+        {"name": "a/b", "mode": 0o755},
+        {"name": "a/b/c", "mode": 0o755},
+        {"name": "a/b/c/d", "mode": 0o755},
+        {"name": "a/b/foo", "mode": 0o644},
+        {"name": "a/b/e", "mode": 0o755},
+    ]
+    self.assertTarFileContent(self.tempfile, content)
+
+  def test_adding_tree(self):
+    content = [
+        {"name": "./a", "mode": 0o750},
+        {"name": "./a/b", "data": b"ab", "mode": 0o640},
+        {"name": "./a/c", "mode": 0o750},
+        {"name": "./a/c/d", "data": b"acd", "mode": 0o640},
+    ]
     tempdir = os.path.join(os.environ["TEST_TMPDIR"], "test_dir")
     # Iterate over the `content` array to create the directory
     # structure it describes.
     for c in content:
       if "data" in c:
-        p = os.path.join(tempdir, c["name"][2:])
+        p = os.path.join(tempdir, c["name"])
         os.makedirs(os.path.dirname(p))
         with open(p, "wb") as f:
           f.write(c["data"])
     with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_dir("./", tempdir, mode=0o644)
+      f.add_file_at_dest(in_path=tempdir, dest_path=".", mode=0o640)
     self.assertTarFileContent(self.tempfile, content)
 
-  def testAddingDirectoriesForFile(self):
-    with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_file("d/f")
-    content = [
-        {"name": "d", "mode": 0o755},
-        {"name": "d/f"},
+    # Try it again, but re-rooted
+    with mini_tar.TarFileWriter(self.tempfile, root_directory="foo") as f:
+      f.add_file_at_dest(in_path=tempdir, dest_path="x", mode=0o640)
+    n_content = [
+        {"name": "foo", "mode": 0o755},
+        {"name": "foo/x", "mode": 0o750},
     ]
-    self.assertTarFileContent(self.tempfile, content)
+    for c in content:
+      nc = copy.copy(c)
+      nc["name"] = "foo/x/" + c["name"][2:]
+      n_content.append(nc)
+    self.assertTarFileContent(self.tempfile, n_content)
 
-  def testAddingDirectoriesForFileSeparately(self):
-    d_dir = os.path.join(os.environ["TEST_TMPDIR"], "d_dir")
-    os.makedirs(d_dir)
-    with open(os.path.join(d_dir, "dir_file"), "w"):
-      pass
-    a_dir = os.path.join(os.environ["TEST_TMPDIR"], "a_dir")
-    os.makedirs(a_dir)
-    with open(os.path.join(a_dir, "dir_file"), "w"):
-      pass
-
-    with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_dir("d", d_dir)
-      f.add_file("d/f")
-
-      f.add_dir("a", a_dir)
-      f.add_file("a/b/f")
-    content = [
-        {"name": "d",
-         "mode": 0o755},
-        {"name": "d/dir_file"},
-        {"name": "d/f"},
-        {"name": "a",
-         "mode": 0o755},
-        {"name": "a/dir_file"},
-        {"name": "a/b",
-         "mode": 0o755},
-        {"name": "a/b/f"},
-    ]
-    self.assertTarFileContent(self.tempfile, content)
-
-  def testAddingDirectoriesForFileManually(self):
-    with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_file("d", tarfile.DIRTYPE)
-      f.add_file("d/f")
-      f.add_file("a", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b/", tarfile.DIRTYPE)
-      f.add_file("a/b/c/f")
-
-      f.add_file("x/y/f")
-      f.add_file("x", tarfile.DIRTYPE)
-    content = [
-        {"name": "d", "mode": 0o755},
-        {"name": "d/f"},
-        {"name": "a", "mode": 0o755},
-        {"name": "a/b", "mode": 0o755},
-        {"name": "a/b/c", "mode": 0o755},
-        {"name": "a/b/c/f"},
-        {"name": "x", "mode": 0o755},
-        {"name": "x/y", "mode": 0o755},
-        {"name": "x/y/f"},
-    ]
-    self.assertTarFileContent(self.tempfile, content)
-
-  def testChangingRootDirectory(self):
-    with mini_tar.TarFileWriter(self.tempfile, root_directory="root") as f:
-      f.add_file("d", tarfile.DIRTYPE)
-      f.add_file("d/f")
-
-      f.add_file("a", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b/", tarfile.DIRTYPE)
-      f.add_file("a/b/c/f")
-
-      f.add_file("x/y/f")
-      f.add_file("x", tarfile.DIRTYPE)
-    content = [
-        {"name": "root",
-         "mode": 0o755},
-        {"name": "root/d",
-         "mode": 0o755},
-        {"name": "root/d/f"},
-        {"name": "root/a",
-         "mode": 0o755},
-        {"name": "root/a/b",
-         "mode": 0o755},
-        {"name": "root/a/b/c",
-         "mode": 0o755},
-        {"name": "root/a/b/c/f"},
-        {"name": "root/x",
-         "mode": 0o755},
-        {"name": "root/x/y",
-         "mode": 0o755},
-        {"name": "root/x/y/f"},
-    ]
-    self.assertTarFileContent(self.tempfile, content)
 
 if __name__ == "__main__":
   unittest.main()

@@ -21,7 +21,7 @@ java_test(
         "RepoWithRuleWritingTextGeneratorTest.java",
     ],
     data = [
-        "//tools/mini_tar:mini_tar_srcs",
+        "//tools/mini_tar:srcs",
     ],
     tags = ["black_box_test"],
     deps = common_deps,
@@ -34,6 +34,9 @@ java_test(
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceBlackBoxTest.java",
         "WorkspaceTestUtils.java",
+    ],
+    data = [
+        "//tools/mini_tar:srcs",
     ],
     tags = ["black_box_test"],
     deps = common_deps,
@@ -48,7 +51,7 @@ java_test(
         "WorkspaceTestUtils.java",
     ],
     data = [
-        "//tools/mini_tar:mini_tar_srcs",
+        "//tools/mini_tar:srcs",
     ],
     tags = ["black_box_test"],
     deps = common_deps + [
@@ -69,7 +72,7 @@ java_test(
         "WorkspaceTestUtils.java",
     ],
     data = [
-        "//tools/mini_tar:mini_tar_srcs",
+        "//tools/mini_tar:srcs",
     ],
     tags = ["black_box_test"],
     deps = common_deps + [
