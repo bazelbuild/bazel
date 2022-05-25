@@ -33,6 +33,7 @@ filegroup(
         "//tools/sh:srcs",
         "//tools/allowlists:srcs",
         "//tools/zip:srcs",
+        "//tools/mini_tar:srcs",
     ],
 )
 
