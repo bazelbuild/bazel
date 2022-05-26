@@ -230,7 +230,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
-        help = "The Android target CPU.")
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "The Android target CPU. Will not have an effect if --fat_apk_cpu has a value, "
+                + "even a default one. It is recommended to just use --fat_apk_cpu.")
     public String cpu;
 
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
