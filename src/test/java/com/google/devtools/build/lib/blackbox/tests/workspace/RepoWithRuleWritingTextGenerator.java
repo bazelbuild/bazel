@@ -28,7 +28,7 @@ import java.nio.file.Paths;
  *
  * <p>empty WORKSPACE file,
  *
- * <p>BUILD file, with write_to_file target and mini_tar target for packing the contents of the
+ * <p>BUILD file, with write_to_file target and tar target for packing the contents of the
  * generated repository.
  *
  * <p>Intended to be used by workspace tests.
@@ -128,9 +128,7 @@ public class RepoWithRuleWritingTextGenerator {
     Path workspace = PathUtils.writeFileInDir(root, "WORKSPACE");
     PathUtils.writeFileInDir(root, HELPER_FILE, WRITE_TEXT_TO_FILE);
     if (generateBuildFile) {
-      PathUtils.copyTree(
-          Paths.get("tools/mini_tar"), 
-          root.resolve("tools/mini_tar"));
+      injectMiniTar(root);
       PathUtils.writeFileInDir(
           root,
           "BUILD",
@@ -167,8 +165,18 @@ public class RepoWithRuleWritingTextGenerator {
         "%s(name = '%s', filename = '%s', text ='%s')", RULE_NAME, name, filename, text);
   }
 
-  /** @return name of the generated mini_tar target */
+  /** @return name of the generated tar target */
   String getPkgTarTarget() {
     return "mini_tar_" + target;
+  }
+
+  /** Pulls a copy of the tar file maker into a workspace
+   *
+   * @param root - the Path to the directory, where the repository contents should be placed
+   */
+  static void injectMiniTar(Path root) throws IOException {
+    PathUtils.copyTree(
+        Paths.get("tools/mini_tar"), 
+        root.resolve("tools/mini_tar"));
   }
 }

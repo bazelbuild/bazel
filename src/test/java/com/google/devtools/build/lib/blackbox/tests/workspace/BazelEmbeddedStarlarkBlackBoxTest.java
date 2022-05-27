@@ -94,6 +94,8 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
             RepoWithRuleWritingTextGenerator.loadRule("@ext"),
             RepoWithRuleWritingTextGenerator.callRule(
                 "call_from_main", "main_out.txt", HELLO_FROM_MAIN_REPOSITORY));
+ 
+    RepoWithRuleWritingTextGenerator.injectMiniTar(context().getWorkDir());
 
     // first build the archive and copy it into zipFile
     BuilderRunner bazel = bazel();
