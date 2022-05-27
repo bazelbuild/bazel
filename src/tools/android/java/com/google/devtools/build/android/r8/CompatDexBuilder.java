@@ -143,6 +143,7 @@ public class CompatDexBuilder {
     List<String> flags = new ArrayList<>();
     String input = null;
     String output = null;
+    int minSdkVersionFlag = Constants.MIN_API_LEVEL;
     int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
     boolean noLocals = false;
 
@@ -185,6 +186,9 @@ public class CompatDexBuilder {
         case "--nolocals":
           noLocals = true;
           break;
+        case "--min_sdk_version":
+          minSdkVersionFlag = Integer.parseInt(flags.get(++i));
+          break;
         default:
           throw new OptionsParsingException("Unsupported option: " + flag);
       }
@@ -219,10 +223,12 @@ public class CompatDexBuilder {
           }
         }
 
+        final int minSdkVersion = minSdkVersionFlag;
         List<Future<DexConsumer>> futures = new ArrayList<>(toDex.size());
         for (ZipEntry classEntry : toDex) {
           futures.add(
-              executor.submit(() -> dexEntry(zipFile, classEntry, compilationMode, executor)));
+              executor.submit(
+                  () -> dexEntry(zipFile, classEntry, compilationMode, minSdkVersion, executor)));
         }
         for (int i = 0; i < futures.size(); i++) {
           ZipEntry entry = toDex.get(i);
@@ -236,14 +242,18 @@ public class CompatDexBuilder {
   }
 
   private DexConsumer dexEntry(
-      ZipFile zipFile, ZipEntry classEntry, CompilationMode mode, ExecutorService executor)
+      ZipFile zipFile,
+      ZipEntry classEntry,
+      CompilationMode mode,
+      int minSdkVersion,
+      ExecutorService executor)
       throws IOException, CompilationFailedException {
     DexConsumer consumer = new DexConsumer();
     D8Command.Builder builder = D8Command.builder();
     builder
         .setProgramConsumer(consumer)
         .setMode(mode)
-        .setMinApiLevel(Constants.MIN_API_LEVEL)
+        .setMinApiLevel(minSdkVersion)
         .setDisableDesugaring(true)
         .setIntermediate(true);
     try (InputStream stream = zipFile.getInputStream(classEntry)) {
