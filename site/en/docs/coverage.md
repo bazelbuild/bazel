@@ -188,7 +188,16 @@ py_test(
     ],
 )
 ```
-<!-- TODO: Allow specifying a target for `PYTHON_COVERAGE`, instead of having to use `$(location)` -->
+
+If you are using a hermetic python toolchain, you can instead simply add
+
+```starlark
+    coverage_tool = ":coverage",
+```
+
+to your `py_runtime` target.  This ensures that coverage is available for all
+`py_test` and `py_binary` targets, and prevents those targets from incurring a
+dependency on `coverage` except when building with coverage enabled.
 
 
 [lcov]: https://github.com/linux-test-project/lcov

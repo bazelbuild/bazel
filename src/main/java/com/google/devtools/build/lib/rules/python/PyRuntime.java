@@ -18,11 +18,14 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,6 +42,7 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(ruleContext, "files");
     Artifact interpreter = ruleContext.getPrerequisiteArtifact("interpreter");
+    TransitiveInfoCollection coverageTarget = ruleContext.getPrerequisite("coverage_tool");
     PathFragment interpreterPath =
         PathFragment.create(ruleContext.attributes().get("interpreter_path", Type.STRING));
     PythonVersion pythonVersion =
@@ -59,6 +63,18 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
     }
     if (!hermetic && !interpreterPath.isAbsolute()) {
       ruleContext.attributeError("interpreter_path", "must be an absolute path.");
+    }
+
+    Artifact coverageTool = null;
+    NestedSet<Artifact> coverageFiles = null;
+    if (coverageTarget != null) {
+      FilesToRunProvider filesToRun = coverageTarget.getProvider(FilesToRunProvider.class);
+      if (filesToRun == null) {
+        ruleContext.attributeError("coverage_tool", "must be an executable target.");
+      } else {
+        coverageTool = filesToRun.getExecutable();
+      }
+      coverageFiles = PrerequisiteArtifacts.nestedSet(ruleContext, "coverage_tool");
     }
 
     if (pythonVersion == PythonVersion._INTERNAL_SENTINEL) {
@@ -83,8 +99,19 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
 
     PyRuntimeInfo provider =
         hermetic
-            ? PyRuntimeInfo.createForInBuildRuntime(interpreter, files, pythonVersion, stubShebang)
-            : PyRuntimeInfo.createForPlatformRuntime(interpreterPath, pythonVersion, stubShebang);
+            ? PyRuntimeInfo.createForInBuildRuntime(
+                interpreter,
+                files,
+                coverageTool,
+                coverageFiles,
+                pythonVersion,
+                stubShebang)
+            : PyRuntimeInfo.createForPlatformRuntime(
+                interpreterPath,
+                coverageTool,
+                coverageFiles,
+                pythonVersion,
+                stubShebang);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(files)

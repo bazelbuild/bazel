@@ -55,6 +55,16 @@ public final class PyRuntimeRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("interpreter_path", STRING))
 
+        /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(coverage_tool) -->
+        This is a target to use for collecting code coverage information from <code>py_binary</code>
+        and <code>py_test</code> targets.
+
+        <p>If set, the path to this target determines the value for the <code>PYTHON_COVERAGE</code>
+        environment variable, and the target and its runfiles will be added to the runfiles when
+        coverage is enabled.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("coverage_tool", LABEL).allowedFileTypes(FileTypeSet.NO_FILE).exec())
+
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(python_version) -->
         Whether this runtime is for Python major version 2 or 3. Valid values are <code>"PY2"</code>
         and <code>"PY3"</code>.

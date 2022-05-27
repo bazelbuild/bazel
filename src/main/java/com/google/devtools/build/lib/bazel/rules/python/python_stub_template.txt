@@ -86,20 +86,33 @@ def SearchPath(name):
 
 def FindPythonBinary(module_space):
   """Finds the real Python binary if it's not a normal absolute path."""
-  if PYTHON_BINARY.startswith('//'):
+  return FindBinary(module_space, PYTHON_BINARY)
+
+def FindCoverageTool(module_space):
+  cov_tool = '%coverage_tool%' or os.environ.get('PYTHON_COVERAGE')
+  if cov_tool:
+    return FindBinary(module_space, cov_tool)
+  return None
+
+def FindBinary(module_space, bin_name):
+  """Finds the real binary if it's not a normal absolute path."""
+  if not bin_name:
+    return None
+  if bin_name.startswith("//"):
     # Case 1: Path is a label. Not supported yet.
     raise AssertionError(
-      'Bazel does not support execution of Python interpreters via labels yet')
-  elif os.path.isabs(PYTHON_BINARY):
+        "Bazel does not support execution of Python interpreters via labels yet"
+    )
+  elif os.path.isabs(bin_name):
     # Case 2: Absolute path.
-    return PYTHON_BINARY
+    return bin_name
   # Use normpath() to convert slashes to os.sep on Windows.
-  elif os.sep in os.path.normpath(PYTHON_BINARY):
+  elif os.sep in os.path.normpath(bin_name):
     # Case 3: Path is relative to the repo root.
-    return os.path.join(module_space, PYTHON_BINARY)
+    return os.path.join(module_space, bin_name)
   else:
     # Case 4: Path has to be looked up in the search path.
-    return SearchPath(PYTHON_BINARY)
+    return SearchPath(bin_name)
 
 def CreatePythonPathEntries(python_imports, module_space):
   parts = python_imports.split(':')
@@ -269,11 +282,12 @@ def Main():
   if python_program is None:
     raise AssertionError('Could not find python binary: ' + PYTHON_BINARY)
 
-  cov_tool = os.environ.get('PYTHON_COVERAGE')
+  cov_tool = FindCoverageTool(module_space)
   if cov_tool:
     # Inhibit infinite recursion:
-    del os.environ['PYTHON_COVERAGE']
-    if not os.path.exists(cov_tool):
+    if 'PYTHON_COVERAGE' in os.environ:
+      del os.environ['PYTHON_COVERAGE']
+    if cov_tool is None or not os.path.exists(cov_tool):
       raise EnvironmentError('Python coverage tool %s not found.' % cov_tool)
     args = [python_program, cov_tool, 'run', '-a', '--branch', main_filename] + args
     # coverage library expects sys.path[0] to contain the library, and replaces

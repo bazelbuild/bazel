@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.starlarkbuildapi.python;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -83,6 +85,26 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   Depset getFilesForStarlark();
 
   @StarlarkMethod(
+      name = "coverage_tool",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          "If set, this field is a <code>File</code> representing tool used for collecting code "
+              + "coverage information from python tests. Otherwise, this is <code>None</code>.")
+  @Nullable
+  FileT getCoverageTool();
+
+  @StarlarkMethod(
+      name = "coverage_files",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          "The files required at runtime for using <code>coverage_tool</code>. "
+              + "Will be <code>None</code> if no <code>coverage_tool</code> was provided.")
+  @Nullable
+  Depset getCoverageToolFilesForStarlark();
+
+  @StarlarkMethod(
       name = "python_version",
       structField = true,
       doc =
@@ -146,6 +168,29 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "<code>interpreter</code> is given and this argument is <code>None</code>, "
                       + "<code>files</code> becomes an empty <code>depset</code> instead."),
           @Param(
+              name = "coverage_tool",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              doc = "The value for the new object's <code>coverage_tool</code> field."),
+          @Param(
+              name = "coverage_files",
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "The value for the new object's <code>coverage_files</code> field. Do not give a "
+                      + "value for this argument if you do not also pass in "
+                      + "<code>coverage_tool</code>."),
+          @Param(
               name = "python_version",
               positional = false,
               named = true,
@@ -169,6 +214,8 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
         Object interpreterPathUncast,
         Object interpreterUncast,
         Object filesUncast,
+        Object coverageToolUncast,
+        Object coverageFilesUncast,
         String pythonVersion,
         String stubShebang,
         StarlarkThread thread)
