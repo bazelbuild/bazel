@@ -88,7 +88,8 @@ EOF
       || fail "Failed to build //a:foo with remote cache"
 }
 
-function test_remote_grpc_via_unix_socket_proxy() {
+# TODO(b/211478955): Deflake and re-enable.
+function DISABLED_test_remote_grpc_via_unix_socket_proxy() {
   case "$PLATFORM" in
   darwin|freebsd|linux|openbsd)
     ;;
@@ -126,7 +127,8 @@ EOF
   rmdir "${socket_dir}"
 }
 
-function test_remote_grpc_via_unix_socket_direct() {
+# TODO(b/211478955): Deflake and re-enable.
+function DISABLED_test_remote_grpc_via_unix_socket_direct() {
   case "$PLATFORM" in
   darwin|freebsd|linux|openbsd)
     ;;
@@ -2171,6 +2173,7 @@ EOF
   bazel build $spawn_flags $testcase_flags $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "CASE 1 Failed to build"
 
+  rm -rf ${TEST_TMPDIR}/test_expected
   echo "Hello world" > ${TEST_TMPDIR}/test_expected
   expect_log "2 processes: 1 internal, 1 remote." "CASE 1: unexpected action line [[$(grep processes $TEST_log)]]"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
