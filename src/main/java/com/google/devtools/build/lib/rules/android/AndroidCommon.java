@@ -187,6 +187,7 @@ public class AndroidCommon {
       Artifact jarToDex,
       Artifact classesDex,
       List<String> dexOptions,
+      int minSdkVersion,
       boolean multidex,
       Artifact mainDexList) {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
@@ -201,6 +202,9 @@ public class AndroidCommon {
     }
 
     commandLine.addAll(dexOptions);
+    if (minSdkVersion > 0) {
+      commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
     if (multidex) {
       commandLine.add("--multi-dex");
       if (mainDexList != null) {

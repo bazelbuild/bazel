@@ -184,6 +184,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("multidex", "Multidex must be enabled");
     }
 
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("min_sdk_version")
+        && Allowlist.hasAllowlist(ruleContext, "allow_min_sdk_version")
+        && !Allowlist.isAvailable(ruleContext, "allow_min_sdk_version")) {
+      ruleContext.attributeError(
+          "min_sdk_version", "Target is not permitted to set min_sdk_version");
+    }
+
     if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()
         && getMultidexMode(ruleContext) == MultidexMode.OFF) {
       // Multidex is required so we can include legacy libs as a separate .dex file.
@@ -261,30 +268,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getRule().isAttrDefined("manifest_merger", STRING)
                       ? ruleContext.attributes().get("manifest_merger", STRING)
                       : null);
-    }
-
-    Artifact manifestValidation = null;
-    if (Allowlist.hasAllowlist(ruleContext, "android_multidex_native_min_sdk_allowlist")
-        && !Allowlist.isAvailable(ruleContext, "android_multidex_native_min_sdk_allowlist")
-        && getMultidexMode(ruleContext) == MultidexMode.NATIVE
-        && ruleContext.isAttrDefined("$validate_manifest", LABEL)) {
-      manifestValidation =
-          ruleContext.getPackageRelativeArtifact(
-              ruleContext.getLabel().getName() + "_manifest_validation_output",
-              ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(
-          createSpawnActionBuilder(ruleContext)
-              .setExecutable(ruleContext.getExecutablePrerequisite("$validate_manifest"))
-              .setProgressMessage("Validating %{input}")
-              .setMnemonic("ValidateManifest")
-              .addInput(manifest.getManifest())
-              .addOutput(manifestValidation)
-              .addCommandLine(
-                  CustomCommandLine.builder()
-                      .addExecPath("--manifest", manifest.getManifest())
-                      .addExecPath("--output", manifestValidation)
-                      .build())
-              .build(ruleContext));
     }
 
     boolean shrinkResourceCycles =
@@ -414,6 +397,38 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     MobileInstallResourceApks mobileInstallResourceApks =
         AndroidBinaryMobileInstall.createMobileInstallResourceApks(
             ruleContext, dataContext, manifest);
+
+    Artifact manifestValidation = null;
+    boolean shouldValidateMultidex =
+        (Allowlist.hasAllowlist(ruleContext, "android_multidex_native_min_sdk_allowlist")
+            && !Allowlist.isAvailable(ruleContext, "android_multidex_native_min_sdk_allowlist")
+            && getMultidexMode(ruleContext) == MultidexMode.NATIVE);
+    boolean shouldValidateMinSdk = getMinSdkVersion(ruleContext) > 0;
+    if (ruleContext.isAttrDefined("$validate_manifest", LABEL)
+        && (shouldValidateMultidex || shouldValidateMinSdk)) {
+      manifestValidation =
+          ruleContext.getPackageRelativeArtifact(
+              ruleContext.getLabel().getName() + "_manifest_validation_output",
+              ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(
+          createSpawnActionBuilder(ruleContext)
+              .setExecutable(ruleContext.getExecutablePrerequisite("$validate_manifest"))
+              .setProgressMessage("Validating %{input}")
+              .setMnemonic("ValidateManifest")
+              .addInput(manifest.getManifest())
+              .addOutput(manifestValidation)
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath("--manifest", manifest.getManifest())
+                      .addExecPath("--output", manifestValidation)
+                      .addFormatted(
+                          "--validate_multidex=%s", Boolean.toString(shouldValidateMultidex))
+                      .add(
+                          "--expected_min_sdk_version",
+                          Integer.toString(getMinSdkVersion(ruleContext)))
+                      .build())
+              .build(ruleContext));
+    }
 
     return createAndroidBinary(
         ruleContext,
@@ -1267,6 +1282,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               + "\" not supported by this version of the Android SDK");
     }
 
+    int minSdkVersion = getMinSdkVersion(ruleContext);
+
     int dexShards = ruleContext.attributes().get("dex_shards", Type.INTEGER).toIntUnchecked();
     if (dexShards > 1) {
       if (multidexMode == MultidexMode.OFF) {
@@ -1306,6 +1323,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             common,
             inclusionFilterJar,
             dexopts,
+            minSdkVersion,
             androidSemantics,
             attributes,
             derivedJarFunction,
@@ -1320,6 +1338,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             proguardedJar,
             classesDex,
             dexopts,
+            minSdkVersion,
             /*multidex=*/ false,
             /*mainDexList=*/ null);
       }
@@ -1356,6 +1375,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 common,
                 inclusionFilterJar,
                 dexopts,
+                minSdkVersion,
                 androidSemantics,
                 attributes,
                 derivedJarFunction,
@@ -1381,7 +1401,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 dexopts);
           } else {
             AndroidCommon.createDexAction(
-                ruleContext, shard, shardDex, dexopts, /*multidex=*/ true, /*mainDexList=*/ null);
+                ruleContext,
+                shard,
+                shardDex,
+                dexopts,
+                minSdkVersion,
+                /*multidex=*/ true,
+                /*mainDexList=*/ null);
           }
         }
         ImmutableList<Artifact> shardDexes = shardDexesBuilder.build();
@@ -1417,6 +1443,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               common,
               inclusionFilterJar,
               dexopts,
+              minSdkVersion,
               androidSemantics,
               attributes,
               derivedJarFunction,
@@ -1436,6 +1463,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               proguardedJar,
               classesDexIntermediate,
               dexopts,
+              minSdkVersion,
               /*multidex=*/ true,
               mainDexList);
           createCleanDexZipAction(ruleContext, classesDexIntermediate, classesDex);
@@ -1455,6 +1483,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidCommon common,
       @Nullable Artifact inclusionFilterJar,
       List<String> dexopts,
+      int minSdkVersion,
       AndroidSemantics androidSemantics,
       JavaTargetAttributes attributes,
       Function<Artifact, Artifact> derivedJarFunction,
@@ -1471,7 +1500,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext,
               collectRuntimeJars(common, attributes),
               collectDexArchives(
-                  ruleContext, common, dexopts, androidSemantics, derivedJarFunction));
+                  ruleContext,
+                  common,
+                  dexopts,
+                  minSdkVersion,
+                  androidSemantics,
+                  derivedJarFunction));
     } else {
       if (proguardedJar != null
           && AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingShardsAfterProguard()
@@ -1493,6 +1527,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             "$dexbuilder_after_proguard",
             proguardedJar,
             DexArchiveAspect.topLevelDexbuilderDexopts(dexopts),
+            minSdkVersion,
             dexArchives.get(0));
       } else {
         createShuffleJarActions(
@@ -1503,6 +1538,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             common,
             inclusionFilterJar,
             dexopts,
+            minSdkVersion,
             androidSemantics,
             attributes,
             derivedJarFunction,
@@ -1771,6 +1807,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               jar,
               attributes.getBootClassPath().bootclasspath(),
               attributes.getCompileTimeClassPath(),
+              getMinSdkVersion(ruleContext),
               ruleContext.getDerivedArtifact(
                   jarPath.replaceName(jarPath.getBaseName() + "_desugared.jar"), jar.getRoot()));
       result.addDesugaredJar(jar, desugared);
@@ -1797,6 +1834,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       AndroidCommon common,
       List<String> dexopts,
+      int minSdkVersion,
       AndroidSemantics semantics,
       Function<Artifact, Artifact> derivedJarFunction) {
     DexArchiveProvider.Builder result = new DexArchiveProvider.Builder();
@@ -1820,6 +1858,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               "$dexbuilder",
               derivedJarFunction.apply(jar),
               incrementalDexopts,
+              minSdkVersion,
               ruleContext.getDerivedArtifact(
                   jarPath.replaceName(jarPath.getBaseName() + ".dex.zip"), jar.getRoot()));
       result.addDexArchive(incrementalDexopts, dexArchive, jar);
@@ -1835,6 +1874,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidCommon common,
       @Nullable Artifact inclusionFilterJar,
       List<String> dexopts,
+      int minSdkVersion,
       AndroidSemantics semantics,
       JavaTargetAttributes attributes,
       Function<Artifact, Artifact> derivedJarFunction,
@@ -1889,7 +1929,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         // there should be very few or no Jar files that still end up in shards.  The dexing
         // step below will have to deal with those in addition to merging .dex files together.
         Map<Artifact, Artifact> dexArchives =
-            collectDexArchives(ruleContext, common, dexopts, semantics, derivedJarFunction);
+            collectDexArchives(
+                ruleContext, common, dexopts, minSdkVersion, semantics, derivedJarFunction);
         classpath = toDexedClasspath(ruleContext, classpath, dexArchives);
         shardCommandLine.add("--split_dexed_classes");
       } else {
@@ -1916,6 +1957,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             "$dexbuilder_after_proguard",
             shuffleOutputs.get(i),
             DexArchiveAspect.topLevelDexbuilderDexopts(dexopts),
+            minSdkVersion,
             shards.get(i));
       }
     }
@@ -2176,6 +2218,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     } else {
       return MultidexMode.OFF;
     }
+  }
+
+  private static int getMinSdkVersion(RuleContext ruleContext) {
+    if (ruleContext.getRule().isAttrDefined("min_sdk_version", Type.INTEGER)) {
+      return ruleContext.attributes().get("min_sdk_version", Type.INTEGER).toIntUnchecked();
+    }
+    return 0;
   }
 
   /**
