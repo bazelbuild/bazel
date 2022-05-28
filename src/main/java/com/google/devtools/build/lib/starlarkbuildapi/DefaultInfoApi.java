@@ -52,7 +52,7 @@ public interface DefaultInfoApi extends StructApi {
       doc =
           "A <a href='depset.html'><code>depset</code></a> of "
               + "<a href='File.html'><code>File</code></a> objects representing the default "
-              + "outputs to build when this target is specified on the blaze command line. By "
+              + "outputs to build when this target is specified on the bazel command line. By "
               + "default it is all predeclared outputs.",
       structField = true,
       allowReturnNones = true)
@@ -113,7 +113,7 @@ public interface DefaultInfoApi extends StructApi {
               doc =
                   "A <a href='depset.html'><code>depset</code></a> of <a"
                       + " href='File.html'><code>File</code></a> objects representing the default"
-                      + " outputs to build when this target is specified on the blaze command"
+                      + " outputs to build when this target is specified on the bazel command"
                       + " line. By default it is all predeclared outputs."),
           @Param(
               name = "runfiles",
