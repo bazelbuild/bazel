@@ -533,6 +533,7 @@ message Command {
     NOT_IN_WORKSPACE = 12 [(metadata) = { exit_code: 2 }];
     SPACES_IN_WORKSPACE_PATH = 13 [(metadata) = { exit_code: 36 }];
     IN_OUTPUT_DIRECTORY = 14 [(metadata) = { exit_code: 2 }];
+    STARLARK_COVERAGE_REPORT_DUMP_FAILURE = 15 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

@@ -294,6 +294,15 @@ public class CommonCommandOptions extends OptionsBase {
   public String starlarkCpuProfile;
 
   @Option(
+      name = "starlark_coverage_report",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Writes into the specified file an LCOV coverage report for all Starlark files "
+          + "executed for the requested Bazel command.")
+  public String starlarkCoverageReport;
+
+  @Option(
       name = "record_full_profiler_data",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
