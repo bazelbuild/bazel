@@ -29,6 +29,7 @@ import net.starlark.java.syntax.BinaryOperatorExpression;
 import net.starlark.java.syntax.CallExpression;
 import net.starlark.java.syntax.Comprehension;
 import net.starlark.java.syntax.ConditionalExpression;
+import net.starlark.java.syntax.CoverageRecorder;
 import net.starlark.java.syntax.DefStatement;
 import net.starlark.java.syntax.DictExpression;
 import net.starlark.java.syntax.DotExpression;
@@ -45,6 +46,7 @@ import net.starlark.java.syntax.LambdaExpression;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.Parameter;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.ReturnStatement;
 import net.starlark.java.syntax.SliceExpression;
@@ -131,6 +133,7 @@ final class Eval {
             continue;
           case BREAK:
             // Finish loop, execute next statement after loop.
+            CoverageRecorder.getInstance().recordVirtualJump(node);
             return TokenKind.PASS;
           case RETURN:
             // Finish loop, return from function.
@@ -145,6 +148,7 @@ final class Eval {
     } finally {
       EvalUtils.removeIterator(seq);
     }
+    CoverageRecorder.getInstance().recordVirtualJump(node);
     return TokenKind.PASS;
   }
 
@@ -159,7 +163,9 @@ final class Eval {
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
     for (int i = 0; i < nparams; i++) {
-      Expression expr = rfn.getParameters().get(i).getDefaultValue();
+      Parameter parameter = rfn.getParameters().get(i);
+      CoverageRecorder.getInstance().recordCoverage(parameter.getIdentifier());
+      Expression expr = parameter.getDefaultValue();
       if (expr == null && defaults == null) {
         continue; // skip prefix of required parameters
       }
@@ -168,6 +174,10 @@ final class Eval {
       }
       defaults[i - (nparams - defaults.length)] =
           expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
+    }
+    // Visit kwargs and varargs for coverage.
+    for (int i = nparams; i < rfn.getParameters().size(); i++) {
+      CoverageRecorder.getInstance().recordCoverage(rfn.getParameters().get(i).getIdentifier());
     }
     if (defaults == null) {
       defaults = EMPTY;
@@ -206,6 +216,7 @@ final class Eval {
     } else if (node.getElseBlock() != null) {
       return execStatements(fr, node.getElseBlock(), /*indented=*/ true);
     }
+    CoverageRecorder.getInstance().recordVirtualJump(node);
     return TokenKind.PASS;
   }
 
@@ -262,6 +273,7 @@ final class Eval {
     if (++fr.thread.steps >= fr.thread.stepLimit) {
       throw new EvalException("Starlark computation cancelled: too many steps");
     }
+    CoverageRecorder.getInstance().recordCoverage(st);
 
     switch (st.kind()) {
       case ASSIGNMENT:
@@ -330,6 +342,7 @@ final class Eval {
 
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
       throws EvalException {
+    CoverageRecorder.getInstance().recordCoverage(id);
     Resolver.Binding bind = id.getBinding();
     switch (bind.getScope()) {
       case LOCAL:
@@ -477,6 +490,7 @@ final class Eval {
     if (++fr.thread.steps >= fr.thread.stepLimit) {
       throw new EvalException("Starlark computation cancelled: too many steps");
     }
+    CoverageRecorder.getInstance().recordCoverage(expr);
 
     // The switch cases have been split into separate functions
     // to reduce the stack usage during recursion, which is
@@ -533,9 +547,17 @@ final class Eval {
     // AND and OR require short-circuit evaluation.
     switch (binop.getOperator()) {
       case AND:
-        return Starlark.truth(x) ? eval(fr, binop.getY()) : x;
+        if (Starlark.truth(x)) {
+          return eval(fr, binop.getY());
+        }
+        CoverageRecorder.getInstance().recordVirtualJump(binop);
+        return x;
       case OR:
-        return Starlark.truth(x) ? x : eval(fr, binop.getY());
+        if (Starlark.truth(x)) {
+          CoverageRecorder.getInstance().recordVirtualJump(binop);
+          return x;
+        }
+        return eval(fr, binop.getY());
       default:
         Object y = eval(fr, binop.getY());
         try {
@@ -577,7 +599,9 @@ final class Eval {
   private static Object evalDot(StarlarkThread.Frame fr, DotExpression dot)
       throws EvalException, InterruptedException {
     Object object = eval(fr, dot.getObject());
-    String name = dot.getField().getName();
+    Identifier field = dot.getField();
+    CoverageRecorder.getInstance().recordCoverage(field);
+    String name = field.getName();
     try {
       return Starlark.getattr(
           fr.thread.mutability(), fr.thread.getSemantics(), object, name, /*defaultValue=*/ null);
@@ -627,6 +651,7 @@ final class Eval {
     Object[] positional = npos == 0 ? EMPTY : new Object[npos];
     for (i = 0; i < npos; i++) {
       Argument arg = arguments.get(i);
+      CoverageRecorder.getInstance().recordCoverage(arg);
       Object value = eval(fr, arg.getValue());
       positional[i] = value;
     }
@@ -635,6 +660,7 @@ final class Eval {
     Object[] named = n == npos ? EMPTY : new Object[2 * (n - npos)];
     for (int j = 0; i < n; i++) {
       Argument.Keyword arg = (Argument.Keyword) arguments.get(i);
+      CoverageRecorder.getInstance().recordCoverage(arg);
       Object value = eval(fr, arg.getValue());
       named[j++] = arg.getName();
       named[j++] = value;
@@ -642,6 +668,7 @@ final class Eval {
 
     // f(*args) -- varargs
     if (star != null) {
+      CoverageRecorder.getInstance().recordCoverage(star);
       Object value = eval(fr, star.getValue());
       if (!(value instanceof StarlarkIterable)) {
         fr.setErrorLocation(star.getStartLocation());
@@ -656,6 +683,7 @@ final class Eval {
 
     // f(**kwargs)
     if (starstar != null) {
+      CoverageRecorder.getInstance().recordCoverage(starstar);
       Object value = eval(fr, starstar.getValue());
       if (!(value instanceof Dict)) {
         fr.setErrorLocation(starstar.getStartLocation());
@@ -791,6 +819,7 @@ final class Eval {
                 assign(fr, forClause.getVars(), elem);
                 execClauses(index + 1);
               }
+              CoverageRecorder.getInstance().recordVirtualJump(clause);
             } catch (EvalException ex) {
               fr.setErrorLocation(forClause.getStartLocation());
               throw ex;
@@ -802,12 +831,15 @@ final class Eval {
             Comprehension.If ifClause = (Comprehension.If) clause;
             if (Starlark.truth(eval(fr, ifClause.getCondition()))) {
               execClauses(index + 1);
+            } else {
+              CoverageRecorder.getInstance().recordVirtualJump(clause);
             }
           }
           return;
         }
 
         // base case: evaluate body and add to result.
+        CoverageRecorder.getInstance().recordCoverage(comp.getBody());
         if (dict != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(fr, body.getKey());

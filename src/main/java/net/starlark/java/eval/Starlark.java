@@ -23,6 +23,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -30,12 +31,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.syntax.CoverageRecorder;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -969,5 +973,13 @@ public final class Starlark {
    */
   public static void stopCpuProfile() throws IOException {
     CpuProfiler.stop();
+  }
+
+  public static void startCoverageCollection(Function<String, Boolean> filenameMatcher) {
+    CoverageRecorder.startCoverageCollection(filenameMatcher);
+  }
+
+  public static void dumpCoverage(PrintWriter out) {
+    CoverageRecorder.getInstance().dump(out);
   }
 }
