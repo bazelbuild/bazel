@@ -1,3 +1,19 @@
+## Release 6.0.0-pre.20220520.1 (2022-05-30)
+
+```
+Baseline: 4879106fabdf4af9395743941987d4297d232296
+```
+
+Incompatible changes:
+
+  - workspace(managed_directories=) is not available anymore.
+
+Important changes:
+
+  - Add six to deps of has_services=1 py_proto_librarys.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Christopher Peterson Sauer.
+
 ## Release 6.0.0-pre.20220517.1 (2022-05-23)
 
 ```
