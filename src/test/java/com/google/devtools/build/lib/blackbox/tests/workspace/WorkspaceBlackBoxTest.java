@@ -261,7 +261,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     ProcessResult result = context().bazel().shouldFail().build("//...");
     assertThat(result.errString())
         .contains(
-            "invalid repository name '@@a': repo names may contain only "
-                + "A-Z, a-z, 0-9, '-', '_' and '.'");
+            "invalid repository name '@@a': repo names may contain only A-Z, a-z, 0-9, '-', '_' and"
+                + " '.'");
   }
 }

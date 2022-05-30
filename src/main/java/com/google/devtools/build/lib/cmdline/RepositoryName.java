@@ -33,15 +33,11 @@ import javax.annotation.Nullable;
 public final class RepositoryName {
 
   @SerializationConstant
-  public static final RepositoryName BAZEL_TOOLS = new RepositoryName("@bazel_tools");
+  public static final RepositoryName BAZEL_TOOLS = new RepositoryName("bazel_tools");
 
-  @SerializationConstant
-  public static final RepositoryName LOCAL_CONFIG_PLATFORM =
-      new RepositoryName("@local_config_platform");
+  @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("@");
-
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("@[\\w\\-.]*");
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.]*");
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()
@@ -62,9 +58,8 @@ public final class RepositoryName {
     if (name.isEmpty()) {
       return MAIN;
     }
-    // TODO(b/200024947): Get rid of the '@' in the #name field.
     try {
-      return repositoryNameCache.get('@' + name);
+      return repositoryNameCache.get(name);
     } catch (CompletionException e) {
       Throwables.propagateIfPossible(e.getCause(), LabelSyntaxException.class);
       throw e;
@@ -82,7 +77,7 @@ public final class RepositoryName {
       //   reference equality instead of #equals().
       return MAIN;
     }
-    return repositoryNameCache.get("@" + name);
+    return repositoryNameCache.get(name);
   }
 
   /**
@@ -140,27 +135,27 @@ public final class RepositoryName {
    * message is sanitized.
    */
   static void validate(String name) throws LabelSyntaxException {
-    if (name.isEmpty() || name.equals("@")) {
+    if (name.isEmpty()) {
       return;
     }
 
     // Some special cases for more user-friendly error messages.
-    if (name.equals("@.") || name.equals("@..")) {
+    if (name.equals(".") || name.equals("..")) {
       throw LabelParser.syntaxErrorf(
-          "invalid repository name '%s': repo names are not allowed to be '%s'", name, name);
+          "invalid repository name '@%s': repo names are not allowed to be '@%s'", name, name);
     }
 
     if (!VALID_REPO_NAME.matcher(name).matches()) {
       throw LabelParser.syntaxErrorf(
-          "invalid repository name '%s': repo names may contain only A-Z, a-z, 0-9, '-', '_' and"
+          "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_' and"
               + " '.'",
           StringUtilities.sanitizeControlChars(name));
     }
   }
 
-  /** Returns the repository name without the leading "{@literal @}". */
+  /** Returns the bare repository name without the leading "{@literal @}". */
   public String getName() {
-    return name.substring(1);
+    return name;
   }
 
   /**
@@ -184,12 +179,12 @@ public final class RepositoryName {
 
   /** Returns if this is the main repository, that is, {@link #getName} is empty. */
   public boolean isMain() {
-    return name.equals("@");
+    return name.isEmpty();
   }
 
   /** Returns the repository name, with leading "{@literal @}". */
   public String getNameWithAt() {
-    return name;
+    return '@' + name;
   }
 
   /**
