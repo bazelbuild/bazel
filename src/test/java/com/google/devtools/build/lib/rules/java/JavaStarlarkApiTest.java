@@ -3207,7 +3207,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateOutputSourceJarIsPrivateApi() throws Exception {
+  public void testCompileIncludeCompilationInfoIsPrivateApi() throws Exception {
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
@@ -3216,7 +3216,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    output = ctx.actions.declare_file('output.jar'),",
         "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "    create_output_source_jar = False,",
+        "    include_compilation_info = False,",
         "  )",
         "  return []",
         "java_custom_library = rule(",

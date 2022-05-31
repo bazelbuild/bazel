@@ -91,7 +91,7 @@ public class JavaStarlarkCommon
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
-      boolean createOutputSourceJar,
+      boolean includeCompilationInfo,
       Object injectingRuleKind,
       Sequence<?> addExports, // <String> expected
       Sequence<?> addOpens, // <String> expected
@@ -134,7 +134,7 @@ public class JavaStarlarkCommon
     // checks for private API access
     if (!enableCompileJarAction
         || !enableJSpecify
-        || !createOutputSourceJar
+        || !includeCompilationInfo
         || !classpathResources.isEmpty()
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
@@ -170,7 +170,7 @@ public class JavaStarlarkCommon
             enableAnnotationProcessing,
             enableCompileJarAction,
             enableJSpecify,
-            createOutputSourceJar,
+            includeCompilationInfo,
             javaSemantics,
             injectingRuleKind,
             Sequence.cast(addExports, String.class, "add_exports"),

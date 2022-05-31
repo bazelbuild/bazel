@@ -265,7 +265,7 @@ final class JavaInfoBuildHelper {
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       boolean enableJSpecify,
-      boolean createOutputSourceJar,
+      boolean includeCompilationInfo,
       JavaSemantics javaSemantics,
       Object injectingRuleKind,
       List<String> addExports,
@@ -319,6 +319,10 @@ final class JavaInfoBuildHelper {
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
+    boolean createOutputSourceJar =
+        !(sourceJars.size() == 1
+            && sourceFiles.isEmpty()
+            && sourceJars.get(0).equals(outputSourceJar));
     if (outputSourceJar == null) {
       outputSourceJar = getDerivedSourceJar(starlarkRuleContext.getRuleContext(), outputJar);
     }
@@ -330,6 +334,7 @@ final class JavaInfoBuildHelper {
             toolchainProvider,
             outputJarsBuilder,
             createOutputSourceJar,
+            includeCompilationInfo,
             outputSourceJar,
             enableCompileJarAction,
             javaInfoBuilder,
@@ -358,15 +363,12 @@ final class JavaInfoBuildHelper {
                 streamProviders(deps, JavaCcInfoProvider.class),
                 Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
             .collect(toImmutableList());
+
     return javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
             JavaSourceJarsProvider.class,
-            createOutputSourceJar
-                ? createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps))
-                : JavaSourceJarsProvider.create(
-                    // TODO(b/207058960): Refactor. This is used for proto optimisation.
-                    NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJars), sourceJars))
+            createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))

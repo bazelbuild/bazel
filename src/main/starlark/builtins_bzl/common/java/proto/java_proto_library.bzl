@@ -117,8 +117,8 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
             injecting_rule_kind = injecting_rule_kind,
             javac_opts = java_toolchain.compatible_javacopts("proto"),
             enable_jspecify = False,
-            create_output_source_jar = False,
             java_toolchain = java_toolchain,
+            include_compilation_info = False,
         )
         jars = [source_jar, output_jar]
     else:

@@ -236,7 +236,7 @@ public interface JavaCommonApi<
             defaultValue = "True",
             documented = false),
         @Param(
-            name = "create_output_source_jar",
+            name = "include_compilation_info",
             positional = false,
             named = true,
             defaultValue = "True",
@@ -294,7 +294,7 @@ public interface JavaCommonApi<
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
-      boolean createOutputSourceJar,
+      boolean includeCompilationInfo,
       Object injectingRuleKind,
       Sequence<?> addExports, // <String> expected.
       Sequence<?> addOpens, // <String> expected.
