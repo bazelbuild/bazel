@@ -232,19 +232,15 @@ public class JavaStarlarkCommon
   @Override
   public JavaInfo mergeJavaProviders(
       Sequence<?> providers, /* <JavaInfo> expected. */
-      Sequence<?> exports, /* <JavaInfo> expected. */
-      Sequence<?> runtimeDeps, /* <JavaInfo> expected. */
-      boolean includeSourceJarsFromExports,
+      boolean mergeJavaOutputs,
+      boolean mergeSourceJars,
       StarlarkThread thread)
       throws EvalException {
-    if (!exports.isEmpty() || !runtimeDeps.isEmpty() || includeSourceJarsFromExports) {
+    if (!mergeJavaOutputs || !mergeSourceJars) {
       checkPrivateAccess(thread);
     }
     return JavaInfo.merge(
-        Sequence.cast(providers, JavaInfo.class, "providers"),
-        Sequence.cast(exports, JavaInfo.class, "exports"),
-        Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-        includeSourceJarsFromExports);
+        Sequence.cast(providers, JavaInfo.class, "providers"), mergeJavaOutputs, mergeSourceJars);
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.

@@ -476,29 +476,17 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
         @Param(
-            name = "exports",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
-            named = true,
-            defaultValue = "[]",
-            doc = "A list of exports. Optional."),
-        @Param(
-            name = "runtime_deps",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
-            named = true,
-            defaultValue = "[]",
-            doc = "A list of runtime dependencies. Optional."),
-        @Param(
-            name = "include_source_jars_from_exports",
+            name = "merge_java_outputs",
             positional = false,
             named = true,
-            defaultValue = "False"),
+            defaultValue = "True"),
+        @Param(name = "merge_source_jars", positional = false, named = true, defaultValue = "True"),
       },
       useStarlarkThread = true)
   JavaInfoT mergeJavaProviders(
       Sequence<?> providers /* <JavaInfoT> expected. */,
-      Sequence<?> exports /* <JavaInfoT> expected. */,
-      Sequence<?> runtimeDeps /* <JavaInfoT> expected. */,
-      boolean includeSourceJarsFromExports,
+      boolean mergeJavaOutputs,
+      boolean mergeSourceJars,
       StarlarkThread thread)
       throws EvalException;
 

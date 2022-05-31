@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -109,82 +108,52 @@ public final class JavaInfo extends NativeInfo
   }
 
   /**
-   * Merges the given providers and runtime dependencies into one {@link JavaInfo}. All the
-   * providers with the same type in the given list are merged into one provider that is added to
-   * the resulting {@link JavaInfo}.
+   * Merges the given providers into one {@link JavaInfo}. All the providers with the same type in
+   * the given list are merged into one provider that is added to the resulting {@link JavaInfo}.
    */
   public static JavaInfo merge(
-      List<JavaInfo> providers,
-      List<JavaInfo> exports,
-      List<JavaInfo> runtimeDeps,
-      boolean includeSourceJarsFromExports) {
-    JavaCompilationArgsProvider.Builder javaCompilationArgsBuilder =
-        JavaCompilationArgsProvider.builder();
-    JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class)
-        .forEach(javaCompilationArgsBuilder::addExports);
-    JavaInfo.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class)
-        .forEach(javaCompilationArgsBuilder::addExports);
-    streamProviders(runtimeDeps, JavaCompilationArgsProvider.class)
-        .forEach(args -> javaCompilationArgsBuilder.addDeps(args, RUNTIME_ONLY));
+      List<JavaInfo> providers, boolean mergeJavaOutputs, boolean mergeSourceJars) {
+    ImmutableList<JavaCompilationArgsProvider> javaCompilationArgsProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
 
-    JavaSourceJarsProvider.Builder javaSourceJarsBuilder = JavaSourceJarsProvider.builder();
-    JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class)
-        .forEach(javaSourceJarsBuilder::mergeFrom);
-    if (includeSourceJarsFromExports) {
-      JavaInfo.fetchProvidersFromList(exports, JavaSourceJarsProvider.class)
-          .forEach(export -> javaSourceJarsBuilder.addAllSourceJars(export.getSourceJars()));
-    }
-    // If transitive source jar doesn't include sourcejar at this level but they should.
-    NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
-    streamProviders(runtimeDeps, JavaSourceJarsProvider.class)
-        .forEach(
-            dep -> {
-              transitiveSourceJars.addAll(dep.getSourceJars());
-              transitiveSourceJars.addTransitive(dep.getTransitiveSourceJars());
-            });
-    javaSourceJarsBuilder.addAllTransitiveSourceJars(transitiveSourceJars.build());
+    final ImmutableList<JavaSourceJarsProvider> javaSourceJarsProviders =
+        mergeSourceJars
+            ? JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class)
+            : ImmutableList.of();
+    final ImmutableList<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
+        mergeJavaOutputs
+            ? JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class)
+            : ImmutableList.of();
 
-    ImmutableList.Builder<JavaPluginInfo> javaPluginInfosBuilder = ImmutableList.builder();
-    javaPluginInfosBuilder.addAll(
+    ImmutableList<JavaPluginInfo> javaPluginInfos =
         providers.stream()
             .map(JavaInfo::getJavaPluginInfo)
             .filter(Objects::nonNull)
-            .collect(toImmutableList()));
-    javaPluginInfosBuilder.addAll(
-        exports.stream()
-            .map(JavaInfo::getJavaPluginInfo)
-            .filter(Objects::nonNull)
-            .collect(toImmutableList()));
-
-    List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
-
-    ImmutableList.Builder<JavaCcInfoProvider> javaCcInfoBuilder = ImmutableList.builder();
-    javaCcInfoBuilder.addAll(JavaInfo.fetchProvidersFromList(providers, JavaCcInfoProvider.class));
-    javaCcInfoBuilder.addAll(JavaInfo.fetchProvidersFromList(exports, JavaCcInfoProvider.class));
-    javaCcInfoBuilder.addAll(
-        JavaInfo.fetchProvidersFromList(runtimeDeps, JavaCcInfoProvider.class));
+            .collect(toImmutableList());
+    ImmutableList<JavaCcInfoProvider> javaCcInfoProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaCcInfoProvider.class);
 
     NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.stableOrder();
     NestedSetBuilder<String> javaConstraints = NestedSetBuilder.stableOrder();
     for (JavaInfo javaInfo : providers) {
-      runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
-      javaConstraints.addAll(javaInfo.getJavaConstraints());
-    }
-    for (JavaInfo javaInfo : exports) {
+      if (mergeJavaOutputs) {
+        runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
+      }
       javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
 
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
-            .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build())
-            .addProvider(JavaSourceJarsProvider.class, javaSourceJarsBuilder.build())
+            .addProvider(
+                JavaCompilationArgsProvider.class,
+                JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
+            .addProvider(
+                JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
             .addProvider(
                 JavaRuleOutputJarsProvider.class,
                 JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-            .javaPluginInfo(JavaPluginInfo.mergeWithoutJavaOutputs(javaPluginInfosBuilder.build()))
-            .addProvider(
-                JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoBuilder.build()))
+            .javaPluginInfo(JavaPluginInfo.mergeWithoutJavaOutputs(javaPluginInfos))
+            .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
             // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
             // TODO(iirina): merge or remove JavaCompilationInfoProvider
             .setRuntimeJars(runtimeJars.build().toList())
