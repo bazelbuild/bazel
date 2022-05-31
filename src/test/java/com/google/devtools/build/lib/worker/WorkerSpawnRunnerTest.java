@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,7 +45,6 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -57,12 +54,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Semaphore;
 import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
@@ -90,7 +82,6 @@ public class WorkerSpawnRunnerTest {
   @Mock Worker worker;
   @Mock WorkerOptions options;
   @Mock EventBus eventBus;
-  @Mock Runtime runtime;
 
   @Before
   public void setUp() {
@@ -132,7 +123,6 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
             eventBus,
-            runtime,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -171,7 +161,6 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater=*/ null,
             new WorkerOptions(),
             eventBus,
-            runtime,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -216,7 +205,6 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
             eventBus,
-            runtime,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -275,7 +263,6 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
             eventBus,
-            runtime,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -321,7 +308,6 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             workerOptions,
             eventBus,
-            runtime,
             SyscallCache.NO_CACHE);
     // This worker key just so happens to be multiplex and require sandboxing.
     WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs, true);
@@ -362,7 +348,6 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
             eventBus,
-            runtime,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -401,68 +386,6 @@ public class WorkerSpawnRunnerTest {
         .contains(logMarker("Start of log, file at " + logFile.getPathString()) + workerLog);
   }
 
-  @Test
-  public void testCollectStats_ignoreSpaces() throws Exception {
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(false),
-            fs.getPath("/execRoot"),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools */ null,
-            resourceManager,
-            /* runfilestTreeUpdater */ null,
-            new WorkerOptions(),
-            eventBus,
-            runtime,
-            SyscallCache.NO_CACHE);
-
-    String psOutput = "    PID  \t  RSS\n   1  3216 \t\n  \t 2 \t 4096 \t";
-    InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
-    Process process = mock(Process.class);
-
-    when(runtime.exec(new String[] {"bash", "-c", "ps -o pid,rss -p 1,2"})).thenReturn(process);
-    when(process.getInputStream()).thenReturn(psStream);
-
-    List<Long> pids = Arrays.asList(1L, 2L);
-    Map<Long, WorkerMetric.WorkerStat> pidResults = runner.collectStats(OS.LINUX, pids);
-
-    assertThat(pidResults).hasSize(2);
-    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3);
-    assertThat(pidResults.get(2L).getUsedMemoryInKB()).isEqualTo(4);
-  }
-
-  @Test
-  public void testCollectStats_filterInvalidPids() throws Exception {
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(false),
-            fs.getPath("/execRoot"),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools */ null,
-            resourceManager,
-            /* runfilestTreeUpdater */ null,
-            new WorkerOptions(),
-            eventBus,
-            runtime,
-            SyscallCache.NO_CACHE);
-
-    String psOutput = "PID  RSS  \n 1  3216";
-    InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
-    Process process = mock(Process.class);
-
-    when(runtime.exec(new String[] {"bash", "-c", "ps -o pid,rss -p 1"})).thenReturn(process);
-    when(process.getInputStream()).thenReturn(psStream);
-
-    List<Long> pids = Arrays.asList(1L, 0L);
-    Map<Long, WorkerMetric.WorkerStat> pidResults = runner.collectStats(OS.LINUX, pids);
-
-    assertThat(pidResults).hasSize(1);
-    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3);
-  }
 
   @Test
   public void testExecInWorker_showsLogFileInException() throws Exception {
