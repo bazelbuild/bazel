@@ -305,6 +305,7 @@ public abstract class CcModule
         usePic,
         /* fdoStamp= */ null,
         /* dotdFileExecPath= */ null,
+        /* diagnosticsFileExecPath= */ null,
         variablesExtensions,
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),

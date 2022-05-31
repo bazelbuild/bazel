@@ -5575,6 +5575,30 @@ def _impl(ctx):
         ],
     )
 
+    serialized_diagnostics_file_feature = feature(
+        name = "serialized_diagnostics_file",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["--serialize-diagnostics", "%{serialized_diagnostics_file}"],
+                        expand_if_available = "serialized_diagnostics_file",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     opt_only_flag_feature = feature(
         name = "opt_only_flag",
         flag_sets = [
@@ -7823,6 +7847,7 @@ def _impl(ctx):
         version_min_feature,
         dead_strip_feature,
         dependency_file_feature,
+        serialized_diagnostics_file_feature,
         random_seed_feature,
         pic_feature,
         per_object_debug_info_feature,

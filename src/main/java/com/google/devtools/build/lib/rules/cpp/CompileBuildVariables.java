@@ -44,6 +44,8 @@ public enum CompileBuildVariables {
   OUTPUT_FILE("output_file"),
   /** Variable for the dependency file path */
   DEPENDENCY_FILE("dependency_file"),
+  /** Variable for the serialized diagnostics file path */
+  SERIALIZED_DIAGNOSTICS_FILE("serialized_diagnostics_file"),
   /** Variable for the module file name. */
   MODULE_NAME("module_name"),
   /**
@@ -151,6 +153,7 @@ public enum CompileBuildVariables {
       boolean usePic,
       String fdoStamp,
       String dotdFileExecPath,
+      String diagnosticsFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -184,6 +187,7 @@ public enum CompileBuildVariables {
           usePic,
           fdoStamp,
           dotdFileExecPath,
+          diagnosticsFileExecPath,
           variablesExtensions,
           additionalBuildVariables,
           directModuleMaps,
@@ -219,6 +223,7 @@ public enum CompileBuildVariables {
       boolean usePic,
       String fdoStamp,
       String dotdFileExecPath,
+      String diagnosticsFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -252,6 +257,7 @@ public enum CompileBuildVariables {
         usePic,
         fdoStamp,
         dotdFileExecPath,
+        diagnosticsFileExecPath,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
@@ -281,6 +287,7 @@ public enum CompileBuildVariables {
       boolean usePic,
       String fdoStamp,
       String dotdFileExecPath,
+      String diagnosticsFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -319,6 +326,7 @@ public enum CompileBuildVariables {
         thinLtoOutputObjectFile,
         userCompileFlags,
         dotdFileExecPath,
+        diagnosticsFileExecPath,
         usePic,
         ImmutableList.of(),
         ImmutableMap.of());
@@ -338,6 +346,7 @@ public enum CompileBuildVariables {
       String thinLtoOutputObjectFile,
       Iterable<String> userCompileFlags,
       String dotdFileExecPath,
+      String diagnosticsFileExecPath,
       boolean usePic,
       ImmutableList<PathFragment> externalIncludeDirs,
       Map<String, String> additionalBuildVariables) {
@@ -355,6 +364,12 @@ public enum CompileBuildVariables {
     // Set dependency_file to enable <object>.d file generation.
     if (dotdFileExecPath != null) {
       buildVariables.addStringVariable(DEPENDENCY_FILE.getVariableName(), dotdFileExecPath);
+    }
+
+    // Set diagnostics_file to enable <object>.dia file generation.
+    if (diagnosticsFileExecPath != null) {
+      buildVariables.addStringVariable(
+          SERIALIZED_DIAGNOSTICS_FILE.getVariableName(), diagnosticsFileExecPath);
     }
 
     if (gcnoFile != null) {
