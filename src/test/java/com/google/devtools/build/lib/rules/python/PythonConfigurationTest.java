@@ -132,9 +132,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void getNormalized() throws Exception {
-    assumesDefaultIsPY2();
     PythonOptions opts = parsePythonOptions();
     PythonOptions normalizedOpts = (PythonOptions) opts.getNormalized();
-    assertThat(normalizedOpts.pythonVersion).isEqualTo(PythonVersion.PY2);
+    assertThat(normalizedOpts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 }

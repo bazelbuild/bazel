@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -68,14 +67,13 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void versionIs2IfUnspecified() throws Exception {
-    assumesDefaultIsPY2();
+  public void versionIs3IfUnspecified() throws Exception {
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
-    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY2);
+    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
