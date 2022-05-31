@@ -226,6 +226,47 @@ def Deduplicate(items):
           seen.add(it)
           yield it
 
+def InstrumentedFilePaths():
+  """Yields tuples of realpath of each instrumented file with the relative path."""
+  manifest_filename = os.environ.get('COVERAGE_MANIFEST')
+  if not manifest_filename:
+    return
+  with open(manifest_filename, "r") as manifest:
+    for line in manifest:
+      filename = line.strip()
+      if not filename:
+        continue
+      try:
+        realpath = os.path.realpath(filename)
+      except OSError:
+        print(
+          "Could not find instrumented file {}".format(filename),
+          file=sys.stderr)
+        continue
+      if realpath != filename:
+        print("Fixing up {} -> {}".format(realpath, filename), file=sys.stderr)
+        yield (realpath, filename)
+
+def UnresolveSymlinks(output_filename):
+  """Replace realpath of instrumented files with the relative path in the lcov output.
+  
+  Though we are asking coveragepy to use relative file names, current
+  ignore that for purposes of generating the lcov report, so we need to go
+  and fix up the report.
+  """
+  substitutions = list(InstrumentedFilePaths())
+  if substitutions:
+    unfixed_file = output_filename + '.tmp'
+    os.rename(output_filename, unfixed_file)
+    with open(unfixed_file, "r") as unfixed:
+      with open(output_filename, "w") as output_file:
+        for line in unfixed:
+          if line.startswith('SF:'):
+            for (realpath, filename) in substitutions:
+              line = line.replace(realpath, filename)
+          output_file.write(line)
+    os.unlink(unfixed_file)
+
 def ExecuteFile(python_program, main_filename, args, env, module_space,
                 coverage_tool=None, workspace=None):
   """Executes the given python file using the various environment settings.
@@ -266,19 +307,44 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
     os.execv(python_program, [python_program, main_filename] + args)
 
   if coverage_tool is not None:
+    # We need for coveragepy to use relative paths.  This can only be configured
+    # via an rc file, so we need to make one.
+    rcfile_name = os.path.join(os.environ['COVERAGE_DIR'], '.coveragerc')
+    with open(rcfile_name, "w") as rcfile:
+      rcfile.write('''[run]
+relative_files = True
+''')
     # Coveragepy wants to frst create a .coverage database file, from
     # which we can then export lcov.
     subprocess.call(
-      [python_program, coverage_tool, "run", "--append", "--branch", main_filename] + args,
+      [
+        python_program,
+        coverage_tool,
+        "run",
+        "--rcfile=" + rcfile_name,
+        "--append",
+        "--branch",
+        main_filename
+      ] + args,
       env=env,
       cwd=workspace
     )
-    output_filename = os.environ.get('COVERAGE_DIR') + '/pylcov.dat'
+    output_filename = os.environ['COVERAGE_DIR'] + '/pylcov.dat'
     ret_code = subprocess.call(
-      [python_program, coverage_tool, "lcov", "-o", output_filename] + args,
+      [
+        python_program,
+        coverage_tool,
+        "lcov",
+        "--rcfile=" + rcfile_name,
+        "-o",
+        output_filename
+      ],
       env=env,
       cwd=workspace
     )
+    os.unlink(rcfile_name)
+    if os.path.isfile(output_filename):
+      UnresolveSymlinks(output_filename)
   else:
     ret_code = subprocess.call(
       [python_program, main_filename] + args,
@@ -352,27 +418,25 @@ def Main():
   if os.environ.get('COVERAGE_DIR'):
     cov_tool = FindCoverageTool(module_space)
     if cov_tool is None:
-      raise EnvironmentError(
-        'No python coverage tool set, '
-        'set PYTHON_COVERAGE '
-        'to configure the coverage tool'
-      )
-    # Inhibit infinite recursion:
-    if 'PYTHON_COVERAGE' in os.environ:
-      del os.environ['PYTHON_COVERAGE']
-    if not os.path.exists(cov_tool):
-      raise EnvironmentError('Python coverage tool %s not found.' % cov_tool)
+      print('Coverage was requested, but not python coverage tool was configured.', file=sys.stderr)
+    else:
+      # Inhibit infinite recursion:
+      if 'PYTHON_COVERAGE' in os.environ:
+        del os.environ['PYTHON_COVERAGE']
 
-    # coverage library expects sys.path[0] to contain the library, and replaces
-    # it with the directory of the program it starts. Our actual sys.path[0] is
-    # the runfiles directory, which must not be replaced.
-    # CoverageScript.do_execute() undoes this sys.path[0] setting.
-    #
-    # Update sys.path such that python finds the coverage package. The coverage
-    # entry point is coverage.coverage_main, so we need to do twice the dirname.
-    new_env['PYTHONPATH'] = (
-      new_env['PYTHONPATH'] + ':' + os.path.dirname(os.path.dirname(cov_tool))
-    )
+      if not os.path.exists(cov_tool):
+        raise EnvironmentError('Python coverage tool %s not found.' % cov_tool)
+
+      # coverage library expects sys.path[0] to contain the library, and replaces
+      # it with the directory of the program it starts. Our actual sys.path[0] is
+      # the runfiles directory, which must not be replaced.
+      # CoverageScript.do_execute() undoes this sys.path[0] setting.
+      #
+      # Update sys.path such that python finds the coverage package. The coverage
+      # entry point is coverage.coverage_main, so we need to do twice the dirname.
+      new_env['PYTHONPATH'] = (
+        new_env['PYTHONPATH'] + ':' + os.path.dirname(os.path.dirname(cov_tool))
+      )
   else:
     cov_tool = None
 
