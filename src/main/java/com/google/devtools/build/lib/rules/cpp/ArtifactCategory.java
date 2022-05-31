@@ -27,6 +27,7 @@ public enum ArtifactCategory {
   INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
+  SERIALIZED_DIAGNOSTICS_FILE("", ".dia"),
   OBJECT_FILE("", ".o", ".obj"),
   PIC_OBJECT_FILE("", ".pic.o"),
   CPP_MODULE("", ".pcm"),
