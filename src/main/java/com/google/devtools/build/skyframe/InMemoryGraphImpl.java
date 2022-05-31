@@ -82,7 +82,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, NodeEntry> createIfAbsentBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     Map<SkyKey, NodeEntry> result = CompactHashMap.createWithExpectedSize(Iterables.size(keys));
     for (SkyKey key : keys) {
       result.put(key, nodeMap.computeIfAbsent(key, newNodeEntryFunction));
