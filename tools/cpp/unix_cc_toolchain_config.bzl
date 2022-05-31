@@ -1064,6 +1064,31 @@ def _impl(ctx):
         ],
     )
 
+    serialized_diagnostics_file_feature = feature(
+        name = "serialized_diagnostics_file",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.clif_match,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["--serialize-diagnostics", "%{serialized_diagnostics_file}"],
+                        expand_if_available = "serialized_diagnostics_file",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     dynamic_library_linker_tool_path = tool_paths
     dynamic_library_linker_tool_feature = feature(
         name = "dynamic_library_linker_tool",
@@ -1202,6 +1227,7 @@ def _impl(ctx):
     if is_linux:
         features = [
             dependency_file_feature,
+            serialized_diagnostics_file_feature,
             random_seed_feature,
             pic_feature,
             per_object_debug_info_feature,
