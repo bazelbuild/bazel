@@ -27,7 +27,9 @@ import net.starlark.java.eval.Structure;
         "A collection of configuration fragments available in the current rule implementation"
             + " context. Access a specific fragment by its field name. For example,"
             + " <code>ctx.fragments.java</code> <p>Only configuration fragments which are declared"
-            + " in the rule definition may be accessed in this collection.</p><p>See <a"
+            + " in the rule definition may be accessed in this collection.</p><p>See the <a"
+            + " href=\"https://bazel.build/rules/lib/starlark-configuration-fragment\">configuration"
+            + " fragment reference</a> for a list of available fragments and the <a"
             + " href=\"https://bazel.build/rules/rules#configuration_fragments\">rules"
-            + " documentation</a> for details.")
+            + " documentation</a> for how to use them.")
 public interface FragmentCollectionApi extends Structure, StarlarkValue {}
