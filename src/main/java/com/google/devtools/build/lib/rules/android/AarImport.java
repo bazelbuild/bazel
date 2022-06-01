@@ -286,7 +286,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_PROGUARD_EXTACTOR))
         .setMnemonic("AarEmbeddedProguardExtractor")
-        .setProgressMessage("Extracting proguard.txt from %{label}")
+        .setProgressMessage("Extracting proguard.txt from %s", aar.getFilename())
         .addInput(aar)
         .addOutput(proguardSpecArtifact)
         .addCommandLine(
@@ -387,7 +387,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR))
         .setMnemonic("AarEmbeddedJarsExtractor")
-        .setProgressMessage("Extracting classes.jar and libs/*.jar from %{label}")
+        .setProgressMessage("Extracting classes.jar and libs/*.jar from %s", aar.getFilename())
         .addInput(aar)
         .addOutput(jarsTreeArtifact)
         .addOutput(singleJarParamFile)
