@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -164,19 +163,6 @@ public interface GoWrapCcHelperApi<
       Sequence<?> srcs, // <FileT> expected
       Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
       throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
-      name = "create_transitive_gopackage_info",
-      doc = "",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "gopkg", positional = false, named = true),
-        @Param(name = "export", positional = false, named = true),
-        @Param(name = "swig_out_go", positional = false, named = true),
-      })
-  public GoPackageInfoApi createTransitiveGopackageInfo(
-      StarlarkRuleContextT starlarkRuleContext, FileT starlarkGopkg, FileT export, FileT swigOutGo);
 
   @StarlarkMethod(
       name = "get_gopackage_files",
