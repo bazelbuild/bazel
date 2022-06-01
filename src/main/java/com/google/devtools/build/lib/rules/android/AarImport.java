@@ -286,7 +286,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_PROGUARD_EXTACTOR))
         .setMnemonic("AarEmbeddedProguardExtractor")
-        .setProgressMessage("Extracting proguard.txt from %s", aar.getFilename())
+        .setProgressMessage("Extracting proguard.txt from %{label}")
         .addInput(aar)
         .addOutput(proguardSpecArtifact)
         .addCommandLine(
@@ -360,8 +360,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_RESOURCES_EXTRACTOR))
         .setMnemonic("AarResourcesExtractor")
-        .setProgressMessage(
-            String.format("Extracting AAR Resources for %s", ruleContext.getLabel().toString()))
+        .setProgressMessage("Extracting AAR Resources for %{label}")
         .addInput(aar)
         .addOutput(resourcesDir)
         .addOutput(assetsDir)
@@ -388,7 +387,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR))
         .setMnemonic("AarEmbeddedJarsExtractor")
-        .setProgressMessage("Extracting classes.jar and libs/*.jar from %s", aar.getFilename())
+        .setProgressMessage("Extracting classes.jar and libs/*.jar from %{label}")
         .addInput(aar)
         .addOutput(jarsTreeArtifact)
         .addOutput(singleJarParamFile)
@@ -408,8 +407,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return builder
         .setExecutable(singleJar)
         .setMnemonic("AarJarsMerger")
-        .setProgressMessage(
-            String.format("Merging AAR embedded jars for %s", ruleContext.getLabel().toString()))
+        .setProgressMessage("Merging AAR embedded jars for %{label}")
         .addInput(jarsTreeArtifact)
         .addOutput(mergedJar)
         .addInput(paramFile)
@@ -432,10 +430,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 ruleContext.getExecutablePrerequisite(
                     AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR))
             .setMnemonic("AarNativeLibsFilter")
-            .setProgressMessage(
-                String.format(
-                    "Filtering AAR native libs by architecture for %s",
-                    ruleContext.getLabel().toString()))
+            .setProgressMessage("Filtering AAR native libs by architecture for %{label}")
             .addInput(aar)
             .addOutput(outputZip)
             .addCommandLine(
@@ -485,5 +480,4 @@ public class AarImport implements RuleConfiguredTargetFactory {
     PathFragment rootRelativePath = ruleContext.getUniqueDirectory("_aar/unzipped/" + name);
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
-
 }
