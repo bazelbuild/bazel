@@ -91,6 +91,9 @@ public final class AspectDefinition {
 
   private final ImmutableSet<AspectClass> requiredAspectClasses;
 
+  private final ImmutableSet<Label> execCompatibleWith;
+  private final ImmutableMap<String, ExecGroup> execGroups;
+
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
   }
@@ -107,7 +110,9 @@ public final class AspectDefinition {
       boolean applyToFiles,
       boolean applyToGeneratingRules,
       BiPredicate<Object, String> propagateViaAttribute,
-      ImmutableSet<AspectClass> requiredAspectClasses) {
+      ImmutableSet<AspectClass> requiredAspectClasses,
+      ImmutableSet<Label> execCompatibleWith,
+      ImmutableMap<String, ExecGroup> execGroups) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
@@ -120,6 +125,8 @@ public final class AspectDefinition {
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.propagateViaAttribute = propagateViaAttribute;
     this.requiredAspectClasses = requiredAspectClasses;
+    this.execCompatibleWith = execCompatibleWith;
+    this.execGroups = execGroups;
   }
 
   public String getName() {
@@ -138,6 +145,18 @@ public final class AspectDefinition {
   /** Returns the required toolchains declared by this aspect. */
   public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {
     return toolchainTypes;
+  }
+
+  /**
+   * Returns the constraint values that must be present on an execution platform for this aspect.
+   */
+  public ImmutableSet<Label> execCompatibleWith() {
+    return execCompatibleWith;
+  }
+
+  /** Returns the execution groups that this aspect can use when creating actions. */
+  public ImmutableMap<String, ExecGroup> execGroups() {
+    return execGroups;
   }
 
   /**
@@ -274,6 +293,8 @@ public final class AspectDefinition {
     private boolean applyToGeneratingRules = false;
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
+    private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
+    private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
@@ -588,6 +609,22 @@ public final class AspectDefinition {
     }
 
     /**
+     * Adds the given constraint values to the set required for execution platforms for this aspect.
+     */
+    public Builder execCompatibleWith(ImmutableSet<Label> execCompatibleWith) {
+      this.execCompatibleWith = execCompatibleWith;
+      return this;
+    }
+
+    /** Sets the execution groups that are available for actions created by this aspect. */
+    public Builder execGroups(ImmutableMap<String, ExecGroup> execGroups) {
+      // TODO(b/230337573): validate names
+      // TODO(b/230337573): handle copy_from_default
+      this.execGroups = execGroups;
+      return this;
+    }
+
+    /**
      * Builds the aspect definition.
      *
      * <p>The builder object is reusable afterwards.
@@ -612,7 +649,9 @@ public final class AspectDefinition {
           applyToFiles,
           applyToGeneratingRules,
           propagateViaAttribute,
-          requiredAspectClasses);
+          requiredAspectClasses,
+          execCompatibleWith,
+          execGroups);
     }
   }
 }

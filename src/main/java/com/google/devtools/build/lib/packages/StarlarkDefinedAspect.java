@@ -51,6 +51,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableSet<String> hostFragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean applyToGeneratingRules;
+  private final ImmutableSet<Label> execCompatibleWith;
+  private final ImmutableMap<String, ExecGroup> execGroups;
 
   private StarlarkAspectClass aspectClass;
 
@@ -74,7 +76,9 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      boolean applyToGeneratingRules) {
+      boolean applyToGeneratingRules,
+      ImmutableSet<Label> execCompatibleWith,
+      ImmutableMap<String, ExecGroup> execGroups) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
@@ -88,6 +92,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.hostFragments = hostFragments;
     this.toolchainTypes = toolchainTypes;
     this.applyToGeneratingRules = applyToGeneratingRules;
+    this.execCompatibleWith = execCompatibleWith;
+    this.execGroups = execGroups;
   }
 
   public StarlarkCallable getImplementation() {
@@ -201,6 +207,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       requiredAspectsClasses.add(requiredAspect.getAspectClass());
     }
     builder.requiredAspectClasses(requiredAspectsClasses.build());
+    builder.execCompatibleWith(execCompatibleWith);
+    builder.execGroups(execGroups);
     return builder.build();
   }
 
