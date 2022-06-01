@@ -360,6 +360,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_RESOURCES_EXTRACTOR))
         .setMnemonic("AarResourcesExtractor")
+        .setProgressMessage(
+            String.format("Extracting AAR Resources for %s", ruleContext.getLabel().toString()))
         .addInput(aar)
         .addOutput(resourcesDir)
         .addOutput(assetsDir)
@@ -406,7 +408,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return builder
         .setExecutable(singleJar)
         .setMnemonic("AarJarsMerger")
-        .setProgressMessage("Merging AAR embedded jars")
+        .setProgressMessage(
+            String.format("Merging AAR embedded jars for %s", ruleContext.getLabel().toString()))
         .addInput(jarsTreeArtifact)
         .addOutput(mergedJar)
         .addInput(paramFile)
@@ -429,7 +432,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 ruleContext.getExecutablePrerequisite(
                     AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR))
             .setMnemonic("AarNativeLibsFilter")
-            .setProgressMessage("Filtering AAR native libs by architecture")
+            .setProgressMessage(
+                String.format(
+                    "Filtering AAR native libs by architecture for %s",
+                    ruleContext.getLabel().toString()))
             .addInput(aar)
             .addOutput(outputZip)
             .addCommandLine(
