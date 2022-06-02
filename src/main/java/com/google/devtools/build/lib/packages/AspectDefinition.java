@@ -445,10 +445,6 @@ public final class AspectDefinition {
 
     /**
      * Adds an attribute to the aspect.
-     *
-     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit (not
-     * available in the BUILD file, starting with '$') or late-bound (determined after the
-     * configuration is available, starting with ':')
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       Attribute attribute = attr.build();
@@ -458,9 +454,9 @@ public final class AspectDefinition {
     /**
      * Adds an attribute to the aspect.
      *
-     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit (not
-     * available in the BUILD file, starting with '$') or late-bound (determined after the
-     * configuration is available, starting with ':')
+     * <p>Aspects attributes can be of any data type if they are not public, i.e. implicit (starting
+     * with '$') or late-bound (starting with ':'). While public attributes can only be of types
+     * string, integer or boolean.
      *
      * <p>Aspect definition currently cannot handle {@link ComputedDefault} dependencies (type LABEL
      * or LABEL_LIST), because all the dependencies are resolved from the aspect definition and the
