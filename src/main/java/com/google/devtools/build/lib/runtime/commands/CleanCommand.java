@@ -49,6 +49,8 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.logging.LogManager;
 
@@ -115,6 +117,15 @@ public final class CleanCommand implements BlazeCommand {
                 + " deleted. Without this flag, only symlinks with the predefined suffixes are"
                 + " cleaned.")
     public boolean removeAllConvenienceSymlinks;
+
+    @Option(
+            name = "all",
+            defaultValue = "false",
+            documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+            effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+            help =
+                    "If true, repetitively cleans all outputBase under outputUserRoot.")
+    public boolean cleanAll;
   }
 
   private final OS os;
@@ -166,6 +177,7 @@ public final class CleanCommand implements BlazeCommand {
           env.getOutputBase(),
           cleanOptions.expunge,
           async,
+          cleanOptions.cleanAll,
           symlinkPrefix,
           cleanOptions.removeAllConvenienceSymlinks);
     } catch (CleanException e) {
@@ -242,12 +254,13 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult actuallyClean(
-      CommandEnvironment env,
-      Path outputBase,
-      boolean expunge,
-      boolean async,
-      String symlinkPrefix,
-      boolean removeAllConvenienceSymlinks)
+          CommandEnvironment env,
+          Path outputBase,
+          boolean expunge,
+          boolean async,
+          boolean cleanAll,
+          String symlinkPrefix,
+          boolean removeAllConvenienceSymlinks)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
     if (env.getOutputService() != null) {
@@ -287,6 +300,9 @@ public final class CleanCommand implements BlazeCommand {
       // be a small possibility of a server race if a client is waiting, but
       // all significant files will be gone by then.
       try {
+        if (cleanAll) {
+          outputBase = outputBase.getParentDirectory();
+        }
         outputBase.deleteTreesBelow();
         outputBase.deleteTree();
       } catch (IOException e) {
@@ -296,7 +312,21 @@ public final class CleanCommand implements BlazeCommand {
       logger.atInfo().log("Expunging asynchronously...");
       runtime.prepareForAbruptShutdown();
       try {
-        asyncClean(env, outputBase, "Output base");
+        Collection<Path> allBazelPath;
+        if (cleanAll) {
+          outputBase = outputBase.getParentDirectory();
+          try {
+            allBazelPath = outputBase.getDirectoryEntries();
+          } catch (IOException e) {
+            throw new CleanException(Code.OUTPUT_BASE_DELETE_FAILURE, e);
+          }
+        } else {
+          allBazelPath = Arrays.asList(outputBase);
+        }
+        for (Path path : allBazelPath) {
+          if (path.toString().contains("install")) continue;
+          asyncClean(env, path, "Output base");
+        }
       } catch (IOException e) {
         throw new CleanException(Code.OUTPUT_BASE_TEMP_MOVE_FAILURE, e);
       } catch (CommandException e) {
@@ -305,22 +335,35 @@ public final class CleanCommand implements BlazeCommand {
     } else {
       logger.atInfo().log("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
-      Path execroot = outputBase.getRelative("execroot");
-      if (execroot.exists()) {
-        logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
-        if (async) {
-          try {
-            asyncClean(env, execroot, "Output tree");
-          } catch (IOException e) {
-            throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
-          } catch (CommandException e) {
-            throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
-          }
-        } else {
-          try {
-            execroot.deleteTreesBelow();
-          } catch (IOException e) {
-            throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
+      Collection<Path> allBazelPath;
+      if (cleanAll) {
+        outputBase = outputBase.getParentDirectory();
+        try {
+          allBazelPath = outputBase.getDirectoryEntries();
+        } catch (IOException e) {
+          throw new CleanException(Code.OUTPUT_BASE_DELETE_FAILURE, e);
+        }
+      } else {
+        allBazelPath = Arrays.asList(outputBase);
+      }
+      for (Path path : allBazelPath) {
+        Path execroot = path.getRelative("execroot");
+        if (execroot.exists()) {
+          logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
+          if (async) {
+            try {
+              asyncClean(env, execroot, "Output tree");
+            } catch (IOException e) {
+              throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
+            } catch (CommandException e) {
+              throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
+            }
+          } else {
+            try {
+              execroot.deleteTreesBelow();
+            } catch (IOException e) {
+              throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
+            }
           }
         }
       }

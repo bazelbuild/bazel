@@ -63,6 +63,96 @@ class BazelCleanTest(test_base.TestBase):
           os.path.join(bazel_genfiles, 'foo/x.out')))
       self.assertFalse(os.path.exists(output_base))
 
+  def createTwoOutputBase(self):
+    self.ScratchFile('foo1/WORKSPACE')
+    self.ScratchFile('foo1/foo/BUILD', [
+      'genrule(',
+      '  name = "x",',
+      '  outs = ["x.out"],',
+      '  cmd = "touch $@",',
+      ')',
+    ])
+
+    self.ScratchFile('foo2/WORKSPACE')
+    self.ScratchFile('foo2/foo/BUILD', [
+      'genrule(',
+      '  name = "x",',
+      '  outs = ["x.out"],',
+      '  cmd = "touch $@",',
+      ')',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-genfiles'], cwd='foo1')
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_genfiles1 = stdout[0]
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'output_base'], cwd='foo1')
+    self.AssertExitCode(exit_code, 0, stderr)
+    output_base1 = stdout[0]
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-genfiles'], cwd='foo2')
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_genfiles2 = stdout[0]
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'output_base'], cwd='foo2')
+    self.AssertExitCode(exit_code, 0, stderr)
+    output_base2 = stdout[0]
+    return (bazel_genfiles1, output_base1, bazel_genfiles2, output_base2)
+
+  @unittest.skipIf(test_base.TestBase.IsWindows(),
+                     'All clean does not supported on Windows')
+  def testBazelCleanAll(self):
+    bazel_genfiles1, output_base1, bazel_genfiles2, output_base2 = self.createTwoOutputBase()
+
+    for _ in range(0, 10):
+      # Build in foo1
+      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'], cwd='foo1')
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertTrue(os.path.exists(
+        os.path.join(bazel_genfiles1, 'foo/x.out')))
+
+      # Build in foo2
+      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'], cwd='foo2')
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertTrue(os.path.exists(
+        os.path.join(bazel_genfiles2, 'foo/x.out')))
+
+      exit_code, _, stderr = self.RunBazel(['clean', '--all'], cwd='foo2')
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertFalse(os.path.exists(
+        os.path.join(bazel_genfiles2, 'foo/x.out')))
+      self.assertTrue(os.path.exists(output_base2))
+      self.assertFalse(os.path.exists(
+        os.path.join(bazel_genfiles1, 'foo/x.out')))
+      self.assertTrue(os.path.exists(output_base1))
+
+      exit_code, _, stderr = self.RunBazel(['clean', '--expunge', '--all'], cwd='foo2')
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertFalse(os.path.exists(output_base2))
+      self.assertFalse(os.path.exists(output_base1))
+
+  @unittest.skipIf(not test_base.TestBase.IsLinux(),
+                   'Async clean only supported on Linux')
+  def testBazelAsyncCleanAll(self):
+    bazel_genfiles1, output_base1, bazel_genfiles2, output_base2 = self.createTwoOutputBase()
+
+    for _ in range(0,10):
+      # Build in foo1
+      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'], cwd='foo1')
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertTrue(os.path.exists(
+        os.path.join(bazel_genfiles1, 'foo/x.out')))
+      # Build in foo2
+      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'], cwd='foo2')
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertTrue(os.path.exists(
+        os.path.join(bazel_genfiles2, 'foo/x.out')))
+      exit_code, _, stderr = self.RunBazel(['clean', '--async', '--expunge', '--all'], cwd='foo2')
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertFalse(os.path.exists(output_base2))
+      self.assertFalse(os.path.exists(output_base1))
+
+
   @unittest.skipIf(not test_base.TestBase.IsLinux(),
                    'Async clean only supported on Linux')
   def testBazelAsyncClean(self):
