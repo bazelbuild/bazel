@@ -1,3 +1,22 @@
+## Release 6.0.0-pre.20220526.1 (2022-06-02)
+
+```
+Baseline: e6bb6fcfcc9b571ef0bbdf039b5ae67954ade222
+```
+
+Incompatible changes:
+
+  - --legacy_important_outputs now has a default of false.
+  - --legacy_important_outputs default reverted to true.
+
+Important changes:
+
+  - pkg_tar(symlinks) has been removed. Users needing that feature
+    should
+    migrate to @rules_pkg.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Lee, Benjamin Peterson.
+
 ## Release 6.0.0-pre.20220520.1 (2022-05-30)
 
 ```
