@@ -19,7 +19,7 @@ files for the software you want to build. Each workspace has a text file named
 
 Directories containing a file called `WORKSPACE` are considered the root of a
 workspace. Therefore, Bazel ignores any directory trees in a workspace rooted
-at a subdirectory containing a `WORKSPACE` file, as they form another workspace.
+at a subdirectory containing a `WORKSPACE` file, as they are from another workspace.
 
 Bazel also supports `WORKSPACE.bazel` file as an alias of `WORKSPACE` file.
 If both files exist, `WORKSPACE.bazel` is used.
