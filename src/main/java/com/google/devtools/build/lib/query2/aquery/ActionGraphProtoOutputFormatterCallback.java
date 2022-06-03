@@ -65,6 +65,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
             this.actionFilters,
             options.includeParamFiles,
             options.deduplicateDepsets,
+            options.includeFileWriteContents,
             aqueryOutputHandler);
   }
 
