@@ -437,6 +437,7 @@ public class BuildTool {
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
               /* deduplicateDepsets= */ true,
+              /* includeFileWriteContents */ false,
               aqueryOutputHandler);
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }

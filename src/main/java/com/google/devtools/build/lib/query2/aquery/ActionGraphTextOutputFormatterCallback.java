@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -325,6 +327,15 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
             .append("}\n");
       }
       stringBuilder.append("  ]\n");
+    }
+
+    if (options.includeFileWriteContents && action instanceof FileWriteAction) {
+      FileWriteAction fileWriteAction = (FileWriteAction) action;
+      stringBuilder
+          .append("  FileWriteContents: [")
+          .append(
+              Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
+          .append("]");
     }
 
     stringBuilder.append('\n');
