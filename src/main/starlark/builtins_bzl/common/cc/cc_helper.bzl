@@ -30,6 +30,7 @@ artifact_category = struct(
     INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
     PIC_FILE = "PIC_FILE",
     INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
+    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
     OBJECT_FILE = "OBJECT_FILE",
     PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
     CPP_MODULE = "CPP_MODULE",
@@ -43,6 +44,11 @@ artifact_category = struct(
 )
 
 SYSROOT_FLAG = "--sysroot="
+
+def _grep_includes_executable(grep_includes):
+    if grep_includes == None:
+        return None
+    return grep_includes.files_to_run.executable
 
 def _check_src_extension(file, allowed_src_files, allow_versioned_shared_libraries):
     extension = "." + file.extension
@@ -918,4 +924,6 @@ cc_helper = struct(
     get_expanded_env = _get_expanded_env,
     has_target_constraints = _has_target_constraints,
     is_non_empty_list_or_select = _is_non_empty_list_or_select,
+    grep_includes_executable = _grep_includes_executable,
+    expand_make_variables_for_copts = _expand_make_variables_for_copts,
 )

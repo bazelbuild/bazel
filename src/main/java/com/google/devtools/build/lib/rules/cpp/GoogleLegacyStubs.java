@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcIncludeProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -230,15 +229,6 @@ public final class GoogleLegacyStubs {
         CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>
         Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
-      return null;
-    }
-
-    @Override
-    public GoPackageInfoApi createTransitiveGopackageInfo(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        FileApi starlarkGopkg,
-        FileApi export,
-        FileApi swigOutGo) {
       return null;
     }
 

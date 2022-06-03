@@ -683,6 +683,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       proguardOutput.addAllToSet(filesBuilder, finalProguardOutputMap);
     }
 
+    Artifact artProfileZip =
+        androidSemantics.getArtProfileForApk(
+            ruleContext, finalClassesDex, proguardOutputMap, hasProguardSpecs);
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =
@@ -698,21 +701,26 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     FilesToRunProvider resourceExtractor =
         ruleContext.getExecutablePrerequisite("$resource_extractor");
 
-    ApkActionsBuilder.create("apk")
-        .setClassesDex(finalClassesDex)
-        .addInputZip(resourceApk.getArtifact())
-        .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
-        .addInputZips(nativeLibsAar.toList())
-        .setNativeLibs(nativeLibs)
-        .setUnsignedApk(unsignedApk)
-        .setSignedApk(zipAlignedApk)
-        .setSigningKeys(signingKeys)
-        .setSigningLineageFile(signingLineage)
-        .setSigningKeyRotationMinSdk(keyRotationMinSdk)
-        .setV4Signature(v4Signature)
-        .setZipalignApk(true)
-        .setDeterministicSigning(androidSemantics.deterministicSigning())
-        .registerActions(ruleContext);
+    ApkActionsBuilder actionsBuilder =
+        ApkActionsBuilder.create("apk")
+            .setClassesDex(finalClassesDex)
+            .addInputZip(resourceApk.getArtifact())
+            .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
+            .addInputZips(nativeLibsAar.toList())
+            .setNativeLibs(nativeLibs)
+            .setUnsignedApk(unsignedApk)
+            .setSignedApk(zipAlignedApk)
+            .setSigningKeys(signingKeys)
+            .setSigningLineageFile(signingLineage)
+            .setSigningKeyRotationMinSdk(keyRotationMinSdk)
+            .setV4Signature(v4Signature)
+            .setZipalignApk(true)
+            .setDeterministicSigning(androidSemantics.deterministicSigning());
+
+    if (artProfileZip != null) {
+      actionsBuilder.addInputZip(artProfileZip);
+    }
+    actionsBuilder.registerActions(ruleContext);
 
     filesBuilder.add(binaryJar);
     filesBuilder.add(unsignedApk);

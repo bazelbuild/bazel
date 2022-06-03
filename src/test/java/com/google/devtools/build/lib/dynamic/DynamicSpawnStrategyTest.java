@@ -309,7 +309,6 @@ public class DynamicSpawnStrategyTest {
     DynamicExecutionOptions options = new DynamicExecutionOptions();
     options.dynamicLocalStrategy = dynamicLocalStrategies.build();
     options.dynamicRemoteStrategy = dynamicRemoteStrategies.build();
-    options.dynamicWorkerStrategy = "mock-local";
     options.internalSpawnScheduler = true;
     options.localExecutionDelay = 0;
 

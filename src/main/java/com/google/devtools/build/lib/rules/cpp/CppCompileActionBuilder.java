@@ -58,6 +58,7 @@ public class CppCompileActionBuilder {
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
   private Artifact dotdFile;
+  private Artifact diagnosticsFile;
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
@@ -306,6 +307,7 @@ public class CppCompileActionBuilder {
             prunableHeaders,
             outputFile,
             dotdFile,
+            diagnosticsFile,
             gcnoFile,
             dwoFile,
             ltoIndexingFile,
@@ -465,9 +467,15 @@ public class CppCompileActionBuilder {
         && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
-  public CppCompileActionBuilder setOutputs(Artifact outputFile, Artifact dotdFile) {
+  public boolean serializedDiagnosticsFilesEnabled() {
+    return featureConfiguration.isEnabled(CppRuleClasses.SERIALIZED_DIAGNOSTICS_FILE);
+  }
+
+  public CppCompileActionBuilder setOutputs(
+      Artifact outputFile, Artifact dotdFile, Artifact diagnosticsFile) {
     this.outputFile = outputFile;
     this.dotdFile = dotdFile;
+    this.diagnosticsFile = diagnosticsFile;
     return this;
   }
 
@@ -492,6 +500,15 @@ public class CppCompileActionBuilder {
     } else {
       dotdFile = null;
     }
+    if (serializedDiagnosticsFilesEnabled()) {
+      String diagnosticsFileName =
+          CppHelper.getDiagnosticsFileName(ccToolchain, outputCategory, outputName);
+      diagnosticsFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, diagnosticsFileName, configuration);
+    } else {
+      diagnosticsFile = null;
+    }
     return this;
   }
 
@@ -515,6 +532,10 @@ public class CppCompileActionBuilder {
 
   public Artifact getDotdFile() {
     return this.dotdFile;
+  }
+
+  public Artifact getDiagnosticsFile() {
+    return this.diagnosticsFile;
   }
 
   public CppCompileActionBuilder setGcnoFile(Artifact gcnoFile) {

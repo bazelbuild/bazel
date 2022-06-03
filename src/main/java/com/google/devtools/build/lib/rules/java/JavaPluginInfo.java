@@ -68,9 +68,8 @@ public abstract class JavaPluginInfo extends NativeInfo
       JavaInfo javaInfos =
           JavaInfo.merge(
               Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-              ImmutableList.of(),
-              ImmutableList.of(),
-              false);
+              /* mergeJavaOutputs= */ true,
+              /* mergeSourceJars= */ true);
 
       NestedSet<Artifact> processorClasspath =
           javaInfos.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars();

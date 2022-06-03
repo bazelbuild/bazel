@@ -344,6 +344,13 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "separate_module_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class)},
+            defaultValue = "unbound"),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -381,6 +388,7 @@ public interface BazelCcModuleApi<
       Object purpose,
       Object grepIncludes,
       Object coptsFilter,
+      Object separateModuleHeaders,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

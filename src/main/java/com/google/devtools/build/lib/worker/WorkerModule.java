@@ -160,7 +160,6 @@ public class WorkerModule extends BlazeModule {
             RunfilesTreeUpdater.INSTANCE,
             env.getOptions().getOptions(WorkerOptions.class),
             env.getEventBus(),
-            Runtime.getRuntime(),
             env.getXattrProvider());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));

@@ -64,6 +64,24 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "is_package_headers_checking_mode_set_for_aspect",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getTarget().getPackage().isDefaultHdrsCheckSet();
+  }
+
+  @StarlarkMethod(
+      name = "package_headers_checking_mode_for_aspect",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public String getPackageHeadersCheckingModeForStarlarkAspect(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getTarget().getPackage().getDefaultHdrsCheck();
+  }
+
+  @StarlarkMethod(
       name = "create_common",
       documented = false,
       parameters = {

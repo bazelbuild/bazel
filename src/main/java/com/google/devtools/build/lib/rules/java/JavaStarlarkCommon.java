@@ -91,7 +91,7 @@ public class JavaStarlarkCommon
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
-      boolean createOutputSourceJar,
+      boolean includeCompilationInfo,
       Object injectingRuleKind,
       Sequence<?> addExports, // <String> expected
       Sequence<?> addOpens, // <String> expected
@@ -134,7 +134,7 @@ public class JavaStarlarkCommon
     // checks for private API access
     if (!enableCompileJarAction
         || !enableJSpecify
-        || !createOutputSourceJar
+        || !includeCompilationInfo
         || !classpathResources.isEmpty()
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
@@ -170,7 +170,7 @@ public class JavaStarlarkCommon
             enableAnnotationProcessing,
             enableCompileJarAction,
             enableJSpecify,
-            createOutputSourceJar,
+            includeCompilationInfo,
             javaSemantics,
             injectingRuleKind,
             Sequence.cast(addExports, String.class, "add_exports"),
@@ -232,19 +232,15 @@ public class JavaStarlarkCommon
   @Override
   public JavaInfo mergeJavaProviders(
       Sequence<?> providers, /* <JavaInfo> expected. */
-      Sequence<?> exports, /* <JavaInfo> expected. */
-      Sequence<?> runtimeDeps, /* <JavaInfo> expected. */
-      boolean includeSourceJarsFromExports,
+      boolean mergeJavaOutputs,
+      boolean mergeSourceJars,
       StarlarkThread thread)
       throws EvalException {
-    if (!exports.isEmpty() || !runtimeDeps.isEmpty() || includeSourceJarsFromExports) {
+    if (!mergeJavaOutputs || !mergeSourceJars) {
       checkPrivateAccess(thread);
     }
     return JavaInfo.merge(
-        Sequence.cast(providers, JavaInfo.class, "providers"),
-        Sequence.cast(exports, JavaInfo.class, "exports"),
-        Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-        includeSourceJarsFromExports);
+        Sequence.cast(providers, JavaInfo.class, "providers"), mergeJavaOutputs, mergeSourceJars);
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.

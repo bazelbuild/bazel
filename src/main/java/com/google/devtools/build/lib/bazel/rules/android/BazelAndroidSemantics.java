@@ -117,4 +117,14 @@ public class BazelAndroidSemantics implements AndroidSemantics {
             + ruleContext.getRule().getRuleClass()
             + "\"). See http://github.com/bazelbuild/rules_android.");
   }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact getArtProfileForApk(
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      boolean hasProguardSpecs) {
+    return null;
+  }
 }

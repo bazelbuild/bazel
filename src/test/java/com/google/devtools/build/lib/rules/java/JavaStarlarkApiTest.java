@@ -3155,14 +3155,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExportsIsPrivateApi() throws Exception {
+  public void testMergeJavaOutputsIsPrivateApi() throws Exception {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib.jar')",
         "  java_info = JavaInfo(output_jar = output_jar, compile_jar = None)",
         "  java_common.merge([java_info],",
-        "    exports = [java_info]",
+        "    merge_java_outputs = False",
         "  )",
         "  return []",
         "java_custom_library = rule(",
@@ -3181,14 +3181,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRuntimeDepsIsPrivateApi() throws Exception {
+  public void testMergeSourceJarsIsPrivateApi() throws Exception {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib.jar')",
         "  java_info = JavaInfo(output_jar = output_jar, compile_jar = None)",
         "  java_common.merge([java_info],",
-        "    runtime_deps = [java_info]",
+        "    merge_source_jars = False",
         "  )",
         "  return []",
         "java_custom_library = rule(",
@@ -3207,33 +3207,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIncludeSourceJarsIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib.jar')",
-        "  java_info = JavaInfo(output_jar = output_jar, compile_jar = None)",
-        "  java_common.merge([java_info],",
-        "    include_source_jars_from_exports = True",
-        "  )",
-        "  return []",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testCreateOutputSourceJarIsPrivateApi() throws Exception {
+  public void testCompileIncludeCompilationInfoIsPrivateApi() throws Exception {
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
@@ -3242,7 +3216,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    output = ctx.actions.declare_file('output.jar'),",
         "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "    create_output_source_jar = False,",
+        "    include_compilation_info = False,",
         "  )",
         "  return []",
         "java_custom_library = rule(",

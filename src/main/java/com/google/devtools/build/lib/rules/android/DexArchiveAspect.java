@@ -375,13 +375,16 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
         if (outputJarsProvider != null) {
+          // TODO(b/207058960): remove after enabling Starlark java proto libraries
           return outputJarsProvider.getJavaOutputs().stream()
               .map(JavaOutput::getClassJar)
               .collect(toImmutableList());
         } else {
           JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
           if (javaInfo != null) {
-            return javaInfo.getDirectRuntimeJars();
+            return javaInfo.getJavaOutputs().stream()
+                .map(JavaOutput::getClassJar)
+                .collect(toImmutableList());
           }
         }
       }

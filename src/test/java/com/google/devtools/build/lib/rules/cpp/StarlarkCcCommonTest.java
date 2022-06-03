@@ -7040,6 +7040,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             compileCall + "propagate_module_map_to_compile_action = True)",
             compileCall + "do_not_generate_module_map = True)",
             compileCall + "code_coverage_enabled = True)",
+            compileCall + "separate_module_headers = [])",
             compileCall + "hdrs_checking_mode = 'strict')");
     scratch.overwriteFile(
         "a/BUILD",

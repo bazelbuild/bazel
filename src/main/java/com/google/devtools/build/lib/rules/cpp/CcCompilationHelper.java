@@ -1552,8 +1552,8 @@ public final class CcCompilationHelper {
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(
             actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // Dotd file output is specified in the execution phase.
-    builder.setOutputs(outputFiles, /* dotdFile= */ null);
+    // Dotd and dia file outputs are specified in the execution phase.
+    builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
             builder,
@@ -1575,11 +1575,18 @@ public final class CcCompilationHelper {
           CppHelper.getDotdOutputTreeArtifact(
               actionConstructionContext, label, sourceArtifact, outputName, usePic);
     }
+    SpecialArtifact diagnosticsTreeArtifact = null;
+    if (builder.serializedDiagnosticsFilesEnabled()) {
+      diagnosticsTreeArtifact =
+          CppHelper.getDiagnosticsOutputTreeArtifact(
+              actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    }
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
             dotdTreeArtifact,
+            diagnosticsTreeArtifact,
             builder,
             ccToolchain,
             outputCategories,
@@ -1638,6 +1645,10 @@ public final class CcCompilationHelper {
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
       dotdFileExecPath = builder.getDotdFile().getExecPathString();
+    }
+    String diagnosticsFileExecPath = null;
+    if (builder.getDiagnosticsFile() != null) {
+      diagnosticsFileExecPath = builder.getDiagnosticsFile().getExecPathString();
     }
     if (needsFdoBuildVariables && fdoContext.hasArtifacts(cppConfiguration)) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
@@ -1714,6 +1725,7 @@ public final class CcCompilationHelper {
         /* thinLtoOutputObjectFile= */ null,
         getCopts(builder.getSourceFile(), sourceLabel),
         dotdFileExecPath,
+        diagnosticsFileExecPath,
         usePic,
         ccCompilationContext.getExternalIncludeDirs(),
         additionalBuildVariables);

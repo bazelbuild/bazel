@@ -148,6 +148,33 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testSerializedDiagnosticsFileFeature() throws Exception {
+    useConfiguration("--features=serialized_diagnostics_file");
+
+    createLibraryTargetWriter("//objc/lib1")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .write();
+
+    createLibraryTargetWriter("//objc/lib2")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib1")
+        .write();
+
+    createLibraryTargetWriter("//objc:x")
+        .setAndCreateFiles("srcs", "a.m", "private.h")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib2:lib2")
+        .write();
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//objc:x", "a.o");
+
+    assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
+        .containsExactly("objc/_objs/x/arc/a.o", "objc/_objs/x/arc/a.d", "objc/_objs/x/arc/a.dia");
+  }
+
+  @Test
   public void testCompilesSourcesWithSameBaseName() throws Exception {
     createLibraryTargetWriter("//foo:lib")
         .setAndCreateFiles("srcs", "a.m", "pkg1/a.m", "b.m")

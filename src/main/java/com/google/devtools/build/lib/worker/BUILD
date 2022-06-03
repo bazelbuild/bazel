@@ -19,6 +19,7 @@ java_library(
             "WorkerParser.java",
             "WorkerSpawnStrategy.java",
             "WorkerKey.java",
+            "WorkerMetricsCollector.java",
         ],
     ),
     deps = [
@@ -62,6 +63,7 @@ java_library(
 java_library(
     name = "worker_spawn_runner",
     srcs = [
+        "WorkerMetricsCollector.java",
         "WorkerParser.java",
         "WorkerSpawnRunner.java",
     ],

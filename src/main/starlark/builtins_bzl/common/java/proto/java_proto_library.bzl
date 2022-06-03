@@ -117,13 +117,13 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
             injecting_rule_kind = injecting_rule_kind,
             javac_opts = java_toolchain.compatible_javacopts("proto"),
             enable_jspecify = False,
-            create_output_source_jar = False,
             java_toolchain = java_toolchain,
+            include_compilation_info = False,
         )
         jars = [source_jar, output_jar]
     else:
         # If there are no proto sources just pass along the compilation dependencies.
-        java_info = java_common.merge([], exports = deps + exports)
+        java_info = java_common.merge(deps + exports, merge_java_outputs = False, merge_source_jars = False)
         jars = []
     return java_info, jars
 
@@ -152,11 +152,7 @@ def bazel_java_proto_library_rule(ctx):
       ([JavaInfo, DefaultInfo, OutputGroupInfo])
     """
 
-    java_info = java_common.merge(
-        [],
-        exports = [dep[JavaInfo] for dep in ctx.attr.deps],
-        include_source_jars_from_exports = True,
-    )
+    java_info = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
 
     transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
     transitive_runtime_jars = depset(transitive = [java_info.transitive_runtime_jars])
