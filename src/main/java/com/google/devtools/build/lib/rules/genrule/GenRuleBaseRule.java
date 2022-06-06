@@ -57,7 +57,7 @@ public class GenRuleBaseRule implements RuleDefinition {
           space-separated list in <code>$(SRCS)</code>; alternatively the path of an individual
           <code>srcs</code> target <code>//x:y</code> can be obtained using <code>$(location
           //x:y)</code>, or using <code>$&lt;</code> provided it's the only entry in
-          //<code>srcs</code>.
+          <code>srcs</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
@@ -118,26 +118,28 @@ public class GenRuleBaseRule implements RuleDefinition {
           If the <code>executable</code> flag is set, <code>outs</code> must contain exactly one
           label.
         </p>
+        <p>
+          The genrule command is expected to create each output file at a predetermined location.
+          The location is available in <code>cmd</code> using <a
+          href="${link make-variables#predefined_genrule_variables}">genrule-specific "Make"
+          variables</a> (<code>$@</code>, <code>$(OUTS)</code>, <code>$(@D)</code> or <code>
+          $(RULEDIR)</code>) or using <a href="${link make-variables#predefined_label_variables}">
+          <code>$(location)</code></a> substitution.
+        </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("outs", OUTPUT_LIST).mandatory())
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd) -->
         The command to run.
-        Subject to <a href="${link make-variables#location}">$(location)</a> and
-        <a href="${link make-variables}">"Make" variable</a> substitution.
+        Subject to <a href="${link make-variables#predefined_label_variables}"><code>$(location)
+        </code></a> and <a href="${link make-variables}">"Make" variable</a> substitution.
         <ol>
           <li>
-            First <a href="${link make-variables#location}">$(location)</a> substitution is
-            applied, replacing all occurrences of <code>$(location <i>label</i>)</code> and of
-            <code>$(locations <i>label</i>)</code>.
-          </li>
-          <li>
-            <p>
-              Note that <code>outs</code> are <i>not</i> included in this substitution. Output files
-              are always generated into a predictable location (available via <code>$(@D)</code>,
-              <code>$@</code>, <code>$(OUTS)</code> or <code>$(RULEDIR)</code> or
-              <code>$(location <i>output_name</i>)</code>; see below).
-            </p>
+            First <a href="${link make-variables#predefined_label_variables}"><code>$(location)
+            </code></a> substitution is applied, replacing all occurrences of <code>$(location <i>
+            label</i>)</code> and of <code>$(locations <i>label</i>)</code> (and similar
+            constructions using related variables <code>execpath</code>, <code>execpaths</code>,
+            <code>rootpath</code> and <code>rootpaths</code>).
           </li>
           <li>
             Next, <a href="${link make-variables}">"Make" variables</a> are expanded. Note that
@@ -151,22 +153,6 @@ public class GenRuleBaseRule implements RuleDefinition {
             non-zero the command is considered to have failed.
           </li>
         </ol>
-        <p>
-          The command may refer to <code>*_binary</code> targets; it should use a <a
-          href="${link build-ref#labels}">label</a> for this. The following
-          variables are available within the <code>cmd</code> sublanguage:</p>
-        <ul>
-          <li>
-            <a href="${link make-variables#predefined_variables.genrule.cmd}">"Make" variables</a>
-          </li>
-          <li>
-            "Make" variables that are predefined by the build tools.
-            Please use these variables instead of hardcoded values.
-            See <a href="${link make-variables#predefined_variables}">Predefined "Make" Variables
-            </a> in this document for a list of supported values.
-          </li>
-        </ul>
-        <p>
         This is the fallback of <code>cmd_bash</code>, <code>cmd_ps</code> and <code>cmd_bat</code>,
         if none of them are applicable.
         </p>
@@ -215,7 +201,7 @@ public class GenRuleBaseRule implements RuleDefinition {
             </ul>
           </li>
           <li>
-            After <a href="${link make-variables#location}">$(location)</a> and
+            After <a href="${link make-variables#predefined_label_variables}">$(location)</a> and
             <a href="${link make-variables}">"Make" variable</a> substitution, the paths will be
             expanded to Windows style paths (with backslash).
           </li>

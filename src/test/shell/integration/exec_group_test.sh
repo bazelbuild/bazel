@@ -681,6 +681,149 @@ register_execution_platforms('//${pkg}/platform:all')
 EOF
 }
 
+function test_aspect_exec_groups_inherit_toolchains() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  write_toolchains_for_exec_group_tests
+
+  # Add an aspect with exec groups.
+  mkdir -p ${pkg}/aspect
+  touch ${pkg}/aspect/BUILD
+  cat >> ${pkg}/aspect/aspect.bzl <<EOF
+def _impl(target, ctx):
+    toolchain = ctx.toolchains['//${pkg}/platform:toolchain_type']
+    print("hi from sample_aspect on %s, toolchain says %s" % (ctx.rule.attr.name, toolchain.message))
+
+    extra_toolchain = ctx.exec_groups["extra"].toolchains["//${pkg}/platform:toolchain_type"]
+    print("exec group extra: hi from sample_aspect on %s, toolchain says %s" % (ctx.rule.attr.name, extra_toolchain.message))
+
+    return []
+
+sample_aspect = aspect(
+    implementation = _impl,
+    exec_groups = {
+        # extra should inherit both the exec constraint and the toolchain.
+        'extra': exec_group(copy_from_rule = True),
+    },
+    exec_compatible_with = ['//${pkg}/platform:value_foo'],
+    toolchains = ['//${pkg}/platform:toolchain_type'],
+)
+EOF
+
+  # Define a simple rule to put the aspect on.
+  mkdir -p ${pkg}/rule
+  touch ${pkg}/rule/BUILD
+  cat >> ${pkg}/rule/rule.bzl <<EOF
+def _impl(ctx):
+    pass
+
+sample_rule = rule(
+    implementation = _impl,
+)
+EOF
+
+  # Use the aspect and check the results.
+  mkdir -p ${pkg}/demo
+  cat >> ${pkg}/demo/BUILD <<EOF
+load('//${pkg}/rule:rule.bzl', 'sample_rule')
+
+sample_rule(
+    name = 'use',
+)
+EOF
+
+  # Build the target, using debug messages to verify the correct toolchain was selected.
+  bazel build --aspects=//${pkg}/aspect:aspect.bzl%sample_aspect //${pkg}/demo:use &> $TEST_log || fail "Build failed"
+  expect_log "hi from sample_aspect on use, toolchain says foo"
+  expect_log "exec group extra: hi from sample_aspect on use, toolchain says foo"
+}
+
+function test_aspect_exec_groups_different_toolchains() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  write_toolchains_for_exec_group_tests
+
+  # Also write a new toolchain.
+    mkdir -p ${pkg}/other
+    cat >> ${pkg}/other/BUILD <<EOF
+package(default_visibility = ['//visibility:public'])
+toolchain_type(name = 'toolchain_type')
+
+load('//${pkg}/platform:toolchain.bzl', 'test_toolchain')
+
+# Define the toolchains.
+test_toolchain(
+    name = 'test_toolchain_impl_other',
+    message = 'other',
+)
+
+# Declare the toolchains.
+toolchain(
+    name = 'test_toolchain_other',
+    toolchain_type = ':toolchain_type',
+    toolchain = ':test_toolchain_impl_other',
+)
+EOF
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('//${pkg}/other:all')
+EOF
+
+  # Add an aspect with exec groups.
+  mkdir -p ${pkg}/aspect
+  touch ${pkg}/aspect/BUILD
+  cat >> ${pkg}/aspect/aspect.bzl <<EOF
+def _impl(target, ctx):
+    toolchain = ctx.toolchains['//${pkg}/platform:toolchain_type']
+    print("hi from sample_aspect on %s, toolchain says %s" % (ctx.rule.attr.name, toolchain.message))
+
+    other_toolchain = ctx.exec_groups["other"].toolchains["//${pkg}/other:toolchain_type"]
+    print("exec group other: hi from sample_aspect on %s, toolchain says %s" % (ctx.rule.attr.name, other_toolchain.message))
+
+    return []
+
+sample_aspect = aspect(
+    implementation = _impl,
+    exec_groups = {
+        # other defines new toolchain types.
+        'other': exec_group(
+            toolchains = ['//${pkg}/other:toolchain_type'],
+        ),
+    },
+    toolchains = ['//${pkg}/platform:toolchain_type'],
+)
+EOF
+
+  # Define a simple rule to put the aspect on.
+  mkdir -p ${pkg}/rule
+  touch ${pkg}/rule/BUILD
+  cat >> ${pkg}/rule/rule.bzl <<EOF
+def _impl(ctx):
+    pass
+
+sample_rule = rule(
+    implementation = _impl,
+)
+EOF
+
+  # Use the aspect and check the results.
+  mkdir -p ${pkg}/demo
+  cat >> ${pkg}/demo/BUILD <<EOF
+load('//${pkg}/rule:rule.bzl', 'sample_rule')
+
+sample_rule(
+    name = 'use',
+)
+EOF
+
+  # Build the target, using debug messages to verify the correct toolchain was selected.
+  bazel build --aspects=//${pkg}/aspect:aspect.bzl%sample_aspect //${pkg}/demo:use &> $TEST_log || fail "Build failed"
+  expect_log "hi from sample_aspect on use, toolchain says bar"
+  expect_log "exec group other: hi from sample_aspect on use, toolchain says other"
+}
+
 # Test basic inheritance of constraints and toolchains on a single rule.
 function test_exec_group_rule_constraint_inheritance() {
   local -r pkg=${FUNCNAME[0]}

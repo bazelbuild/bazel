@@ -7,6 +7,7 @@ module(
   version = "6.0.0-pre",
 )
 
+bazel_dep(name = "rules_license", version = "0.0.3")
 bazel_dep(name = "bazel_skylib", version = "1.0.3")
 bazel_dep(name = "protobuf", version = "3.19.2", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.41.0", repo_name = "com_github_grpc_grpc")
