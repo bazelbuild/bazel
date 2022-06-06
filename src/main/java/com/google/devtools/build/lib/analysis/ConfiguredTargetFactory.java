@@ -490,7 +490,8 @@ public final class ConfiguredTargetFactory {
       Aspect aspect,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
       BuildConfigurationValue hostConfiguration,
       AspectKeyCreator.AspectKey aspectKey)
@@ -508,10 +509,8 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setAspectAttributes(mergeAspectAttributes(aspectPath))
             .setConfigConditions(configConditions)
-            .setToolchainContext(toolchainContext)
-            // TODO(b/161222568): Implement the exec_properties attr for aspects and read its value
-            // here.
-            .setExecGroupCollectionBuilder(ExecGroupCollection.emptyBuilder())
+            .setToolchainContexts(toolchainContexts)
+            .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setExecProperties(ImmutableMap.of())
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
