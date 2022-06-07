@@ -367,9 +367,9 @@ public final class AndroidBinaryMobileInstall {
     Artifact stubDex =
         getMobileInstallArtifact(
             ruleContext,
-            split ? "split_stub_application/classes.dex" : "stub_application/classes.dex");
+            split ? "split_stub_application/classes.dex.zip" : "stub_application/classes.dex.zip");
     AndroidCommon.createDexAction(
-        ruleContext, stubDeployJar, stubDex, ImmutableList.<String>of(), 0, false, null);
+        ruleContext, stubDeployJar, stubDex, ImmutableList.<String>of(), 0, null);
 
     return stubDex;
   }

@@ -741,7 +741,7 @@ public final class AndroidRuleClasses {
           .add(
               attr("multidex", STRING)
                   .allowedValues(new AllowedValueSet(MultidexMode.getValidValues()))
-                  .value(MultidexMode.OFF.getAttributeValue()))
+                  .value(MultidexMode.NATIVE.getAttributeValue()))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
           Command line options to pass to the main dex list builder.
           Use this option to affect the classes included in the main dex list.
@@ -914,9 +914,7 @@ public final class AndroidRuleClasses {
     // Build dexes with multidex and implement support at the application level.
     LEGACY,
     // Build dexes with multidex, main dex list needs to be manually specified.
-    MANUAL_MAIN_DEX,
-    // Build all dex code into a single classes.dex file.
-    OFF;
+    MANUAL_MAIN_DEX;
 
     /** Returns the attribute value that specifies this mode. */
     public String getAttributeValue() {
@@ -928,7 +926,7 @@ public final class AndroidRuleClasses {
      * (possibly) multiple files.
      */
     public String getOutputDexFilename() {
-      return this == OFF ? "classes.dex" : "classes.dex.zip";
+      return "classes.dex.zip";
     }
 
     /** Converts an attribute value to a corresponding mode. Returns null on no match. */

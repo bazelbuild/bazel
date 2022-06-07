@@ -636,7 +636,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "package/inc.bzl",
         "def g(name):",
-        "    native.sh_library(name = name)",
+        "    native.filegroup(name = name)",
         "",
         "def f(name):",
         "    g(name)");
@@ -650,7 +650,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "# "
             + workspaceDir
             + "/package/BUILD:2:2\n"
-            + "sh_library(\n"
+            + "filegroup(\n"
             + "  name = \"a\",\n"
             + "  generator_name = \"a\",\n"
             + "  generator_function = \"f\",\n"
@@ -666,12 +666,12 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             + "/package/inc.bzl:5:6  in f\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:2:22 in g\n"
+            + "/package/inc.bzl:2:21 in g\n"
             + "\n"
             + "# "
             + workspaceDir
             + "/package/BUILD:3:2\n"
-            + "sh_library(\n"
+            + "filegroup(\n"
             + "  name = \"b\",\n"
             + "  generator_name = \"b\",\n"
             + "  generator_function = \"f\",\n"
@@ -687,7 +687,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             + "/package/inc.bzl:5:6  in f\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:2:22 in g\n\n";
+            + "/package/inc.bzl:2:21 in g\n\n";
 
     String out = new String(result.getStdout(), UTF_8);
     assertThat(out).isEqualTo(expectedOut);

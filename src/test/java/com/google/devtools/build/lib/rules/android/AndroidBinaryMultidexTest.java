@@ -57,7 +57,7 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
         "    srcs = ['a.java'],",
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = glob(['res/**']),",
-        "    multidex = 'off')");
+        ")");
     internalTestNonMultidexBuildStructure("//java/foo:nomultidex");
   }
 
