@@ -44,7 +44,7 @@ python_register_toolchains(
 )
 
 http_archive(
-    name = "coverage_linux_x64",
+    name = "coverage_linux_x86_64",
     build_file_content = """
 filegroup(
     name = "coverage",
@@ -105,7 +105,7 @@ load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
 py_runtime(
     name = "py3_runtime",
-    coverage_tool = "@coverage_linux_x64//:coverage",
+    coverage_tool = "@coverage_linux_x86_64//:coverage",
     files = ["@python3_9_x86_64-unknown-linux-gnu//:files"],
     interpreter = "@python3_9_x86_64-unknown-linux-gnu//:bin/python3",
     python_version = "PY3",

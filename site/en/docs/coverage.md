@@ -189,16 +189,59 @@ py_test(
 )
 ```
 
-If you are using a hermetic python toolchain, you can instead simply add
+If you are using a hermetic python toolchain, instead of adding an attribute to
+every `py_test` rule you can instead add the coverage tool to the toolchain
+configuration.
+
+Because the `pip_install` rule depends on the python toolchain, you cannot use
+it to fetch the `coverage` module.  Instead, add in your `WORKSPACE` e.g.
 
 ```starlark
-    coverage_tool = ":coverage",
+http_archive(
+    name = "coverage_linux_x86_64"",
+    build_file_content = """
+filegroup(
+    name = "coverage",
+    srcs = ["coverage/__main__.py"],
+    data = glob(["coverage/*", "coverage/**/*.py"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "84631e81dd053e8a0d4967cedab6db94345f1c36107c71698f746cb2636c63e3",
+    type = "zip",
+    urls = [
+        "https://files.pythonhosted.org/packages/74/0d/0f3c522312fd27c32e1abe2fb5c323b583a5c108daf2c26d6e8dfdd5a105/coverage-6.4.1-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    ],
+)
 ```
 
-to your `py_runtime` target.  This ensures that coverage is available for all
-`py_test` and `py_binary` targets, and prevents those targets from incurring a
-dependency on `coverage` except when building with coverage enabled.
+Then configure your python toolchain as e.g.
 
+```starlark
+py_runtime(
+    name = "py3_runtime_linux_x86_64",
+    coverage_tool = "@coverage_linux_x86_64//:coverage",
+    files = ["@python3_9_x86_64-unknown-linux-gnu//:files"],
+    interpreter = "@python3_9_x86_64-unknown-linux-gnu//:bin/python3",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "python_runtimes_linux_x86_64",
+    py2_runtime = None,
+    py3_runtime = ":py3_runtime_linux_x86_64",
+)
+
+toolchain(
+    name = "python_toolchain_linux_x86_64",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":python_runtimes_linux_x86_64",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+```
 
 [lcov]: https://github.com/linux-test-project/lcov
 [rules_python]: https://github.com/bazelbuild/rules_python
