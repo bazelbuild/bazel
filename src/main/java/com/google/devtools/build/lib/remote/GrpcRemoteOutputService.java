@@ -296,6 +296,28 @@ public class GrpcRemoteOutputService implements OutputService, ActionResultDownl
       }
     }
 
+    private class DirectoryFileStatus extends DumbFileStatus {
+      @Override
+      public boolean isFile() {
+        return false;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return true;
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return false;
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return false;
+      }
+    }
+
     private class SymlinkFileStatus extends DumbFileStatus {
       @Override
       public boolean isFile() {
@@ -354,7 +376,7 @@ public class GrpcRemoteOutputService implements OutputService, ActionResultDownl
                   return new RegularFileStatus(digest.getSizeBytes(), DigestUtil.toBinaryDigest(digest));
                 }
                 if (fileStatus.hasDirectory()) {
-                  throw new RuntimeException("DIRECTORY");
+                  return new DirectoryFileStatus();
                 }
                 if (fileStatus.hasSymlink()) {
                   return new SymlinkFileStatus();
