@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -76,7 +77,7 @@ public final class OneVersionCheckActionBuilder {
     Preconditions.checkNotNull(javaToolchain);
     Preconditions.checkNotNull(jarsToCheck);
 
-    Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
+    FilesToRunProvider oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionAllowlist = javaToolchain.getOneVersionAllowlist();
     if (oneVersionTool == null || oneVersionAllowlist == null) {
       addRuleErrorForMissingArtifacts(ruleContext, javaToolchain);
