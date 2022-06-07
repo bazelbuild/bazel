@@ -1303,7 +1303,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
             /*stderr=*/ null,
             /*actionMetadataLogs=*/ ImmutableList.of(),
             ErrorTiming.BEFORE_EXECUTION,
-            /* isInMemoryFs= */ false);
+            /*isInMemoryFs=*/ false);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1517,7 +1517,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
         /*stderr=*/ null,
         metadataLogs,
         ErrorTiming.NO_ERROR,
-        /* isInMemoryFs= */ false);
+        /*isInMemoryFs=*/ false);
   }
 
   @Test

@@ -64,9 +64,9 @@ public final class TargetSummaryPublisher {
    */
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
-    int count = event.getRequest().getAspects().size();
+    int count = event.request().getAspects().size();
     checkState(
-        aspectCount.compareAndSet(/* expect= */ -1, count),
+        aspectCount.compareAndSet(/*expectedValue=*/ -1, count),
         "Duplicate BuildStartingEvent with %s aspects but already have %s",
         count,
         aspectCount);
