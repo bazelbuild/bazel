@@ -959,6 +959,7 @@ public final class CcCommon implements StarlarkValue {
         ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
     try {
       return configureFeaturesOrThrowEvalException(
+          ruleContext,
           requestedFeatures,
           unsupportedFeatures,
           toolchain,
@@ -970,6 +971,7 @@ public final class CcCommon implements StarlarkValue {
   }
 
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
+      RuleContext ruleContext,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
       CcToolchainProvider toolchain,
@@ -1036,7 +1038,9 @@ public final class CcCommon implements StarlarkValue {
       }
     }
 
-    allFeatures.addAll(getCoverageFeatures(cppConfiguration));
+    if (ruleContext == null || CcCompilationHelper.isCodeCoverageEnabled(ruleContext)) {
+      allFeatures.addAll(getCoverageFeatures(cppConfiguration));
+    }
 
     if (!allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
       if (cppConfiguration.getFdoInstrument() != null) {
@@ -1213,6 +1217,7 @@ public final class CcCommon implements StarlarkValue {
     try {
       featureConfiguration =
           configureFeaturesOrThrowEvalException(
+              ruleContext,
               ruleContext.getFeatures(),
               ruleContext.getDisabledFeatures(),
               toolchainProvider,

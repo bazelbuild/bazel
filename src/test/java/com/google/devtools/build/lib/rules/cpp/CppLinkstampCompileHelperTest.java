@@ -228,6 +228,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
+            /* ruleContext */ null,
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
             toolchain,

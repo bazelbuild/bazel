@@ -203,7 +203,7 @@ public abstract class CcModule
               unsupportedFeaturesSet);
     }
     return FeatureConfigurationForStarlark.from(
-        CcCommon.configureFeaturesOrThrowEvalException(
+        CcCommon.configureFeaturesOrThrowEvalException(ruleContext == null ? null : ruleContext.getRuleContext(),
             requestedFeaturesSet, unsupportedFeaturesSet, toolchain, cppConfiguration),
         cppConfiguration,
         buildOptions);

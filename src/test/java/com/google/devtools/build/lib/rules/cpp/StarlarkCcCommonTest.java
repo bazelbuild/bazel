@@ -272,6 +272,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
+            ruleContext,
             ImmutableSet.of(),
             ImmutableSet.of(),
             toolchain,
@@ -439,6 +440,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
+            ruleContext,
             ImmutableSet.of(),
             ImmutableSet.of(),
             toolchain,
@@ -487,6 +489,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
+            ruleContext,
             ImmutableSet.of(),
             ImmutableSet.of(),
             toolchain,

@@ -175,6 +175,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     try {
       featureConfiguration =
           CcCommon.configureFeaturesOrThrowEvalException(
+              ruleContext,
               /* requestedFeatures= */ ImmutableSet.<String>builder()
                   .addAll(ruleContext.getFeatures())
                   .add(STATIC_LINKING_MODE)
