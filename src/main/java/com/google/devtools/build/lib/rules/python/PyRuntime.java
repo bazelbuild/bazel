@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -74,7 +75,13 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
       } else {
         coverageTool = filesToRun.getExecutable();
       }
-      coverageFiles = PrerequisiteArtifacts.nestedSet(ruleContext, "coverage_tool");
+      NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+      result.addTransitive(coverageTarget.getProvider(FileProvider.class).getFilesToBuild());
+      RunfilesProvider runfilesProvider = coverageTarget.getProvider(RunfilesProvider.class);
+      if (runfilesProvider != null) {
+        result.addTransitive(runfilesProvider.getDefaultRunfiles().getArtifacts());
+      }
+      coverageFiles = result.build();
     }
 
     if (pythonVersion == PythonVersion._INTERNAL_SENTINEL) {
