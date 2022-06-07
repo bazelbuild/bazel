@@ -18,6 +18,7 @@ package remote_output_service;
 
 import "build/bazel/remote/execution/v2/remote_execution.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "com.google.devtools.build.lib.remote";
 option java_outer_classname = "RemoteOutputServiceProto";
@@ -273,6 +274,11 @@ message FileStatus {
     string target = 1;
   }
 
+  message Directory {
+    // The time at which the directory contents were last modified.
+    google.protobuf.Timestamp last_modified_time = 1;
+  }
+
   message External {
     // The path relative to the root of the output path where the file
     // is located. This path is absolute, or it is relative, starting
@@ -293,7 +299,7 @@ message FileStatus {
     Symlink symlink = 2;
 
     // The path resolves to a directory.
-    google.protobuf.Empty directory = 3;
+    Directory directory = 3;
 
     // The path resolves to a location outside the output path. The
     // remote output service is unable to determine whether any file

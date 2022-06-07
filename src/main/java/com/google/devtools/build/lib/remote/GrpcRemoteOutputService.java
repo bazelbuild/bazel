@@ -296,6 +296,40 @@ public class GrpcRemoteOutputService implements OutputService, ActionResultDownl
       }
     }
 
+    private class DirectoryFileStatus extends DumbFileStatus {
+      private final long lastModifiedTime;
+
+      DirectoryFileStatus(long lastModifiedTime) {
+        this.lastModifiedTime = lastModifiedTime;
+      }
+
+      @Override
+      public boolean isFile() {
+        return false;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return true;
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return false;
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return false;
+      }
+
+      @Override
+      public long getLastModifiedTime() throws IOException {
+        return this.lastModifiedTime;
+      }
+
+    }
+
     private class SymlinkFileStatus extends DumbFileStatus {
       @Override
       public boolean isFile() {
@@ -354,7 +388,7 @@ public class GrpcRemoteOutputService implements OutputService, ActionResultDownl
                   return new RegularFileStatus(digest.getSizeBytes(), DigestUtil.toBinaryDigest(digest));
                 }
                 if (fileStatus.hasDirectory()) {
-                  throw new RuntimeException("DIRECTORY");
+                  return new DirectoryFileStatus(fileStatus.getDirectory().getLastModifiedTime().getSeconds());
                 }
                 if (fileStatus.hasSymlink()) {
                   return new SymlinkFileStatus();

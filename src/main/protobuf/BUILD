@@ -264,6 +264,7 @@ proto_library(
     srcs = ["remote_output_service.proto"],
     deps = [
         "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
     ],
 )
