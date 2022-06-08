@@ -82,7 +82,11 @@ public final class UiEventHandlerStdOutAndStdErrTest {
         new UiEventHandler(outErr, uiOptions, new ManualClock(), /*workspacePathFragment=*/ null);
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(
-            "outputFileSystemType", mock(BuildRequest.class), /*workspace=*/ null, "/pwd"));
+            "outputFileSystemType",
+            /*usesInMemoryFileSystem=*/ false,
+            mock(BuildRequest.class),
+            /*workspace=*/ null,
+            "/pwd"));
   }
 
   @Test
