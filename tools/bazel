@@ -553,7 +553,7 @@ class BuildbarnCred(Cred):
         # instance name. The values of these depend on which cluster is
         # used, whether an office cache is used, and whether bb_clientd
         # is installed on the local system.
-        remote_instance_name = ['a/apollo']
+        remote_instance_name = ['swplatform/bazelbuild/bazel']
 
         bazel_remote_cluster = os.environ.get(
             'BAZEL_REMOTE_CLUSTER',
