@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.GoCcLinkParamsInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.GoWrapCcHelperApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.GoWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
@@ -200,12 +199,6 @@ public final class GoogleLegacyStubs {
       return null;
     }
 
-    @Override
-    public GoWrapCcInfoApi<FileApi> getGoWrapCcInfo(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcInfoApi<FileApi> ccInfo) {
-      return null;
-    }
 
     @Override
     public GoCcLinkParamsInfoApi getGoCcLinkParamsProvider(

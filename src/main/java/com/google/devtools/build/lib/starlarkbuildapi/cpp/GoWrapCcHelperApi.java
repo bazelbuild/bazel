@@ -106,19 +106,6 @@ public interface GoWrapCcHelperApi<
       CcInfoT ccInfo);
 
   @StarlarkMethod(
-      name = "go_wrap_cc_info",
-      doc = "",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_info", positional = false, named = true),
-      })
-  // TODO(b/113797843): GoWrapCcInfo is not written in Starlark because several native rules use it.
-  public GoWrapCcInfoApi<FileT> getGoWrapCcInfo(
-      StarlarkRuleContextT starlarkRuleContext, CcInfoT ccInfo)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
       name = "go_cc_link_params_provider",
       doc = "",
       documented = false,
