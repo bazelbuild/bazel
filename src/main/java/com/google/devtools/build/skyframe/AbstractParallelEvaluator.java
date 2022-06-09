@@ -989,7 +989,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     Map<SkyKey, ? extends NodeEntry> additionalNodesToRestart =
-        evaluatorContext.getBatchValues(key, Reason.INVALIDATION, additionalKeysToRestart);
+        evaluatorContext.getBatchValues(key, Reason.REWINDING, additionalKeysToRestart);
 
     ArrayList<SkyKey> missingNodes = null;
     for (SkyKey keyToRestart : additionalKeysToRestart) {
