@@ -25,7 +25,6 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
-import com.android.tools.r8.StringResource;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.ImmutableList;
@@ -482,7 +481,7 @@ public class Desugar {
               .setProgramConsumer(consumer);
       bootclasspathProviders.forEach(builder::addLibraryResourceProvider);
       if (desugaredLibConfig != null) {
-        builder.addDesugaredLibraryConfiguration(StringResource.fromFile(desugaredLibConfig));
+        builder.addDesugaredLibraryConfiguration(Files.readString(desugaredLibConfig));
       }
       D8.run(builder.build());
     }

@@ -24,7 +24,6 @@ import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.L8;
 import com.android.tools.r8.L8Command;
-import com.android.tools.r8.StringResource;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -175,7 +174,7 @@ public class CoreLibraryDesugar {
       Path input,
       Path output,
       Path desugaredLibConfig)
-      throws CompilationFailedException {
+      throws CompilationFailedException, IOException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING;
     OutputConsumer consumer =
@@ -189,7 +188,7 @@ public class CoreLibraryDesugar {
             .setProgramConsumer(consumer);
     bootclasspathProviders.forEach(builder::addLibraryResourceProvider);
     if (desugaredLibConfig != null) {
-      builder.addDesugaredLibraryConfiguration(StringResource.fromFile(desugaredLibConfig));
+      builder.addDesugaredLibraryConfiguration(Files.readString(desugaredLibConfig));
     }
     L8.run(builder.build());
   }

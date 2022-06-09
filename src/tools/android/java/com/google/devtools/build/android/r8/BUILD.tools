@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 java_library(
     name = "r8",
-    srcs = glob(["*.java"]),
+    srcs = glob(["*.java", "desugar/*.java"]),
     deps = [
         "//external:android/d8_jar_import",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
