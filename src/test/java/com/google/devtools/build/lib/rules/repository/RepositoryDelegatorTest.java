@@ -492,12 +492,15 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootPath.getRelative("MODULE.bazel").getPathString(),
         "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')");
+        "bazel_dep(name='bazel_tools',version='1.0')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry(scratch.dir("modules").getPathString())
-            .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0');");
+            .addModule(
+                createModuleKey("bazel_tools", "1.0"),
+                "module(name='bazel_tools', version='1.0');");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    // Note that bazel_tools is a well-known module, so its repo name will always be "bazel_tools".
     scratch.file(rootPath.getRelative("BUILD").getPathString());
     scratch.file(
         rootPath.getRelative("repo_rule.bzl").getPathString(),
@@ -508,15 +511,15 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     scratch.file(
         rootPath.getRelative("WORKSPACE.bzlmod").getPathString(),
         "load(':repo_rule.bzl', 'fictive_repo_rule')",
-        "fictive_repo_rule(name = 'B.1.0')",
+        "fictive_repo_rule(name = 'bazel_tools')",
         "fictive_repo_rule(name = 'C')");
     scratch.file(
         rootPath.getRelative("WORKSPACE").getPathString(),
         "load(':repo_rule.bzl', 'fictive_repo_rule')",
-        "fictive_repo_rule(name = 'B.1.0')");
+        "fictive_repo_rule(name = 'bazel_tools')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("B.1.0"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.BAZEL_TOOLS);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
@@ -526,9 +529,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationResult<SkyValue> result =
         evaluator.evaluate(ImmutableList.of(key), evaluationContext);
 
-    // B.1.0 should be fetched from MODULE.bazel file instead of WORKSPACE file.
-    // Because FakeRegistry will look for the contents of B.1.0 under $scratch/modules/B.1.0 which
-    // doesn't exist, the fetch should fail as expected.
+    // bazel_tools should be fetched from MODULE.bazel file instead of WORKSPACE file.
+    // Because FakeRegistry will look for the contents of bazel_tools under
+    // $scratch/modules/bazel_tools which doesn't exist, the fetch should fail as expected.
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()

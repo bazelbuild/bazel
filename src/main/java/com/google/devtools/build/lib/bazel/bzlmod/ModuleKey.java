@@ -31,8 +31,16 @@ public abstract class ModuleKey {
    * Therefore, we have to keep its canonical repository name the same as its well known repository
    * name. Eg. "@com_google_protobuf//:protoc" is used for --proto_compiler flag.
    *
-   * <p>TODO(pcloudy): Remove this hack after figuring out a correct way to deal with the above
-   * situation.
+   * <p>NOTE(wyv): We don't prepend an '@' to the repo names of well-known modules. This is because
+   * we still need the repo name to be 'bazel_tools' (not '@bazel_tools') since the command line
+   * flags still don't go through repo mapping yet, and they're asking for '@bazel_tools//:thing',
+   * not '@@bazel_tools//:thing'. We can't switch to the latter syntax because it doesn't work if
+   * Bzlmod is not enabled. On the other hand, this means we cannot write '@@bazel_tools//:thing' to
+   * bypass repo mapping at all, which can be awkward.
+   *
+   * <p>TODO(wyv): After we get rid of usage of com_google_protobuf in flag defaults, and make all
+   * flag values go through repo mapping, we can remove the concept of well-known modules
+   * altogether.
    */
   private static final ImmutableMap<String, RepositoryName> WELL_KNOWN_MODULES =
       ImmutableMap.of(
@@ -69,9 +77,7 @@ public abstract class ModuleKey {
     if (ROOT.equals(this)) {
       return RepositoryName.MAIN;
     }
-    if (getVersion().isEmpty()) {
-      return RepositoryName.createUnvalidated(getName() + ".override");
-    }
-    return RepositoryName.createUnvalidated(getName() + "." + getVersion());
+    return RepositoryName.createUnvalidated(
+        String.format("@%s.%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
   }
 }

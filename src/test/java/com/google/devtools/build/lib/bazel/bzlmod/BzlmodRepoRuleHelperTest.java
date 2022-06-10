@@ -147,17 +147,18 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.2.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@C.2.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.2.0")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@C.2.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
-                .setAttributes(ImmutableMap.of("name", "C.2.0", "path", "/usr/local/modules/C.2.0"))
+                .setAttributes(
+                    ImmutableMap.of("name", "@C.2.0", "path", "/usr/local/modules/@C.2.0"))
                 .build());
   }
 
@@ -178,19 +179,20 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.override")), evaluationContext);
+        evaluator.evaluate(
+            ImmutableList.of(getRepoSpecByNameKey("@C.override")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.override")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@C.override")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
                     ImmutableMap.of(
-                        "name", "C.override",
+                        "name", "@C.override",
                         "path", "/foo/bar/C"))
                 .build());
   }
@@ -214,12 +216,12 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.3.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@C.3.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.3.0")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@C.3.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
@@ -230,9 +232,9 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                 .setAttributes(
                     ImmutableMap.of(
                         "name",
-                        "C.3.0",
+                        "@C.3.0",
                         "path",
-                        "/usr/local/modules/C.3.0",
+                        "/usr/local/modules/@C.3.0",
                         "patches",
                         ImmutableList.of("//:foo.patch"),
                         "patch_args",
@@ -262,17 +264,18 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("D.2.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@D.2.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("D.2.0")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@D.2.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
-                .setAttributes(ImmutableMap.of("name", "D.2.0", "path", "/usr/local/modules/D.2.0"))
+                .setAttributes(
+                    ImmutableMap.of("name", "@D.2.0", "path", "/usr/local/modules/@D.2.0"))
                 .build());
   }
 

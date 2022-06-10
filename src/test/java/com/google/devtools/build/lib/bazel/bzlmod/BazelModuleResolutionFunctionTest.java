@@ -93,13 +93,13 @@ public class BazelModuleResolutionFunctionTest {
         .containsExactly(
             RepositoryName.MAIN,
             ModuleKey.ROOT,
-            RepositoryName.create("dep.1.0"),
+            RepositoryName.create("@dep.1.0"),
             createModuleKey("dep", "1.0"),
-            RepositoryName.create("dep.2.0"),
+            RepositoryName.create("@dep.2.0"),
             createModuleKey("dep", "2.0"),
-            RepositoryName.create("rules_cc.1.0"),
+            RepositoryName.create("@rules_cc.1.0"),
             createModuleKey("rules_cc", "1.0"),
-            RepositoryName.create("rules_java.override"),
+            RepositoryName.create("@rules_java.override"),
             createModuleKey("rules_java", ""));
     assertThat(value.getModuleNameLookup())
         .containsExactly(
@@ -156,15 +156,14 @@ public class BazelModuleResolutionFunctionTest {
 
     ModuleExtensionId maven =
         ModuleExtensionId.create(
-            Label.parseAbsoluteUnchecked("@rules_jvm_external.1.0//:defs.bzl"), "maven");
+            Label.parseCanonical("@@rules_jvm_external.1.0//:defs.bzl"), "maven");
     ModuleExtensionId pip =
-        ModuleExtensionId.create(
-            Label.parseAbsoluteUnchecked("@rules_python.2.0//:defs.bzl"), "pip");
+        ModuleExtensionId.create(Label.parseCanonical("@@rules_python.2.0//:defs.bzl"), "pip");
     ModuleExtensionId myext =
-        ModuleExtensionId.create(Label.parseAbsoluteUnchecked("@dep.2.0//:defs.bzl"), "myext");
+        ModuleExtensionId.create(Label.parseCanonical("@@dep.2.0//:defs.bzl"), "myext");
     ModuleExtensionId myext2 =
         ModuleExtensionId.create(
-            Label.parseAbsoluteUnchecked("@dep.2.0//incredible:conflict.bzl"), "myext");
+            Label.parseCanonical("@@dep.2.0//incredible:conflict.bzl"), "myext");
 
     BazelModuleResolutionValue value =
         BazelModuleResolutionFunction.createValue(depGraph, depGraph, ImmutableMap.of());
@@ -182,10 +181,10 @@ public class BazelModuleResolutionFunctionTest {
 
     assertThat(value.getExtensionUniqueNames())
         .containsExactly(
-            maven, "rules_jvm_external.1.0.maven",
-            pip, "rules_python.2.0.pip",
-            myext, "dep.2.0.myext",
-            myext2, "dep.2.0.myext2");
+            maven, "@rules_jvm_external.1.0.maven",
+            pip, "@rules_python.2.0.pip",
+            myext, "@dep.2.0.myext",
+            myext2, "@dep.2.0.myext2");
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(
@@ -196,26 +195,26 @@ public class BazelModuleResolutionFunctionTest {
                 "root",
                 "",
                 "rje",
-                "rules_jvm_external.1.0",
+                "@rules_jvm_external.1.0",
                 "rpy",
-                "rules_python.2.0",
+                "@rules_python.2.0",
                 "av",
-                "rules_jvm_external.1.0.maven.autovalue",
+                "@rules_jvm_external.1.0.maven.autovalue",
                 "numpy",
-                "rules_python.2.0.pip.numpy"));
+                "@rules_python.2.0.pip.numpy"));
     assertThat(value.getFullRepoMapping(depKey))
         .isEqualTo(
             createRepositoryMapping(
                 depKey,
                 "dep",
-                "dep.2.0",
+                "@dep.2.0",
                 "rules_python",
-                "rules_python.2.0",
+                "@rules_python.2.0",
                 "np",
-                "rules_python.2.0.pip.numpy",
+                "@rules_python.2.0.pip.numpy",
                 "oneext",
-                "dep.2.0.myext.myext",
+                "@dep.2.0.myext.myext",
                 "twoext",
-                "dep.2.0.myext2.myext"));
+                "@dep.2.0.myext2.myext"));
   }
 }

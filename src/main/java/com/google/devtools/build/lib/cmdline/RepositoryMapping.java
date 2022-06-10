@@ -81,16 +81,20 @@ public abstract class RepositoryMapping {
    * Returns the canonical repository name associated with the given apparent repo name. The
    * provided apparent repo name is assumed to be valid.
    */
-  public RepositoryName get(String apparentRepoName) {
-    RepositoryName canonicalRepoName = repositoryMapping().get(apparentRepoName);
+  public RepositoryName get(String preMappingName) {
+    if (preMappingName.startsWith("@")) {
+      // The given name is actually a canonical, post-mapping repo name already.
+      return RepositoryName.createUnvalidated(preMappingName);
+    }
+    RepositoryName canonicalRepoName = repositoryMapping().get(preMappingName);
     if (canonicalRepoName != null) {
       return canonicalRepoName;
     }
     // If the owner repo is not present, that means we should fall back to the requested repo name.
     if (ownerRepo() == null) {
-      return RepositoryName.createUnvalidated(apparentRepoName);
+      return RepositoryName.createUnvalidated(preMappingName);
     } else {
-      return RepositoryName.createUnvalidated(apparentRepoName).toNonVisible(ownerRepo());
+      return RepositoryName.createUnvalidated(preMappingName).toNonVisible(ownerRepo());
     }
   }
 }

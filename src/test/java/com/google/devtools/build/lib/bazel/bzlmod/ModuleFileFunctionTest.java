@@ -230,7 +230,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     0));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
         .containsExactly(
-            RepositoryName.create("E.override"), "E", RepositoryName.create("G.override"), "G");
+            RepositoryName.create("@E.override"), "E", RepositoryName.create("@G.override"), "G");
   }
 
   @Test

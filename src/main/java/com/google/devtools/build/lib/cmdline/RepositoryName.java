@@ -37,7 +37,7 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.]*");
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("@?[\\w\\-.#]*");
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()
@@ -49,8 +49,7 @@ public final class RepositoryName {
               });
 
   /**
-   * Makes sure that name is a valid repository name and creates a new RepositoryName using it. The
-   * given string must not begin with a '@'.
+   * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
    *
    * @throws LabelSyntaxException if the name is invalid
    */
@@ -66,11 +65,8 @@ public final class RepositoryName {
     }
   }
 
-  /**
-   * Creates a RepositoryName from a known-valid string. The given string must not begin with a '@'.
-   */
+  /** Creates a RepositoryName from a known-valid string. */
   public static RepositoryName createUnvalidated(String name) {
-    Preconditions.checkArgument(!name.startsWith("@"), "Do not prefix @ to repo names!");
     if (name.isEmpty()) {
       // NOTE(wyv): Without this `if` clause, a lot of Google-internal integration tests would start
       //   failing. This suggests to me that something is comparing RepositoryName objects using
@@ -147,8 +143,8 @@ public final class RepositoryName {
 
     if (!VALID_REPO_NAME.matcher(name).matches()) {
       throw LabelParser.syntaxErrorf(
-          "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_' and"
-              + " '.'",
+          "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
+              + " and '#'",
           StringUtilities.sanitizeControlChars(name));
     }
   }
