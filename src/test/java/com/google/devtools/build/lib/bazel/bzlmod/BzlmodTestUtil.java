@@ -133,11 +133,9 @@ public final class BzlmodTestUtil {
   }
 
   public static RepositoryMapping createRepositoryMapping(ModuleKey key, String... names) {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> mappingBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, RepositoryName> mappingBuilder = ImmutableMap.builder();
     for (int i = 0; i < names.length; i += 2) {
-      mappingBuilder.put(
-          RepositoryName.createUnvalidated(names[i]),
-          RepositoryName.createUnvalidated(names[i + 1]));
+      mappingBuilder.put(names[i], RepositoryName.createUnvalidated(names[i + 1]));
     }
     return RepositoryMapping.create(mappingBuilder.buildOrThrow(), key.getCanonicalRepoName());
   }

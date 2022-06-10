@@ -106,24 +106,21 @@ public abstract class Module {
    * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMapping}.
    */
   public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.
     if (getKey().equals(ModuleKey.ROOT)) {
-      mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
+      mapping.put("", RepositoryName.MAIN);
     }
     // Every module should be able to reference itself as @<module name>.
     // If this is the root module, this perfectly falls into @<module name> => @
     if (!getName().isEmpty()) {
-      mapping.put(
-          RepositoryName.createUnvalidated(getName()),
-          RepositoryName.createUnvalidated(getCanonicalRepoName()));
+      mapping.put(getName(), RepositoryName.createUnvalidated(getCanonicalRepoName()));
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
       mapping.put(
-          RepositoryName.createUnvalidated(dep.getKey()),
-          RepositoryName.createUnvalidated(dep.getValue().getCanonicalRepoName()));
+          dep.getKey(), RepositoryName.createUnvalidated(dep.getValue().getCanonicalRepoName()));
     }
     return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
   }

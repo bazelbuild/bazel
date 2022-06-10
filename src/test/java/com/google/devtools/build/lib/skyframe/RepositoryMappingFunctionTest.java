@@ -104,24 +104,23 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   public static RepositoryMappingValue withMappingAllowingFallback(
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      ImmutableMap<String, RepositoryName> repositoryMapping) {
     return RepositoryMappingValue.withMapping(
         RepositoryMapping.createAllowingFallback(repositoryMapping));
   }
 
   public static RepositoryMappingValue withMapping(
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
+      ImmutableMap<String, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
     return RepositoryMappingValue.withMapping(
         RepositoryMapping.create(repositoryMapping, ownerRepo.getName()));
   }
 
   public RepositoryMappingValue withMappingForRootModule(
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> allMappings = ImmutableMap.builder();
+      ImmutableMap<String, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
+    ImmutableMap.Builder<String, RepositoryName> allMappings = ImmutableMap.builder();
     allMappings.putAll(repositoryMapping);
     for (String name : analysisMock.getWorkspaceRepos()) {
-      RepositoryName repoName = RepositoryName.createUnvalidated(name);
-      allMappings.put(repoName, repoName);
+      allMappings.put(name, RepositoryName.createUnvalidated(name));
     }
     return RepositoryMappingValue.withMapping(
         RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo.getName()));
@@ -146,10 +145,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    RepositoryName.create("a"),
-                    RepositoryName.create("b"),
-                    RepositoryName.create("good"),
-                    RepositoryName.create(""))));
+                    "a", RepositoryName.create("b"), "good", RepositoryName.create(""))));
   }
 
   @Test
@@ -170,12 +166,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingForRootModule(
                 ImmutableMap.of(
-                    RepositoryName.create(""),
-                    RepositoryName.create(""),
-                    RepositoryName.create("A"),
-                    RepositoryName.create(""),
-                    RepositoryName.create("com_foo_bar_b"),
-                    RepositoryName.create("B.1.0")),
+                    "", RepositoryName.create(""),
+                    "A", RepositoryName.create(""),
+                    "com_foo_bar_b", RepositoryName.create("B.1.0")),
                 name));
   }
 
@@ -203,10 +196,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    RepositoryName.create("C"),
-                    RepositoryName.create("C.1.0"),
-                    RepositoryName.create("com_foo_bar_b"),
-                    RepositoryName.create("B.1.0")),
+                    "C", RepositoryName.create("C.1.0"),
+                    "com_foo_bar_b", RepositoryName.create("B.1.0")),
                 name));
   }
 
@@ -229,10 +220,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    RepositoryName.create("B"),
-                    RepositoryName.create("B.1.0"),
-                    RepositoryName.create("A"),
-                    RepositoryName.create("")),
+                    "B", RepositoryName.create("B.1.0"), "A", RepositoryName.create("")),
                 name));
   }
 
@@ -260,14 +248,10 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingForRootModule(
                 ImmutableMap.of(
-                    RepositoryName.create(""),
-                    RepositoryName.create(""),
-                    RepositoryName.create("A"),
-                    RepositoryName.create(""),
-                    RepositoryName.create("B1"),
-                    RepositoryName.create("B.1.0"),
-                    RepositoryName.create("B2"),
-                    RepositoryName.create("B.2.0")),
+                    "", RepositoryName.create(""),
+                    "A", RepositoryName.create(""),
+                    "B1", RepositoryName.create("B.1.0"),
+                    "B2", RepositoryName.create("B.2.0")),
                 name));
   }
 
@@ -301,8 +285,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    RepositoryName.create("B"), RepositoryName.create("B.1.0"),
-                    RepositoryName.create("D"), RepositoryName.create("D.1.0")),
+                    "B", RepositoryName.create("B.1.0"),
+                    "D", RepositoryName.create("D.1.0")),
                 name));
   }
 
@@ -334,8 +318,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    RepositoryName.create("B"), RepositoryName.create("B.1.0"),
-                    RepositoryName.create("com_foo_bar_c"), RepositoryName.create("C.1.0")),
+                    "B", RepositoryName.create("B.1.0"),
+                    "com_foo_bar_c", RepositoryName.create("C.1.0")),
                 name));
   }
 
@@ -363,19 +347,15 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    RepositoryName.create("a"),
-                    RepositoryName.create("b"),
-                    RepositoryName.create("good"),
-                    RepositoryName.create(""))));
+                    "a", RepositoryName.create("b"),
+                    "good", RepositoryName.create(""))));
     assertThatEvaluationResult(eval(skyKey2))
         .hasEntryThat(skyKey2)
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    RepositoryName.create("x"),
-                    RepositoryName.create("y"),
-                    RepositoryName.create("good"),
-                    RepositoryName.create(""))));
+                    "x", RepositoryName.create("y"),
+                    "good", RepositoryName.create(""))));
   }
 
   @Test
@@ -395,12 +375,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    RepositoryName.create("a"),
-                    RepositoryName.create("b"),
-                    RepositoryName.create("x"),
-                    RepositoryName.create("y"),
-                    RepositoryName.create("good"),
-                    RepositoryName.create(""))));
+                    "a", RepositoryName.create("b"),
+                    "x", RepositoryName.create("y"),
+                    "good", RepositoryName.create(""))));
   }
 
   @Test
@@ -439,20 +416,20 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasEntryThat(skyKey)
         .isEqualTo(
             withMappingAllowingFallback(
-                ImmutableMap.<RepositoryName, RepositoryName>builder()
-                    .put(RepositoryName.create("root"), RepositoryName.MAIN)
+                ImmutableMap.<String, RepositoryName>builder()
+                    .put("root", RepositoryName.MAIN)
                     // mappings to @B get remapped to @B.1.0 because of module B@1.0
-                    .put(RepositoryName.create("B_alias"), RepositoryName.create("B.1.0"))
-                    .put(RepositoryName.create("B_alias2"), RepositoryName.create("B.1.0"))
+                    .put("B_alias", RepositoryName.create("B.1.0"))
+                    .put("B_alias2", RepositoryName.create("B.1.0"))
                     // mapping from @B to @B.1.0 is also created
-                    .put(RepositoryName.create("B"), RepositoryName.create("B.1.0"))
+                    .put("B", RepositoryName.create("B.1.0"))
                     // mapping from @C to @C.2.0 is created despite not being mentioned
-                    .put(RepositoryName.create("C"), RepositoryName.create("C.2.0"))
+                    .put("C", RepositoryName.create("C.2.0"))
                     // mapping to @D is untouched because D has a multiple-version override
-                    .put(RepositoryName.create("D_alias"), RepositoryName.create("D"))
+                    .put("D_alias", RepositoryName.create("D"))
                     // mapping to @E is untouched because E is not a module
-                    .put(RepositoryName.create("E_alias"), RepositoryName.create("E"))
-                    .build()));
+                    .put("E_alias", RepositoryName.create("E"))
+                    .buildOrThrow()));
   }
 
   @Test
@@ -477,16 +454,11 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingForRootModule(
                 ImmutableMap.of(
-                    RepositoryName.MAIN,
-                    RepositoryName.MAIN,
-                    RepositoryName.create("A"),
-                    RepositoryName.MAIN,
-                    RepositoryName.create("B"),
-                    RepositoryName.create("B.1.0"),
-                    RepositoryName.create("root"),
-                    RepositoryName.create("root"),
-                    RepositoryName.create("ws_repo"),
-                    RepositoryName.create("ws_repo")),
+                    "", RepositoryName.MAIN,
+                    "A", RepositoryName.MAIN,
+                    "B", RepositoryName.create("B.1.0"),
+                    "root", RepositoryName.create("root"),
+                    "ws_repo", RepositoryName.create("ws_repo")),
                 RepositoryName.MAIN));
   }
 
@@ -512,12 +484,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    RepositoryName.MAIN,
-                    RepositoryName.MAIN,
-                    RepositoryName.create("A"),
-                    RepositoryName.MAIN,
-                    RepositoryName.create("B"),
-                    RepositoryName.create("B.1.0")),
+                    "", RepositoryName.MAIN,
+                    "A", RepositoryName.MAIN,
+                    "B", RepositoryName.create("B.1.0")),
                 RepositoryName.MAIN));
   }
 
@@ -539,7 +508,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasErrorEntryForKeyThat(skyKey)
         .hasExceptionThat()
         .isInstanceOf(NoSuchPackageException.class);
-    assertContainsEvent("invalid repository name 'x': repo names must start with '@'");
+    assertContainsEvent(
+        "invalid repository name 'x': repo names used in the repo_mapping attribute must start with"
+            + " '@'");
   }
 
   @Test
@@ -558,9 +529,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasEntryThat(skyKey)
         .isEqualTo(
             withMappingAllowingFallback(
-                ImmutableMap.of(
-                    RepositoryName.createUnvalidated(TestConstants.WORKSPACE_NAME),
-                    RepositoryName.MAIN)));
+                ImmutableMap.of(TestConstants.WORKSPACE_NAME, RepositoryName.MAIN)));
   }
 
   @Test
@@ -577,9 +546,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
     assertThatEvaluationResult(eval(skyKey))
         .hasEntryThat(skyKey)
-        .isEqualTo(
-            withMappingAllowingFallback(
-                ImmutableMap.of(RepositoryName.create("good"), RepositoryName.MAIN)));
+        .isEqualTo(withMappingAllowingFallback(ImmutableMap.of("good", RepositoryName.MAIN)));
   }
 
   @Test
@@ -606,12 +573,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    RepositoryName.create("bazel_tools"),
-                    RepositoryName.create("bazel_tools"), // bazel_tools is a well-known module
-                    RepositoryName.create("foo"),
-                    RepositoryName.create("foo.1.0"),
-                    RepositoryName.create("_builtins"),
-                    RepositoryName.create("_builtins")),
+                    "bazel_tools", RepositoryName.BAZEL_TOOLS, // bazel_tools is a well-known module
+                    "foo", RepositoryName.create("foo.1.0"),
+                    "_builtins", RepositoryName.create("_builtins")),
                 name));
   }
 
@@ -619,15 +583,11 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testEqualsAndHashCode() throws Exception {
     new EqualsTester()
         .addEqualityGroup(
-            withMappingAllowingFallback(
-                ImmutableMap.of(RepositoryName.create("foo"), RepositoryName.create("bar"))),
-            withMappingAllowingFallback(
-                ImmutableMap.of(RepositoryName.create("foo"), RepositoryName.create("bar"))))
+            withMappingAllowingFallback(ImmutableMap.of("foo", RepositoryName.create("bar"))),
+            withMappingAllowingFallback(ImmutableMap.of("foo", RepositoryName.create("bar"))))
         .addEqualityGroup(
-            withMappingAllowingFallback(
-                ImmutableMap.of(RepositoryName.create("fizz"), RepositoryName.create("buzz"))),
-            withMappingAllowingFallback(
-                ImmutableMap.of(RepositoryName.create("fizz"), RepositoryName.create("buzz"))))
+            withMappingAllowingFallback(ImmutableMap.of("fizz", RepositoryName.create("buzz"))),
+            withMappingAllowingFallback(ImmutableMap.of("fizz", RepositoryName.create("buzz"))))
         .testEquals();
   }
 }

@@ -100,7 +100,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
    * module deps and module extensions.
    */
   public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> e :
         getExtensionUsagesTable().column(key).entrySet()) {
       ModuleExtensionId extensionId = e.getKey();
@@ -108,9 +108,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
       for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
         String canonicalRepoName =
             getExtensionUniqueNames().get(extensionId) + "." + entry.getValue();
-        mapping.put(
-            RepositoryName.createUnvalidated(entry.getKey()),
-            RepositoryName.createUnvalidated(canonicalRepoName));
+        mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
       }
     }
     return getDepGraph()

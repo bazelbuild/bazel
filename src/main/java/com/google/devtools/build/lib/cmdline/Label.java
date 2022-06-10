@@ -102,8 +102,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       // disregarding the current repo and repo mappings.
       return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg) ? RepositoryName.MAIN : currentRepo;
     }
-    // TODO(b/200024947): Make repo mapping take a string and return a RepositoryName.
-    return repoMapping.get(RepositoryName.createUnvalidated(parts.repo));
+    return repoMapping.get(parts.repo);
   }
 
   /**
@@ -174,7 +173,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   // TODO(b/200024947): Remove this.
   public static Label parseAbsolute(
-      String absName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      String absName, ImmutableMap<String, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
     return parseAbsolute(absName, RepositoryMapping.createAllowingFallback(repositoryMapping));
   }
@@ -486,7 +485,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   // TODO(b/200024947): Remove this.
   public Label getRelativeWithRemapping(
-      String relName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      String relName, ImmutableMap<String, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
     return getRelativeWithRemapping(
         relName, RepositoryMapping.createAllowingFallback(repositoryMapping));

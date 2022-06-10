@@ -29,7 +29,7 @@ import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
-/** The name of an external repository. */
+/** The canonical name of an external repository. */
 public final class RepositoryName {
 
   @SerializationConstant

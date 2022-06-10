@@ -119,8 +119,8 @@ public class LabelTest {
   public void testGetRelativeWithoutRemappingBaseLabel() throws Exception {
     PackageIdentifier packageId = PackageIdentifier.create("a", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping =
-        ImmutableMap.of(RepositoryName.create("a"), RepositoryName.create("b"));
+    ImmutableMap<String, RepositoryName> repoMapping =
+        ImmutableMap.of("a", RepositoryName.create("b"));
     Label relative = base.getRelativeWithRemapping(":y", repoMapping);
 
     // getRelative should only remap repositories passed in the string arg and not
@@ -133,8 +133,8 @@ public class LabelTest {
   public void testGetRelativeWithDifferentRepoAndRemapping() throws Exception {
     PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping =
-        ImmutableMap.of(RepositoryName.create("a"), RepositoryName.create("b"));
+    ImmutableMap<String, RepositoryName> repoMapping =
+        ImmutableMap.of("a", RepositoryName.create("b"));
     Label relative = base.getRelativeWithRemapping("@a//x:y", repoMapping);
 
     Label actual = Label.parseAbsoluteUnchecked("@b//x:y");
