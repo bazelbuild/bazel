@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -228,7 +229,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     "",
                     0));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
-        .containsExactly("E.override", "E", "G.override", "G");
+        .containsExactly(
+            RepositoryName.create("E.override"), "E", RepositoryName.create("G.override"), "G");
   }
 
   @Test

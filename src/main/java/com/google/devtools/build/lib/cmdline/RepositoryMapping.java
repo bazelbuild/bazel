@@ -43,10 +43,10 @@ public abstract class RepositoryMapping {
    * we don't fallback to the requested repo name.
    */
   @Nullable
-  abstract String ownerRepo();
+  abstract RepositoryName ownerRepo();
 
   public static RepositoryMapping create(
-      Map<String, RepositoryName> repositoryMapping, String ownerRepo) {
+      Map<String, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
     return new AutoValue_RepositoryMapping(
         ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)),
         Preconditions.checkNotNull(ownerRepo));

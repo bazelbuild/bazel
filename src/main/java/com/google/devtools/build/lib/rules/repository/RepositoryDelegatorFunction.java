@@ -253,8 +253,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (!repositoryName.isVisible()) {
       return new NoRepositoryDirectoryValue(
           String.format(
-              "Repository '%s' is not visible from repository '@%s'",
-              repositoryName.getCanonicalForm(), repositoryName.getOwnerRepoIfNotVisible()));
+              "Repository '%s' is not visible from repository '%s'",
+              repositoryName.getNameWithAt(),
+              repositoryName.getOwnerRepoIfNotVisible().getNameWithAt()));
     }
 
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
@@ -274,8 +275,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     Rule rule = null;
 
     if (Preconditions.checkNotNull(ENABLE_BZLMOD.get(env))) {
-      // Trys to get a repository rule instance from Bzlmod generated repos.
-      SkyKey key = BzlmodRepoRuleValue.key(repositoryName.getName());
+      // Tries to get a repository rule instance from Bzlmod generated repos.
+      SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
       BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
 
       if (env.valuesMissing()) {

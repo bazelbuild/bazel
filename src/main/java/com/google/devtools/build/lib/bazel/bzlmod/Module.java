@@ -63,7 +63,7 @@ public abstract class Module {
    */
   public abstract ModuleKey getKey();
 
-  public final String getCanonicalRepoName() {
+  public final RepositoryName getCanonicalRepoName() {
     return getKey().getCanonicalRepoName();
   }
 
@@ -114,13 +114,12 @@ public abstract class Module {
     // Every module should be able to reference itself as @<module name>.
     // If this is the root module, this perfectly falls into @<module name> => @
     if (!getName().isEmpty()) {
-      mapping.put(getName(), RepositoryName.createUnvalidated(getCanonicalRepoName()));
+      mapping.put(getName(), getCanonicalRepoName());
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
-      mapping.put(
-          dep.getKey(), RepositoryName.createUnvalidated(dep.getValue().getCanonicalRepoName()));
+      mapping.put(dep.getKey(), dep.getValue().getCanonicalRepoName());
     }
     return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
   }

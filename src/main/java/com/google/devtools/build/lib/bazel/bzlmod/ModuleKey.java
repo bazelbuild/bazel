@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** A module name, version pair that identifies a module in the external dependency graph. */
 @AutoValue
@@ -33,16 +34,12 @@ public abstract class ModuleKey {
    * <p>TODO(pcloudy): Remove this hack after figuring out a correct way to deal with the above
    * situation.
    */
-  private static final ImmutableMap<String, String> WELL_KNOWN_MODULES =
+  private static final ImmutableMap<String, RepositoryName> WELL_KNOWN_MODULES =
       ImmutableMap.of(
-          "com_google_protobuf",
-          "com_google_protobuf",
-          "protobuf",
-          "com_google_protobuf",
-          "bazel_tools",
-          "bazel_tools",
-          "local_config_platform",
-          "local_config_platform");
+          "com_google_protobuf", RepositoryName.createUnvalidated("com_google_protobuf"),
+          "protobuf", RepositoryName.createUnvalidated("com_google_protobuf"),
+          "bazel_tools", RepositoryName.BAZEL_TOOLS,
+          "local_config_platform", RepositoryName.createUnvalidated("local_config_platform"));
 
   public static final ModuleKey ROOT = create("", Version.EMPTY);
 
@@ -65,16 +62,16 @@ public abstract class ModuleKey {
   }
 
   /** Returns the canonical name of the repo backing this module. */
-  public String getCanonicalRepoName() {
+  public RepositoryName getCanonicalRepoName() {
     if (WELL_KNOWN_MODULES.containsKey(getName())) {
       return WELL_KNOWN_MODULES.get(getName());
     }
     if (ROOT.equals(this)) {
-      return "";
+      return RepositoryName.MAIN;
     }
     if (getVersion().isEmpty()) {
-      return getName() + ".override";
+      return RepositoryName.createUnvalidated(getName() + ".override");
     }
-    return getName() + "." + getVersion();
+    return RepositoryName.createUnvalidated(getName() + "." + getVersion());
   }
 }

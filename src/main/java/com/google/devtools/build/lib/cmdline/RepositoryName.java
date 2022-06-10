@@ -114,14 +114,14 @@ public final class RepositoryName {
   private final String name;
 
   /**
-   * Store the name if the owner repository where this repository name is requested. If this field
+   * Store the name of the owner repository where this repository name is requested. If this field
    * is not null, it means this instance represents the requested repository name that is actually
    * not visible from the owner repository and should fail in {@code RepositoryDelegatorFunction}
    * when fetching the repository.
    */
-  private final String ownerRepoIfNotVisible;
+  private final RepositoryName ownerRepoIfNotVisible;
 
-  private RepositoryName(String name, String ownerRepoIfNotVisible) {
+  private RepositoryName(String name, RepositoryName ownerRepoIfNotVisible) {
     this.name = name;
     this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
   }
@@ -163,8 +163,9 @@ public final class RepositoryName {
    * actually not visible from the owner repository and should fail in {@code
    * RepositoryDelegatorFunction} when fetching with this {@link RepositoryName} instance.
    */
-  public RepositoryName toNonVisible(String ownerRepo) {
+  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
     Preconditions.checkNotNull(ownerRepo);
+    Preconditions.checkArgument(ownerRepo.isVisible());
     return new RepositoryName(name, ownerRepo);
   }
 
@@ -173,7 +174,7 @@ public final class RepositoryName {
   }
 
   @Nullable
-  public String getOwnerRepoIfNotVisible() {
+  public RepositoryName getOwnerRepoIfNotVisible() {
     return ownerRepoIfNotVisible;
   }
 
@@ -240,13 +241,11 @@ public final class RepositoryName {
     }
     RepositoryName other = (RepositoryName) object;
     return OsPathPolicy.getFilePathOs().equals(name, other.name)
-        && OsPathPolicy.getFilePathOs().equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible);
+        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        OsPathPolicy.getFilePathOs().hash(name),
-        OsPathPolicy.getFilePathOs().hash(ownerRepoIfNotVisible));
+    return Objects.hash(OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible);
   }
 }

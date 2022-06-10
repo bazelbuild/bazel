@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
@@ -114,7 +115,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       ImmutableMap<String, ModuleOverride> overrides)
       throws BazelModuleResolutionFunctionException {
     // Build some reverse lookups for later use.
-    ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
+    ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
         depGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
     ImmutableMap<String, ModuleKey> moduleNameLookup =

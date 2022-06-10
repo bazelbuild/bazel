@@ -544,7 +544,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key =
         RepositoryDirectoryValue.key(
-            RepositoryName.createUnvalidated("foo").toNonVisible("fake_owner_repo"));
+            RepositoryName.createUnvalidated("foo")
+                .toNonVisible(RepositoryName.createUnvalidated("fake_owner_repo")));
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)

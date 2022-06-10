@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -41,7 +42,7 @@ public class BzlmodRepoRuleValue implements SkyValue {
     return pkg.getRule(ruleName);
   }
 
-  public static Key key(String repositoryName) {
+  public static Key key(RepositoryName repositoryName) {
     return Key.create(repositoryName);
   }
 
@@ -61,16 +62,16 @@ public class BzlmodRepoRuleValue implements SkyValue {
 
   /** Argument for the SkyKey to request a BzlmodRepoRuleValue. */
   @AutoCodec
-  public static class Key extends AbstractSkyKey<String> {
+  public static class Key extends AbstractSkyKey<RepositoryName> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    private Key(String arg) {
+    private Key(RepositoryName arg) {
       super(arg);
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static Key create(String arg) {
+    static Key create(RepositoryName arg) {
       return interner.intern(new Key(arg));
     }
 

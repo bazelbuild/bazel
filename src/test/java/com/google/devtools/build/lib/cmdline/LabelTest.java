@@ -172,7 +172,8 @@ public class LabelTest {
 
     Label relative =
         base.getRelativeWithRemapping(
-            "//conditions:default", RepositoryMapping.create(ImmutableMap.of(), "repo"));
+            "//conditions:default",
+            RepositoryMapping.create(ImmutableMap.of(), RepositoryName.create("repo")));
 
     PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
     assertThat(relative.getRepository()).isEqualTo(expected.getRepository());

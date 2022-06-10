@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** Specifies that a module should be retrieved from an archive. */
 @AutoValue
@@ -48,9 +49,9 @@ public abstract class ArchiveOverride implements NonRegistryOverride {
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
-  public RepoSpec getRepoSpec(String repoName) {
+  public RepoSpec getRepoSpec(RepositoryName repoName) {
     return new ArchiveRepoSpecBuilder()
-        .setRepoName(repoName)
+        .setRepoName(repoName.getName())
         .setUrls(getUrls())
         .setIntegrity(getIntegrity())
         .setStripPrefix(getStripPrefix())

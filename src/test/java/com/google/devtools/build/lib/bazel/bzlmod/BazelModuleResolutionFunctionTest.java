@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -90,11 +91,16 @@ public class BazelModuleResolutionFunctionTest {
         BazelModuleResolutionFunction.createValue(depGraph, depGraph, overrides);
     assertThat(value.getCanonicalRepoNameLookup())
         .containsExactly(
-            "", ModuleKey.ROOT,
-            "dep.1.0", createModuleKey("dep", "1.0"),
-            "dep.2.0", createModuleKey("dep", "2.0"),
-            "rules_cc.1.0", createModuleKey("rules_cc", "1.0"),
-            "rules_java.override", createModuleKey("rules_java", ""));
+            RepositoryName.MAIN,
+            ModuleKey.ROOT,
+            RepositoryName.create("dep.1.0"),
+            createModuleKey("dep", "1.0"),
+            RepositoryName.create("dep.2.0"),
+            createModuleKey("dep", "2.0"),
+            RepositoryName.create("rules_cc.1.0"),
+            createModuleKey("rules_cc", "1.0"),
+            RepositoryName.create("rules_java.override"),
+            createModuleKey("rules_java", ""));
     assertThat(value.getModuleNameLookup())
         .containsExactly(
             "rules_cc", createModuleKey("rules_cc", "1.0"),

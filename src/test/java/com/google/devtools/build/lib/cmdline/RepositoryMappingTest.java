@@ -38,21 +38,25 @@ public final class RepositoryMappingTest {
   public void neverFallback() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.create(
-            ImmutableMap.of("A", RepositoryName.create("com_foo_bar_a")), "fake_owner_repo");
+            ImmutableMap.of("A", RepositoryName.create("com_foo_bar_a")),
+            RepositoryName.create("fake_owner_repo"));
     assertThat(mapping.get("A")).isEqualTo(RepositoryName.create("com_foo_bar_a"));
     assertThat(mapping.get("B"))
-        .isEqualTo(RepositoryName.create("B").toNonVisible("fake_owner_repo"));
+        .isEqualTo(
+            RepositoryName.create("B").toNonVisible(RepositoryName.create("fake_owner_repo")));
   }
 
   @Test
   public void additionalMappings() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.create(
-                ImmutableMap.of("A", RepositoryName.create("com_foo_bar_a")), "fake_owner_repo")
+                ImmutableMap.of("A", RepositoryName.create("com_foo_bar_a")),
+                RepositoryName.create("fake_owner_repo"))
             .withAdditionalMappings(ImmutableMap.of("B", RepositoryName.create("com_foo_bar_b")));
     assertThat(mapping.get("A")).isEqualTo(RepositoryName.create("com_foo_bar_a"));
     assertThat(mapping.get("B")).isEqualTo(RepositoryName.create("com_foo_bar_b"));
     assertThat(mapping.get("C"))
-        .isEqualTo(RepositoryName.create("C").toNonVisible("fake_owner_repo"));
+        .isEqualTo(
+            RepositoryName.create("C").toNonVisible(RepositoryName.create("fake_owner_repo")));
   }
 }

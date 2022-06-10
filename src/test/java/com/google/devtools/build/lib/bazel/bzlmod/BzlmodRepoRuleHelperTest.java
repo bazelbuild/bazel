@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -321,7 +322,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      String repositoryName = (String) skyKey.argument();
+      RepositoryName repositoryName = (RepositoryName) skyKey.argument();
       Optional<RepoSpec> result;
       try {
         result = bzlmodRepoRuleHelper.getRepoSpec(env, repositoryName);
@@ -335,8 +336,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     }
   }
 
-  private static final class Key extends AbstractSkyKey<String> {
-    private Key(String arg) {
+  private static final class Key extends AbstractSkyKey<RepositoryName> {
+    private Key(RepositoryName arg) {
       super(arg);
     }
 
@@ -353,6 +354,6 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   }
 
   private static SkyKey getRepoSpecByNameKey(String repositoryName) {
-    return new Key(repositoryName);
+    return new Key(RepositoryName.createUnvalidated(repositoryName));
   }
 }

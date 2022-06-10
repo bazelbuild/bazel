@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,10 +58,13 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
-  public RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler) {
+  public RepoSpec getRepoSpec(
+      ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler) {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
-        .setAttributes(ImmutableMap.of("name", repoName, "path", rootPath + "/" + repoName))
+        .setAttributes(
+            ImmutableMap.of(
+                "name", repoName.getName(), "path", rootPath + "/" + repoName.getName()))
         .build();
   }
 
