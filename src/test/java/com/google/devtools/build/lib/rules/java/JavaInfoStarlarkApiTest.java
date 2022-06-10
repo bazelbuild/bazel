@@ -830,6 +830,31 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("foo/manifest.proto");
   }
 
+  @Test
+  public void buildHelperCreateJavaInfoWithModuleFlags() throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(",
+        "    name = 'my_java_lib_direct',",
+        "    srcs = ['java/A.java'],",
+        "    add_opens = ['java.base/java.lang'],",
+        ")",
+        "my_rule(",
+        "    name = 'my_starlark_rule',",
+        "    dep = [':my_java_lib_direct'],",
+        "    output_jar = 'my_starlark_rule_lib.jar',",
+        ")");
+    assertNoEvents();
+
+    JavaModuleFlagsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaModuleFlagsProvider.class);
+
+    assertThat(ruleOutputs.toFlags())
+        .containsExactly("--add-opens=java.base/java.lang=ALL-UNNAMED");
+  }
+
   private RuleBuilder ruleBuilder() {
     return new RuleBuilder();
   }
