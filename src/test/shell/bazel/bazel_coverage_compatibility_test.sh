@@ -28,6 +28,7 @@ constraint_setting(name = "incompatible_setting")
 constraint_value(
     name = "incompatible",
     constraint_setting = ":incompatible_setting",
+    visibility = ["//visibility:public"],
 )
 
 sh_test(
@@ -40,6 +41,11 @@ sh_test(
     srcs = ["incompatible_test.sh"],
     target_compatible_with = [":incompatible"],
 )
+
+exports_files([
+    "compatible_test.sh",
+    "incompatible_test.sh",
+])
 EOF
   cat <<EOF > compatible_test.sh
 #!/bin/bash
@@ -51,10 +57,25 @@ exit 1
 EOF
   chmod +x compatible_test.sh
   chmod +x incompatible_test.sh
+
+  mkdir all_incompatible/
+  cat <<EOF > all_incompatible/BUILD
+sh_test(
+    name = "incompatible1_test",
+    srcs = ["//:incompatible_test.sh"],
+    target_compatible_with = ["//:incompatible"],
+)
+
+sh_test(
+    name = "incompatible2_test",
+    srcs = ["//:incompatible_test.sh"],
+    target_compatible_with = ["//:incompatible"],
+)
+EOF
 }
 
-# Validates that coverage skips incompatible tests.  This is a regression test for
-# https://github.com/bazelbuild/bazel/issues/15385.
+# Validates that coverage skips incompatible tests.  This is a regression test
+# for https://github.com/bazelbuild/bazel/issues/15385.
 function test_sh_test_coverage() {
   set_up_sh_test_coverage
   bazel coverage --test_output=all --combined_report=lcov //:all &>$TEST_log \
@@ -62,6 +83,18 @@ function test_sh_test_coverage() {
   expect_log "INFO: Build completed successfully"
   expect_log "//:compatible_test .* PASSED"
   expect_log "//:incompatible_test .* SKIPPED"
+  expect_log "Executed 1 out of 2 tests: 1 were skipped"
+}
+
+# Validates that coverage correctly handles all tests being incompatible.
+function test_sh_test_coverage() {
+  set_up_sh_test_coverage
+  bazel coverage --test_output=all --combined_report=lcov //all_incompatible:all &>$TEST_log \
+    || fail "Coverage for //:all failed"
+  expect_log "INFO: Build completed successfully"
+  expect_log "//all_incompatible:incompatible1_test .* SKIPPED"
+  expect_log "//all_incompatible:incompatible2_test .* SKIPPED"
+  expect_log "Executed 0 out of 2 tests: 2 were skipped"
 }
 
 run_suite "test tests"
