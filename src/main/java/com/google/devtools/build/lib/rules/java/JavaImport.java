@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -101,6 +103,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     Artifact depsChecker = toolchain.depsChecker();
     if (Allowlist.hasAllowlist(ruleContext, "java_import_deps_checking")
         && !Allowlist.isAvailable(ruleContext, "java_import_deps_checking")
+        && !ruleContext.attributes().get("tags", STRING_LIST).contains("incomplete-deps")
         && !jars.isEmpty()
         && depsChecker != null) {
       jdepsArtifact =
