@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
+import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
@@ -43,7 +45,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Sele
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Tristate;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelDictUnaryEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelKeyedStringDictEntry;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelListDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringListDictEntry;
 import java.util.Collection;
@@ -75,8 +76,8 @@ public class AttributeFormatter {
   /**
    * Convert attribute value to proto representation.
    *
-   * <p>If {@param value} is null, only the {@code name}, {@code explicitlySpecified}, {@code
-   * nodep} (if applicable), and {@code type} fields will be included in the proto message.
+   * <p>If {@code value} is null, only the {@code name}, {@code explicitlySpecified}, {@code nodep}
+   * (if applicable), and {@code type} fields will be included in the proto message.
    *
    * <p>If {@param encodeBooleanAndTriStateAsIntegerAndString} is true then boolean and tristate
    * values are also encoded as integers and strings.
@@ -129,16 +130,15 @@ public class AttributeFormatter {
   }
 
   private static void writeSelectorListToBuilder(
-      Build.Attribute.Builder attrPb,
-      Type<?> type,
-      SelectorList<?> selectorList) {
+      Build.Attribute.Builder attrPb, Type<?> type, SelectorList<?> selectorList) {
     Build.Attribute.SelectorList.Builder selectorListBuilder =
         Build.Attribute.SelectorList.newBuilder();
     selectorListBuilder.setType(ProtoUtils.getDiscriminatorFromType(type));
     for (Selector<?> selector : selectorList.getSelectors()) {
-      Build.Attribute.Selector.Builder selectorBuilder = Build.Attribute.Selector.newBuilder()
-          .setNoMatchError(selector.getNoMatchError())
-          .setHasDefaultValue(selector.hasDefault());
+      Build.Attribute.Selector.Builder selectorBuilder =
+          Build.Attribute.Selector.newBuilder()
+              .setNoMatchError(selector.getNoMatchError())
+              .setHasDefaultValue(selector.hasDefault());
 
       // Note that the order of entries returned by selector.getEntries is stable. The map's
       // entries' order is preserved from the fact that Starlark dictionary entry order is stable
@@ -153,9 +153,7 @@ public class AttributeFormatter {
         Object conditionValue = entry.getValue();
         if (conditionValue != null) {
           writeAttributeValueToBuilder(
-              new SelectorEntryBuilderAdapter(selectorEntryBuilder),
-              type,
-              conditionValue);
+              new SelectorEntryBuilderAdapter(selectorEntryBuilder), type, conditionValue);
         }
         selectorBuilder.addEntries(selectorEntryBuilder);
       }
@@ -172,10 +170,19 @@ public class AttributeFormatter {
       AttributeValueBuilderAdapter builder, Type<?> type, Object value) {
     if (type == INTEGER) {
       builder.setIntValue(((StarlarkInt) value).toIntUnchecked());
-    } else if (type == STRING || type == LABEL || type == NODEP_LABEL || type == OUTPUT) {
+    } else if (type == STRING
+        || type == LABEL
+        || type == NODEP_LABEL
+        || type == OUTPUT
+        || type == GENQUERY_SCOPE_TYPE) {
+
       builder.setStringValue(value.toString());
-    } else if (type == STRING_LIST || type == LABEL_LIST || type == NODEP_LABEL_LIST
-        || type == OUTPUT_LIST || type == DISTRIBUTIONS) {
+    } else if (type == STRING_LIST
+        || type == LABEL_LIST
+        || type == NODEP_LABEL_LIST
+        || type == OUTPUT_LIST
+        || type == DISTRIBUTIONS
+        || type == GENQUERY_SCOPE_TYPE_LIST) {
       for (Object entry : (Collection<?>) value) {
         builder.addStringListValue(entry.toString());
       }
@@ -264,13 +271,9 @@ public class AttributeFormatter {
 
     void addStringListValue(String s);
 
-    void addFilesetListValue(Build.FilesetEntry.Builder builder);
-
     void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder);
 
     void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder);
-
-    void addLabelListDictValue(LabelListDictEntry.Builder builder);
 
     void addIntListValue(int i);
 
@@ -292,9 +295,9 @@ public class AttributeFormatter {
   /**
    * An {@link AttributeValueBuilderAdapter} which writes to a {@link Build.Attribute.Builder}.
    *
-   * <p>If {@param encodeBooleanAndTriStateAsIntegerAndString} is {@code true}, then {@link
-   * Boolean} and {@link TriState} attribute values also write to the integer and string fields.
-   * This offers backwards compatibility to clients that expect attribute values of those types.
+   * <p>If {@param encodeBooleanAndTriStateAsIntegerAndString} is {@code true}, then {@link Boolean}
+   * and {@link TriState} attribute values also write to the integer and string fields. This offers
+   * backwards compatibility to clients that expect attribute values of those types.
    */
   private static class AttributeBuilderAdapter implements AttributeValueBuilderAdapter {
     private final boolean encodeBooleanAndTriStateAsIntegerAndString;
@@ -313,11 +316,6 @@ public class AttributeFormatter {
     }
 
     @Override
-    public void addFilesetListValue(Build.FilesetEntry.Builder builder) {
-      attributeBuilder.addFilesetListValue(builder);
-    }
-
-    @Override
     public void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder) {
       attributeBuilder.addLabelDictUnaryValue(builder);
     }
@@ -325,11 +323,6 @@ public class AttributeFormatter {
     @Override
     public void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder) {
       attributeBuilder.addLabelKeyedStringDictValue(builder);
-    }
-
-    @Override
-    public void addLabelListDictValue(LabelListDictEntry.Builder builder) {
-      attributeBuilder.addLabelListDictValue(builder);
     }
 
     @Override
@@ -432,11 +425,6 @@ public class AttributeFormatter {
     }
 
     @Override
-    public void addFilesetListValue(Build.FilesetEntry.Builder builder) {
-      selectorEntryBuilder.addFilesetListValue(builder);
-    }
-
-    @Override
     public void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder) {
       selectorEntryBuilder.addLabelDictUnaryValue(builder);
     }
@@ -444,11 +432,6 @@ public class AttributeFormatter {
     @Override
     public void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder) {
       selectorEntryBuilder.addLabelKeyedStringDictValue(builder);
-    }
-
-    @Override
-    public void addLabelListDictValue(LabelListDictEntry.Builder builder) {
-      selectorEntryBuilder.addLabelListDictValue(builder);
     }
 
     @Override

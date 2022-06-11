@@ -85,6 +85,8 @@ public class CppHelper {
   static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
   static final PathFragment DOTD_FILES = PathFragment.create("_dotd");
   static final PathFragment PIC_DOTD_FILES = PathFragment.create("_pic_dotd");
+  static final PathFragment DIA_FILES = PathFragment.create("_dia");
+  static final PathFragment PIC_DIA_FILES = PathFragment.create("_pic_dia");
 
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
   public static final FileTypeSet SHARED_LIBRARY_FILETYPES =
@@ -402,11 +404,18 @@ public class CppHelper {
     }
   }
 
-  /** Returns the directory where object files are created. */
+  /** Returns the directory where dotd files are created. */
   private static PathFragment getDotdDirectory(
       Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
     return AnalysisUtils.getUniqueDirectory(
         ruleLabel, usePic ? PIC_DOTD_FILES : DOTD_FILES, siblingRepositoryLayout);
+  }
+
+  /** Returns the directory where serialized diagnostics files are created. */
+  private static PathFragment getDiagnosticsDirectory(
+      Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
+    return AnalysisUtils.getUniqueDirectory(
+        ruleLabel, usePic ? PIC_DIA_FILES : DIA_FILES, siblingRepositoryLayout);
   }
 
   /**
@@ -764,6 +773,25 @@ public class CppHelper {
         sourceTreeArtifact.getRoot());
   }
 
+  /**
+   * Returns the corresponding serialized diagnostics files TreeArtifact given the source
+   * TreeArtifact.
+   */
+  public static SpecialArtifact getDiagnosticsOutputTreeArtifact(
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      Artifact sourceTreeArtifact,
+      String outputName,
+      boolean usePic) {
+    return actionConstructionContext.getTreeArtifact(
+        getDiagnosticsDirectory(
+                label,
+                usePic,
+                actionConstructionContext.getConfiguration().isSiblingRepositoryLayout())
+            .getRelative(outputName),
+        sourceTreeArtifact.getRoot());
+  }
+
   public static String getArtifactNameForCategory(
       CcToolchainProvider toolchain,
       ArtifactCategory category,
@@ -784,6 +812,19 @@ public class CppHelper {
             : getArtifactNameForCategory(toolchain, outputCategory, outputName);
 
     return getArtifactNameForCategory(toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+  }
+
+  static String getDiagnosticsFileName(
+      CcToolchainProvider toolchain, ArtifactCategory outputCategory, String outputName)
+      throws RuleErrorException {
+    String baseName =
+        outputCategory == ArtifactCategory.OBJECT_FILE
+                || outputCategory == ArtifactCategory.PROCESSED_HEADER
+            ? outputName
+            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
+
+    return getArtifactNameForCategory(
+        toolchain, ArtifactCategory.SERIALIZED_DIAGNOSTICS_FILE, baseName);
   }
 
   /**

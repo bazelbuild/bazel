@@ -93,7 +93,6 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
       scratch.file("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
       MockPlatformSupport.setup(
           mockToolsConfig,
-          "@bazel_tools//platforms",
           "embedded_tools/platforms",
           "@platforms//",
           "platforms_workspace");

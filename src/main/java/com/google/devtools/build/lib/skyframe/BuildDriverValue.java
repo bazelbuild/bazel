@@ -18,12 +18,18 @@ import com.google.devtools.build.skyframe.SkyValue;
 /** The result of evaluating a {@link BuildDriverKey}. */
 public class BuildDriverValue implements SkyValue {
   private final SkyValue wrappedSkyValue;
+  private final boolean skipped;
 
-  BuildDriverValue(SkyValue wrappedSkyValue) {
+  BuildDriverValue(SkyValue wrappedSkyValue, boolean skipped) {
     this.wrappedSkyValue = wrappedSkyValue;
+    this.skipped = skipped;
   }
 
   public SkyValue getWrappedSkyValue() {
     return wrappedSkyValue;
+  }
+
+  public boolean isSkipped() {
+    return skipped;
   }
 }

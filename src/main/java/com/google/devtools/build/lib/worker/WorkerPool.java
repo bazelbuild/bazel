@@ -200,13 +200,17 @@ public final class WorkerPool {
     multiplexPools.values().forEach(GenericKeyedObjectPool::close);
   }
 
-  static class WorkerPoolConfig {
+  /**
+   * Describes the configuration of worker pool, e.g. number of maximal instances and priority of
+   * the workers.
+   */
+  public static class WorkerPoolConfig {
     private final WorkerFactory workerFactory;
     private final List<Entry<String, Integer>> workerMaxInstances;
     private final List<Entry<String, Integer>> workerMaxMultiplexInstances;
     private final List<String> highPriorityWorkers;
 
-    WorkerPoolConfig(
+    public WorkerPoolConfig(
         WorkerFactory workerFactory,
         List<Entry<String, Integer>> workerMaxInstances,
         List<Entry<String, Integer>> workerMaxMultiplexInstances,

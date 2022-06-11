@@ -721,7 +721,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "libs/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
         "  return [apple_common.new_objc_provider(",
-        "      static_framework_file=depset(ctx.files.link_inputs))]",
+        "      static_framework_file=depset(ctx.files.link_inputs)), CcInfo()]",
         "custom_static_framework_import = rule(",
         "    _custom_static_framework_import_impl,",
         "    attrs={'link_inputs': attr.label_list(allow_files=True)},",

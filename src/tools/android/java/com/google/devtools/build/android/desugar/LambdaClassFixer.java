@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import org.objectweb.asm.Opcodes;
 import java.util.LinkedHashSet;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
@@ -72,7 +73,7 @@ class LambdaClassFixer extends ClassVisitor {
       ImmutableSet<String> interfaceLambdaMethods,
       boolean allowDefaultMethods,
       boolean copyBridgeMethods) {
-    super(Opcodes.ASM8, dest);
+    super(Opcodes.ASM9, dest);
     checkArgument(!allowDefaultMethods || interfaceLambdaMethods.isEmpty());
     checkArgument(allowDefaultMethods || copyBridgeMethods);
     this.lambdaInfo = lambdaInfo;
@@ -244,7 +245,7 @@ class LambdaClassFixer extends ClassVisitor {
   /** Rewriter for methods in generated lambda classes. */
   private class LambdaClassMethodRewriter extends MethodVisitor {
     public LambdaClassMethodRewriter(MethodVisitor dest) {
-      super(Opcodes.ASM8, dest);
+      super(Opcodes.ASM9, dest);
     }
 
     @Override
@@ -304,7 +305,7 @@ class LambdaClassFixer extends ClassVisitor {
   private static class LambdaClassInvokeSpecialRewriter extends MethodVisitor {
 
     public LambdaClassInvokeSpecialRewriter(MethodVisitor dest) {
-      super(Opcodes.ASM8, dest);
+      super(Opcodes.ASM9, dest);
     }
 
     @Override
@@ -329,7 +330,7 @@ class LambdaClassFixer extends ClassVisitor {
 
     public CopyBridgeMethods() {
       // No delegate visitor; instead we'll add methods to the outer class's delegate where needed
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -374,7 +375,7 @@ class LambdaClassFixer extends ClassVisitor {
 
     public CopyOneMethod(String methodName) {
       // No delegate visitor; instead we'll add methods to the outer class's delegate where needed
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       checkState(!allowDefaultMethods, "Couldn't copy interface lambda bodies");
       this.methodName = methodName;
     }
@@ -419,7 +420,7 @@ class LambdaClassFixer extends ClassVisitor {
    */
   private static class AvoidJacocoInit extends MethodVisitor {
     public AvoidJacocoInit(MethodVisitor dest) {
-      super(Opcodes.ASM8, dest);
+      super(Opcodes.ASM9, dest);
     }
 
     @Override
@@ -448,7 +449,7 @@ class LambdaClassFixer extends ClassVisitor {
         String desc,
         String signature,
         String[] exceptions) {
-      super(Opcodes.ASM8, access, name, desc, signature, exceptions);
+      super(Opcodes.ASM9, access, name, desc, signature, exceptions);
       this.dest = dest;
       this.lambdaInfo = lambdaInfo;
       this.classLoader = classLoader;

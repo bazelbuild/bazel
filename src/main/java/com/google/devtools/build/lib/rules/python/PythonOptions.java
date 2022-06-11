@@ -199,16 +199,14 @@ public class PythonOptions extends FragmentOptions {
   private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
       OptionsParser.getOptionDefinitionByName(PythonOptions.class, "host_force_python");
 
+  // TODO(b/230490091): Delete this flag (see also bazelbuild issue #7741)
   @Option(
       name = "incompatible_disallow_legacy_py_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, native Python rules will neither produce nor consume the legacy \"py\" "
-              + "provider. Use PyInfo instead. Under this flag, passing the legacy provider to a "
-              + "Python target will be an error.")
+      help = "No-op, will be removed soon.")
   public boolean incompatibleDisallowLegacyPyProvider;
 
   // TODO(b/153369373): Delete this flag.
@@ -326,7 +324,6 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
     hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
     hostPythonOptions.buildPythonZip = buildPythonZip;
-    hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
 
     // Save host options in case of a further exec->host transition.

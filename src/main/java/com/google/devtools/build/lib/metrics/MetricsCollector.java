@@ -63,20 +63,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.stream.Stream;
 
-class ActionStats {
-  LongAccumulator firstStarted;
-  LongAccumulator lastEnded;
-  AtomicLong numActions;
-  String mnemonic;
-
-  ActionStats(String mnemonic) {
-    this.mnemonic = mnemonic;
-    firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
-    lastEnded = new LongAccumulator(Math::max, 0);
-    numActions = new AtomicLong();
-  }
-}
-
 class MetricsCollector {
   private final CommandEnvironment env;
   private final boolean recordMetricsForAllMnemonics;
@@ -312,5 +298,19 @@ class MetricsCollector {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
     }
     return timingMetrics.build();
+  }
+
+  private static class ActionStats {
+    final LongAccumulator firstStarted;
+    final LongAccumulator lastEnded;
+    final AtomicLong numActions;
+    final String mnemonic;
+
+    ActionStats(String mnemonic) {
+      this.mnemonic = mnemonic;
+      firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
+      lastEnded = new LongAccumulator(Math::max, 0);
+      numActions = new AtomicLong();
+    }
   }
 }

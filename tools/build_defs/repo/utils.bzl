@@ -282,6 +282,8 @@ def parse_netrc(contents, filename = None):
                 macdef = None
                 currentmacro = ""
         else:
+            line = line.replace("\t", " ")
+
             # Essentially line.split(None) which starlark does not support.
             tokens = [
                 w.strip()

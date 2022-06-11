@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 import com.google.devtools.build.android.desugar.testdata.ClassCallingLongCompare;
+import org.objectweb.asm.Opcodes;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -26,7 +27,6 @@ import org.junit.runners.JUnit4;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /** The test case for the rewriter rewriting a call of Long.compare(long, long) to lcmp. */
 @RunWith(JUnit4.class)
@@ -40,7 +40,7 @@ public class DesugarLongCompareTest {
       AtomicInteger counter = new AtomicInteger(0);
 
       reader.accept(
-          new ClassVisitor(Opcodes.ASM8) {
+          new ClassVisitor(Opcodes.ASM9) {
             @Override
             public MethodVisitor visitMethod(
                 int access, String name, String desc, String signature, String[] exceptions) {

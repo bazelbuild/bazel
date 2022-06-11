@@ -229,7 +229,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         break;
       case BASH:
       default:
-        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
+        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
         constructor =
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");

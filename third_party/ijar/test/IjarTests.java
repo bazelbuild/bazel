@@ -249,6 +249,7 @@ public class IjarTests {
       while (entries.hasMoreElements()) {
         JarEntry je = entries.nextElement();
         if (!je.getName().endsWith(".class")
+            && !je.getName().endsWith(".kotlin_builtins")
             && !je.getName().endsWith(".kotlin_module")
             && !je.getName().endsWith(".tasty")) {
           continue;
@@ -288,9 +289,13 @@ public class IjarTests {
   public void kotlinModule() throws Exception {
     Map<String, byte[]> lib = readJar("third_party/ijar/test/kotlin_module-interface.jar");
     assertThat(lib.keySet())
-        .containsExactly("java/lang/String.class", "META-INF/bar.kotlin_module");
-    // ijar passes kotlin modules through unmodified
+        .containsExactly(
+            "java/lang/String.class",
+            "kotlin/kotlin.kotlin_builtins",
+            "META-INF/bar.kotlin_module");
+    // ijar passes kotlin modules and builtins through unmodified
     assertThat(new String(lib.get("META-INF/bar.kotlin_module"), UTF_8)).isEqualTo("hello");
+    assertThat(new String(lib.get("kotlin/kotlin.kotlin_builtins"), UTF_8)).isEqualTo("goodbye");
   }
 
   @Test

@@ -198,7 +198,6 @@ java_library(
         ":toolchain_exception",
         ":top_level_action_lookup_key",
         ":top_level_aspects_value",
-        ":top_level_status_events",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
         ":transitive_target_value",
@@ -585,6 +584,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
@@ -891,6 +891,7 @@ java_library(
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
@@ -1294,6 +1295,7 @@ java_library(
     deps = [
         ":cycle_utils",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_exception",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_uniqueness_function",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
@@ -2128,6 +2130,7 @@ java_library(
     deps = [
         ":package_value",
         ":repository_mapping_value",
+        ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",

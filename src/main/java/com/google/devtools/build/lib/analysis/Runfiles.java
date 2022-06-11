@@ -1144,4 +1144,37 @@ public final class Runfiles implements RunfilesApi {
       fp.addString(name);
     }
   }
+  /** Describes the inputs {@link fingerprint} uses to aid describeKey() descriptions. */
+  public String describeFingerprint() {
+    StringBuilder sb = new StringBuilder();
+    sb.append(String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles));
+    sb.append(String.format("suffix: %s\n", suffix));
+
+    var symlinks = getSymlinksAsMap(null);
+    sb.append(String.format("symlinksSize: %s\n", symlinks.size()));
+    for (var symlink : symlinks.entrySet()) {
+      sb.append(
+          String.format(
+              "symlink: '%s' to '%s'\n", symlink.getKey(), symlink.getValue().getExecPath()));
+    }
+
+    var rootSymlinks = getRootSymlinksAsMap(null);
+    sb.append(String.format("rootSymlinksSize: %s\n", rootSymlinks.size()));
+    for (var symlink : rootSymlinks.entrySet()) {
+      sb.append(
+          String.format(
+              "rootSymlink: '%s' to '%s'\n", symlink.getKey(), symlink.getValue().getExecPath()));
+    }
+
+    for (Artifact artifact : artifacts.toList()) {
+      sb.append(
+          String.format(
+              "artifact: '%s' '%s'\n", artifact.getRunfilesPath(), artifact.getExecPath()));
+    }
+
+    for (String name : getEmptyFilenames().toList()) {
+      sb.append(String.format("emptyFilename: '%s'\n", name));
+    }
+    return sb.toString();
+  }
 }

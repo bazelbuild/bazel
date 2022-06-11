@@ -57,6 +57,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A helper class to create configured targets for Java rules. */
@@ -346,8 +347,13 @@ public class JavaCommon {
         .addAll(javaToolchain.getJavacOptions(ruleContext))
         .addAll(extraRuleJavacOpts)
         .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
+        .addAll(addModuleJavacopts(ruleContext))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
         .build();
+  }
+
+  private static ImmutableList<String> addModuleJavacopts(RuleContext ruleContext) {
+    return JavaModuleFlagsProvider.create(ruleContext, Stream.empty()).toFlags();
   }
 
   /** Returns the per-package configured javacopts. */

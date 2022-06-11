@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -500,7 +499,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((Sequence) result).get(0);
     assertThat(JavaInfo.getProvider(JavaSourceJarsProvider.class, tic1)).isNotNull();
     // Check an unimplemented provider too
-    assertThat(PyProviderUtils.hasLegacyProvider(tic1)).isFalse();
+    assertThat(tic1.get("not_implemented_provider")).isNull();
   }
 
   @Test

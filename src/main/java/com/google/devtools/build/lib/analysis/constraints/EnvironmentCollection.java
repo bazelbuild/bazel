@@ -50,11 +50,20 @@ public class EnvironmentCollection {
   }
 
   /**
-   * Returns the build labels of each environment in this collection, ordered by
-   * their insertion order in {@link Builder}.
+   * Returns the build labels of each environment in this collection, ordered by their insertion
+   * order in {@link Builder}.
    */
   public ImmutableCollection<Label> getEnvironments() {
     return map.values();
+  }
+
+  /**
+   * Returns the environments in this collection that belong to the given group, ordered by their
+   * insertion order in {@link Builder}. If no environments belong to the given group, returns an
+   * empty collection.
+   */
+  ImmutableCollection<Label> getEnvironments(EnvironmentLabels group) {
+    return map.get(group);
   }
 
   /**
@@ -75,15 +84,6 @@ public class EnvironmentCollection {
       builder.add(EnvironmentWithGroup.create(entry.getValue(), entry.getKey()));
     }
     return builder.build();
-  }
-
-  /**
-   * Returns the environments in this collection that belong to the given group, ordered by their
-   * insertion order in {@link Builder}. If no environments belong to the given group, returns an
-   * empty collection.
-   */
-  ImmutableCollection<Label> getEnvironments(EnvironmentLabels group) {
-    return map.get(group);
   }
 
   /** An empty collection. */

@@ -112,6 +112,10 @@ message Action {
   // the string to be substituted and the value is the string to be substituted
   // to.
   repeated KeyValuePair substitutions = 16;
+
+  // The contents of the file for the actions.write() action
+  // (guarded by the --include_file_write_contents flag).
+  string file_contents = 17;
 }
 
 // Represents a single target (without configuration information) that is

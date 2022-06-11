@@ -90,10 +90,6 @@ def _pkg_tar_impl(ctx):
         elif ctx.attr.extension == "tgz":
             args += ["--compression=gz"]
     args += ["--tar=" + f.path for f in ctx.files.deps]
-    args += [
-        "--link=%s:%s" % (_quote(k, protect = ":"), ctx.attr.symlinks[k])
-        for k in ctx.attr.symlinks
-    ]
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
 
@@ -123,7 +119,6 @@ _real_pkg_tar = rule(
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),
         "extension": attr.string(default = "tar"),
-        "symlinks": attr.string_dict(),
         "include_runfiles": attr.bool(),
         "remap_paths": attr.string_dict(),
         # Implicit dependencies.

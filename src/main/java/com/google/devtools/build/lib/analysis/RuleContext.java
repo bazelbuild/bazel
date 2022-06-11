@@ -1792,18 +1792,6 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /** Sets the {@link ResolvedToolchainContext} used to access toolchains used by this rule. */
-    public Builder setToolchainContext(ResolvedToolchainContext toolchainContext) {
-      Preconditions.checkState(
-          this.toolchainContexts == null,
-          "toolchainContexts has already been set for this Builder");
-      this.toolchainContexts =
-          ToolchainCollection.<ResolvedToolchainContext>builder()
-              .addDefaultContext(toolchainContext)
-              .build();
-      return this;
-    }
-
     /** Sets the collection of {@link ResolvedToolchainContext}s available to this rule. */
     @VisibleForTesting
     public Builder setToolchainContexts(

@@ -49,10 +49,12 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -245,17 +247,19 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
   protected List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
     ConfiguredTarget target = Iterables.getOnlyElement(update(targetLabel).getTargetsToBuild());
-    return getConfiguredDeps(target, attrName);
+    ImmutableList<ConfiguredTarget> maybeConfiguredDeps = getConfiguredDeps(target, attrName);
+    assertThat(maybeConfiguredDeps).isNotNull();
+    return maybeConfiguredDeps;
   }
 
   /**
    * Returns the configured deps for a given configured target under the given attribute.
    *
-   * <p>Throws an exception if the attribute can't be found.
+   * <p>Returns null if the attribute can't be found.
    */
-  protected List<ConfiguredTarget> getConfiguredDeps(ConfiguredTarget target, String attrName)
-      throws Exception {
-    String targetLabel = AliasProvider.getDependencyLabel(target).toString();
+  @Nullable
+  private ImmutableList<ConfiguredTarget> getConfiguredDeps(
+      ConfiguredTarget target, String attrName) throws Exception {
     Multimap<DependencyKind, ConfiguredTargetAndData> allDeps = getConfiguredDeps(target);
     for (DependencyKind kind : allDeps.keySet()) {
       Attribute attribute = kind.getAttribute();
@@ -265,8 +269,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 allDeps.get(kind), ConfiguredTargetAndData::getConfiguredTarget));
       }
     }
-    throw new AssertionError(
-        String.format("Couldn't find attribute %s for label %s", attrName, targetLabel));
+    return null;
   }
 
   @Before
@@ -281,10 +284,22 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
   @Test
   public void nullConfiguredDepsHaveExpectedConfigs() throws Exception {
     scratch.file(
-        "a/BUILD",
-        "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
+        "a/BUILD", "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
     ConfiguredTarget genIn = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "srcs"));
     assertThat(getConfiguration(genIn)).isNull();
+  }
+
+  @Test
+  public void genQueryScopeHasExpectedConfigs() throws Exception {
+    scratch.file(
+        "p/BUILD",
+        "sh_library(name='a')",
+        "genquery(name='q', scope=[':a'], expression='deps(//p:a)')");
+    ConfiguredTarget target = Iterables.getOnlyElement(update("//p:q").getTargetsToBuild());
+    // There are no configured targets for the "scope" attribute.
+    @Nullable
+    ImmutableList<ConfiguredTarget> configuredScopeDeps = getConfiguredDeps(target, "scope");
+    assertThat(configuredScopeDeps).isNull();
   }
 
   @Test

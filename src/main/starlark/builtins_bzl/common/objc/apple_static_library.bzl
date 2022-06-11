@@ -14,6 +14,7 @@
 
 """apple_static_library Starlark implementation"""
 
+load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
@@ -152,6 +153,6 @@ apple_static_library = rule(
     },
     cfg = apple_crosstool_transition,
     fragments = ["objc", "apple", "cpp"],
-    toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
+    toolchains = cc_helper.use_cpp_toolchain(),
     incompatible_use_toolchain_transition = True,
 )

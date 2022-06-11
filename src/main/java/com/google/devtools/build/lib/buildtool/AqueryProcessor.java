@@ -86,6 +86,7 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
                 actionFilters,
                 aqueryOptions.includeParamFiles,
                 aqueryOptions.deduplicateDepsets,
+                aqueryOptions.includeFileWriteContents,
                 aqueryOutputHandler);
         ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
       } catch (InvalidAqueryOutputFormatException e) {

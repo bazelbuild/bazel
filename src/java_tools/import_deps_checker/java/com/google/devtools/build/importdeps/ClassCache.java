@@ -28,6 +28,7 @@ import com.google.devtools.build.importdeps.AbstractClassEntryState.ExistingStat
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.MissingState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import org.objectweb.asm.Opcodes;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,7 +46,6 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /** A cache that stores all the accessible classes in a set of JARs. */
 public final class ClassCache implements Closeable {
@@ -378,7 +378,7 @@ public final class ClassCache implements Closeable {
     private boolean directDep;
 
     public ClassInfoBuilder() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override

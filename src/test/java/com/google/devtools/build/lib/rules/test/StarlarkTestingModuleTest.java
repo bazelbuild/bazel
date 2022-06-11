@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.test;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
-import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -74,7 +74,7 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    TestEnvironmentInfo provider = starlarkTarget.get(TestEnvironmentInfo.PROVIDER);
+    RunEnvironmentInfo provider = starlarkTarget.get(RunEnvironmentInfo.PROVIDER);
 
     assertThat(provider.getEnvironment().get("XCODE_VERSION_OVERRIDE")).isEqualTo("7.3.1");
   }
@@ -105,7 +105,8 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    TestEnvironmentInfo provider = starlarkTarget.get(TestEnvironmentInfo.PROVIDER);
+    RunEnvironmentInfo provider =
+        (RunEnvironmentInfo) starlarkTarget.get(RunEnvironmentInfo.PROVIDER.getKey());
 
     assertThat(provider.getEnvironment()).containsEntry("XCODE_VERSION_OVERRIDE", "7.3.1");
     assertThat(provider.getInheritedEnvironment()).contains("DEVELOPER_DIR");

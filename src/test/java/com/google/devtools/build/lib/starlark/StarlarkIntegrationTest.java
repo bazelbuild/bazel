@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
@@ -42,6 +44,7 @@ import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
@@ -3569,5 +3572,89 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("compilation of module 'test/starlark/error.bzl' failed");
+  }
+
+  @Test
+  public void testStarlarkRulePropagatesRunEnvironmentProvider() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  script = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.write(script, '', is_executable = True)",
+        "  run_env = RunEnvironmentInfo(",
+        "    {'FIXED': 'fixed'},",
+        "    ['INHERITED']",
+        "  )",
+        "  return [",
+        "    DefaultInfo(executable = script),",
+        "    run_env,",
+        "  ]",
+        "my_rule = rule(",
+        " implementation = my_rule_impl,",
+        "  attrs = {},",
+        "  executable = True,",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples:my_target");
+    RunEnvironmentInfo provider = starlarkTarget.get(RunEnvironmentInfo.PROVIDER);
+
+    assertThat(provider.getEnvironment()).containsExactly("FIXED", "fixed");
+    assertThat(provider.getInheritedEnvironment()).containsExactly("INHERITED");
+  }
+
+  @Test
+  public void nonExecutableStarlarkRuleReturningRunEnvironmentInfoErrors() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  return [RunEnvironmentInfo()]",
+        "my_rule = rule(",
+        "  implementation = my_rule_impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//examples:my_target");
+    assertContainsEvent(
+        "in my_rule rule //examples:my_target: Returning RunEnvironmentInfo from a non-executable,"
+            + " non-test target has no effect",
+        ImmutableSet.of(EventKind.ERROR));
+  }
+
+  @Test
+  public void nonExecutableStarlarkRuleReturningTestEnvironmentProducesAWarning() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  return [testing.TestEnvironment(environment = {})]",
+        "my_rule = rule(",
+        "  implementation = my_rule_impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//examples:my_target");
+    assertContainsEvent(
+        "in my_rule rule //examples:my_target: Returning RunEnvironmentInfo from a non-executable,"
+            + " non-test target has no effect",
+        ImmutableSet.of(EventKind.WARNING));
   }
 }

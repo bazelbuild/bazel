@@ -224,6 +224,18 @@ DIST_DEPS = {
         ],
         "strip_prefix": "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
     },
+    "rules_license": {
+        "archive": "rules_license-0.0.3.tar.gz",
+        "sha256": "00ccc0df21312c127ac4b12880ab0f9a26c1cff99442dc6c5a331750360de3c3",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_license/releases/download/0.0.3/rules_license-0.0.3.tar.gz",
+            "https://github.com/bazelbuild/rules_license/releases/download/0.0.3/rules_license-0.0.3.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
     "rules_pkg": {
         "archive": "rules_pkg-0.7.0.tar.gz",
         "sha256": "8a298e832762eda1830597d64fe7db58178aa84cd5926d76d5b744d6558941c2",
@@ -280,7 +292,6 @@ DIST_DEPS = {
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -296,7 +307,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -312,7 +322,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_linux-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -328,7 +337,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_windows-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -344,7 +352,6 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_darwin-v11.7.1.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },

@@ -102,9 +102,7 @@ public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
                 dexMergerInput.getExecPathString(),
                 "--output",
                 finalDexOutput.getExecPathString());
-    if (multidexMode != MultidexMode.OFF) {
-      argsBuilder.add("--multidex=minimal");
-    }
+    argsBuilder.add("--multidex=minimal");
     if (multidexMode == MultidexMode.LEGACY || multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
       argsBuilder.add("--main-dex-list", mainDexList.getExecPathString());
     }
@@ -115,7 +113,7 @@ public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
 
   /**
    * Internal helper method: given an android_binary rule label, check that the dex merger runs is
-   * invoked with {@code --multidex=off}.
+   * invoked with {@code --multidex=minimal}.
    */
   protected void internalTestNonMultidexBuildStructure(String ruleLabel) throws Exception {
     ConfiguredTarget binary = getConfiguredTarget(ruleLabel);
@@ -130,7 +128,7 @@ public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
             dexInput.getExecPathString(),
             "--output",
             dexOutput.getExecPathString(),
-            "--multidex=off")
+            "--multidex=minimal")
         .inOrder();
   }
 }

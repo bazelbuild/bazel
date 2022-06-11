@@ -320,6 +320,7 @@ public abstract class CcModule
                     usePic,
                     /* fdoStamp= */ null,
                     /* dotdFileExecPath= */ null,
+                    /* diagnosticsFileExecPath= */ null,
                     variablesExtensions,
                     /* additionalBuildVariables= */ ImmutableMap.of(),
                     /* directModuleMaps= */ ImmutableList.of(),
@@ -1936,7 +1937,7 @@ public abstract class CcModule
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    return label.getPackageIdentifier().getRepository().toString().equals("@_builtins");
+    return label.getPackageIdentifier().getRepository().getName().equals("_builtins");
   }
 
   protected Language parseLanguage(String string) throws EvalException {
@@ -2020,6 +2021,7 @@ public abstract class CcModule
       Object languageObject,
       Object purposeObject,
       Object coptsFilterObject,
+      Object separateModuleHeadersObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (checkObjectsBound(
@@ -2033,7 +2035,8 @@ public abstract class CcModule
         hdrsCheckingModeObject,
         implementationCcCompilationContextsObject,
         coptsFilterObject,
-        starlarkLooseIncludes)) {
+        starlarkLooseIncludes,
+        separateModuleHeadersObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -2215,6 +2218,10 @@ public abstract class CcModule
     if (purpose != null) {
       helper.setPurpose(purpose);
     }
+    ImmutableList<Artifact> separateModuleHeaders =
+        asClassImmutableList(separateModuleHeadersObject);
+    helper.addSeparateModuleHeaders(separateModuleHeaders);
+
     try {
       RuleContext ruleContext = actions.getRuleContext();
       CompilationInfo compilationInfo = helper.compile(ruleContext);

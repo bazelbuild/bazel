@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.GoCcLinkParamsInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.GoWrapCcHelperApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.GoWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcIncludeProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -201,12 +199,6 @@ public final class GoogleLegacyStubs {
       return null;
     }
 
-    @Override
-    public GoWrapCcInfoApi<FileApi> getGoWrapCcInfo(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcInfoApi<FileApi> ccInfo) {
-      return null;
-    }
 
     @Override
     public GoCcLinkParamsInfoApi getGoCcLinkParamsProvider(
@@ -230,15 +222,6 @@ public final class GoogleLegacyStubs {
         CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>
         Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
-      return null;
-    }
-
-    @Override
-    public GoPackageInfoApi createTransitiveGopackageInfo(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        FileApi starlarkGopkg,
-        FileApi export,
-        FileApi swigOutGo) {
       return null;
     }
 

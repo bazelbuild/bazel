@@ -60,9 +60,7 @@ function assert_content() {
 ./etc/
 ./etc/nsswitch.conf
 ./usr/
-./usr/titi
-./usr/bin/
-./usr/bin/java -> /path/to/bin/java"
+./usr/titi"
   check_eq "$listing" "$(get_tar_listing $1)"
   check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./usr/titi)"
   check_eq "-rw-r--r--" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
@@ -80,9 +78,7 @@ function test_tar() {
 ./etc/
 ./etc/nsswitch.conf
 ./usr/
-./usr/titi
-./usr/bin/
-./usr/bin/java -> /path/to/bin/java"
+./usr/titi"
   for i in "" ".gz" ".bz2"; do
     assert_content "test-tar-${i:1}.tar$i"
     # Test merging tar files

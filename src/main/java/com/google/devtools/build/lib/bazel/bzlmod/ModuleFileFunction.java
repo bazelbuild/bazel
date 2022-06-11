@@ -68,10 +68,20 @@ public class ModuleFileFunction implements SkyFunction {
 
   private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
+  private final ImmutableMap<String, NonRegistryOverride> builtinModules;
 
-  public ModuleFileFunction(RegistryFactory registryFactory, Path workspaceRoot) {
+  /**
+   * @param builtinModules A list of "built-in" modules that are treated as implicit dependencies of
+   *     every other module (including other built-in modules). These modules are defined as
+   *     non-registry overrides.
+   */
+  public ModuleFileFunction(
+      RegistryFactory registryFactory,
+      Path workspaceRoot,
+      ImmutableMap<String, NonRegistryOverride> builtinModules) {
     this.registryFactory = registryFactory;
     this.workspaceRoot = workspaceRoot;
+    this.builtinModules = builtinModules;
   }
 
   @Override
@@ -152,7 +162,7 @@ public class ModuleFileFunction implements SkyFunction {
     if (rootOverride != null) {
       throw errorf(Code.BAD_MODULE, "invalid override for the root module found: %s", rootOverride);
     }
-    ImmutableMap<String, String> nonRegistryOverrideCanonicalRepoNameLookup =
+    ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup =
         Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
             .keySet()
             .stream()
@@ -179,7 +189,8 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "error parsing MODULE.bazel file for %s", moduleKey);
     }
 
-    ModuleFileGlobals moduleFileGlobals = new ModuleFileGlobals(moduleKey, registry, ignoreDevDeps);
+    ModuleFileGlobals moduleFileGlobals =
+        new ModuleFileGlobals(builtinModules, moduleKey, registry, ignoreDevDeps);
     try (Mutability mu = Mutability.create("module file", moduleKey)) {
       net.starlark.java.eval.Module predeclaredEnv =
           getPredeclaredEnv(moduleFileGlobals, starlarkSemantics);
@@ -211,12 +222,9 @@ public class ModuleFileFunction implements SkyFunction {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
     if (override instanceof NonRegistryOverride) {
-      String canonicalRepoName = key.getCanonicalRepoName();
+      RepositoryName canonicalRepoName = key.getCanonicalRepoName();
       RepositoryDirectoryValue repoDir =
-          (RepositoryDirectoryValue)
-              env.getValue(
-                  RepositoryDirectoryValue.key(
-                      RepositoryName.createUnvalidated(canonicalRepoName)));
+          (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(canonicalRepoName));
       if (repoDir == null) {
         return null;
       }

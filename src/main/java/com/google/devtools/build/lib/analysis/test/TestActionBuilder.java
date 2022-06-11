@@ -398,6 +398,7 @@ public final class TestActionBuilder {
                 && testConfiguration.cancelConcurrentTests();
 
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
+        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 getOwner(),
@@ -421,7 +422,7 @@ public final class TestActionBuilder {
                 ruleContext.getWorkspaceName(),
                 (!isUsingTestWrapperInsteadOfTestSetupScript
                         || executionSettings.needsShell(isExecutedOnWindows))
-                    ? ShToolchain.getPathOrError(ruleContext)
+                    ? ShToolchain.getPathOrError(ruleContext.getExecutionPlatform())
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,

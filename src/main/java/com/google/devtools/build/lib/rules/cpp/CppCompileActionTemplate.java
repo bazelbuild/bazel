@@ -47,6 +47,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private final SpecialArtifact sourceTreeArtifact;
   private final SpecialArtifact outputTreeArtifact;
   private final SpecialArtifact dotdTreeArtifact;
+  private final SpecialArtifact diagnosticsTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final ImmutableList<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
@@ -59,6 +60,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
    * @param sourceTreeArtifact the TreeArtifact that contains source files to compile.
    * @param outputTreeArtifact the TreeArtifact that contains compilation outputs.
    * @param dotdTreeArtifact the TreeArtifact that contains dotd files.
+   * @param diagnosticsTreeArtifact the TreeArtifact that contains serialized diagnostics files.
    * @param cppCompileActionBuilder An almost completely configured {@link CppCompileActionBuilder}
    *     without the input and output files set. It is used as a template to instantiate expanded
    *     {CppCompileAction}s.
@@ -71,6 +73,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       SpecialArtifact sourceTreeArtifact,
       SpecialArtifact outputTreeArtifact,
       SpecialArtifact dotdTreeArtifact,
+      SpecialArtifact diagnosticsTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       ImmutableList<ArtifactCategory> categories,
@@ -79,6 +82,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     this.sourceTreeArtifact = sourceTreeArtifact;
     this.outputTreeArtifact = outputTreeArtifact;
     this.dotdTreeArtifact = dotdTreeArtifact;
+    this.diagnosticsTreeArtifact = diagnosticsTreeArtifact;
     this.toolchain = toolchain;
     this.categories = categories;
     this.actionOwner = checkNotNull(actionOwner, outputTreeArtifact);
@@ -136,9 +140,19 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             TreeFileArtifact.createTemplateExpansionOutput(
                 dotdTreeArtifact, outputName + ".d", artifactOwner);
       }
+      TreeFileArtifact diagnosticsFileArtifact = null;
+      if (diagnosticsTreeArtifact != null) {
+        diagnosticsFileArtifact =
+            TreeFileArtifact.createTemplateExpansionOutput(
+                diagnosticsTreeArtifact, outputName + ".dia", artifactOwner);
+      }
       expandedActions.add(
           createAction(
-              inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));
+              inputTreeFileArtifact,
+              outputTreeFileArtifact,
+              dotdFileArtifact,
+              diagnosticsFileArtifact,
+              privateHeaders));
     }
 
     return expandedActions.build();
@@ -156,6 +170,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             cppCompileActionBuilder.getCoptsFilter(),
             CppActionNames.CPP_COMPILE,
             dotdTreeArtifact,
+            diagnosticsTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
     CppCompileAction.computeKey(
@@ -186,13 +201,14 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       TreeFileArtifact sourceTreeFileArtifact,
       TreeFileArtifact outputTreeFileArtifact,
       @Nullable Artifact dotdFileArtifact,
+      @Nullable Artifact diagnosticsFileArtifact,
       NestedSet<Artifact> privateHeaders)
       throws ActionExecutionException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(cppCompileActionBuilder)
             .setAdditionalPrunableHeaders(privateHeaders)
             .setSourceFile(sourceTreeFileArtifact)
-            .setOutputs(outputTreeFileArtifact, dotdFileArtifact);
+            .setOutputs(outputTreeFileArtifact, dotdFileArtifact, diagnosticsFileArtifact);
 
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(cppCompileActionBuilder.getVariables());
@@ -206,6 +222,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       buildVariables.overrideStringVariable(
           CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
           dotdFileArtifact.getExecPathString());
+    }
+    if (diagnosticsFileArtifact != null) {
+      buildVariables.overrideStringVariable(
+          CompileBuildVariables.SERIALIZED_DIAGNOSTICS_FILE.getVariableName(),
+          diagnosticsFileArtifact.getExecPathString());
     }
 
     builder.setVariables(buildVariables.build());

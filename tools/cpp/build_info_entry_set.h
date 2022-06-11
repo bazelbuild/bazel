@@ -24,10 +24,7 @@ namespace cpp {
 
 class BuildInfoEntrySet {
  public:
-  BuildInfoEntrySet(
-      std::unordered_map<std::string, std::string>& info_file_map,
-      std::unordered_map<std::string, std::string>& version_file_map)
-      : info_file_map_(info_file_map), version_file_map_(version_file_map) {}
+  BuildInfoEntrySet() {}
   enum KeyType {
     STRING = 0,
     INTEGER = 1,
@@ -41,23 +38,41 @@ class BuildInfoEntrySet {
     const KeyType key_type;
     const std::string default_value;
     const std::string redacted_value;
+
     bool operator==(const KeyDescription& kd) const {
       return (key_type == kd.key_type && default_value == kd.default_value &&
               redacted_value == kd.redacted_value);
     }
   };
 
-  virtual std::unordered_map<std::string, std::string>
+  struct BuildInfoEntry {
+    BuildInfoEntry(const std::string& value, KeyType key_type = STRING)
+        : value(value), key_type(key_type) {}
+    const std::string value;
+    const KeyType key_type;
+    bool operator==(const BuildInfoEntry& e) const {
+      return (key_type == e.key_type && value == e.value);
+    }
+  };
+
+  virtual std::unordered_map<std::string, BuildInfoEntry>
   GetVolatileFileEntries() = 0;
-  virtual std::unordered_map<std::string, std::string>
+  virtual std::unordered_map<std::string, BuildInfoEntry>
   GetNonVolatileFileEntries() = 0;
-  virtual std::unordered_map<std::string, std::string>
+  virtual std::unordered_map<std::string, BuildInfoEntry>
   GetRedactedFileEntries() = 0;
   virtual ~BuildInfoEntrySet() = 0;
 
- private:
-  std::unordered_map<std::string, std::string> info_file_map_;
-  std::unordered_map<std::string, std::string> version_file_map_;
+ protected:
+  std::unordered_map<std::string, BuildInfoEntry> TranslateKeys(
+      const std::unordered_map<std::string, std::string>& key_translations,
+      std::unordered_map<std::string, KeyDescription>& keys,
+      std::unordered_map<std::string, std::string>& values);
+
+  bool GetKeyValue(const std::string& key,
+                   std::unordered_map<std::string, KeyDescription>& keys,
+                   std::unordered_map<std::string, std::string>& values,
+                   std::string& result);
 };
 
 }  // namespace cpp

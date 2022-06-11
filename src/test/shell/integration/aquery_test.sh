@@ -1599,6 +1599,41 @@ EOF
   assert_contains 'Outputs: \[.*/output-\\u00FCn\\u00EFc\\u00F6d\\u00EB.txt' output
 }
 
+function test_file_write() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+def _impl(ctx):
+    ctx.actions.write(content = "hello world", output = ctx.outputs.out)
+
+hello = rule(
+    implementation = _impl,
+    attrs = {
+    },
+    outputs = {"out": "%{name}.count"},
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rule.bzl", "hello")
+
+hello(
+    name = 'bar',
+)
+EOF
+
+  bazel aquery --output=text --include_file_write_contents "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Mnemonic: FileWrite" output
+  # FileWrite contents is  base64-encoded 'hello world'
+  assert_contains "FileWriteContents: \[aGVsbG8gd29ybGQ=\]" output
+
+  bazel aquery --output=textproto --include_file_write_contents "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains 'file_contents: "hello world"' output
+}
+
 # TODO(bazel-team): The non-text aquery output formats don't correctly handle
 # non-ASCII fields (input/output paths, environment variables, etc).
 function DISABLED_test_unicode_textproto() {

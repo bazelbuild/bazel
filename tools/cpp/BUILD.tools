@@ -95,6 +95,12 @@ alias(
     actual = "@local_config_cc//:toolchain",
 )
 
+# The following is the default value for --xcode_version_config.
+alias(
+    name = "host_xcodes",
+    actual = "@local_config_xcode//:host_xcodes",
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [

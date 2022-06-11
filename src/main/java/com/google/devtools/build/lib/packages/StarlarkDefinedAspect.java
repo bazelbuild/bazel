@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -49,6 +51,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableSet<String> hostFragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean applyToGeneratingRules;
+  private final ImmutableSet<Label> execCompatibleWith;
+  private final ImmutableMap<String, ExecGroup> execGroups;
 
   private StarlarkAspectClass aspectClass;
 
@@ -72,7 +76,9 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      boolean applyToGeneratingRules) {
+      boolean applyToGeneratingRules,
+      ImmutableSet<Label> execCompatibleWith,
+      ImmutableMap<String, ExecGroup> execGroups) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
@@ -86,8 +92,9 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.hostFragments = hostFragments;
     this.toolchainTypes = toolchainTypes;
     this.applyToGeneratingRules = applyToGeneratingRules;
+    this.execCompatibleWith = execCompatibleWith;
+    this.execGroups = execGroups;
   }
-
 
   public StarlarkCallable getImplementation() {
     return implementation;
@@ -135,7 +142,25 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   private static final ImmutableList<String> ALL_ATTR_ASPECTS = ImmutableList.of("*");
 
+  /**
+   * The <code>AspectDefinition</code> is a function of the aspect's parameters, so we can cache
+   * that.
+   *
+   * <p>Parameters of Starlark aspects are combinatorially limited (only bool, int and enum types).
+   * Using strong keys possibly results in a small memory leak. Weak keys don't work because
+   * reference equality is used and AspectParameters are created per target.
+   */
+  private transient LoadingCache<AspectParameters, AspectDefinition> definitionCache =
+      Caffeine.newBuilder().build(this::buildDefinition);
+
   public AspectDefinition getDefinition(AspectParameters aspectParams) {
+    if (definitionCache == null) {
+      definitionCache = Caffeine.newBuilder().build(this::buildDefinition);
+    }
+    return definitionCache.get(aspectParams);
+  }
+
+  private AspectDefinition buildDefinition(AspectParameters aspectParams) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(aspectClass);
     if (ALL_ATTR_ASPECTS.equals(attributeAspects)) {
       builder.propagateAlongAllAttributes();
@@ -146,7 +171,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     }
 
     for (Attribute attribute : attributes) {
-      Attribute attr = attribute;  // Might be reassigned.
+      Attribute attr = attribute; // Might be reassigned.
       if (!aspectParams.getAttribute(attr.getName()).isEmpty()) {
         Type<?> attrType = attr.getType();
         String attrName = attr.getName();
@@ -182,6 +207,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       requiredAspectsClasses.add(requiredAspect.getAspectClass());
     }
     builder.requiredAspectClasses(requiredAspectsClasses.build());
+    builder.execCompatibleWith(execCompatibleWith);
+    builder.execGroups(execGroups);
     return builder.build();
   }
 

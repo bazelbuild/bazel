@@ -30,6 +30,7 @@ artifact_category = struct(
     INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
     PIC_FILE = "PIC_FILE",
     INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
+    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
     OBJECT_FILE = "OBJECT_FILE",
     PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
     CPP_MODULE = "CPP_MODULE",
@@ -43,6 +44,25 @@ artifact_category = struct(
 )
 
 SYSROOT_FLAG = "--sysroot="
+
+def _build_linking_context_from_libraries(ctx, libraries):
+    if len(libraries) == 0:
+        return CcInfo().linking_context
+    linker_input = cc_common.create_linker_input(
+        owner = ctx.label,
+        libraries = depset(libraries),
+    )
+
+    linking_context = cc_common.create_linking_context(
+        linker_inputs = depset([linker_input]),
+    )
+
+    return linking_context
+
+def _grep_includes_executable(grep_includes):
+    if grep_includes == None:
+        return None
+    return grep_includes.files_to_run.executable
 
 def _check_src_extension(file, allowed_src_files, allow_versioned_shared_libraries):
     extension = "." + file.extension
@@ -148,6 +168,8 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
 
     return library.dynamic_library
 
+_CPP_TOOLCHAIN_TYPE = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"
+
 def _find_cpp_toolchain(ctx):
     """
     Finds the c++ toolchain.
@@ -164,9 +186,9 @@ def _find_cpp_toolchain(ctx):
 
     # Check the incompatible flag for toolchain resolution.
     if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if not "@" + semantics.get_repo() + "//tools/cpp:toolchain_type" in ctx.toolchains:
+        if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
             fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
-        toolchain_info = ctx.toolchains["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"]
+        toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
         if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
             return toolchain_info.cc
         return toolchain_info
@@ -177,6 +199,27 @@ def _find_cpp_toolchain(ctx):
 
     # We didn't find anything.
     fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
+
+# buildifier: disable=unused-variable
+def _use_cpp_toolchain(mandatory = True):
+    """
+    Helper to depend on the c++ toolchain.
+
+    Usage:
+    ```
+    my_rule = rule(
+        toolchains = [other toolchain types] + use_cpp_toolchain(),
+    )
+    ```
+
+    Args:
+      mandatory: Whether or not it should be an error if the toolchain cannot be resolved.
+        Currently ignored, this will be enabled when optional toolchain types are added.
+
+    Returns:
+      A list that can be used as the value for `rule.toolchains`.
+    """
+    return [_CPP_TOOLCHAIN_TYPE]
 
 def _collect_compilation_prerequisites(ctx, compilation_context):
     direct = []
@@ -281,6 +324,14 @@ def _generate_def_file(ctx, def_parser, object_files, dll_name):
         use_default_shell_env = True,
     )
     return def_file
+
+def _is_non_empty_list_or_select(value, attr):
+    if type(value) == "list":
+        return len(value) > 0
+    elif type(value) == "select":
+        return True
+    else:
+        fail("Only select or list is valid for {} attr".format(attr))
 
 CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
 C_SOURCE = [".c"]
@@ -406,7 +457,7 @@ def _get_compilation_contexts_from_deps(deps):
             compilation_contexts.append(dep[CcInfo].compilation_context)
     return compilation_contexts
 
-def _is_compiltion_outputs_empty(compilation_outputs):
+def _is_compilation_outputs_empty(compilation_outputs):
     return (len(compilation_outputs.pic_objects) == 0 and
             len(compilation_outputs.objects) == 0)
 
@@ -492,9 +543,6 @@ def _get_providers(deps, provider):
         if provider in dep:
             providers.append(dep[provider])
     return providers
-
-def _is_compilation_outputs_empty(compilation_outputs):
-    return len(compilation_outputs.pic_objects) == 0 and len(compilation_outputs.objects) == 0
 
 def _get_static_mode_params_for_dynamic_library_libraries(libs):
     linker_inputs = []
@@ -848,12 +896,29 @@ def _has_target_constraints(ctx, constraints):
             return True
     return False
 
+def _is_stamping_enabled(ctx):
+    if ctx.configuration.is_tool_configuration():
+        return 0
+    stamp = 0
+    if hasattr(ctx.attr, "stamp"):
+        stamp = ctx.attr.stamp
+    return stamp
+
+def _is_stamping_enabled_for_aspect(ctx):
+    if ctx.configuration.is_tool_configuration():
+        return 0
+    stamp = 0
+    if hasattr(ctx.rule.attr, "stamp"):
+        stamp = ctx.rule.attr.stamp
+    return stamp
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
     get_dynamic_libraries_for_runtime = _get_dynamic_libraries_for_runtime,
     get_dynamic_library_for_runtime_or_none = _get_dynamic_library_for_runtime_or_none,
     find_cpp_toolchain = _find_cpp_toolchain,
+    use_cpp_toolchain = _use_cpp_toolchain,
     build_output_groups_for_emitting_compile_providers = _build_output_groups_for_emitting_compile_providers,
     merge_output_groups = _merge_output_groups,
     rule_error = _rule_error,
@@ -885,4 +950,10 @@ cc_helper = struct(
     get_copts = _get_copts,
     get_expanded_env = _get_expanded_env,
     has_target_constraints = _has_target_constraints,
+    is_non_empty_list_or_select = _is_non_empty_list_or_select,
+    grep_includes_executable = _grep_includes_executable,
+    expand_make_variables_for_copts = _expand_make_variables_for_copts,
+    build_linking_context_from_libraries = _build_linking_context_from_libraries,
+    is_stamping_enabled = _is_stamping_enabled,
+    is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
 )

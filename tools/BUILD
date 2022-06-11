@@ -9,6 +9,7 @@ filegroup(
         "//tools/buildstamp:srcs",
         "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
+        "//tools/compliance:srcs",
         "//tools/config:srcs",
         "//tools/coverage:srcs",
         "//tools/ctexplain:srcs",
@@ -33,6 +34,7 @@ filegroup(
         "//tools/sh:srcs",
         "//tools/allowlists:srcs",
         "//tools/zip:srcs",
+        "//tools/mini_tar:srcs",
     ],
 )
 
@@ -84,6 +86,7 @@ filegroup(
         "//tools/osx:bzl_srcs",
         "//tools/python:bzl_srcs",
         "//tools/sh:bzl_srcs",
+        "//tools/test:bzl_srcs",
         "//tools/windows:bzl_srcs",
     ],
 )

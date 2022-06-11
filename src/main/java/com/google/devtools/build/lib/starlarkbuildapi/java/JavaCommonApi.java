@@ -236,7 +236,7 @@ public interface JavaCommonApi<
             defaultValue = "True",
             documented = false),
         @Param(
-            name = "create_output_source_jar",
+            name = "include_compilation_info",
             positional = false,
             named = true,
             defaultValue = "True",
@@ -251,6 +251,22 @@ public interface JavaCommonApi<
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class),
             }),
+        @Param(
+            name = "add_exports",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            doc = "Allow this library to access the given <module>/<package>. Optional."),
+        @Param(
+            name = "add_opens",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            doc =
+                "Allow this library to reflectively access the given <module>/<package>."
+                    + " Optional."),
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -278,8 +294,10 @@ public interface JavaCommonApi<
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
-      boolean createOutputSourceJar,
+      boolean includeCompilationInfo,
       Object injectingRuleKind,
+      Sequence<?> addExports, // <String> expected.
+      Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -458,29 +476,17 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
         @Param(
-            name = "exports",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
-            named = true,
-            defaultValue = "[]",
-            doc = "A list of exports. Optional."),
-        @Param(
-            name = "runtime_deps",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
-            named = true,
-            defaultValue = "[]",
-            doc = "A list of runtime dependencies. Optional."),
-        @Param(
-            name = "include_source_jars_from_exports",
+            name = "merge_java_outputs",
             positional = false,
             named = true,
-            defaultValue = "False"),
+            defaultValue = "True"),
+        @Param(name = "merge_source_jars", positional = false, named = true, defaultValue = "True"),
       },
       useStarlarkThread = true)
   JavaInfoT mergeJavaProviders(
       Sequence<?> providers /* <JavaInfoT> expected. */,
-      Sequence<?> exports /* <JavaInfoT> expected. */,
-      Sequence<?> runtimeDeps /* <JavaInfoT> expected. */,
-      boolean includeSourceJarsFromExports,
+      boolean mergeJavaOutputs,
+      boolean mergeSourceJars,
       StarlarkThread thread)
       throws EvalException;
 

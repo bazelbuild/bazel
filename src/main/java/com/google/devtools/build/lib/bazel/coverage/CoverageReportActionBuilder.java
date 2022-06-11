@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -201,11 +202,19 @@ public final class CoverageReportActionBuilder {
     ImmutableList.Builder<Artifact> builder = ImmutableList.<Artifact>builder();
     FilesToRunProvider reportGenerator = null;
     for (ConfiguredTarget target : targetsToTest) {
+      // Skip incompatible tests.
+      if (target.get(IncompatiblePlatformProvider.PROVIDER) != null) {
+        continue;
+      }
       TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
       builder.addAll(testParams.getCoverageArtifacts());
       if (reportGenerator == null) {
         reportGenerator = testParams.getCoverageReportGenerator();
       }
+    }
+    // If all tests are incompatible, there's nothing to do.
+    if (reportGenerator == null) {
+      return null;
     }
     builder.addAll(baselineCoverageArtifacts.toList());
 

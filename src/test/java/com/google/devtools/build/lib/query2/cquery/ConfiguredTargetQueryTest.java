@@ -113,6 +113,12 @@ public abstract class ConfiguredTargetQueryTest
   }
 
   @Override
+  @Test
+  public void testGenqueryScope() throws Exception {
+    runGenqueryScopeTest(true);
+  }
+
+  @Override
   public void testMultipleTopLevelConfigurations_multipleConfigsPrefersTopLevel() {
     // When the same target exists in multiple configurations, cquery doesn't guarantee which
     // instance is evaluated first. So disable this test.

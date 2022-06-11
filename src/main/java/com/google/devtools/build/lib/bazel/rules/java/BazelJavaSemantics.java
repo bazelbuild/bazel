@@ -568,7 +568,12 @@ public class BazelJavaSemantics implements JavaSemantics {
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
       Artifact sharedArchive,
-      boolean multiReleaseDeployJars) {
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,
@@ -579,7 +584,12 @@ public class BazelJavaSemantics implements JavaSemantics {
             includeBuildData,
             compression,
             launcher,
-            /* multiReleaseDeployJars= */ multiReleaseDeployJars)
+            /* multiReleaseDeployJars= */ multiReleaseDeployJars,
+            javaHome,
+            libModules,
+            hermeticInputs,
+            addExports,
+            addOpens)
         .build();
   }
 

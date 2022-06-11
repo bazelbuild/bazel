@@ -5,6 +5,8 @@ load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 load("//src:release_archive.bzl", "release_archive")
 
+package(default_applicable_licenses = ["@io_bazel//:license"])
+
 exports_files(["jdeps_modules.golden"])
 
 md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
@@ -88,6 +90,7 @@ JAVA_TOOLS = [
     name = "embedded_tools" + suffix + "_srcs",
     srcs = JAVA_TOOLS + [
                "BUILD.tools",
+               "MODULE.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
                "//third_party/grpc:embedded_tools_srcs",
@@ -378,6 +381,7 @@ genrule(
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
+        "//tools/compliance:__pkg__",  # For license gathering
     ],
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),

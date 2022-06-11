@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
+import io.grpc.Context;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
@@ -370,81 +371,86 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
-    bsAsyncStub(context, channel)
-        .read(
-            ReadRequest.newBuilder()
-                .setResourceName(resourceName)
-                .setReadOffset(rawOut.getCount())
-                .build(),
-            new StreamObserver<ReadResponse>() {
+    Context.CancellableContext grpcContext = Context.current().withCancellation();
+    future.addListener(() -> grpcContext.cancel(null), MoreExecutors.directExecutor());
+    grpcContext.run(
+        () ->
+            bsAsyncStub(context, channel)
+                .read(
+                    ReadRequest.newBuilder()
+                        .setResourceName(resourceName)
+                        .setReadOffset(rawOut.getCount())
+                        .build(),
+                    new StreamObserver<ReadResponse>() {
+                      @Override
+                      public void onNext(ReadResponse readResponse) {
+                        ByteString data = readResponse.getData();
+                        try {
+                          data.writeTo(out);
+                        } catch (IOException e) {
+                          // Cancel the call.
+                          throw new RuntimeException(e);
+                        }
+                        // reset the stall backoff because we've made progress or been kept alive
+                        progressiveBackoff.reset();
+                      }
 
-              @Override
-              public void onNext(ReadResponse readResponse) {
-                ByteString data = readResponse.getData();
-                try {
-                  data.writeTo(out);
-                } catch (IOException e) {
-                  // Cancel the call.
-                  throw new RuntimeException(e);
-                }
-                // reset the stall backoff because we've made progress or been kept alive
-                progressiveBackoff.reset();
-              }
+                      @Override
+                      public void onError(Throwable t) {
+                        if (rawOut.getCount() == digest.getSizeBytes()) {
+                          // If the file was fully downloaded, it doesn't matter if there was an
+                          // error at
+                          // the end of the stream.
+                          logger.atInfo().withCause(t).log(
+                              "ignoring error because file was fully received");
+                          onCompleted();
+                          return;
+                        }
+                        releaseOut();
+                        Status status = Status.fromThrowable(t);
+                        if (status.getCode() == Status.Code.NOT_FOUND) {
+                          future.setException(new CacheNotFoundException(digest));
+                        } else {
+                          future.setException(t);
+                        }
+                      }
 
-              @Override
-              public void onError(Throwable t) {
-                if (rawOut.getCount() == digest.getSizeBytes()) {
-                  // If the file was fully downloaded, it doesn't matter if there was an error at
-                  // the end of the stream.
-                  logger.atInfo().withCause(t).log(
-                      "ignoring error because file was fully received");
-                  onCompleted();
-                  return;
-                }
-                releaseOut();
-                Status status = Status.fromThrowable(t);
-                if (status.getCode() == Status.Code.NOT_FOUND) {
-                  future.setException(new CacheNotFoundException(digest));
-                } else {
-                  future.setException(t);
-                }
-              }
+                      @Override
+                      public void onCompleted() {
+                        try {
+                          if (digestSupplier != null) {
+                            Utils.verifyBlobContents(digest, digestSupplier.get());
+                          }
+                          out.flush();
+                          future.set(rawOut.getCount());
+                        } catch (IOException e) {
+                          future.setException(e);
+                        } catch (RuntimeException e) {
+                          logger.atWarning().withCause(e).log("Unexpected exception");
+                          future.setException(e);
+                        } finally {
+                          releaseOut();
+                        }
+                      }
 
-              @Override
-              public void onCompleted() {
-                try {
-                  if (digestSupplier != null) {
-                    Utils.verifyBlobContents(digest, digestSupplier.get());
-                  }
-                  out.flush();
-                  future.set(rawOut.getCount());
-                } catch (IOException e) {
-                  future.setException(e);
-                } catch (RuntimeException e) {
-                  logger.atWarning().withCause(e).log("Unexpected exception");
-                  future.setException(e);
-                } finally {
-                  releaseOut();
-                }
-              }
-
-              private void releaseOut() {
-                if (out instanceof ZstdDecompressingOutputStream) {
-                  try {
-                    ((ZstdDecompressingOutputStream) out).closeShallow();
-                  } catch (IOException e) {
-                    logger.atWarning().withCause(e).log("failed to cleanly close output stream");
-                  }
-                }
-              }
-            });
+                      private void releaseOut() {
+                        if (out instanceof ZstdDecompressingOutputStream) {
+                          try {
+                            ((ZstdDecompressingOutputStream) out).closeShallow();
+                          } catch (IOException e) {
+                            logger.atWarning().withCause(e).log(
+                                "failed to cleanly close output stream");
+                          }
+                        }
+                      }
+                    }));
     return future;
   }
 
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path path) {
-    return uploader.uploadBlobAsync(
+    return uploadChunker(
         context,
         digest,
         Chunker.builder()
@@ -456,12 +462,28 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploader.uploadBlobAsync(
+    return uploadChunker(
         context,
         digest,
         Chunker.builder()
             .setInput(data.toByteArray())
             .setCompressed(options.cacheCompression)
             .build());
+  }
+
+  ListenableFuture<Void> uploadChunker(
+      RemoteActionExecutionContext context, Digest digest, Chunker chunker) {
+    ListenableFuture<Void> f = uploader.uploadBlobAsync(context, digest, chunker);
+    f.addListener(
+        () -> {
+          try {
+            chunker.reset();
+          } catch (IOException e) {
+            logger.atWarning().withCause(e).log(
+                "failed to reset chunker uploading %s/%d", digest.getHash(), digest.getSizeBytes());
+          }
+        },
+        MoreExecutors.directExecutor());
+    return f;
   }
 }

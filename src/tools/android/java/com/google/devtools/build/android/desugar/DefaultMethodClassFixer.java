@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.r8.DependencyCollector;
+import org.objectweb.asm.Opcodes;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -75,7 +76,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassReaderFactory bootclasspath,
       ClassLoader targetLoader) {
-    super(Opcodes.ASM8, dest);
+    super(Opcodes.ASM9, dest);
     this.useGeneratedBaseClasses = useGeneratedBaseClasses;
     this.classpath = classpath;
     this.coreLibrarySupport = coreLibrarySupport;
@@ -572,7 +573,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
     public DefaultMethodStubber(
         boolean isBootclasspathInterface, boolean mayNeedStubsForSuperclass) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       this.isBootclasspathInterface = isBootclasspathInterface;
       this.mayNeedStubsForSuperclass = mayNeedStubsForSuperclass;
     }
@@ -783,7 +784,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean found;
 
     public DefaultMethodFinder() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -829,7 +830,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private String className;
 
     public InstanceMethodRecorder(boolean ignoreEmulatedMethods) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       this.ignoreEmulatedMethods = ignoreEmulatedMethods;
     }
 
@@ -877,7 +878,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean hasDefaultMethods;
 
     public InterfaceInitializationNecessityDetector(String internalName) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       this.internalName = internalName;
     }
 
@@ -911,7 +912,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         hasDefaultMethods = isNonBridgeDefaultMethod(access);
       }
       if ("<clinit>".equals(name)) {
-        return new MethodVisitor(Opcodes.ASM8) {
+        return new MethodVisitor(Opcodes.ASM9) {
           @Override
           public void visitFieldInsn(int opcode, String owner, String name, String desc) {
             if (opcode == Opcodes.PUTSTATIC && internalName.equals(owner)) {
@@ -941,7 +942,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean looking = true;
 
     ConstructorFixer(MethodVisitor dest, String newSuperName) {
-      super(Opcodes.ASM8, dest);
+      super(Opcodes.ASM9, dest);
       this.newSuperName = newSuperName;
     }
 

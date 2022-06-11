@@ -378,7 +378,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             ")",
             "bazel_dep(name='E',version='1.0')")
         .addModule(createModuleKey("E", "1.0"), "module(name='E', version='1.0')");
-    for (String repo : ImmutableList.of("B.1.0", "C.1.1", "D.1.0", "D.1.1", "E.1.0")) {
+    for (String repo : ImmutableList.of("@B.1.0", "@C.1.1", "@D.1.0", "@D.1.1", "@E.1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
@@ -399,12 +399,12 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // WORKSPACE registrations.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//:plat"),
-            Label.parseAbsoluteUnchecked("@B.1.0//:plat"),
-            Label.parseAbsoluteUnchecked("@C.1.1//:plat"),
-            Label.parseAbsoluteUnchecked("@E.1.0//:plat"),
-            Label.parseAbsoluteUnchecked("@D.1.1//:plat"),
-            Label.parseAbsoluteUnchecked("//:wsplat"))
+            Label.parseCanonical("//:plat"),
+            Label.parseCanonical("@@B.1.0//:plat"),
+            Label.parseCanonical("@@C.1.1//:plat"),
+            Label.parseCanonical("@@E.1.0//:plat"),
+            Label.parseCanonical("@@D.1.1//:plat"),
+            Label.parseCanonical("//:wsplat"))
         .inOrder();
   }
 

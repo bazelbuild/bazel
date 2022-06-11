@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Options class for aquery specific query options. */
 public class AqueryOptions extends CommonQueryOptions {
@@ -60,6 +59,14 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean includeParamFiles;
 
   @Option(
+      name = "include_file_write_contents",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Include the file contents for the FileWrite action (potentially large). ")
+  public boolean includeFileWriteContents;
+
+  @Option(
       name = "skyframe_state",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
@@ -69,18 +76,6 @@ public class AqueryOptions extends CommonQueryOptions {
               + "Note: Specifying a target with --skyframe_state is currently not supported. "
               + "This flag is only available with --output=proto or --output=textproto.")
   public boolean queryCurrentSkyframeState;
-
-  @Option(
-      name = "incompatible_proto_output_v2",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.DEPRECATED,
-      },
-      help = "No-op.")
-  public boolean protoV2;
 
   @Option(
       name = "deduplicate_depsets",

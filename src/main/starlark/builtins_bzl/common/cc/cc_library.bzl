@@ -207,7 +207,7 @@ def _cc_library_impl(ctx):
             precompiled_libraries,
         )
 
-    precompiled_linking_context = _build_linking_context_from_library(ctx, precompiled_libraries)
+    precompiled_linking_context = cc_helper.build_linking_context_from_libraries(ctx, precompiled_libraries)
 
     contexts_to_merge = [precompiled_linking_context, empty_archive_linking_context]
     if has_compilation_outputs:
@@ -234,7 +234,7 @@ def _cc_library_impl(ctx):
         precompiled_libraries,
     )
 
-    linking_context_for_runfiles = _build_linking_context_from_library(ctx, libraries_to_link)
+    linking_context_for_runfiles = cc_helper.build_linking_context_from_libraries(ctx, libraries_to_link)
 
     cc_native_library_info = cc_helper.collect_native_cc_libraries(
         deps = ctx.attr.deps,
@@ -485,20 +485,6 @@ def _identifier_of_library(library):
 
     return None
 
-def _build_linking_context_from_library(ctx, libraries):
-    if len(libraries) == 0:
-        return CcInfo().linking_context
-    linker_input = cc_common.create_linker_input(
-        owner = ctx.label,
-        libraries = depset(libraries),
-    )
-
-    linking_context = cc_common.create_linking_context(
-        linker_inputs = depset([linker_input]),
-    )
-
-    return linking_context
-
 def _create_libraries_to_link_list(current_library, precompiled_libraries):
     libraries = []
     libraries.extend(precompiled_libraries)
@@ -638,7 +624,7 @@ attrs.update(semantics.get_interface_deps_allowed_attr())
 cc_library = rule(
     implementation = _cc_library_impl,
     attrs = attrs,
-    toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
+    toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
     incompatible_use_toolchain_transition = True,
     provides = [CcInfo],

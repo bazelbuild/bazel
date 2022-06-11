@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -64,12 +65,13 @@ public abstract class ModuleFileValue implements SkyValue {
      * A mapping from a canonical repo name to the name of the module. Only works for modules with
      * non-registry overrides.
      */
-    public abstract ImmutableMap<String, String> getNonRegistryOverrideCanonicalRepoNameLookup();
+    public abstract ImmutableMap<RepositoryName, String>
+        getNonRegistryOverrideCanonicalRepoNameLookup();
 
     public static RootModuleFileValue create(
         Module module,
         ImmutableMap<String, ModuleOverride> overrides,
-        ImmutableMap<String, String> nonRegistryOverrideCanonicalRepoNameLookup) {
+        ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup) {
       return new AutoValue_ModuleFileValue_RootModuleFileValue(
           module, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
     }

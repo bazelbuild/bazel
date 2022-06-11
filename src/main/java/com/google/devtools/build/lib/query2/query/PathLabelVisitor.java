@@ -75,11 +75,10 @@ final class PathLabelVisitor {
       if (visitor.hasVisited(t)) {
         ArrayDeque<Target> result = new ArrayDeque<>();
         Target at = t;
-        // TODO(ulfjack): This can result in an infinite loop if there's a dependency cycle.
         while (true) {
           result.addFirst(at);
           List<Target> pred = visitor.getParents(at);
-          if (pred == null) {
+          if (pred == null || pred.isEmpty()) {
             break;
           }
           at = pred.get(0);
@@ -279,6 +278,11 @@ final class PathLabelVisitor {
         }
 
         visitAspectsIfRequired(from, attribute, target);
+      } else if (mode == VisitorMode.SOMEPATH) {
+        // Here we make sure that if this is a top-level visitation node (where 'from' is null),
+        // a parent edge cannot be made for this node. This prevents parent-edge cycles from being
+        // formed and hence infinite loops impossible when traversing parent-edges.
+        parentMap.putIfAbsent(target, ImmutableList.of());
       }
 
       if (visited.add(target)) {

@@ -22,13 +22,13 @@ import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensi
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.ClassWriter.COMPUTE_MAXS;
-import static org.objectweb.asm.Opcodes.ASM8;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.runtime.ThrowableExtension;
 import com.google.devtools.build.android.desugar.testdata.ClassUsingTryWithResources;
+import org.objectweb.asm.Opcodes;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
@@ -254,7 +254,7 @@ public class TryWithResourcesRewriterTest {
     ClassReader reader = new ClassReader(classContent);
     final AtomicInteger counter = new AtomicInteger();
     ClassVisitor visitor =
-        new ClassVisitor(Opcodes.ASM8) {
+        new ClassVisitor(Opcodes.ASM9) {
           @Override
           public MethodVisitor visitMethod(
               int access, String name, String desc, String signature, String[] exceptions) {
@@ -276,7 +276,7 @@ public class TryWithResourcesRewriterTest {
     private int syntheticCloseResourceCount;
 
     public DesugaredThrowableMethodCallCounter(ClassLoader loader) {
-      super(ASM8);
+      super(Opcodes.ASM9);
       classLoader = loader;
       counterMap = new HashMap<>();
       TryWithResourcesRewriter.TARGET_METHODS
@@ -307,7 +307,7 @@ public class TryWithResourcesRewriterTest {
     private class InvokeCounter extends MethodVisitor {
 
       public InvokeCounter() {
-        super(ASM8);
+        super(Opcodes.ASM9);
       }
 
       private boolean isAssignableToThrowable(String owner) {

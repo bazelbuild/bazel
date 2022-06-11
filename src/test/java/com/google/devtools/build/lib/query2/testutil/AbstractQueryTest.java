@@ -454,6 +454,34 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("attr(testonly, 1, t:*)")).isEqualTo("//t:t_test");
   }
 
+  protected void runGenqueryScopeTest(boolean isCquery) throws Exception {
+    // Tests the relationship between deps(genquery_rule) and that of its scope.
+    // For "query", deps(genquery_rule) should include transitive deps of its scope
+    // For "cquery", deps(genquery_rule) should include its scope, but not its transitive deps.
+
+    writeFile("a/BUILD", "sh_library(name='a')");
+    writeFile("b/BUILD", "sh_library(name='b', deps=['//a:a'])");
+    writeFile("q/BUILD", "genquery(name='q', scope=['//b'], expression='deps(//b)')");
+
+    // Assure that deps of a genquery rule includes the transitive closure of its scope.
+    // This is required for correctness of incremental "blaze build genqueryrule"
+    ImmutableList<String> evalResult = evalToListOfStrings("deps(//q:q)");
+    if (isCquery) {
+      // Not checking for equality, since when run as a cquery test, there will be other
+      // dependencies.
+      assertThat(evalResult).contains("//q:q");
+      // assert that transitive closure of scope is NOT present.
+      assertThat(evalResult).containsNoneOf("//a:a", "//b:b");
+    } else {
+      assertThat(evalResult).containsExactly("//q:q", "//a:a", "//b:b");
+    }
+  }
+
+  @Test
+  public void testGenqueryScope() throws Exception {
+    runGenqueryScopeTest(false);
+  }
+
   @Test
   public void testAttrOnPackageDefaultVisibility() throws Exception {
     writeFile(

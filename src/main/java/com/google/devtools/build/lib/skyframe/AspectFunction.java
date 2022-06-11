@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
@@ -79,6 +81,7 @@ import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputeDependenciesState;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -89,7 +92,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -281,10 +286,17 @@ final class AspectFunction implements SkyFunction {
     TargetAndConfiguration originalTargetAndConfiguration =
         new TargetAndConfiguration(target, configuration);
     try {
-      UnloadedToolchainContext unloadedToolchainContext =
-          getUnloadedToolchainContext(env, key, aspect, configuration);
+      ConfiguredTargetFunction.ComputedToolchainContexts computedToolchainContexts =
+          getUnloadedToolchainContexts(env, key, aspect, configuration);
       if (env.valuesMissing()) {
         return null;
+      }
+
+      ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
+      ExecGroupCollection.Builder execGroupCollectionBuilder = null;
+      if (computedToolchainContexts != null) {
+        unloadedToolchainContexts = computedToolchainContexts.toolchainCollection;
+        execGroupCollectionBuilder = computedToolchainContexts.execGroupCollectionBuilder;
       }
 
       // Get the configuration targets that trigger this rule's configurable attributes.
@@ -293,7 +305,9 @@ final class AspectFunction implements SkyFunction {
               env,
               originalTargetAndConfiguration,
               state.transitivePackagesForPackageRootResolution,
-              unloadedToolchainContext == null ? null : unloadedToolchainContext.targetPlatform(),
+              unloadedToolchainContexts == null
+                  ? null
+                  : unloadedToolchainContexts.getTargetPlatform(),
               state.transitiveRootCauses);
       if (configConditions == null) {
         // Those targets haven't yet been resolved.
@@ -312,11 +326,9 @@ final class AspectFunction implements SkyFunction {
                 originalTargetAndConfiguration,
                 topologicalAspectPath,
                 configConditions.asProviders(),
-                unloadedToolchainContext == null
+                unloadedToolchainContexts == null
                     ? null
-                    : ToolchainCollection.builder()
-                        .addDefaultContext(unloadedToolchainContext)
-                        .build(),
+                    : unloadedToolchainContexts.asToolchainContexts(),
                 ruleClassProvider,
                 buildViewProvider.getSkyframeBuildView().getHostConfiguration());
       } catch (ConfiguredValueCreationException e) {
@@ -336,17 +348,23 @@ final class AspectFunction implements SkyFunction {
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      ResolvedToolchainContext toolchainContext = null;
-      if (unloadedToolchainContext != null) {
+      ToolchainCollection<ResolvedToolchainContext> toolchainContexts = null;
+      if (unloadedToolchainContexts != null) {
         String targetDescription =
             String.format(
                 "aspect %s applied to %s", aspect.getDescriptor().getDescription(), target);
-        toolchainContext =
-            ResolvedToolchainContext.load(
-                unloadedToolchainContext,
-                targetDescription,
-                // TODO(161222568): Support exec groups on aspects.
-                depValueMap.get(DependencyKind.defaultExecGroupToolchain()));
+        ToolchainCollection.Builder<ResolvedToolchainContext> contextsBuilder =
+            ToolchainCollection.builder();
+        for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
+            unloadedToolchainContexts.getContextMap().entrySet()) {
+          Set<ConfiguredTargetAndData> toolchainDependencies =
+              depValueMap.get(DependencyKind.forExecGroup(unloadedContext.getKey()));
+          contextsBuilder.addContext(
+              unloadedContext.getKey(),
+              ResolvedToolchainContext.load(
+                  unloadedContext.getValue(), targetDescription, toolchainDependencies));
+        }
+        toolchainContexts = contextsBuilder.build();
       }
 
       return createAspect(
@@ -359,7 +377,8 @@ final class AspectFunction implements SkyFunction {
               associatedTarget, target, configuration, /*transitionKeys=*/ null),
           configuration,
           configConditions,
-          toolchainContext,
+          toolchainContexts,
+          execGroupCollectionBuilder,
           depValueMap,
           state.transitivePackagesForPackageRootResolution);
     } catch (DependencyEvaluationException e) {
@@ -547,36 +566,34 @@ final class AspectFunction implements SkyFunction {
   }
 
   @Nullable
-  private static UnloadedToolchainContext getUnloadedToolchainContext(
+  private static ComputedToolchainContexts getUnloadedToolchainContexts(
       Environment env,
       AspectKey key,
       Aspect aspect,
       @Nullable BuildConfigurationValue configuration)
       throws InterruptedException, AspectCreationException {
-    // Determine what toolchains are needed by this target.
-    UnloadedToolchainContext unloadedToolchainContext = null;
-    if (configuration != null) {
+    if (configuration == null) {
       // Configuration can be null in the case of aspects applied to input files. In this case,
       // there are no chances of toolchains being used, so skip it.
-      try {
-        unloadedToolchainContext =
-            (UnloadedToolchainContext)
-                env.getValueOrThrow(
-                    ToolchainContextKey.key()
-                        .configurationKey(configuration.getKey())
-                        .toolchainTypes(aspect.getDefinition().getToolchainTypes())
-                        .build(),
-                    ToolchainException.class);
-      } catch (ToolchainException e) {
-        // TODO(katre): better error handling
-        throw new AspectCreationException(
-            e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode()));
-      }
-    }
-    if (env.valuesMissing()) {
       return null;
     }
-    return unloadedToolchainContext;
+    // Determine what toolchains are needed by this target.
+    try {
+      return ConfiguredTargetFunction.computeUnloadedToolchainContexts(
+          env,
+          key.getLabel(),
+          true,
+          Predicates.alwaysFalse(),
+          configuration.getKey(),
+          aspect.getDefinition().getToolchainTypes(),
+          aspect.getDefinition().execCompatibleWith(),
+          aspect.getDefinition().execGroups(),
+          null);
+    } catch (ToolchainException e) {
+      // TODO(katre): better error handling
+      throw new AspectCreationException(
+          e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode()));
+    }
   }
 
   /**
@@ -623,11 +640,14 @@ final class AspectFunction implements SkyFunction {
     // Compute the Dependency from originalTarget to aliasedLabel
     Dependency dep;
     try {
-      UnloadedToolchainContext unloadedToolchainContext =
-          getUnloadedToolchainContext(env, originalKey, aspect, originalTarget.getConfiguration());
+      ConfiguredTargetFunction.ComputedToolchainContexts computedToolchainContexts =
+          getUnloadedToolchainContexts(env, originalKey, aspect, originalTarget.getConfiguration());
       if (env.valuesMissing()) {
         return null;
       }
+
+      ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts =
+          computedToolchainContexts.toolchainCollection;
 
       // See comment in compute() above for why we pair target with aspectConfiguration here
       TargetAndConfiguration originalTargetAndAspectConfiguration =
@@ -639,7 +659,9 @@ final class AspectFunction implements SkyFunction {
               env,
               originalTargetAndAspectConfiguration,
               transitivePackagesForPackageRootResolution,
-              unloadedToolchainContext == null ? null : unloadedToolchainContext.targetPlatform(),
+              unloadedToolchainContexts == null
+                  ? null
+                  : unloadedToolchainContexts.getTargetPlatform(),
               transitiveRootCauses);
       if (configConditions == null) {
         // Those targets haven't yet been resolved.
@@ -810,7 +832,8 @@ final class AspectFunction implements SkyFunction {
       ConfiguredTargetAndData associatedTarget,
       BuildConfigurationValue configuration,
       ConfigConditions configConditions,
-      ResolvedToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws AspectFunctionException, InterruptedException {
@@ -852,7 +875,8 @@ final class AspectFunction implements SkyFunction {
                     aspect,
                     directDeps,
                     configConditions,
-                    toolchainContext,
+                    toolchainContexts,
+                    execGroupCollectionBuilder,
                     configuration,
                     view.getHostConfiguration(),
                     key);

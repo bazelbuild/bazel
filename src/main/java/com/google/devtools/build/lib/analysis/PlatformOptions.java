@@ -40,11 +40,10 @@ public class PlatformOptions extends FragmentOptions {
   // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
   // directly.
   public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
+      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
   public static final Label DEFAULT_HOST_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
-  public static final String DEFAULT_TARGET_PLATFORM_FALLBACK =
-      "@bazel_tools//platforms:target_platform";
+  public static final String DEFAULT_TARGET_PLATFORM_FALLBACK = "@local_config_platform//:host";
 
   /**
    * Main workspace-relative location to use when the user does not explicitly set {@code
@@ -225,16 +224,6 @@ public class PlatformOptions extends FragmentOptions {
               + " will add 'x86_64' to any target under //demo except for those whose name contains"
               + " 'test'.")
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
-
-  @Option(
-      name = "incompatible_override_toolchain_transition",
-      defaultValue = "true",
-      deprecationWarning = "This is now always set, please remove this flag.",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "Deprecated, this is no longer in use and should be removed.")
-  public boolean overrideToolchainTransition;
 
   @Override
   public PlatformOptions getHost() {

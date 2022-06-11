@@ -36,6 +36,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -74,6 +75,16 @@ public class CppRuleClasses {
 
   public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
     return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
+  }
+
+  public static ToolchainTypeRequirement ccToolchainTypeRequirement(Label ccToolchainType) {
+    // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+    // optional.
+    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(true).build();
+  }
+
+  public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {
+    return ccToolchainTypeRequirement(CppRuleClasses.ccToolchainTypeAttribute(env));
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
@@ -132,6 +143,12 @@ public class CppRuleClasses {
 
   /** A string constant for the dependency_file feature. This feature generates the .d file. */
   public static final String DEPENDENCY_FILE = "dependency_file";
+
+  /**
+   * A string constant for the serialized_diagnostics_file feature. This feature generates the .dia
+   * file.
+   */
+  public static final String SERIALIZED_DIAGNOSTICS_FILE = "serialized_diagnostics_file";
 
   /** A string constant for the module_map_home_cwd feature. */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";

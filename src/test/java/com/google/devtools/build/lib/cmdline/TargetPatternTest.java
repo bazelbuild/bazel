@@ -170,8 +170,8 @@ public class TargetPatternTest {
     RepositoryMapping renaming =
         RepositoryMapping.createAllowingFallback(
             ImmutableMap.of(
-                RepositoryName.create("foo"), RepositoryName.create("bar"),
-                RepositoryName.create("myworkspace"), RepositoryName.create("")));
+                "foo", RepositoryName.create("bar"),
+                "myworkspace", RepositoryName.create("")));
     TargetPattern.Parser parser =
         new TargetPattern.Parser(
             PathFragment.EMPTY_FRAGMENT, RepositoryName.createUnvalidated("myrepo"), renaming);

@@ -213,6 +213,7 @@ public final class JavaLibraryHelper {
         javaToolchainProvider,
         outputJarsBuilder,
         createOutputSourceJar,
+        true,
         outputSourceJar,
         true,
         /* javaInfoBuilder= */ null,
@@ -225,6 +226,7 @@ public final class JavaLibraryHelper {
       JavaToolchainProvider javaToolchainProvider,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
+      boolean includeCompilationInfo,
       @Nullable Artifact outputSourceJar,
       boolean enableCompileJarAction,
       @Nullable JavaInfo.Builder javaInfoBuilder,
@@ -291,13 +293,13 @@ public final class JavaLibraryHelper {
     JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
     outputJarsBuilder.addJavaOutput(
         JavaOutput.builder()
-            .fromJavaCompileOutputs(outputs)
+            .fromJavaCompileOutputs(outputs, includeCompilationInfo)
             .setCompileJar(iJar)
             .setCompileJdeps(javaArtifacts.getCompileTimeDependencyArtifact())
             .addSourceJar(outputSourceJar)
             .build());
 
-    if (javaInfoBuilder != null) {
+    if (javaInfoBuilder != null && includeCompilationInfo) {
       ClasspathConfiguredFragment classpathFragment =
           new ClasspathConfiguredFragment(
               javaArtifacts,

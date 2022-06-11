@@ -18,7 +18,6 @@ proto_library(
 
 java_proto_library(
     name = "resources_java_proto",
-    strict_deps = 0,
     deps = [":resources_proto"],
 )
 

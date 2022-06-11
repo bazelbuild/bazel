@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -43,12 +42,7 @@ public class ObjcImportBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("archives", LABEL_LIST).mandatory().nonEmpty().allowedFileTypes(FileType.of(".a")))
-        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-        // optional.
-        .addToolchainTypes(
-            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(environment))
-                .mandatory(true)
-                .build())
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(environment))
         .build();
   }
 

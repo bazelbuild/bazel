@@ -166,8 +166,15 @@ public final class JavaRuleOutputJarsProvider
 
       /** Populates the builder with outputs from {@link JavaCompileOutputs}. */
       public Builder fromJavaCompileOutputs(JavaCompileOutputs<Artifact> value) {
+        return fromJavaCompileOutputs(value, true);
+      }
+
+      public Builder fromJavaCompileOutputs(
+          JavaCompileOutputs<Artifact> value, boolean includeJdeps) {
         setClassJar(value.output());
-        setJdeps(value.depsProto());
+        if (includeJdeps) {
+          setJdeps(value.depsProto());
+        }
         setGeneratedClassJar(value.genClass());
         setGeneratedSourceJar(value.genSource());
         setNativeHeadersJar(value.nativeHeader());
@@ -241,6 +248,9 @@ public final class JavaRuleOutputJarsProvider
   }
 
   public static JavaRuleOutputJarsProvider merge(Collection<JavaRuleOutputJarsProvider> providers) {
+    if (providers.isEmpty()) {
+      return EMPTY;
+    }
     Builder builder = new Builder();
     for (JavaRuleOutputJarsProvider provider : providers) {
       builder.addJavaOutput(provider.getJavaOutputs());

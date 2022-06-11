@@ -245,10 +245,15 @@ public class ManifestMergerAction {
         Files.copy(manifest, options.manifestOutput, StandardCopyOption.REPLACE_EXISTING);
       }
     } catch (AndroidManifestProcessor.ManifestProcessingException e) {
-      // We special case ManifestProcessingExceptions here to indicate that this is
-      // caused by a build error, not an Bazel-internal error.
-      logger.log(SEVERE, "Error during merging manifests", e);
-      System.exit(1); // Don't duplicate the error to the user or bubble up the exception.
+      // ManifestProcessingExceptions represent build errors that should be delivered directly to
+      // ResourceProcessorBusyBox where the exception can be delivered with a non-zero status code
+      // to the worker/process
+      // Note that this exception handler is nearly identical to the generic case, except that it
+      // does not have a log print associated with it. This is because the exception will bubble up
+      // to ResourceProcessorBusyBox, which will print an identical error message. It is preferable
+      // to slightly convolute this try/catch block, rather than pollute the user's console with
+      // extra repeated error messages.
+      throw e;
     } catch (Exception e) {
       logger.log(SEVERE, "Error during merging manifests", e);
       throw e; // This is a proper internal exception, so we bubble it up.

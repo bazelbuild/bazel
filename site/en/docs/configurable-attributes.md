@@ -207,7 +207,7 @@ config_setting(
 )
 ```
 
-Behavior is the same as for [built-in flags](#built-in-flags). See [here](https://github.com/bazelbuild/examples/tree/HEAD/rules/starlark_configurations/select_on_build_setting){: .external}
+Behavior is the same as for [built-in flags](#built-in-flags). See [here](https://github.com/bazelbuild/examples/tree/HEAD/configurations/select_on_build_setting){: .external}
 for a working example.
 
 [`--define`](/reference/command-line-reference#flag--define)
@@ -998,5 +998,89 @@ one.
 Caution: To prevent restarting the Bazel server, invoke `bazel config` with the
 same command line flags as the `bazel cquery`. The `config` command relies on
 the configuration nodes from the still-running server of the previous command.
+
+### Why doesn't `select()` work with platforms? {:#faq-select-platforms}
+
+Bazel doesn't support configurable attributes checking whether a given platform
+is the target platform because the semantics are unclear.
+
+For example:
+
+```py
+platform(
+    name = "x86_linux_platform",
+    constraint_values = [
+        "@platforms//cpu:x86",
+        "@platforms//os:linux",
+    ],
+)
+
+cc_library(
+    name = "lib",
+    srcs = [...],
+    linkopts = select({
+        ":x86_linux_platform": ["--enable_x86_optimizations"],
+        "//conditions:default": [],
+    }),
+)
+```
+
+In this `BUILD` file, which `select()` should be used if the target platform has both the
+`@platforms//cpu:x86` and `@platforms//os:linux` constraints, but is **not** the
+`:x86_linux_platform` defined here? The author of the `BUILD` file and the user
+who defined the separate platform may have different ideas.
+
+#### What should I do instead?
+
+Instead, define a `config_setting` that matches **any** platform with
+these constraints:
+
+```py
+config_setting(
+    name = "is_x86_linux",
+    constraint_values = [
+        "@platforms//cpu:x86",
+        "@platforms//os:linux",
+    ],
+)
+
+cc_library(
+    name = "lib",
+    srcs = [...],
+    linkopts = select({
+        ":is_x86_linux": ["--enable_x86_optimizations"],
+        "//conditions:default": [],
+    }),
+)
+```
+
+This process defines specific semantics, making it clearer to users what
+platforms meet the desired conditions.
+
+#### What if I really, really want to `select` on the platform?
+
+If your build requirements specifically require checking the platform, you
+can flip the value of the `--platforms` flag in a `config_setting`:
+
+```py
+config_setting(
+    name = "is_specific_x86_linux_platform",
+    values = {
+        "platforms": ["//package:x86_linux_platform"],
+    },
+)
+
+cc_library(
+    name = "lib",
+    srcs = [...],
+    linkopts = select({
+        ":is_specific_x86_linux_platform": ["--enable_x86_optimizations"],
+        "//conditions:default": [],
+    }),
+)
+```
+
+The Bazel team doesn't endorse doing this; it overly constrains your build and
+confuses users when the expected condition does not match.
 
 [BuildSettings]: /rules/config#user-defined-build-settings

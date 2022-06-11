@@ -24,6 +24,7 @@ import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodInstrVisitor;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import org.objectweb.asm.Opcodes;
 import javax.annotation.Nullable;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -38,7 +39,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
   NestBridgeRefConverter(
       @Nullable MethodVisitor methodVisitor, MethodKey methodKey, NestDigest nestDigest) {
-    super(Opcodes.ASM8, methodVisitor);
+    super(Opcodes.ASM9, methodVisitor);
     this.enclosingMethodKey = methodKey;
     this.nestDigest = nestDigest;
 

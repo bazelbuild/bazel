@@ -17,7 +17,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
@@ -55,15 +54,6 @@ public class NotifyingHelper {
 
   protected final Listener graphListener;
 
-  protected final EntryTransformer<SkyKey, ThinNodeEntry, NodeEntry> wrapEntry =
-      new EntryTransformer<SkyKey, ThinNodeEntry, NodeEntry>() {
-        @Nullable
-        @Override
-        public NotifyingNodeEntry transformEntry(SkyKey key, @Nullable ThinNodeEntry nodeEntry) {
-          return wrapEntry(key, nodeEntry);
-        }
-      };
-
   NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
   }
@@ -96,8 +86,7 @@ public class NotifyingHelper {
         notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
       }
       return Maps.transformEntries(
-          delegate.getBatch(requestor, reason, keys),
-          notifyingHelper.wrapEntry);
+          delegate.getBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Nullable
@@ -129,14 +118,13 @@ public class NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
       }
       return Maps.transformEntries(
-          delegate.createIfAbsentBatch(requestor, reason, keys),
-          notifyingHelper.wrapEntry);
+          delegate.createIfAbsentBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Override

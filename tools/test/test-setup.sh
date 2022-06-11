@@ -37,6 +37,11 @@ function is_absolute {
 # root.
 EXEC_ROOT="$PWD"
 
+# Declare that the executable is running in a `bazel test` environment
+# This allows test frameworks to enable output to the unprefixed environment variable
+# For example, if `BAZEL_TEST` and `XML_OUTPUT_FILE` are defined, write JUnit output
+export BAZEL_TEST=1
+
 # Bazel sets some environment vars to relative paths to improve caching and
 # support remote execution, where the absolute path may not be known to Bazel.
 # Convert them to absolute paths here before running the actual test.

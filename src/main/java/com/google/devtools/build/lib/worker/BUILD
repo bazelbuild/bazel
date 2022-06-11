@@ -18,20 +18,17 @@ java_library(
             "WorkerModule.java",
             "WorkerParser.java",
             "WorkerSpawnStrategy.java",
+            "WorkerKey.java",
+            "WorkerMetricsCollector.java",
         ],
     ),
     deps = [
-        # ":worker_spawn_runner",
-        "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        ":worker_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -42,7 +39,10 @@ java_library(
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:gson",
+        "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
@@ -63,17 +63,20 @@ java_library(
 java_library(
     name = "worker_spawn_runner",
     srcs = [
+        "WorkerMetricsCollector.java",
         "WorkerParser.java",
         "WorkerSpawnRunner.java",
     ],
     deps = [
         ":worker",
         ":worker_files_hash",
+        ":worker_key",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
@@ -132,5 +135,19 @@ java_library(
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
+    ],
+)
+
+java_library(
+    name = "worker_key",
+    srcs = [
+        "WorkerKey.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
     ],
 )

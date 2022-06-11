@@ -225,6 +225,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    *     not needed during actual execution.
    * @param outputFile the object file that is written as result of the compilation
    * @param dotdFile the .d file that is generated as a side-effect of compilation
+   * @param diagnosticsFile the .dia file that is generated as a side-effect of compilation
    * @param gcnoFile the coverage notes that are written in coverage mode, can be null
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
@@ -253,6 +254,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<Artifact> additionalPrunableHeaders,
       Artifact outputFile,
       @Nullable Artifact dotdFile,
+      @Nullable Artifact diagnosticsFile,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
@@ -272,7 +274,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
             .addTransitive(inputsForInvalidation)
             .build(),
-        collectOutputs(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile, additionalOutputs),
+        collectOutputs(
+            outputFile,
+            dotdFile,
+            diagnosticsFile,
+            gcnoFile,
+            dwoFile,
+            ltoIndexingFile,
+            additionalOutputs),
         env);
     Preconditions.checkNotNull(outputFile);
     this.outputFile = outputFile;
@@ -293,7 +302,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         Preconditions.checkNotNull(additionalIncludeScanningRoots);
     this.compileCommandLine =
         buildCommandLine(
-            sourceFile, coptsFilter, actionName, dotdFile, featureConfiguration, variables);
+            sourceFile,
+            coptsFilter,
+            actionName,
+            dotdFile,
+            diagnosticsFile,
+            featureConfiguration,
+            variables);
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
@@ -317,6 +332,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private static ImmutableSet<Artifact> collectOutputs(
       @Nullable Artifact outputFile,
       @Nullable Artifact dotdFile,
+      @Nullable Artifact diagnosticsFile,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
@@ -333,6 +349,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (dotdFile != null) {
       outputs.add(dotdFile);
     }
+    if (diagnosticsFile != null) {
+      outputs.add(diagnosticsFile);
+    }
     if (dwoFile != null) {
       outputs.add(dwoFile);
     }
@@ -347,6 +366,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       CoptsFilter coptsFilter,
       String actionName,
       Artifact dotdFile,
+      Artifact diagnosticsFile,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables) {
     return CompileCommandLine.builder(sourceFile, coptsFilter, actionName, dotdFile)

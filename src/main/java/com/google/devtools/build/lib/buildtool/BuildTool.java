@@ -165,7 +165,7 @@ public class BuildTool {
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
-        env.getEventBus().post(new BuildStartingEvent(env, request));
+        env.getEventBus().post(BuildStartingEvent.create(env, request));
       }
       logger.atInfo().log("Build identifier: %s", request.getId());
 
@@ -206,11 +206,7 @@ public class BuildTool {
           Set<AspectKey> builtAspects = new HashSet<>();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(
-                request.getId(),
-                builtTargets,
-                builtAspects,
-                loadingResult.getNotSymlinkedInExecrootDirectories());
+            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
           }
 
           // TODO(b/199053098): implement support for --nobuild.
@@ -249,7 +245,7 @@ public class BuildTool {
               if (buildCompleted) {
                 getReporter().handle(Event.progress("Building complete."));
               }
-            BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
+              BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
               buildResultPrinter.showBuildResult(
                   request,
                   result,
@@ -441,6 +437,7 @@ public class BuildTool {
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
               /* deduplicateDepsets= */ true,
+              /* includeFileWriteContents */ false,
               aqueryOutputHandler);
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }

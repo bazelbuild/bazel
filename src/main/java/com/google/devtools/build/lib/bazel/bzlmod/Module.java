@@ -63,7 +63,7 @@ public abstract class Module {
    */
   public abstract ModuleKey getKey();
 
-  public final String getCanonicalRepoName() {
+  public final RepositoryName getCanonicalRepoName() {
     return getKey().getCanonicalRepoName();
   }
 
@@ -87,34 +87,39 @@ public abstract class Module {
   public abstract ImmutableList<String> getToolchainsToRegister();
 
   /**
-   * The direct dependencies of this module. The key type is the repo name of the dep, and the value
-   * type is the ModuleKey (name+version) of the dep.
+   * The resolved direct dependencies of this module, which can be either the original ones,
+   * overridden by a {@code single_version_override}, by a {@code multiple_version_override}, or by
+   * a {@link NonRegistryOverride} (the version will be ""). The key type is the repo name of the
+   * dep, and the value type is the ModuleKey (name+version) of the dep.
    */
   public abstract ImmutableMap<String, ModuleKey> getDeps();
+
+  /**
+   * The original direct dependencies of this module as they are declared in their MODULE file. The
+   * key type is the repo name of the dep, and the value type is the ModuleKey (name+version) of the
+   * dep.
+   */
+  public abstract ImmutableMap<String, ModuleKey> getOriginalDeps();
 
   /**
    * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
    * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMapping}.
    */
   public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.
     if (getKey().equals(ModuleKey.ROOT)) {
-      mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
+      mapping.put("", RepositoryName.MAIN);
     }
     // Every module should be able to reference itself as @<module name>.
     // If this is the root module, this perfectly falls into @<module name> => @
     if (!getName().isEmpty()) {
-      mapping.put(
-          RepositoryName.createUnvalidated(getName()),
-          RepositoryName.createUnvalidated(getCanonicalRepoName()));
+      mapping.put(getName(), getCanonicalRepoName());
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
-      mapping.put(
-          RepositoryName.createUnvalidated(dep.getKey()),
-          RepositoryName.createUnvalidated(dep.getValue().getCanonicalRepoName()));
+      mapping.put(dep.getKey(), dep.getValue().getCanonicalRepoName());
     }
     return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
   }
@@ -174,12 +179,21 @@ public abstract class Module {
     /** Optional; defaults to an empty list. */
     public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
+    public abstract Builder setOriginalDeps(ImmutableMap<String, ModuleKey> value);
+
     public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 
     abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
 
     public Builder addDep(String depRepoName, ModuleKey depKey) {
       depsBuilder().put(depRepoName, depKey);
+      return this;
+    }
+
+    abstract ImmutableMap.Builder<String, ModuleKey> originalDepsBuilder();
+
+    public Builder addOriginalDep(String depRepoName, ModuleKey depKey) {
+      originalDepsBuilder().put(depRepoName, depKey);
       return this;
     }
 
@@ -194,6 +208,6 @@ public abstract class Module {
       return this;
     }
 
-    public abstract Module build();
+    abstract Module build();
   }
 }
