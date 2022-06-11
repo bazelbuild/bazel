@@ -56,6 +56,11 @@ public class ExecutionTransitionFactory
     return new ExecutionTransitionFactory(execGroup);
   }
 
+  @Override
+  public PatchTransition create(AttributeTransitionData data) {
+    return new ExecutionTransition(data.executionPlatform());
+  }
+
   private final String execGroup;
 
   private ExecutionTransitionFactory(String execGroup) {
@@ -65,11 +70,6 @@ public class ExecutionTransitionFactory
   @Override
   public TransitionType transitionType() {
     return TransitionType.ATTRIBUTE;
-  }
-
-  @Override
-  public PatchTransition create(AttributeTransitionData data) {
-    return new ExecutionTransition(data.executionPlatform());
   }
 
   public String getExecGroup() {
