@@ -90,13 +90,13 @@ public class GenericTypeHelperTest {
   }
 
   @Test
-  public void assingableFromSuper() {
+  public void assignableFromSuper() {
     assertThat(GenericTypeHelper.isAssignableFrom(DoSomething.class, EnumSomething.class)).isTrue();
     assertThat(GenericTypeHelper.isAssignableFrom(EnumSomething.class, AlphabetSomething.class)).isTrue();
   }
 
   @Test
-  public void assingableFromSuperSecondGrade() {
+  public void assignableFromSuperSecondGrade() {
     assertThat(GenericTypeHelper.isAssignableFrom(EnumSomething.class, AlphabetTwoSomething.class)).isTrue();
   }
 }
