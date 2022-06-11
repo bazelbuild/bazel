@@ -1088,7 +1088,14 @@ function test_aspect_skipping() {
 load(":defs.bzl", "basic_rule", "rule_with_aspect")
 
 basic_rule(
+    name = "basic_universal_target",
+)
+
+basic_rule(
     name = "basic_foo3_target",
+    deps = [
+        ":basic_universal_target",
+    ],
     target_compatible_with = [
         ":foo3",
     ],
@@ -1177,10 +1184,11 @@ rule_with_aspect = rule(
 EOF
   cd target_skipping || fail "couldn't cd into workspace"
 
-  local debug_message1="Running aspect on <target //target_skipping:basic_foo3_target>"
-  local debug_message2="Running aspect on <target //target_skipping:other_basic_target>"
-  local debug_message3="Running aspect on <target //target_skipping:previously_inspected_basic_target>"
-  local debug_message4="Running aspect on <target //target_skipping:generated_file>"
+  local debug_message1="Running aspect on <target //target_skipping:basic_universal_target>"
+  local debug_message2="Running aspect on <target //target_skipping:basic_foo3_target>"
+  local debug_message3="Running aspect on <target //target_skipping:other_basic_target>"
+  local debug_message4="Running aspect on <target //target_skipping:previously_inspected_basic_target>"
+  local debug_message5="Running aspect on <target //target_skipping:generated_file>"
 
   # Validate that aspects run against compatible targets.
   bazel build \
@@ -1192,7 +1200,8 @@ EOF
   expect_log "${debug_message1}"
   expect_log "${debug_message2}"
   expect_log "${debug_message3}"
-  expect_not_log "${debug_message4}"
+  expect_log "${debug_message4}"
+  expect_not_log "${debug_message5}"
 
   # Invert the compatibility and validate that aspects run on the other targets
   # now.
@@ -1205,7 +1214,8 @@ EOF
   expect_not_log "${debug_message1}"
   expect_not_log "${debug_message2}"
   expect_not_log "${debug_message3}"
-  expect_log "${debug_message4}"
+  expect_not_log "${debug_message4}"
+  expect_log "${debug_message5}"
 
   # Validate that explicitly trying to build a target with an aspect against an
   # incompatible target produces the normal error message.
@@ -1229,6 +1239,7 @@ EOF
   expect_not_log "${debug_message2}"
   expect_not_log "${debug_message3}"
   expect_not_log "${debug_message4}"
+  expect_not_log "${debug_message5}"
 }
 
 run_suite "target_compatible_with tests"
