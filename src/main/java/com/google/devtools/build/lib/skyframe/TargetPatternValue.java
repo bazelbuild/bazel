@@ -17,10 +17,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern.Sign;
@@ -171,15 +169,7 @@ public final class TargetPatternValue implements SkyValue {
           }
         }
       } else if (excludeSingleTargets && laterParsedPattern.getType() == Type.SINGLE_TARGET) {
-        try {
-          Label label =
-              Label.parseAbsolute(
-                  laterParsedPattern.getSingleTargetPath(),
-                  /*repositoryMapping=*/ ImmutableMap.of());
-          excludedSingleTargetsBuilder.add(label);
-        } catch (LabelSyntaxException e) {
-          indicesOfNegativePatternsThatNeedToBeIncludedBuilder.add(j);
-        }
+        excludedSingleTargetsBuilder.add(laterParsedPattern.getSingleTargetLabel());
       } else {
         indicesOfNegativePatternsThatNeedToBeIncludedBuilder.add(j);
       }

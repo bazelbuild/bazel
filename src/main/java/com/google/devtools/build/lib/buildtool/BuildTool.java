@@ -206,40 +206,53 @@ public class BuildTool {
           Set<AspectKey> builtAspects = new HashSet<>();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(
-                request.getId(),
-                builtTargets,
-                builtAspects,
-                loadingResult.getNotSymlinkedInExecrootDirectories());
+            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
           }
 
           // TODO(b/199053098): implement support for --nobuild.
-          AnalysisAndExecutionResult analysisAndExecutionResult =
-              AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
-
-          BuildResultListener buildResultListener =
-              Preconditions.checkNotNull(env.getBuildResultListener());
-          result.setBuildConfigurationCollection(
-              analysisAndExecutionResult.getConfigurationCollection());
-          result.setActualTargets(buildResultListener.getAnalyzedTargets());
-          result.setTestTargets(buildResultListener.getAnalyzedTests());
-          try (SilentCloseable c = Profiler.instance().profile("Show results")) {
-            result.setSuccessfulTargets(
-                ExecutionTool.determineSuccessfulTargets(
-                    buildResultListener.getAnalyzedTargets(),
-                    buildResultListener.getBuiltTargets()));
-            result.setSuccessfulAspects(
-                ExecutionTool.determineSuccessfulAspects(
-                    buildResultListener.getAnalyzedAspects().keySet(),
-                    buildResultListener.getBuiltAspects()));
-            result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
+          AnalysisAndExecutionResult analysisAndExecutionResult;
+          boolean buildCompleted = false;
+          try {
+            analysisAndExecutionResult =
+                AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
+            buildCompleted = true;
+            result.setBuildConfigurationCollection(
+                analysisAndExecutionResult.getConfigurationCollection());
+          } catch (InvalidConfigurationException
+              | TargetParsingException
+              | LoadingFailedException
+              | ViewCreationFailedException
+              | BuildFailedException
+              | TestExecException e) {
+            // These are non-catastrophic.
+            buildCompleted = true;
+            throw e;
+          } finally {
+            BuildResultListener buildResultListener =
+                Preconditions.checkNotNull(env.getBuildResultListener());
+            result.setActualTargets(buildResultListener.getAnalyzedTargets());
+            result.setTestTargets(buildResultListener.getAnalyzedTests());
+            try (SilentCloseable c = Profiler.instance().profile("Show results")) {
+              result.setSuccessfulTargets(
+                  ExecutionTool.determineSuccessfulTargets(
+                      buildResultListener.getAnalyzedTargets(),
+                      buildResultListener.getBuiltTargets()));
+              result.setSuccessfulAspects(
+                  ExecutionTool.determineSuccessfulAspects(
+                      buildResultListener.getAnalyzedAspects().keySet(),
+                      buildResultListener.getBuiltAspects()));
+              result.setSkippedTargets(buildResultListener.getSkippedTargets());
+              if (buildCompleted) {
+                getReporter().handle(Event.progress("Building complete."));
+              }
             BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-            buildResultPrinter.showBuildResult(
-                request,
-                result,
-                analysisAndExecutionResult.getTargetsToBuild(),
-                analysisAndExecutionResult.getTargetsToSkip(),
-                analysisAndExecutionResult.getAspectsMap());
+              buildResultPrinter.showBuildResult(
+                  request,
+                  result,
+                  buildResultListener.getAnalyzedTargets(),
+                  buildResultListener.getSkippedTargets(),
+                  buildResultListener.getAnalyzedAspects());
+            }
           }
           FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
           if (delayedFailureDetail != null) {

@@ -27,7 +27,6 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
@@ -42,10 +41,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -487,27 +484,8 @@ public final class SandboxHelpers {
    */
   public SandboxInputs processInputFiles(
       Map<PathFragment, ActionInput> inputMap,
-      Spawn spawn,
-      ArtifactExpander artifactExpander,
       Path execRoot)
       throws IOException {
-    // SpawnInputExpander#getInputMapping uses ArtifactExpander#expandArtifacts to expand
-    // middlemen and tree artifacts, which expands empty tree artifacts to no entry. However,
-    // actions that accept TreeArtifacts as inputs generally expect that the empty directory is
-    // created. So we add those explicitly here.
-    // TODO(ulfjack): Move this code to SpawnInputExpander.
-    for (ActionInput input : spawn.getInputFiles().toList()) {
-      if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
-        List<Artifact> containedArtifacts = new ArrayList<>();
-        artifactExpander.expand((Artifact) input, containedArtifacts);
-        // Attempting to mount a non-empty directory results in ERR_DIRECTORY_NOT_EMPTY, so we
-        // only mount empty TreeArtifacts as directories.
-        if (containedArtifacts.isEmpty()) {
-          inputMap.put(input.getExecPath(), input);
-        }
-      }
-    }
-
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Set<VirtualActionInput> virtualInputs = new HashSet<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();

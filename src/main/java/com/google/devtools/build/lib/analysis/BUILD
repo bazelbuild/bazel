@@ -133,7 +133,6 @@ java_library(
         ":test/execution_info",
         ":test/instrumented_files_info",
         ":test/test_configuration",
-        ":test/test_environment_info",
         ":test/test_sharding_strategy",
         ":test/test_trimming_transition_factory",
         ":toolchain_collection",
@@ -340,6 +339,7 @@ java_library(
         ":resolved_toolchain_context",
         ":rule_configured_object_value",
         ":rule_definition_environment",
+        ":run_environment_info",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
@@ -357,7 +357,6 @@ java_library(
         ":test/execution_info",
         ":test/instrumented_files_info",
         ":test/test_configuration",
-        ":test/test_environment_info",
         ":test/test_sharding_strategy",
         ":toolchain_collection",
         ":toolchain_context",
@@ -390,7 +389,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -1004,6 +1002,18 @@ java_library(
 )
 
 java_library(
+    name = "run_environment_info",
+    srcs = ["RunEnvironmentInfo.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "rule_definition_environment",
     srcs = ["RuleDefinitionEnvironment.java"],
     deps = [
@@ -1545,7 +1555,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
@@ -2122,6 +2131,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -2407,17 +2418,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "test/test_environment_info",
-    srcs = ["test/TestEnvironmentInfo.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
         "//third_party:guava",
     ],
 )

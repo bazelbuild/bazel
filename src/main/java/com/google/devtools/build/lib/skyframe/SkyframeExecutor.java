@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
@@ -331,8 +332,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   private boolean analysisCacheInvalidated = false;
 
-  private boolean keepBuildConfigurationNodesWhenDiscardingAnalysis = false;
-
   /** True if loading and analysis nodes were cleared (discarded) after analysis to save memory. */
   private boolean analysisCacheCleared;
 
@@ -375,6 +374,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // pruning while going through the ActionLookupKeys in the build for conflict checking.
   // Reset after each build.
   private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
+  private RuleContextConstraintSemantics ruleContextConstraintSemantics;
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -501,7 +501,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
-    map.put(FileValue.FILE, new FileFunction(pkgLocator));
+    map.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,
@@ -538,8 +538,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.IGNORED_PACKAGE_PREFIXES, ignoredPackagePrefixesFunction);
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
-    map.put(
-        SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction(externalPackageHelper));
+    map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
     map.put(
         SkyFunctions.PREPARE_ANALYSIS_PHASE, new PrepareAnalysisPhaseFunction(ruleClassProvider));
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
@@ -661,7 +660,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 getConflictFreeActionLookupKeysGlobalSet().addAll(keys);
               }
             },
-            this::getIncrementalArtifactConflictFinder));
+            this::getIncrementalArtifactConflictFinder,
+            this::getRuleContextConstraintSemantics));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -1121,35 +1121,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected final void deleteAnalysisNodes() {
     memoizingEvaluator.delete(
-        keepBuildConfigurationNodesWhenDiscardingAnalysis
-            ? shouldDeleteActionNodesWhenDroppingAnalysis()
-                ? SkyframeExecutor::basicAnalysisInvalidatingPredicateWithActions
-                : SkyframeExecutor::basicAnalysisInvalidatingPredicate
-            : shouldDeleteActionNodesWhenDroppingAnalysis()
-                ? SkyframeExecutor::fullAnalysisInvalidatingPredicateWithActions
-                : SkyframeExecutor::fullAnalysisInvalidatingPredicate);
+        shouldDeleteActionNodesWhenDroppingAnalysis()
+            ? SkyframeExecutor::analysisInvalidatingPredicateWithActions
+            : SkyframeExecutor::analysisInvalidatingPredicate);
   }
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
   // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
-  private static boolean basicAnalysisInvalidatingPredicate(SkyKey key) {
-    return key instanceof ArtifactNestedSetKey || key instanceof ActionLookupKey;
+  // Also BuildConfigurationKey to prevent memory leak (b/191875929).
+  private static boolean analysisInvalidatingPredicate(SkyKey key) {
+    return key instanceof ArtifactNestedSetKey
+        || key instanceof ActionLookupKey
+        || key instanceof BuildConfigurationKey;
   }
 
   // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
   // en masse is cheaper than deleting via graph traversal (b/192863968).
-  private static boolean basicAnalysisInvalidatingPredicateWithActions(SkyKey key) {
-    return basicAnalysisInvalidatingPredicate(key) || key instanceof ActionLookupData;
-  }
-
-  // We may also want to remove BuildConfigurationKey to fix a minor memory leak there.
-  private static boolean fullAnalysisInvalidatingPredicate(SkyKey key) {
-    return basicAnalysisInvalidatingPredicate(key) || key instanceof BuildConfigurationKey;
-  }
-
-  private static boolean fullAnalysisInvalidatingPredicateWithActions(SkyKey key) {
-    return basicAnalysisInvalidatingPredicateWithActions(key)
-        || key instanceof BuildConfigurationKey;
+  private static boolean analysisInvalidatingPredicateWithActions(SkyKey key) {
+    return analysisInvalidatingPredicate(key) || key instanceof ActionLookupData;
   }
 
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
@@ -2674,9 +2663,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     updateSkyFunctionsSemaphoreSize(options);
-    AnalysisOptions analysisOptions = options.getOptions(AnalysisOptions.class);
-    keepBuildConfigurationNodesWhenDiscardingAnalysis =
-        analysisOptions == null || analysisOptions.keepConfigNodes;
     syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, options);
 
     if (lastAnalysisDiscarded) {
@@ -2967,6 +2953,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     return evalResult.get(key);
+  }
+
+  @Nullable
+  RuleContextConstraintSemantics getRuleContextConstraintSemantics() {
+    return ruleContextConstraintSemantics;
+  }
+
+  public void setRuleContextConstraintSemantics(
+      RuleContextConstraintSemantics ruleContextConstraintSemantics) {
+    this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
   }
 
   /** A progress receiver to track analysis invalidation and update progress messages. */

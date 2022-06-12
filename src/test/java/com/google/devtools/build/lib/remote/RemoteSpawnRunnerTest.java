@@ -113,6 +113,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -1209,6 +1210,40 @@ public class RemoteSpawnRunnerTest {
 
     // assert
     verify(service).downloadOutputs(any(), eq(cachedActionResult));
+  }
+
+  @Test
+  public void testDigest() throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner();
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenReturn(resp);
+
+    Spawn spawn = newSimpleSpawn();
+    FakeSpawnExecutionContext policy = getSpawnContext(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+
+    ArgumentCaptor<RemoteAction> requestCaptor = ArgumentCaptor.forClass(RemoteAction.class);
+
+    verify(service)
+        .executeRemotely(requestCaptor.capture(), anyBoolean(), any(OperationObserver.class));
+
+    assertThat(res.getDigest())
+        .isEqualTo(
+            Optional.of(
+                SpawnResult.Digest.of(
+                    requestCaptor.getValue().getActionKey().getDigest().getHash(),
+                    requestCaptor.getValue().getActionKey().getDigest().getSizeBytes())));
   }
 
   @Test

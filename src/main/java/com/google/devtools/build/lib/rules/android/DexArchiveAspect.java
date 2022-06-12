@@ -186,7 +186,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                 ImmutableList.of(
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER.id())))
+                    ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
             .addToolchainTypes(
                 ToolchainTypeRequirement.create(
                     Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel)))
@@ -407,7 +407,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
 
       Artifact rJar = getAndroidLibraryRJar(base);
       if (rJar != null) {
-          jars.add(rJar);
+        jars.add(rJar);
       }
 
       Artifact buildStampJar = getAndroidBuildStampJar(base);
@@ -482,9 +482,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       return NestedSetBuilder.<Artifact>naiveLinkOrder()
           .add(
               ruleContext
-                  .getPrerequisite(
-                      ":dex_archive_android_sdk",
-                      AndroidSdkProvider.PROVIDER)
+                  .getPrerequisite(":dex_archive_android_sdk", AndroidSdkProvider.PROVIDER)
                   .getAndroidJar())
           .build();
     }

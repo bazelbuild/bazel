@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -49,12 +50,12 @@ public interface TestingModuleApi extends StarlarkValue {
   ExecutionInfoApi executionInfo(Dict<?, ?> requirements // <String, String> expected
       ) throws EvalException;
 
-  // TODO(bazel-team): Change this function to be the actual TestEnvironmentInfo.PROVIDER.
   @StarlarkMethod(
       name = "TestEnvironment",
       doc =
-          "Creates a new test environment provider. Use this provider to specify extra"
-              + "environment variables to be made available during test execution.",
+          "<b>Deprecated: Use RunEnvironmentInfo instead.</b> Creates a new test environment "
+              + "provider. Use this provider to specify extra environment variables to be made "
+              + "available during test execution.",
       parameters = {
         @Param(
             name = "environment",
@@ -76,7 +77,7 @@ public interface TestingModuleApi extends StarlarkValue {
                     + " and <code>inherited_environment</code>, the value inherited from the"
                     + " shell environment will take precedence if set.")
       })
-  TestEnvironmentInfoApi testEnvironment(
+  RunEnvironmentInfoApi testEnvironment(
       Dict<?, ?> environment, // <String, String> expected
       Sequence<?> inheritedEnvironment /* <String> expected */)
       throws EvalException;

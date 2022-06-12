@@ -14,19 +14,14 @@
 
 """A Starlark implementation of the proto_lang_toolchain rule."""
 
-load(":common/proto/providers.bzl", "ProtoLangToolchainInfo")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
-load(":common/rule_util.bzl", "merge_attrs")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
 proto_common = _builtins.toplevel.proto_common
 
 def _rule_impl(ctx):
-    provided_proto_sources = []
-    transitive_files = depset(transitive = [bp[ProtoInfo].transitive_sources for bp in ctx.attr.blacklisted_protos])
-    for file in transitive_files.to_list():
-        source_root = file.root.path
-        provided_proto_sources.append(proto_common.ProtoSource(file, file, source_root))
+    provided_proto_sources = depset(transitive = [bp[ProtoInfo].transitive_proto_sources() for bp in ctx.attr.blacklisted_protos]).to_list()
 
     flag = ctx.attr.command_line
     if flag.find("$(PLUGIN_OUT)") > -1:
@@ -58,70 +53,38 @@ def _rule_impl(ctx):
         ),
     ]
 
-proto_lang_toolchain_attrs = {
-    "progress_message": attr.string(default = "Generating proto_library %{label}"),
-    "mnemonic": attr.string(default = "GenProto"),
-    "command_line": attr.string(mandatory = True),
-    "plugin_format_flag": attr.string(),
-    "plugin": attr.label(
-        executable = True,
-        cfg = "exec",
-        allow_files = True,
-    ),
-    "runtime": attr.label(
-        allow_files = True,
-    ),
-    "blacklisted_protos": attr.label_list(
-        allow_files = True,
-        providers = [ProtoInfo],
-    ),
-}
-
-proto_lang_toolchain_custom_protoc = rule(
-    implementation = _rule_impl,
-    attrs = merge_attrs(
-        proto_lang_toolchain_attrs,
-        {
-            "proto_compiler": attr.label(
-                cfg = "exec",
-                executable = True,
-                allow_files = True,
-            ),
-        },
-    ),
-    provides = [ProtoLangToolchainInfo],
-    fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
-)
-
-proto_lang_toolchain_default_protoc = rule(
-    implementation = _rule_impl,
-    attrs = merge_attrs(
-        proto_lang_toolchain_attrs,
-        {
-            "_proto_compiler": attr.label(
-                cfg = "exec",
-                executable = True,
-                allow_files = True,
-                default = configuration_field("proto", "proto_compiler"),
-            ),
-        },
-    ),
-    provides = [ProtoLangToolchainInfo],
-    fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
-)
-
-def proto_lang_toolchain(
-        name = None,
-        proto_compiler = None,
-        **kwargs):
-    if proto_compiler != None:
-        proto_lang_toolchain_custom_protoc(
-            name = name,
-            proto_compiler = proto_compiler,
-            **kwargs
-        )
-    else:
-        proto_lang_toolchain_default_protoc(
-            name = name,
-            **kwargs
-        )
+def make_proto_lang_toolchain(custom_proto_compiler):
+    return rule(
+        _rule_impl,
+        attrs = dict(
+            {
+                "progress_message": attr.string(default = "Generating proto_library %{label}"),
+                "mnemonic": attr.string(default = "GenProto"),
+                "command_line": attr.string(mandatory = True),
+                "plugin_format_flag": attr.string(),
+                "plugin": attr.label(
+                    executable = True,
+                    cfg = "exec",
+                ),
+                "runtime": attr.label(),
+                "blacklisted_protos": attr.label_list(
+                    providers = [ProtoInfo],
+                ),
+            },
+            **({
+                "proto_compiler": attr.label(
+                    cfg = "exec",
+                    executable = True,
+                ),
+            } if custom_proto_compiler else {
+                "_proto_compiler": attr.label(
+                    cfg = "exec",
+                    executable = True,
+                    allow_files = True,
+                    default = configuration_field("proto", "proto_compiler"),
+                ),
+            })
+        ),
+        provides = [ProtoLangToolchainInfo],
+        fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
+    )

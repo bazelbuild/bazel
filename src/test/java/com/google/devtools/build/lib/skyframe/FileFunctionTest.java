@@ -121,6 +121,7 @@ public class FileFunctionTest {
   private InMemoryFileSystem fs;
   private Root pkgRoot;
   private Path outputBase;
+  private Root outputBaseRoot;
   private PathPackageLocator pkgLocator;
   private boolean fastDigest;
   private ManualClock manualClock;
@@ -137,6 +138,7 @@ public class FileFunctionTest {
     this.fs = fs;
     pkgRoot = Root.fromPath(fs.getPath("/root"));
     outputBase = fs.getPath("/output_base");
+    outputBaseRoot = Root.fromPath(outputBase);
     pkgLocator =
         new PathPackageLocator(
             outputBase,
@@ -180,7 +182,7 @@ public class FileFunctionTest {
                 .put(
                     FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
                     new FileSymlinkInfiniteExpansionUniquenessFunction())
-                .put(FileValue.FILE, new FileFunction(pkgLocatorRef))
+                .put(FileValue.FILE, new FileFunction(pkgLocatorRef, directories))
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(
@@ -441,18 +443,16 @@ public class FileFunctionTest {
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
     seenFiles.addAll(
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
-    Root root = Root.absoluteRoot(fs);
     assertThat(seenFiles)
         .containsExactly(
             rootedPath("WORKSPACE"),
             rootedPath("WORKSPACE.bazel"),
             rootedPath("a"),
             rootedPath(""),
-            RootedPath.toRootedPath(root, PathFragment.create("/")),
-            RootedPath.toRootedPath(root, PathFragment.create("/output_base")),
-            RootedPath.toRootedPath(root, PathFragment.create("/output_base/external")),
-            RootedPath.toRootedPath(root, PathFragment.create("/output_base/external/a")),
-            RootedPath.toRootedPath(root, PathFragment.create("/output_base/external/a/b")));
+            rootedPath("/output_base"),
+            rootedPath("/output_base/external"),
+            rootedPath("/output_base/external/a"),
+            rootedPath("/output_base/external/a/b"));
   }
 
   @Test
@@ -1775,13 +1775,12 @@ public class FileFunctionTest {
   }
 
   private RootedPath rootedPath(String pathString) {
-    Path path = path(pathString);
-    for (Root root : pkgLocator.getPathEntries()) {
-      if (root.contains(path)) {
-        return RootedPath.toRootedPath(root, path);
-      }
-    }
-    return RootedPath.toRootedPath(Root.absoluteRoot(fs), path);
+    ImmutableList<Root> roots =
+        ImmutableList.<Root>builder()
+            .addAll(pkgLocator.getPathEntries())
+            .add(outputBaseRoot)
+            .build();
+    return RootedPath.toRootedPathMaybeUnderRoot(path(pathString), roots);
   }
 
   private SkyKey skyKey(String pathString) {

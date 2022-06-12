@@ -251,6 +251,22 @@ public interface JavaCommonApi<
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class),
             }),
+        @Param(
+            name = "add_exports",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            doc = "Allow this library to access the given <module>/<package>. Optional."),
+        @Param(
+            name = "add_opens",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            doc =
+                "Allow this library to reflectively access the given <module>/<package>."
+                    + " Optional."),
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -280,6 +296,8 @@ public interface JavaCommonApi<
       Boolean enableJSpecify,
       boolean createOutputSourceJar,
       Object injectingRuleKind,
+      Sequence<?> addExports, // <String> expected.
+      Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

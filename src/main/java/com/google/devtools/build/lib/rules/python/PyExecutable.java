@@ -62,7 +62,8 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    CcInfo ccInfo = semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps"));
+    CcInfo ccInfo =
+        semantics.buildCcInfoProvider(ruleContext, ruleContext.getPrerequisites("deps"));
 
     Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics, ccInfo);
 

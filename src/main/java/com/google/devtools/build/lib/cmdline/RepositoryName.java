@@ -108,7 +108,7 @@ public final class RepositoryName {
     }
 
     try {
-      RepositoryName repoName = RepositoryName.create(path.getSegment(1));
+      RepositoryName repoName = create(path.getSegment(1));
       PathFragment subPath = path.subFragment(2);
       return Pair.of(repoName, subPath);
     } catch (LabelSyntaxException e) {
@@ -188,14 +188,13 @@ public final class RepositoryName {
   }
 
   /** Returns the repository name, with leading "{@literal @}". */
-  // TODO(bazel-team): Use this over toString()- easier to track its usage.
   public String getNameWithAt() {
     return name;
   }
 
   /**
-   * Returns the repository name with leading '@' except for the main repo, which is just the empty
-   * string.
+   * Returns the repository name with leading "{@literal @}" except for the main repo, which is just
+   * the empty string.
    */
   // TODO(bazel-team): Consider renaming to "getDefaultForm".
   public String getCanonicalForm() {

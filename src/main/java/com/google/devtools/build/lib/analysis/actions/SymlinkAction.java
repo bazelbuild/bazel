@@ -69,6 +69,11 @@ public final class SymlinkAction extends AbstractAction {
 
   private final TargetType targetType;
 
+  public static SymlinkAction toArtifact(
+      ActionOwner owner, Artifact input, Artifact output, String progressMessage) {
+    return toArtifact(owner, input, output, progressMessage, /*useExecRootForSource=*/ false);
+  }
+
   /**
    * Creates an action that creates a symlink pointing to an artifact.
    *
@@ -76,10 +81,24 @@ public final class SymlinkAction extends AbstractAction {
    * @param input the {@link Artifact} the symlink will point to
    * @param output the {@link Artifact} that will be created by executing this Action.
    * @param progressMessage the progress message.
+   * @param useExecRootForSource whether to link source artifacts to exec root as opposed to the
+   *     artifact itself. This indirection makes sure that the symlink is always in sync with exec
+   *     root, which could go out of sync with it when re-planting the symlink tree and the header
+   *     was unchanged.
    */
-  public static SymlinkAction toArtifact(ActionOwner owner, Artifact input, Artifact output,
-      String progressMessage) {
-    return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.OTHER);
+  public static SymlinkAction toArtifact(
+      ActionOwner owner,
+      Artifact input,
+      Artifact output,
+      String progressMessage,
+      boolean useExecRootForSource) {
+    return new SymlinkAction(
+        owner,
+        useExecRootForSource && input.isSourceArtifact() ? input.getExecPath() : null,
+        input,
+        output,
+        progressMessage,
+        TargetType.OTHER);
   }
 
   public static SymlinkAction toExecutable(

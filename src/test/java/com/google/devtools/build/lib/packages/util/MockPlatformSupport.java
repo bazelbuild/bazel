@@ -25,7 +25,6 @@ public class MockPlatformSupport {
   public static void setup(MockToolsConfig mockToolsConfig) throws IOException {
     setup(
         mockToolsConfig,
-        TestConstants.PLATFORM_PACKAGE_ROOT,
         TestConstants.PLATFORMS_PATH,
         TestConstants.CONSTRAINTS_PACKAGE_ROOT,
         TestConstants.CONSTRAINTS_PATH);
@@ -34,7 +33,6 @@ public class MockPlatformSupport {
   /** Adds mocks for basic host and target platform. */
   public static void setup(
       MockToolsConfig mockToolsConfig,
-      String platformPackageRoot,
       String platformsPath,
       String constraintsPackageRoot,
       String constraintsPath)

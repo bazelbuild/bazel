@@ -15,8 +15,7 @@
 """The implementation of the `java_proto_library` rule and its aspect."""
 
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
-load(":common/proto/providers.bzl", "ProtoLangToolchainInfo")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 
 java_common = _builtins.toplevel.java_common
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -80,7 +79,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
         JavaProtoAspectInfo(jars = depset(jars, transitive = transitive_jars)),
     ]
 
-def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], exports = []):
+def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], exports = [], injecting_rule_kind = "java_proto_library"):
     """Compiles Java source jar returned by proto compiler.
 
     Use this call for java_xxx_proto_library. It uses java_common.compile with
@@ -98,6 +97,8 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
       source_jar: (File) Input source jar (may be `None`).
       deps: (list[JavaInfo]) `deps` of the `proto_library`.
       exports: (list[JavaInfo]) `exports` of the `proto_library`.
+      injecting_rule_kind: (str) Rule kind requesting the compilation.
+        It's embedded into META-INF of the produced runtime jar, for debugging.
     Returns:
       ((JavaInfo, list[File])) JavaInfo of this target and list containing source
       and runtime jar, when they are created.
@@ -112,7 +113,7 @@ def java_compile_for_protos(ctx, output_jar_name, source_jar = None, deps = [], 
             exports = exports,
             output = output_jar,
             output_source_jar = source_jar,
-            injecting_rule_kind = "java_proto_library",
+            injecting_rule_kind = injecting_rule_kind,
             javac_opts = java_toolchain.compatible_javacopts("proto"),
             enable_jspecify = False,
             create_output_source_jar = False,

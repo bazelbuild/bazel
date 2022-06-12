@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg.SimpleVectorArg;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -35,6 +36,8 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,12 +46,9 @@ import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests for CustomCommandLine.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link CustomCommandLine}. */
+@RunWith(TestParameterInjector.class)
 public class CustomCommandLineTest {
   private ArtifactRoot rootDir;
   private Artifact artifact1;
@@ -63,18 +63,14 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testScalarAdds() throws Exception {
-    assertThat(builder().add("--arg").build().arguments()).containsExactly("--arg").inOrder();
-    assertThat(builder().addDynamicString("--arg").build().arguments())
-        .containsExactly("--arg")
-        .inOrder();
+  public void addScalar_addsSingleArgument() throws Exception {
+    assertThat(builder().add("--arg").build().arguments()).containsExactly("--arg");
+    assertThat(builder().addDynamicString("--arg").build().arguments()).containsExactly("--arg");
     assertThat(
             builder().addLabel(Label.parseAbsolute("//a:b", ImmutableMap.of())).build().arguments())
-        .containsExactly("//a:b")
-        .inOrder();
+        .containsExactly("//a:b");
     assertThat(builder().addPath(PathFragment.create("path")).build().arguments())
-        .containsExactly("path")
-        .inOrder();
+        .containsExactly("path");
     assertThat(builder().addExecPath(artifact1).build().arguments())
         .containsExactly("dir/file1.txt")
         .inOrder();
@@ -91,7 +87,10 @@ public class CustomCommandLineTest {
                 .arguments())
         .containsExactly("foo")
         .inOrder();
+  }
 
+  @Test
+  public void addScalar_withConstantArg_addsStringPrependedByArg() throws Exception {
     assertThat(builder().add("--arg", "val").build().arguments())
         .containsExactly("--arg", "val")
         .inOrder();
@@ -125,14 +124,14 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testAddFormatted() throws Exception {
+  public void addFormatted_addsCorrectlyFormattedArgument() throws Exception {
     assertThat(builder().addFormatted("%s%s", "hello", "world").build().arguments())
         .containsExactly("helloworld")
         .inOrder();
   }
 
   @Test
-  public void testAddPrefixed() throws Exception {
+  public void addPrefixed_addsPrefixForArguments() throws Exception {
     assertThat(builder().addPrefixed("prefix-", "foo").build().arguments())
         .containsExactly("prefix-foo")
         .inOrder();
@@ -153,7 +152,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testVectorAdds() throws Exception {
+  public void addAll_addsAllArguments() throws Exception {
     assertThat(builder().addAll(list("val1", "val2")).build().arguments())
         .containsExactly("val1", "val2")
         .inOrder();
@@ -180,21 +179,10 @@ public class CustomCommandLineTest {
     assertThat(builder().addExecPaths(nestedSet(artifact1, artifact2)).build().arguments())
         .containsExactly("dir/file1.txt", "dir/file2.txt")
         .inOrder();
-    assertThat(
-            builder()
-                .addAll(VectorArg.of(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("1", "2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(VectorArg.of(nestedSet(foo("1"), foo("2"))).mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("1", "2")
-        .inOrder();
+  }
 
+  @Test
+  public void vectorAdds_withCompileTimeArg_addsAllValuesPrependedByArg() throws Exception {
     assertThat(builder().addAll("--arg", list("val1", "val2")).build().arguments())
         .containsExactly("--arg", "val1", "val2")
         .inOrder();
@@ -222,539 +210,269 @@ public class CustomCommandLineTest {
     assertThat(builder().addExecPaths("--arg", nestedSet(artifact1, artifact2)).build().arguments())
         .containsExactly("--arg", "dir/file1.txt", "dir/file2.txt")
         .inOrder();
-    assertThat(
-            builder()
-                .addAll("--arg", VectorArg.of(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "1", "2")
+  }
+
+  private enum CustomCommandLineMode {
+    REGULAR {
+      @Override
+      CustomCommandLine addAll(VectorArg<String> vectorArg) {
+        return builder().addAll(vectorArg).build();
+      }
+
+      @Override
+      CustomCommandLine addPaths(VectorArg<PathFragment> vectorArg) {
+        return builder().addPaths(vectorArg).build();
+      }
+
+      @Override
+      CustomCommandLine addExecPaths(VectorArg<Artifact> vectorArg) {
+        return builder().addExecPaths(vectorArg).build();
+      }
+
+      @Override
+      ImmutableList<String> expected(String... values) {
+        return ImmutableList.copyOf(values);
+      }
+    },
+    WITH_CONSTANT_ARG {
+      @Override
+      CustomCommandLine addAll(VectorArg<String> vectorArg) {
+        return builder().addAll("--arg", vectorArg).build();
+      }
+
+      @Override
+      CustomCommandLine addPaths(VectorArg<PathFragment> vectorArg) {
+        return builder().addPaths("--arg", vectorArg).build();
+      }
+
+      @Override
+      CustomCommandLine addExecPaths(VectorArg<Artifact> vectorArg) {
+        return builder().addExecPaths("--arg", vectorArg).build();
+      }
+
+      @Override
+      ImmutableList<String> expected(String... values) {
+        return ImmutableList.<String>builderWithExpectedSize(values.length + 1)
+            .add("--arg")
+            .add(values)
+            .build();
+      }
+    };
+
+    abstract CustomCommandLine addAll(VectorArg<String> vectorArg);
+
+    abstract CustomCommandLine addPaths(VectorArg<PathFragment> vectorArg);
+
+    abstract CustomCommandLine addExecPaths(VectorArg<Artifact> vectorArg);
+
+    abstract ImmutableList<String> expected(String... values);
+  }
+
+  private enum VectorArgMode {
+    LIST {
+      @Override
+      <T> SimpleVectorArg<T> of(T... objects) {
+        return VectorArg.of(list(objects));
+      }
+
+      @Override
+      <T> SimpleVectorArg<T> each(VectorArg.Builder vectorArg, T... objects) {
+        return vectorArg.each(list(objects));
+      }
+    },
+    NESTED_SET {
+      @Override
+      <T> SimpleVectorArg<T> of(T... objects) {
+        return VectorArg.of(nestedSet(objects));
+      }
+
+      @Override
+      <T> SimpleVectorArg<T> each(VectorArg.Builder vectorArg, T... objects) {
+        return vectorArg.each(nestedSet(objects));
+      }
+    };
+
+    abstract <T> SimpleVectorArg<T> of(T... objects);
+
+    abstract <T> SimpleVectorArg<T> each(VectorArg.Builder vectorArg, T... objects);
+  }
+
+  @Test
+  public void addAllVector_addsAllArguments(
+      @TestParameter CustomCommandLineMode customCommandLine,
+      @TestParameter VectorArgMode vectorArg)
+      throws Exception {
+    assertThat(customCommandLine.addAll(vectorArg.of("1", "2")).arguments())
+        .containsExactlyElementsIn(customCommandLine.expected("1", "2"))
         .inOrder();
     assertThat(
-            builder()
-                .addAll(
-                    "--arg", VectorArg.of(nestedSet(foo("1"), foo("2"))).mapped(Foo::expandToStr))
-                .build()
+            customCommandLine
+                .addAll(vectorArg.of(foo("1"), foo("2")).mapped(Foo::expandToStr))
                 .arguments())
-        .containsExactly("--arg", "1", "2")
+        .containsExactlyElementsIn(customCommandLine.expected("1", "2"))
         .inOrder();
   }
 
   @Test
-  public void testAddJoined() throws Exception {
-    assertThat(builder().addAll(VectorArg.join(":").each(list("val1", "val2"))).build().arguments())
-        .containsExactly("val1:val2")
-        .inOrder();
+  public void addJoinedVector_addsJoinedArguments(
+      @TestParameter CustomCommandLineMode customCommandLine,
+      @TestParameter VectorArgMode vectorArg)
+      throws Exception {
     assertThat(
-            builder()
-                .addAll(VectorArg.join(":").each(nestedSet("val1", "val2")))
-                .build()
+            customCommandLine
+                .addAll(vectorArg.each(VectorArg.join(":"), "val1", "val2"))
                 .arguments())
-        .containsExactly("val1:val2")
+        .containsExactlyElementsIn(customCommandLine.expected("val1:val2"))
         .inOrder();
     assertThat(
-            builder()
+            customCommandLine
                 .addPaths(
-                    VectorArg.join(":")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
+                    vectorArg.each(
+                        VectorArg.join(":"),
+                        PathFragment.create("path1"),
+                        PathFragment.create("path2")))
                 .arguments())
-        .containsExactly("path1:path2")
+        .containsExactlyElementsIn(customCommandLine.expected("path1:path2"))
         .inOrder();
     assertThat(
-            builder()
-                .addPaths(
-                    VectorArg.join(":")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
+            customCommandLine
+                .addExecPaths(vectorArg.each(VectorArg.join(":"), artifact1, artifact2))
                 .arguments())
-        .containsExactly("path1:path2")
+        .containsExactlyElementsIn(customCommandLine.expected("dir/file1.txt:dir/file2.txt"))
         .inOrder();
     assertThat(
-            builder()
-                .addExecPaths(VectorArg.join(":").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("dir/file1.txt:dir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(VectorArg.join(":").each(nestedSet(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("dir/file1.txt:dir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(VectorArg.join(":").each(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("1:2")
-        .inOrder();
-    assertThat(
-            builder()
+            customCommandLine
                 .addAll(
-                    VectorArg.join(":")
-                        .each(nestedSet(foo("1"), foo("2")))
+                    vectorArg
+                        .each(VectorArg.join(":"), foo("1"), foo("2"))
                         .mapped(Foo::expandToStr))
-                .build()
                 .arguments())
-        .containsExactly("1:2")
-        .inOrder();
-
-    assertThat(
-            builder()
-                .addAll("--arg", VectorArg.join(":").each(list("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "val1:val2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll("--arg", VectorArg.join(":").each(nestedSet("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "val1:val2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addPaths(
-                    "--arg",
-                    VectorArg.join(":")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "path1:path2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addPaths(
-                    "--arg",
-                    VectorArg.join(":")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "path1:path2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths("--arg", VectorArg.join(":").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "dir/file1.txt:dir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths("--arg", VectorArg.join(":").each(nestedSet(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "dir/file1.txt:dir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    "--arg",
-                    VectorArg.join(":").each(list(foo("1"), foo("2"))).mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "1:2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    "--arg",
-                    VectorArg.join(":")
-                        .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "1:2")
+        .containsExactlyElementsIn(customCommandLine.expected("1:2"))
         .inOrder();
   }
 
   @Test
-  public void testAddFormatEach() throws Exception {
+  public void addFormatEachVector_addsFormattedStrings(
+      @TestParameter CustomCommandLineMode customCommandLine,
+      @TestParameter VectorArgMode vectorArg)
+      throws Exception {
     assertThat(
-            builder()
-                .addAll(VectorArg.format("-D%s").each(list("val1", "val2")))
-                .build()
+            customCommandLine
+                .addAll(vectorArg.each(VectorArg.format("-D%s"), "val1", "val2"))
                 .arguments())
-        .containsExactly("-Dval1", "-Dval2")
+        .containsExactlyElementsIn(customCommandLine.expected("-Dval1", "-Dval2"))
         .inOrder();
     assertThat(
-            builder()
-                .addAll(VectorArg.format("-D%s").each(nestedSet("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("-Dval1", "-Dval2")
-        .inOrder();
-    assertThat(
-            builder()
+            customCommandLine
                 .addPaths(
-                    VectorArg.format("-D%s")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
+                    vectorArg.each(
+                        VectorArg.format("-D%s"),
+                        PathFragment.create("path1"),
+                        PathFragment.create("path2")))
                 .arguments())
-        .containsExactly("-Dpath1", "-Dpath2")
+        .containsExactlyElementsIn(customCommandLine.expected("-Dpath1", "-Dpath2"))
         .inOrder();
     assertThat(
-            builder()
-                .addPaths(
-                    VectorArg.format("-D%s")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
+            customCommandLine
+                .addExecPaths(vectorArg.each(VectorArg.format("-D%s"), artifact1, artifact2))
                 .arguments())
-        .containsExactly("-Dpath1", "-Dpath2")
+        .containsExactlyElementsIn(customCommandLine.expected("-Ddir/file1.txt", "-Ddir/file2.txt"))
         .inOrder();
     assertThat(
-            builder()
-                .addExecPaths(VectorArg.format("-D%s").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("-Ddir/file1.txt", "-Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(VectorArg.format("-D%s").each(nestedSet(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("-Ddir/file1.txt", "-Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
+            customCommandLine
                 .addAll(
-                    VectorArg.format("-D%s")
-                        .each(list(foo("1"), foo("2")))
+                    vectorArg
+                        .each(VectorArg.format("-D%s"), foo("1"), foo("2"))
                         .mapped(Foo::expandToStr))
-                .build()
                 .arguments())
-        .containsExactly("-D1", "-D2")
+        .containsExactlyElementsIn(customCommandLine.expected("-D1", "-D2"))
         .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    VectorArg.format("-D%s")
-                        .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("-D1", "-D2")
-        .inOrder();
+  }
 
+  @Test
+  public void addFormatEachJoinedVector_addsJoinedFormattedStrings(
+      @TestParameter CustomCommandLineMode customCommandLine,
+      @TestParameter VectorArgMode vectorArg)
+      throws Exception {
     assertThat(
-            builder()
-                .addAll("--arg", VectorArg.format("-D%s").each(list("val1", "val2")))
-                .build()
+            customCommandLine
+                .addAll(vectorArg.each(VectorArg.format("-D%s").join(":"), "val1", "val2"))
                 .arguments())
-        .containsExactly("--arg", "-Dval1", "-Dval2")
+        .containsExactlyElementsIn(customCommandLine.expected("-Dval1:-Dval2"))
         .inOrder();
     assertThat(
-            builder()
-                .addAll("--arg", VectorArg.format("-D%s").each(nestedSet("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Dval1", "-Dval2")
-        .inOrder();
-    assertThat(
-            builder()
+            customCommandLine
                 .addPaths(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
+                    vectorArg.each(
+                        VectorArg.format("-D%s").join(":"),
+                        PathFragment.create("path1"),
+                        PathFragment.create("path2")))
                 .arguments())
-        .containsExactly("--arg", "-Dpath1", "-Dpath2")
+        .containsExactlyElementsIn(customCommandLine.expected("-Dpath1:-Dpath2"))
         .inOrder();
     assertThat(
-            builder()
-                .addPaths(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Dpath1", "-Dpath2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths("--arg", VectorArg.format("-D%s").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Ddir/file1.txt", "-Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
+            customCommandLine
                 .addExecPaths(
-                    "--arg", VectorArg.format("-D%s").each(nestedSet(artifact1, artifact2)))
-                .build()
+                    vectorArg.each(VectorArg.format("-D%s").join(":"), artifact1, artifact2))
                 .arguments())
-        .containsExactly("--arg", "-Ddir/file1.txt", "-Ddir/file2.txt")
+        .containsExactlyElementsIn(customCommandLine.expected("-Ddir/file1.txt:-Ddir/file2.txt"))
         .inOrder();
     assertThat(
-            builder()
+            customCommandLine
                 .addAll(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .each(list(foo("1"), foo("2")))
+                    vectorArg
+                        .each(VectorArg.format("-D%s").join(":"), foo("1"), foo("2"))
                         .mapped(Foo::expandToStr))
-                .build()
                 .arguments())
-        .containsExactly("--arg", "-D1", "-D2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-D1", "-D2")
+        .containsExactlyElementsIn(customCommandLine.expected("-D1:-D2"))
         .inOrder();
   }
 
   @Test
-  public void testAddFormatEachJoined() throws Exception {
+  public void addBeforeEachVector_addsArgumentsEachPrependedWithArg(
+      @TestParameter CustomCommandLineMode customCommandLine,
+      @TestParameter VectorArgMode vectorArg)
+      throws Exception {
     assertThat(
-            builder()
-                .addAll(VectorArg.format("-D%s").join(":").each(list("val1", "val2")))
-                .build()
+            customCommandLine
+                .addAll(vectorArg.each(VectorArg.addBefore("-D"), "val1", "val2"))
                 .arguments())
-        .containsExactly("-Dval1:-Dval2")
+        .containsExactlyElementsIn(customCommandLine.expected("-D", "val1", "-D", "val2"))
         .inOrder();
     assertThat(
-            builder()
-                .addAll(VectorArg.format("-D%s").join(":").each(nestedSet("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("-Dval1:-Dval2")
-        .inOrder();
-    assertThat(
-            builder()
+            customCommandLine
                 .addPaths(
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
+                    vectorArg.each(
+                        VectorArg.addBefore("-D"),
+                        PathFragment.create("path1"),
+                        PathFragment.create("path2")))
                 .arguments())
-        .containsExactly("-Dpath1:-Dpath2")
+        .containsExactlyElementsIn(customCommandLine.expected("-D", "path1", "-D", "path2"))
         .inOrder();
     assertThat(
-            builder()
-                .addPaths(
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
+            customCommandLine
+                .addExecPaths(vectorArg.each(VectorArg.addBefore("-D"), artifact1, artifact2))
                 .arguments())
-        .containsExactly("-Dpath1:-Dpath2")
+        .containsExactlyElementsIn(
+            customCommandLine.expected("-D", "dir/file1.txt", "-D", "dir/file2.txt"))
         .inOrder();
     assertThat(
-            builder()
-                .addExecPaths(VectorArg.format("-D%s").join(":").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("-Ddir/file1.txt:-Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(
-                    VectorArg.format("-D%s").join(":").each(nestedSet(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("-Ddir/file1.txt:-Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
+            customCommandLine
                 .addAll(
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(list(foo("1"), foo("2")))
+                    vectorArg
+                        .each(VectorArg.addBefore("-D"), foo("1"), foo("2"))
                         .mapped(Foo::expandToStr))
-                .build()
                 .arguments())
-        .containsExactly("-D1:-D2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("-D1:-D2")
-        .inOrder();
-
-    assertThat(
-            builder()
-                .addAll("--arg", VectorArg.format("-D%s").join(":").each(list("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Dval1:-Dval2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll("--arg", VectorArg.format("-D%s").join(":").each(nestedSet("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Dval1:-Dval2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addPaths(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Dpath1:-Dpath2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addPaths(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Dpath1:-Dpath2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(
-                    "--arg", VectorArg.format("-D%s").join(":").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Ddir/file1.txt:-Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(
-                    "--arg",
-                    VectorArg.format("-D%s").join(":").each(nestedSet(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-Ddir/file1.txt:-Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(list(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-D1:-D2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    "--arg",
-                    VectorArg.format("-D%s")
-                        .join(":")
-                        .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("--arg", "-D1:-D2")
+        .containsExactlyElementsIn(customCommandLine.expected("-D", "1", "-D", "2"))
         .inOrder();
   }
 
   @Test
-  public void testAddBeforeEach() throws Exception {
+  public void addBeforeEachFormattedVector_addsFormattedStringsPrependedWithArg(
+      @TestParameter VectorArgMode vectorArg) throws Exception {
     assertThat(
             builder()
-                .addAll(VectorArg.addBefore("-D").each(list("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("-D", "val1", "-D", "val2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(VectorArg.addBefore("-D").each(nestedSet("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("-D", "val1", "-D", "val2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addPaths(
-                    VectorArg.addBefore("-D")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("-D", "path1", "-D", "path2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addPaths(
-                    VectorArg.addBefore("-D")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("-D", "path1", "-D", "path2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(VectorArg.addBefore("-D").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("-D", "dir/file1.txt", "-D", "dir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(VectorArg.addBefore("-D").each(nestedSet(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("-D", "dir/file1.txt", "-D", "dir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    VectorArg.addBefore("-D")
-                        .each(list(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("-D", "1", "-D", "2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    VectorArg.addBefore("-D")
-                        .each(nestedSet(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("-D", "1", "-D", "2")
-        .inOrder();
-  }
-
-  @Test
-  public void testAddBeforeEachFormatted() throws Exception {
-    assertThat(
-            builder()
-                .addAll(VectorArg.addBefore("-D").format("D%s").each(list("val1", "val2")))
-                .build()
-                .arguments())
-        .containsExactly("-D", "Dval1", "-D", "Dval2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(VectorArg.addBefore("-D").format("D%s").each(nestedSet("val1", "val2")))
+                .addAll(vectorArg.each(VectorArg.addBefore("-D").format("D%s"), "val1", "val2"))
                 .build()
                 .arguments())
         .containsExactly("-D", "Dval1", "-D", "Dval2")
@@ -762,20 +480,10 @@ public class CustomCommandLineTest {
     assertThat(
             builder()
                 .addPaths(
-                    VectorArg.addBefore("-D")
-                        .format("D%s")
-                        .each(list(PathFragment.create("path1"), PathFragment.create("path2"))))
-                .build()
-                .arguments())
-        .containsExactly("-D", "Dpath1", "-D", "Dpath2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addPaths(
-                    VectorArg.addBefore("-D")
-                        .format("D%s")
-                        .each(
-                            nestedSet(PathFragment.create("path1"), PathFragment.create("path2"))))
+                    vectorArg.each(
+                        VectorArg.addBefore("-D").format("D%s"),
+                        PathFragment.create("path1"),
+                        PathFragment.create("path2")))
                 .build()
                 .arguments())
         .containsExactly("-D", "Dpath1", "-D", "Dpath2")
@@ -783,15 +491,7 @@ public class CustomCommandLineTest {
     assertThat(
             builder()
                 .addExecPaths(
-                    VectorArg.addBefore("-D").format("D%s").each(list(artifact1, artifact2)))
-                .build()
-                .arguments())
-        .containsExactly("-D", "Ddir/file1.txt", "-D", "Ddir/file2.txt")
-        .inOrder();
-    assertThat(
-            builder()
-                .addExecPaths(
-                    VectorArg.addBefore("-D").format("D%s").each(nestedSet(artifact1, artifact2)))
+                    vectorArg.each(VectorArg.addBefore("-D").format("D%s"), artifact1, artifact2))
                 .build()
                 .arguments())
         .containsExactly("-D", "Ddir/file1.txt", "-D", "Ddir/file2.txt")
@@ -799,20 +499,8 @@ public class CustomCommandLineTest {
     assertThat(
             builder()
                 .addAll(
-                    VectorArg.addBefore("-D")
-                        .format("D%s")
-                        .each(list(foo("1"), foo("2")))
-                        .mapped(Foo::expandToStr))
-                .build()
-                .arguments())
-        .containsExactly("-D", "D1", "-D", "D2")
-        .inOrder();
-    assertThat(
-            builder()
-                .addAll(
-                    VectorArg.addBefore("-D")
-                        .format("D%s")
-                        .each(nestedSet(foo("1"), foo("2")))
+                    vectorArg
+                        .each(VectorArg.addBefore("-D").format("D%s"), foo("1"), foo("2"))
                         .mapped(Foo::expandToStr))
                 .build()
                 .arguments())
@@ -821,7 +509,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testCombinedArgs() throws Exception {
+  public void addCombinedArgs_addsAllArguments() throws Exception {
     CustomCommandLine cl =
         builder()
             .add("--arg")
@@ -836,7 +524,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testAddNulls() throws Exception {
+  public void addNulls_addsNothing() throws Exception {
     Artifact treeArtifact = createTreeArtifact("myTreeArtifact");
     assertThat(treeArtifact).isNotNull();
 
@@ -886,11 +574,13 @@ public class CustomCommandLineTest {
             .addAll("foo", VectorArg.of(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER)))
             .addPlaceholderTreeArtifactExecPath("foo", null)
             .build();
+
     assertThat(cl.arguments()).isEmpty();
   }
 
   @Test
-  public void testTreeFileArtifactExecPathArgs() throws Exception {
+  public void evaluateTreeFileArtifacts_replacesTreeArtifactsWithChildrenExecPaths()
+      throws Exception {
     SpecialArtifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
     SpecialArtifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
 
@@ -918,7 +608,8 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testTreeFileArtifactParentRelativePathArgs() throws Exception {
+  public void addAllMappedTreeFileArtifacts_mapToRelativePath_addsTreeFileRelativePaths()
+      throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact");
 
     TreeFileArtifact treeFileArtifactOne =
@@ -931,7 +622,7 @@ public class CustomCommandLineTest {
           try {
             args.accept(src.getTreeRelativePathString());
           } catch (EvalException e) {
-            new IllegalStateException("Unexpected EvalException thown.");
+            throw new IllegalStateException("Unexpected EvalException thown.", e);
           }
         };
 
@@ -949,7 +640,21 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testKeyComputation() throws Exception {
+  public void arguments_unsubstitutedTreeArtifactPlaceholder_fails() {
+    Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
+    Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
+
+    CustomCommandLine commandLineTemplate =
+        builder()
+            .addPlaceholderTreeArtifactExecPath("--argOne", treeArtifactOne)
+            .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
+            .build();
+
+    assertThrows(NullPointerException.class, commandLineTemplate::arguments);
+  }
+
+  @Test
+  public void addToFingerPrint_computesUniqueKeyForDifferentCommandLines() throws Exception {
     NestedSet<String> values = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
     ImmutableList<CustomCommandLine> commandLines =
         ImmutableList.<CustomCommandLine>builder()
@@ -983,20 +688,6 @@ public class CustomCommandLineTest {
                 Joiner.on(' ').join(commandLine.arguments())));
       }
     }
-  }
-
-  @Test
-  public void testTreeFileArtifactArgThrowWithoutSubstitution() {
-    Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
-    Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
-
-    CustomCommandLine commandLineTemplate =
-        builder()
-            .addPlaceholderTreeArtifactExecPath("--argOne", treeArtifactOne)
-            .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
-            .build();
-
-    assertThrows(NullPointerException.class, () -> commandLineTemplate.arguments());
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {

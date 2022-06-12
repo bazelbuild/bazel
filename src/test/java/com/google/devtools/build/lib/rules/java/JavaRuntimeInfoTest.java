@@ -33,14 +33,18 @@ public class JavaRuntimeInfoTest {
             PathFragment.create(""),
             PathFragment.create(""),
             PathFragment.create(""),
-            PathFragment.create(""));
+            PathFragment.create(""),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            null);
     JavaRuntimeInfo b =
         JavaRuntimeInfo.create(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             PathFragment.create(""),
             PathFragment.create(""),
             PathFragment.create(""),
-            PathFragment.create(""));
+            PathFragment.create(""),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            null);
 
     new EqualsTester().addEqualityGroup(a).addEqualityGroup(b).testEquals();
   }

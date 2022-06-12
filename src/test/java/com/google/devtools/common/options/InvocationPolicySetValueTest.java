@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.Se
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -162,7 +162,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   @Test
   public void setMultipleValuesForSingleValuedFlag_fails(@TestParameter Behavior behavior)
       throws Exception {
-    Assume.assumeTrue(behavior != Behavior.UNDEFINED);
+    assume().that(behavior).isNotEqualTo(Behavior.UNDEFINED);
     InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
     invocationPolicy
         .addFlagPoliciesBuilder()
@@ -507,7 +507,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
   @Test
   public void setFlagValueWithNoValue_fails(@TestParameter Behavior behavior) throws Exception {
-    Assume.assumeTrue(behavior != Behavior.UNDEFINED);
+    assume().that(behavior).isNotEqualTo(Behavior.UNDEFINED);
     InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
     invocationPolicy
         .addFlagPoliciesBuilder()
@@ -556,7 +556,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
   @Test
   public void enforce_policySettingConfig_fails(@TestParameter Behavior behavior) throws Exception {
-    Assume.assumeTrue(behavior != Behavior.UNDEFINED);
+    assume().that(behavior).isNotEqualTo(Behavior.UNDEFINED);
     InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
     invocationPolicy
         .addFlagPoliciesBuilder()
@@ -580,5 +580,24 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
                 + "  behavior: "
                 + behavior
                 + "\n");
+  }
+
+  @Test
+  public void enforce_setValueForNonexistentFlag_doesNothing(@TestParameter Behavior behavior)
+      throws Exception {
+    assume().that(behavior).isNotEqualTo(Behavior.UNDEFINED);
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
+        .setFlagName("nonexistent")
+        .getSetValueBuilder()
+        .setBehavior(behavior)
+        .addFlagValue("hello");
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+    parser.parse();
+
+    enforcer.enforce(parser);
+
+    assertThat(getTestOptions()).isEqualTo(Options.getDefaults(TestOptions.class));
   }
 }

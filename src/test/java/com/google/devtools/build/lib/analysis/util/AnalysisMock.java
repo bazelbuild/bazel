@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -44,8 +45,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -139,18 +138,17 @@ public abstract class AnalysisMock extends LoadingMock {
             ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER),
         SkyFunctions.MODULE_FILE,
-        new ModuleFileFunction(FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace()),
+        new ModuleFileFunction(
+            FakeRegistry.DEFAULT_FACTORY,
+            directories.getWorkspace(),
+            getBuiltinModules(directories)),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
         SkyFunctions.MODULE_EXTENSION_RESOLUTION,
-        new SkyFunction() {
-          @Override
-          public SkyValue compute(SkyKey skyKey, Environment env) {
-            // Dummy SkyFunction that returns nothing.
-            return ModuleExtensionResolutionValue.create(
-                ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
-          }
-        },
+        // Dummy SkyFunction that returns nothing.
+        (skyKey, env) ->
+            ModuleExtensionResolutionValue.create(
+                ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of()),
         CcSkyframeFdoSupportValue.SKYFUNCTION,
         new CcSkyframeFdoSupportFunction(directories));
   }
@@ -158,6 +156,10 @@ public abstract class AnalysisMock extends LoadingMock {
   // Allow subclasses to add extra repository functions.
   public abstract void addExtraRepositoryFunctions(
       ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
+
+  /** Returns the built-in modules. */
+  protected abstract ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+      BlazeDirectories directories);
 
   /**
    * Stub class for tests to extend in order to update a small amount of {@link AnalysisMock}
@@ -221,6 +223,12 @@ public abstract class AnalysisMock extends LoadingMock {
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
         BlazeDirectories directories) {
       return delegate.getSkyFunctions(directories);
+    }
+
+    @Override
+    protected ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+        BlazeDirectories directories) {
+      return delegate.getBuiltinModules(directories);
     }
 
     @Override

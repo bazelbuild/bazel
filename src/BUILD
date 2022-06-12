@@ -88,6 +88,7 @@ JAVA_TOOLS = [
     name = "embedded_tools" + suffix + "_srcs",
     srcs = JAVA_TOOLS + [
                "BUILD.tools",
+               "MODULE.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
                "//third_party/grpc:embedded_tools_srcs",

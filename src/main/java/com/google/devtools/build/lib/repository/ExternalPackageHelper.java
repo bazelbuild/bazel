@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.repository;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -42,30 +41,6 @@ public class ExternalPackageHelper {
   public ExternalPackageHelper(ImmutableList<BuildFileName> workspaceFilesByPriority) {
     Preconditions.checkArgument(!workspaceFilesByPriority.isEmpty());
     this.workspaceFilesByPriority = workspaceFilesByPriority;
-  }
-
-  /**
-   * Returns directories, that should not be symlinked under the execroot.
-   *
-   * <p>Searches for toplevel_output_directories calls in the WORKSPACE file, and gathers values of
-   * all "paths" attributes.
-   */
-  public ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(Environment env)
-      throws InterruptedException {
-    ImmutableSortedSet.Builder<String> builder = ImmutableSortedSet.naturalOrder();
-    WorkspaceFileValueProcessor gatherer =
-        workspaceFileValue -> {
-          ImmutableSortedSet<String> paths = workspaceFileValue.getDoNotSymlinkInExecrootPaths();
-          if (paths != null) {
-            builder.addAll(paths);
-          }
-          // Continue to read all the fragments.
-          return true;
-        };
-    if (!iterateWorkspaceFragments(env, gatherer)) {
-      return null;
-    }
-    return builder.build();
   }
 
   /** Uses a rule name to fetch the corresponding Rule from the external package. */

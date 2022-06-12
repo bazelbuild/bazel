@@ -83,8 +83,11 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
       }
     }
 
-    // Verify that all mandatory toolchain type requirements are present.
     ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains = toolchainsBuilder.buildOrThrow();
+
+    // Verify that all mandatory toolchain type requirements are present.
+    // TODO(b/232128775): Re-enable once aspect toolchain merging is fixed.
+    /*
     for (ToolchainTypeRequirement toolchainTypeRequirement :
         unloadedToolchainContext.toolchainTypes()) {
       if (toolchainTypeRequirement.mandatory()) {
@@ -96,6 +99,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         }
       }
     }
+     */
 
     return new AutoValue_ResolvedToolchainContext(
         // super:

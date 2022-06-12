@@ -103,12 +103,19 @@ public final class ActionInputHelper {
   }
 
   /**
-   * Expands middleman artifacts in a sequence of {@link ActionInput}s.
+   * Expands middleman and tree artifacts in a sequence of {@link ActionInput}s.
    *
-   * <p>Non-middleman artifacts are returned untouched.
+   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
+   * is true, a tree artifact will be included in the constructed list when it expands into zero
+   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
+   * included.
+   *
+   * <p>Non-middleman, non-tree artifacts are returned untouched.
    */
   public static List<ActionInput> expandArtifacts(
-      NestedSet<? extends ActionInput> inputs, ArtifactExpander artifactExpander) {
+      NestedSet<? extends ActionInput> inputs,
+      ArtifactExpander artifactExpander,
+      boolean keepEmptyTreeArtifacts) {
     List<ActionInput> result = new ArrayList<>();
     List<Artifact> containedArtifacts = new ArrayList<>();
     for (ActionInput input : inputs.toList()) {
@@ -118,7 +125,8 @@ public final class ActionInputHelper {
       }
       containedArtifacts.add((Artifact) input);
     }
-    Artifact.addExpandedArtifacts(containedArtifacts, result, artifactExpander);
+    Artifact.addExpandedArtifacts(
+        containedArtifacts, result, artifactExpander, keepEmptyTreeArtifacts);
     return result;
   }
 

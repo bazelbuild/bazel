@@ -651,6 +651,7 @@ public final class CcLinkingHelper {
     Artifact linkedArtifact = getLinkedArtifact(linkTargetTypeUsedForNaming);
     CppLinkActionBuilder builder =
         newLinkActionBuilder(linkedArtifact, linkTargetTypeUsedForNaming)
+            .setMnemonic("CppArchive")
             .addObjectFiles(ccOutputs.getObjectFiles(usePic))
             .addLtoCompilationContext(ccOutputs.getLtoCompilationContext())
             .setUsePicForLtoBackendActions(usePic)

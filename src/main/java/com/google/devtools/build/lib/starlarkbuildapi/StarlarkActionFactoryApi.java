@@ -326,7 +326,12 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "List or depset of any tools needed by the action. Tools are inputs with "
                     + "additional runfiles that are automatically made available to the action. "
-                    + "The list can contain Files or FilesToRunProvider instances."),
+                    + "When a list is provided, it can be a heterogenous collection of "
+                    + "Files, FilesToRunProvider instances, or depsets of Files. Files which are "
+                    + "directly in the list and come from ctx.executable will have their runfiles "
+                    + "automatically added. When a depset is provided, it must contain only Files. "
+                    + "In both cases, files within depsets are not cross-referenced with "
+                    + "ctx.executable for runfiles."),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple

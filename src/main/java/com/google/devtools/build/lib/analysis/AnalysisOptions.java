@@ -64,19 +64,6 @@ public class AnalysisOptions extends OptionsBase {
   public int maxConfigChangesToShow;
 
   @Option(
-      name = "experimental_keep_config_nodes_on_analysis_discard",
-      // TODO(b/230646046): remove this flag once the "false" default value has settled in safely
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "When discarding the analysis cache due to a change in the build options, whether to"
-              + " keep the 'BuildConfigurationValue' nodes in the Skyframe graph. Keeping them"
-              + " uses additional memory but allows the `config` command to operate on configs"
-              + " from previous builds.")
-  public boolean keepConfigNodes;
-
-  @Option(
       name = "experimental_extra_action_filter",
       defaultValue = "",
       converter = RegexFilter.RegexFilterConverter.class,

@@ -187,7 +187,7 @@ public class LabelTest {
 
     Label relative = base.getRelativeWithRemapping("@//x:y", ImmutableMap.of());
 
-    assertThat(relative.getRepository()).isEqualTo(RepositoryName.create(""));
+    assertThat(relative.getRepository()).isEqualTo(RepositoryName.MAIN);
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
     assertThat(relative.getName()).isEqualTo("y");
   }

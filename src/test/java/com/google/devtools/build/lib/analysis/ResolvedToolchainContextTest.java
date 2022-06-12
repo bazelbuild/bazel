@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContextImpl;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -88,7 +89,9 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         .isEqualTo("baz");
   }
 
+  // TODO(b/232128775): Re-enable once aspect toolchain merging is fixed.
   @Test
+  @Ignore("b/232128775")
   public void load_mandatory_missing() throws Exception {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()

@@ -108,7 +108,7 @@ abstract class ArtifactFunctionTestCase {
                             new TimestampGranularityMonitor(BlazeClock.instance())),
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
-                .put(FileValue.FILE, new FileFunction(pkgLocator))
+                .put(FileValue.FILE, new FileFunction(pkgLocator, directories))
                 .put(
                     Artifact.ARTIFACT,
                     new ArtifactFunction(

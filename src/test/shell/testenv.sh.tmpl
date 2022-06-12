@@ -380,7 +380,7 @@ function setup_android_platforms() {
 platform(
     name = "simple",
     constraint_values = [
-        "@bazel_tools//platforms:android",
+        "@platforms//os:android",
         "@platforms//cpu:armv7",
     ],
 )

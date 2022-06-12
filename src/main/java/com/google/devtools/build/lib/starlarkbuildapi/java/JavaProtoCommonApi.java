@@ -69,18 +69,6 @@ public interface JavaProtoCommonApi<
   boolean hasProtoSources(TransitiveInfoCollectionT target);
 
   @StarlarkMethod(
-      name = "toolchain_deps",
-      allowReturnNones = true,
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = true, named = false, doc = "The rule context."),
-        @Param(name = "proto_toolchain_attr", positional = false, named = true)
-      })
-  @Nullable
-  JavaInfoApi<FileT, ?, ?> getRuntimeToolchainProvider(
-      StarlarkRuleContextT starlarkRuleContext, String protoToolchainAttr) throws EvalException;
-
-  @StarlarkMethod(
       name = "get_runtime",
       allowReturnNones = true,
       documented = false,

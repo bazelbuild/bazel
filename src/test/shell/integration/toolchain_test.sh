@@ -438,7 +438,7 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: no matching toolchains found for types //${pkg}/toolchain:test_toolchain"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
 }
 
 function test_multiple_toolchain_use_in_rule {
@@ -572,7 +572,7 @@ use_toolchains(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: no matching toolchains found for types //${pkg}/toolchain:test_toolchain_2"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain_2."
 }
 
 function test_toolchain_use_in_rule_non_required_toolchain {
@@ -692,6 +692,43 @@ EOF
     --aspects //${pkg}/toolchain:aspect_use_toolchain.bzl%use_toolchain \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from test_toolchain"'
+}
+
+function test_toolchain_use_in_aspect_with_output_file {
+  local -r pkg="${FUNCNAME[0]}"
+  write_test_toolchain "${pkg}"
+  write_test_aspect "${pkg}"
+  write_register_toolchain "${pkg}"
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/demo.bzl" <<EOF
+def _impl(ctx):
+    output = ctx.outputs.out
+    ctx.actions.write(output = output, content = ctx.attr.message)
+
+demo = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+        'out': attr.output(),
+    }
+)
+EOF
+  cat > "${pkg}/demo/BUILD" <<EOF
+load(':demo.bzl', 'demo')
+demo(
+    name = 'use',
+    message = 'bar from demo',
+    out = 'use.log',
+)
+EOF
+
+  # Also test aspects executing on an output file.
+  bazel build \
+    --aspects //${pkg}/toolchain:aspect_use_toolchain.bzl%use_toolchain \
+    "//${pkg}/demo:use.log" &> $TEST_log || fail "Build failed"
+  # TODO(b/232128775): Re-enable once aspect toolchain merging is fixed.
+  #expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from test_toolchain"'
 }
 
 function test_toolchain_use_in_aspect_non_required_toolchain {
@@ -827,7 +864,7 @@ EOF
     --host_platform="//${pkg}:platform1" \
     --platforms="//${pkg}:platform1" \
     "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: no matching toolchains found for types //${pkg}/toolchain:test_toolchain"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
   expect_not_log 'Using toolchain: rule message:'
 }
 

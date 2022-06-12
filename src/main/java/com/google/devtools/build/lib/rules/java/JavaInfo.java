@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -76,7 +77,8 @@ public final class JavaInfo extends NativeInfo
           JavaRuleOutputJarsProvider.class,
           JavaGenJarsProvider.class,
           JavaCompilationInfoProvider.class,
-          JavaCcInfoProvider.class);
+          JavaCcInfoProvider.class,
+          JavaModuleFlagsProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
@@ -403,6 +405,14 @@ public final class JavaInfo extends NativeInfo
   public CcInfoApi<Artifact> getCcLinkParamInfo() {
     JavaCcInfoProvider javaCcInfoProvider = getProvider(JavaCcInfoProvider.class);
     return javaCcInfoProvider != null ? javaCcInfoProvider.getCcInfo() : CcInfo.EMPTY;
+  }
+
+  @Override
+  public JavaModuleFlagsProviderApi getJavaModuleFlagsInfo() {
+    JavaModuleFlagsProvider javaModuleFlagsProvider = getProvider(JavaModuleFlagsProvider.class);
+    return javaModuleFlagsProvider == null
+        ? JavaModuleFlagsProvider.EMPTY
+        : javaModuleFlagsProvider;
   }
 
   @Override

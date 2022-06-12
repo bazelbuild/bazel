@@ -66,8 +66,6 @@ absl::Status BuildInfoTranslationHelper::ParseVersionFile(
   return BuildInfoTranslationHelper::ParseFile(version_file_path_, file_map);
 }
 
-BuildInfoTranslationHelper::~BuildInfoTranslationHelper() {}
-
 }  // namespace cpp
 }  // namespace tools
 }  // namespace bazel

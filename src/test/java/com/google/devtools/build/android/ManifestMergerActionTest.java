@@ -15,6 +15,7 @@ package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -90,6 +91,42 @@ public class ManifestMergerActionTest {
   @Before public void setup() throws Exception {
     working = Files.createTempDirectory(toString());
     working.toFile().deleteOnExit();
+  }
+
+  @Test
+  public void testMergeManifestWithBrokenManifestSyntax() throws Exception {
+    String dataDir =
+        Paths.get(System.getenv("TEST_WORKSPACE"), System.getenv("TEST_BINARY"))
+            .resolveSibling("testing/manifestmerge")
+            .toString()
+            .replace('\\', '/');
+    Files.createDirectories(working.resolve("output"));
+    final Path mergedManifest = working.resolve("output/mergedManifest.xml");
+    final Path brokenMergerManifest = rlocation(dataDir + "/brokenManifest/AndroidManifest.xml");
+    assertThat(brokenMergerManifest.toFile().exists()).isTrue();
+
+    AndroidManifestProcessor.ManifestProcessingException e =
+        assertThrows(
+            AndroidManifestProcessor.ManifestProcessingException.class,
+            () -> {
+              ManifestMergerAction.main(
+                  generateArgs(
+                          brokenMergerManifest,
+                          ImmutableMap.of(),
+                          false, /* isLibrary */
+                          ImmutableMap.of("applicationId", "com.google.android.apps.testapp"),
+                          "", /* custom_package */
+                          mergedManifest,
+                          false /* mergeManifestPermissions */)
+                      .toArray(new String[0]));
+            });
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "com.android.manifmerger.ManifestMerger2$MergeFailureException: "
+                + "org.xml.sax.SAXParseException; lineNumber: 6; columnNumber: 6; "
+                + "The markup in the document following the root element must be well-formed.");
+    assertThat(mergedManifest.toFile().exists()).isFalse();
   }
 
   @Test

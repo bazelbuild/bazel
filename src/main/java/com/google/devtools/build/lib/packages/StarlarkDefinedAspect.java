@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -135,7 +137,31 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   private static final ImmutableList<String> ALL_ATTR_ASPECTS = ImmutableList.of("*");
 
+  /**
+   * The <code>AspectDefinition</code> is a function of the aspect's definition + its parameters, so
+   * we can cache that.
+   *
+   * <p>StarlarkDefinedAspect key: Weak keys use reference comparison, so the values are freed when
+   * aspect's definition changes or when it's evicted from the skyframe.
+   *
+   * <p>AspectParameters key: parameters of Starlark aspects are combinatorially limited (only bool,
+   * int and enum types). Using strong keys possibly results in a small memory leak. Weak keys don't
+   * work because reference equality is used and AspectParameters are created per target.
+   */
+  private static final LoadingCache<
+          StarlarkDefinedAspect, LoadingCache<AspectParameters, AspectDefinition>>
+      definitionCache =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  starlarkDefinedAspect ->
+                      Caffeine.newBuilder().build(starlarkDefinedAspect::buildDefinition));
+
   public AspectDefinition getDefinition(AspectParameters aspectParams) {
+    return definitionCache.get(this).get(aspectParams);
+  }
+
+  private AspectDefinition buildDefinition(AspectParameters aspectParams) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(aspectClass);
     if (ALL_ATTR_ASPECTS.equals(attributeAspects)) {
       builder.propagateAlongAllAttributes();

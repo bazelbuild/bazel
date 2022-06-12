@@ -146,7 +146,7 @@ public class PackageLookupFunction implements SkyFunction {
       return "BUILD file not found in directory '"
           + packageKey.getPackageFragment()
           + "' of external repository "
-          + packageKey.getRepository()
+          + packageKey.getRepository().getNameWithAt()
           + ". "
           + educationalMessage;
     }

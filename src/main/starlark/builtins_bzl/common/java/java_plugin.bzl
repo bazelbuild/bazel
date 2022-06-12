@@ -33,7 +33,9 @@ def bazel_java_plugin_rule(
         resources = [],
         javacopts = [],
         neverlink = False,
-        proguard_specs = []):
+        proguard_specs = [],
+        add_exports = [],
+        add_opens = []):
     """Implements java_plugin rule.
 
     Use this call when you need to produce a fully fledged java_plugin from
@@ -52,6 +54,8 @@ def bazel_java_plugin_rule(
       javacopts: (list[str]) Extra compiler options for this library.
       neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
       proguard_specs: (list[File]) Files to be used as Proguard specification.
+      add_exports: (list[str]) Allow this library to access the given <module>/<package>.
+      add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
     Returns:
       (list[provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
@@ -69,6 +73,8 @@ def bazel_java_plugin_rule(
         javacopts,
         neverlink,
         proguard_specs = proguard_specs,
+        add_exports = add_exports,
+        add_opens = add_opens,
     )
     java_info = target.pop("JavaInfo")
 
@@ -102,6 +108,8 @@ def _proxy(ctx):
         ctx.attr.javacopts,
         ctx.attr.neverlink,
         ctx.files.proguard_specs,
+        ctx.attr.add_exports,
+        ctx.attr.add_opens,
     ).values()
 
 JAVA_PLUGIN_ATTRS = merge_attrs(

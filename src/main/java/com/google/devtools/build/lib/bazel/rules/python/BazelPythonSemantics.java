@@ -473,7 +473,8 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps) {
+  public CcInfo buildCcInfoProvider(
+      RuleContext ruleContext, Iterable<? extends TransitiveInfoCollection> deps) {
     ImmutableList<CcInfo> ccInfos =
         ImmutableList.<CcInfo>builder()
             .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))

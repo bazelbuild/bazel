@@ -620,6 +620,7 @@ public final class SkyframeBuildView {
       ImmutableMap<Label, Target> labelTargetMap,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableSet<Label> explicitTargetPatterns,
       EventBus eventBus,
       BugReporter bugReporter,
       boolean keepGoing,
@@ -651,6 +652,7 @@ public final class SkyframeBuildView {
               ctKey,
               topLevelArtifactContext,
               strictConflictCheck,
+              /*explicitlyRequested=*/ explicitTargetPatterns.contains(ctKey.getLabel()),
               determineTestType(
                   testsToRun,
                   labelTargetMap,
@@ -663,7 +665,10 @@ public final class SkyframeBuildView {
             .map(
                 k ->
                     BuildDriverKey.ofTopLevelAspect(
-                        k, topLevelArtifactContext, strictConflictCheck))
+                        k,
+                        topLevelArtifactContext,
+                        strictConflictCheck,
+                        /*explicitlyRequested=*/ explicitTargetPatterns.contains(k.getLabel())))
             .collect(Collectors.toList());
 
     try (SilentCloseable c =

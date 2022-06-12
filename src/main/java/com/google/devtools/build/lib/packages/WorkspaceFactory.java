@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -403,9 +402,5 @@ public class WorkspaceFactory {
 
   public Map<PathFragment, RepositoryName> getManagedDirectories() {
     return workspaceGlobals.getManagedDirectories();
-  }
-
-  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
-    return workspaceGlobals.getDoNotSymlinkInExecrootPaths();
   }
 }

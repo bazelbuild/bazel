@@ -124,13 +124,12 @@ public class DumpCommand implements BlazeCommand {
     public String starlarkMemory;
 
     @Option(
-      name = "skyframe",
-      defaultValue = "off",
-      converter = SkyframeDumpEnumConverter.class,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Dump Skyframe graph: 'off', 'summary', or 'detailed'."
-    )
+        name = "skyframe",
+        defaultValue = "off",
+        converter = SkyframeDumpEnumConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump Skyframe graph: 'off', 'summary', 'count', or 'detailed'.")
     public SkyframeDumpOption dumpSkyframe;
 
     @Option(
@@ -149,6 +148,7 @@ public class DumpCommand implements BlazeCommand {
   public enum SkyframeDumpOption {
     OFF,
     SUMMARY,
+    COUNT,
     DETAILED
   }
 
@@ -246,6 +246,9 @@ public class DumpCommand implements BlazeCommand {
           break;
         case SUMMARY:
           evaluator.dumpSummary(out);
+          break;
+        case COUNT:
+          evaluator.dumpCount(out);
           break;
         case DETAILED:
           evaluator.dumpDetailed(

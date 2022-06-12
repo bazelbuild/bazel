@@ -43,6 +43,15 @@ public final class TopLevelStatusEvents {
   }
 
   @AutoValue
+  abstract static class TopLevelTargetSkippedEvent implements ProgressLike {
+    abstract ConfiguredTarget configuredTarget();
+
+    static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetSkippedEvent(configuredTarget);
+    }
+  }
+
+  @AutoValue
   abstract static class TopLevelTargetBuiltEvent implements ProgressLike {
     abstract ConfiguredTargetKey configuredTargetKey();
 
@@ -58,10 +67,18 @@ public final class TopLevelStatusEvents {
 
     public abstract BuildConfigurationValue buildConfigurationValue();
 
+    public abstract boolean isSkipped();
+
     static TestAnalyzedEvent create(
         ConfiguredTarget configuredTarget, BuildConfigurationValue buildConfigurationValue) {
       return new AutoValue_TopLevelStatusEvents_TestAnalyzedEvent(
-          configuredTarget, buildConfigurationValue);
+          configuredTarget, buildConfigurationValue, /*isSkipped=*/ false);
+    }
+
+    static TestAnalyzedEvent createSkipped(
+        ConfiguredTarget configuredTarget, BuildConfigurationValue buildConfigurationValue) {
+      return new AutoValue_TopLevelStatusEvents_TestAnalyzedEvent(
+          configuredTarget, buildConfigurationValue, /*isSkipped=*/ true);
     }
   }
 

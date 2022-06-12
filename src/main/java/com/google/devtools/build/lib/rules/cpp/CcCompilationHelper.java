@@ -982,7 +982,8 @@ public final class CcCompilationHelper {
                 actionConstructionContext.getActionOwner(),
                 originalHeader,
                 virtualHeader,
-                "Symlinking virtual headers for " + label));
+                "Symlinking virtual headers for " + label,
+                /*useExecRootForSource=*/ true));
         moduleHeadersBuilder.add(virtualHeader);
         if (configuration.isCodeCoverageEnabled()) {
           virtualToOriginalHeaders.add(

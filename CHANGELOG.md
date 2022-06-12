@@ -1,3 +1,37 @@
+## Release 6.0.0-pre.20220421.3 (2022-05-03)
+
+```
+Baseline: 092884b0118f1b8b14ba2277851baa6dcce5cac2
+
+Cherry picks:
+
+   + 82861c3a6e9761af883b1f6c99eef27da28b3d00:
+     remove debug statement
+   + a5a4198b4bae3e10e30bf48083d037acce39aac3:
+     Automated rollback of commit
+     92d760b37722feffd5b1121e4f9a1152d8120946.
+```
+
+Important changes:
+
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather than always linking statically when Windows is
+    the _host_).
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather than always linking statically when Windows is
+    the _host_).
+  - Add devtools/build/lib/worker:work_request_handlers to the remote
+    android tools release package. This will be transitively packaged
+    into all_android_tools.
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - android_sdk_repository read $ANDROID_SDK_ROOT in addition to
+    $ANDROID_HOME.
+  - Advance android_tools_pkg version to 0.24.0.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Brandon Duffany, Daniel Wagner-Hall, Emil Kattainen, Fabian Meumertzheim, hvd, Keith Smiley, Tao Wang, Thomas Chen, ThomasCJY, Tom de Goede.
+
 ## Release 6.0.0-pre.20220414.2 (2022-04-26)
 
 ```

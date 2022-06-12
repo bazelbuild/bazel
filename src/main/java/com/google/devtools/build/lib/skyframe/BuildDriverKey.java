@@ -28,49 +28,46 @@ public final class BuildDriverKey implements SkyKey {
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final TestType testType;
   private final boolean strictActionConflictCheck;
-
-  public boolean isTopLevelAspectDriver() {
-    return isTopLevelAspectDriver;
-  }
-
-  private final boolean isTopLevelAspectDriver;
+  private final boolean explicitlyRequested;
 
   private BuildDriverKey(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
-      TestType testType,
-      boolean isTopLevelAspectDriver) {
+      boolean explicitlyRequested,
+      TestType testType) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.strictActionConflictCheck = strictActionConflictCheck;
     this.testType = testType;
-    this.isTopLevelAspectDriver = isTopLevelAspectDriver;
+    this.explicitlyRequested = explicitlyRequested;
   }
 
   public static BuildDriverKey ofTopLevelAspect(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
-      boolean strictActionConflictCheck) {
+      boolean strictActionConflictCheck,
+      boolean explicitlyRequested) {
     return new BuildDriverKey(
         actionLookupKey,
         topLevelArtifactContext,
         strictActionConflictCheck,
-        TestType.NOT_TEST,
-        /*isTopLevelAspectDriver=*/ true);
+        explicitlyRequested,
+        TestType.NOT_TEST);
   }
 
   public static BuildDriverKey ofConfiguredTarget(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
+      boolean explicitlyRequested,
       TestType testType) {
     return new BuildDriverKey(
         actionLookupKey,
         topLevelArtifactContext,
         strictActionConflictCheck,
-        testType,
-        /*isTopLevelAspectDriver=*/ false);
+        explicitlyRequested,
+        testType);
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -91,6 +88,10 @@ public final class BuildDriverKey implements SkyKey {
 
   public boolean strictActionConflictCheck() {
     return strictActionConflictCheck;
+  }
+
+  public boolean isExplicitlyRequested() {
+    return explicitlyRequested;
   }
 
   @Override

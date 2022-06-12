@@ -134,8 +134,10 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains package values for "@//foo" and "@//foo/foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph))
+    assertThat(exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo")), walkableGraph))
+        .isTrue();
+    assertThat(
+            exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo/foo")), walkableGraph))
         .isTrue();
 
     // But the graph does not contain a value for the target "@//foo/foo:foofoo".
@@ -175,10 +177,12 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a package value for "@//foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
+    assertThat(exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo")), walkableGraph))
+        .isTrue();
 
     // But no package value for "@//foo/foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph))
+    assertThat(
+            exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo/foo")), walkableGraph))
         .isFalse();
 
     // And the graph does not contain a value for the target "@//foo/foo:foofoo".

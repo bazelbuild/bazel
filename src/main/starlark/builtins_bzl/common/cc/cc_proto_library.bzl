@@ -44,8 +44,19 @@ def _rule_impl(ctx):
 
     return [cc_files_provider, files_provider, cc_info_provider]
 
+def _aspect_impl():
+    pass
+
+_cc_proto_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = ["deps"],
+    fragments = semantics.get_proto_fragments(),
+    required_providers = [ProtoInfo],
+    provides = [CcInfo],
+    attrs = semantics.get_proto_attrs(),
+)
+
 def _create_cc_proto_library_rule():
-    aspects = semantics.get_proto_aspects()
     return rule(
         output_to_genfiles = True,
         implementation = _rule_impl,
@@ -54,7 +65,7 @@ def _create_cc_proto_library_rule():
                 # aspects = [_cc_proto_aspect], todo(dbabkin): return aspet after fix b/123988498
                 # TODO(cmita): use Starlark aspect after b/145508948, or when proto_library
                 # doesn't need to propagate
-                aspects = aspects,
+                aspects = [_cc_proto_aspect],
                 allow_rules = ["proto_library"],
                 providers = [ProtoInfo, CcInfo],  # todo(dbabkin): remove CcInfo after fix b/123988498
             ),
