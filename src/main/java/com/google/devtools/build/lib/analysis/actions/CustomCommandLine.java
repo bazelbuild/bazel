@@ -66,7 +66,7 @@ public class CustomCommandLine extends CommandLine {
      * @param arguments The command line's argument vector.
      * @param argi The index of the next available argument.
      * @param builder The command line builder to which we should add arguments.
-     * @param stripOutputPaths Strip output path config prefixes? See {@link PathStripper}.
+     * @param pathStripper Logic for stripping output path config prefixes
      * @return The index of the next argument, after the ArgvFragment has consumed its args. If the
      *     ArgvFragment doesn't have any args, it should return {@code argi} unmodified.
      */
@@ -74,7 +74,7 @@ public class CustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        boolean stripOutputPaths)
+        PathStripper.CommandAdjuster pathStripper)
         throws CommandLineExpansionException, InterruptedException;
 
     int addToFingerprint(
@@ -96,7 +96,7 @@ public class CustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        boolean stripOutputPaths) {
+        PathStripper.CommandAdjuster pathStripper) {
       eval(builder);
       return argi; // Doesn't consume any arguments, so return argi unmodified
     }
@@ -369,13 +369,22 @@ public class CustomCommandLine extends CommandLine {
         this.hasJoinWith = hasJoinWith;
       }
 
+      private String expandToCommandLine(Object object, PathStripper.CommandAdjuster pathStripper) {
+        // It'd be nice to build this into DerivedArtifact's CommandLine interface so we don't have
+        // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
+        // a lot more dependencies on the Java library DerivedArtifact is built into.
+        return pathStripper != null && object instanceof DerivedArtifact
+            ? pathStripper.strip((DerivedArtifact) object)
+            : CommandLineItem.expandToCommandLine(object);
+      }
+
       @Override
       @SuppressWarnings("unchecked")
       public int eval(
           List<Object> arguments,
           int argi,
           ImmutableList.Builder<String> builder,
-          boolean stripOutputPaths)
+          PathStripper.CommandAdjuster pathStripper)
           throws CommandLineExpansionException, InterruptedException {
         final List<String> mutatedValues;
         CommandLineItem.MapFn<Object> mapFn =
@@ -391,7 +400,7 @@ public class CustomCommandLine extends CommandLine {
             }
           } else {
             for (Object object : list) {
-              mutatedValues.add(CommandLineItem.expandToCommandLine(object));
+              mutatedValues.add(expandToCommandLine(object, pathStripper));
             }
           }
         } else {
@@ -404,13 +413,7 @@ public class CustomCommandLine extends CommandLine {
             }
           } else {
             for (int i = 0; i < count; ++i) {
-              Object arg = arguments.get(argi++);
-              if (arg instanceof DerivedArtifact && stripOutputPaths) {
-                // This argument is an output file and the command line creator strips output paths.
-                mutatedValues.add(PathStripper.strip((DerivedArtifact) arg));
-              } else {
-                mutatedValues.add(CommandLineItem.expandToCommandLine(arg));
-              }
+              mutatedValues.add(expandToCommandLine(arguments.get(argi++), pathStripper));
             }
           }
         }
@@ -523,7 +526,7 @@ public class CustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        boolean stripOutputPaths) {
+        PathStripper.CommandAdjuster pathStripper) {
       int argCount = (Integer) arguments.get(argi++);
       String formatStr = (String) arguments.get(argi++);
       Object[] args = new Object[argCount];
@@ -568,7 +571,7 @@ public class CustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        boolean stripOutputPaths) {
+        PathStripper.CommandAdjuster pathStripper) {
       String before = (String) arguments.get(argi++);
       Object arg = arguments.get(argi++);
       builder.add(before + CommandLineItem.expandToCommandLine(arg));
@@ -1232,13 +1235,8 @@ public class CustomCommandLine extends CommandLine {
     this.substitutionMap = substitutionMap == null ? null : ImmutableMap.copyOf(substitutionMap);
   }
 
-  protected boolean stripOutputPaths() {
-    return false;
-  }
-
-  protected PathFragment getOutputRoot() {
-    throw new UnsupportedOperationException(
-        "This should only be called for PathStrippingCustomCommandLine");
+  protected PathStripper.CommandAdjuster getPathStripper() {
+    return PathStripper.CommandAdjuster.NOOP;
   }
 
   /**
@@ -1250,28 +1248,24 @@ public class CustomCommandLine extends CommandLine {
    * each one's memory footprint.
    */
   private static final class PathStrippingCustomCommandline extends CustomCommandLine {
-    // TODO(https://github.com/bazelbuild/bazel/issues/6526): outputRoot is just an indirect
-    // reference to "bazel-out". Java-heavy builds keep enough CustomCommandLine objects in memory
-    // such that each additional reference contributes observable extra memory on the host machine.
-    // Find a way to consolidate this into a single global reference.
-    private final PathFragment outputRoot;
+    private final PathStripper.CommandAdjuster pathStripper;
 
     private PathStrippingCustomCommandline(
         List<Object> arguments,
         Map<Artifact, TreeFileArtifact> substitutionMap,
         @Nullable PathFragment outputRoot) {
       super(arguments, substitutionMap);
-      this.outputRoot = outputRoot;
+      // TODO(https://github.com/bazelbuild/bazel/issues/6526): outputRoot is just an indirect
+      // reference to "bazel-out". Java-heavy builds keep enough CustomCommandLine objects in memory
+      // such that each additional reference contributes observable extra memory on the host
+      //  machine. Find a way to consolidate this into a single global reference.
+      this.pathStripper =
+          PathStripper.CommandAdjuster.create(/* stripOutputPaths= */ true, null, outputRoot);
     }
 
     @Override
-    protected boolean stripOutputPaths() {
-      return true;
-    }
-
-    @Override
-    protected PathFragment getOutputRoot() {
-      return outputRoot;
+    protected PathStripper.CommandAdjuster getPathStripper() {
+      return pathStripper;
     }
   }
 
@@ -1320,14 +1314,12 @@ public class CustomCommandLine extends CommandLine {
               (TreeArtifactExpansionArgvFragment) substitutedArg;
           expansionArg.eval(builder, artifactExpander);
         } else {
-          i = ((ArgvFragment) substitutedArg).eval(arguments, i, builder, stripOutputPaths());
+          i = ((ArgvFragment) substitutedArg).eval(arguments, i, builder, getPathStripper());
         }
-      } else if (substitutedArg instanceof DerivedArtifact && stripOutputPaths()) {
-        builder.add(PathStripper.strip((DerivedArtifact) substitutedArg));
-      } else if (substitutedArg instanceof PathFragment
-          && stripOutputPaths()
-          && PathStripper.isOutputPath((PathFragment) substitutedArg, getOutputRoot())) {
-        builder.add(PathStripper.strip(((PathFragment) substitutedArg)).getPathString());
+      } else if (substitutedArg instanceof DerivedArtifact) {
+        builder.add(getPathStripper().strip((DerivedArtifact) substitutedArg));
+      } else if (substitutedArg instanceof PathFragment) {
+        builder.add(getPathStripper().strip(((PathFragment) substitutedArg)).getPathString());
       } else {
         builder.add(CommandLineItem.expandToCommandLine(substitutedArg));
       }
@@ -1338,8 +1330,8 @@ public class CustomCommandLine extends CommandLine {
   private void evalSimpleVectorArg(Iterable<?> arg, ImmutableList.Builder<String> builder) {
     for (Object value : arg) {
       builder.add(
-          value instanceof DerivedArtifact && stripOutputPaths()
-              ? PathStripper.strip((DerivedArtifact) value)
+          value instanceof DerivedArtifact
+              ? getPathStripper().strip((DerivedArtifact) value)
               : CommandLineItem.expandToCommandLine(value));
     }
   }

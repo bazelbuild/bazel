@@ -20,11 +20,10 @@
 #include "googletest/include/gtest/gtest.h"
 
 TEST(OptionsTest, Flags1) {
-  const char *args[] = {"--exclude_build_data",
-                        "--compression",
-                        "--normalize",
-                        "--no_duplicates",
-                        "--output", "output_jar"};
+  const char *args[] = {
+      "--exclude_build_data", "--compression",     "--normalize",
+      "--no_duplicates",      "--output",          "output_jar",
+      "--hermetic_java_home", "hermetic_java_home"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -38,6 +37,7 @@ TEST(OptionsTest, Flags1) {
   EXPECT_FALSE(options.check_desugar_deps);
   EXPECT_FALSE(options.multi_release);
   EXPECT_EQ("output_jar", options.output_jar);
+  EXPECT_EQ("hermetic_java_home", options.hermetic_java_home);
 }
 
 TEST(OptionsTest, Flags2) {
@@ -60,6 +60,7 @@ TEST(OptionsTest, Flags2) {
   ASSERT_TRUE(options.warn_duplicate_resources);
   ASSERT_TRUE(options.check_desugar_deps);
   ASSERT_TRUE(options.multi_release);
+  EXPECT_EQ("", options.hermetic_java_home);
 }
 
 TEST(OptionsTest, SingleOptargs) {

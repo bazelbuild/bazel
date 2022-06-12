@@ -22,11 +22,11 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 
-/** A provider that holds debug outputs of an apple_binary target. */
+/** A provider that holds debug outputs of an Apple binary target. */
 @StarlarkBuiltin(
     name = "AppleDebugOutputs",
     category = DocCategory.PROVIDER,
-    doc = "A provider that holds debug outputs of an apple_binary target.")
+    doc = "A provider that holds debug outputs of an Apple binary target.")
 public interface AppleDebugOutputsApi<FileT extends FileApi> extends StructApi {
 
   @StarlarkMethod(

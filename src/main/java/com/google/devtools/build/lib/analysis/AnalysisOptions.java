@@ -65,7 +65,8 @@ public class AnalysisOptions extends OptionsBase {
 
   @Option(
       name = "experimental_keep_config_nodes_on_analysis_discard",
-      defaultValue = "true",
+      // TODO(b/230646046): remove this flag once the "false" default value has settled in safely
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =

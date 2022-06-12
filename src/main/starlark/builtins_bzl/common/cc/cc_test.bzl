@@ -45,6 +45,8 @@ _cc_test_attrs.update(
             "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
         ],
     ),
+    # Starlark tests don't get `env_inherit` by default.
+    env_inherit = attr.string_list(),
     stamp = attr.int(values = [-1, 0, 1], default = 0),
     linkstatic = attr.bool(default = False),
 )
@@ -55,7 +57,7 @@ _cc_test_attrs.update(semantics.get_coverage_attrs())
 def _cc_test_impl(ctx):
     binary_info, cc_info, providers = cc_binary_impl(ctx, [])
     test_env = {}
-    test_env.update(ctx.attr.env)
+    test_env.update(cc_helper.get_expanded_env(ctx, {}))
 
     coverage_runfiles, coverage_env = semantics.get_coverage_env(ctx)
 
@@ -67,18 +69,22 @@ def _cc_test_impl(ctx):
     runfiles = runfiles.merge_all(runfiles_list)
 
     test_env.update(coverage_env)
-    providers.append(testing.TestEnvironment(test_env))
+    providers.append(testing.TestEnvironment(
+        environment = test_env,
+        inherited_environment = ctx.attr.env_inherit,
+    ))
     providers.append(DefaultInfo(
         files = binary_info.files,
         runfiles = runfiles,
         executable = binary_info.executable,
     ))
-    return _handle_legacy_return(ctx, cc_info, providers)
 
-def _handle_legacy_return(ctx, cc_info, providers):
     if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
         # When built for Apple platforms, require the execution to be on a Mac.
         providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
+    return _handle_legacy_return(ctx, cc_info, providers)
+
+def _handle_legacy_return(ctx, cc_info, providers):
     if ctx.fragments.cpp.enable_legacy_cc_provider():
         # buildifier: disable=rule-impl-return
         return struct(
@@ -96,10 +102,12 @@ def _impl(ctx):
     cc_test_info = ctx.attr._test_toolchain.cc_test_info
 
     binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+    processed_environment = cc_helper.get_expanded_env(ctx, {})
 
     test_providers = cc_test_info.get_runner.func(
         ctx,
         binary_info,
+        processed_environment = processed_environment,
         **cc_test_info.get_runner.args
     )
     providers.extend(test_providers)

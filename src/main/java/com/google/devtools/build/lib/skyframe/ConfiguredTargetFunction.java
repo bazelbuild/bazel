@@ -428,8 +428,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
-              DependencyResolver.shouldUseToolchainTransition(
-                  targetAndConfiguration.getConfiguration(), targetAndConfiguration.getTarget()),
               ruleClassProvider,
               view.getHostConfiguration());
       if (!state.transitiveRootCauses.isEmpty()) {
@@ -818,11 +816,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           (UnloadedToolchainContext)
               values.getOrThrow(unloadedToolchainContextKey.getValue(), ToolchainException.class);
       if (valuesMissing != env.valuesMissing()) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "ToolchainContextValue "
-                    + unloadedToolchainContextKey.getValue()
-                    + " was missing, this should never happen"));
+        BugReport.logUnexpected(
+            "Value for: '%s' was missing, this should never happen",
+            unloadedToolchainContextKey.getValue());
         break;
       }
       if (!valuesMissing) {
@@ -895,7 +891,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-      boolean useToolchainTransition,
       RuleClassProvider ruleClassProvider,
       BuildConfigurationValue hostConfiguration)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
@@ -924,7 +919,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     aspects,
                     configConditions,
                     toolchainContexts,
-                    useToolchainTransition,
                     transitiveRootCauses,
                     ((ConfiguredRuleClassProvider) ruleClassProvider)
                         .getTrimmingTransitionFactory());

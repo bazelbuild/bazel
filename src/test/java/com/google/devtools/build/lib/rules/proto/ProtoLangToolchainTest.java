@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,8 +29,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Unit tests for {@code proto_lang_toolchain}. */
 @RunWith(JUnit4.class)
 public class ProtoLangToolchainTest extends BuildViewTestCase {
+
+  @Before
+  public void setupStarlarkRule() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-proto_lang_toolchain");
+  }
+
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setupWorkspace(scratch);
@@ -49,12 +55,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     TransitiveInfoCollection runtimes = toolchain.runtime();
     assertThat(runtimes.getLabel())
         .isEqualTo(Label.parseAbsolute("//third_party/x:runtime", ImmutableMap.of()));
-
-    assertThat(prettyArtifactNames(toolchain.forbiddenProtos()))
-        .containsExactly(
-            "third_party/x/metadata.proto",
-            "third_party/x/descriptor.proto",
-            "third_party/x/any.proto");
 
     assertThat(toolchain.protocOpts()).containsExactly("--myflag");
     Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
@@ -176,8 +176,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
-    assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
-    assertThat(toolchain.forbiddenProtos().toList()).isEmpty();
     assertThat(toolchain.mnemonic()).isEqualTo("GenProto");
   }
 }

@@ -206,4 +206,35 @@ function test_utf8_source_artifact_in_bep() {
   expect_log '"name":"pkg/srcs/ünïcödë fïlë.txt"'
 }
 
+function test_utf8_filename_in_java_test() {
+  # Intentionally do not check for available locales: Either C.UTF_8 or
+  # en_US.UTF-8 should exist on all CI machines - if not, we want to learn about
+  # this so that the Java stub template can be adapted accordingly.
+
+  touch WORKSPACE
+  mkdir pkg
+
+  cat >pkg/BUILD <<'EOF'
+java_test(
+    name = "Test",
+    srcs = ["Test.java"],
+    main_class = "Test",
+    use_testrunner = False,
+)
+EOF
+
+  cat >pkg/Test.java <<'EOF'
+import java.nio.file.Files;
+import java.io.IOException;
+
+class Test {
+    public static void main(String[] args) throws IOException {
+        Files.createTempFile("æøå", null);
+    }
+}
+EOF
+
+  bazel test //pkg:Test --test_output=errors 2>$TEST_log || fail "Test should pass"
+}
+
 run_suite "Tests for handling of Unicode filenames"

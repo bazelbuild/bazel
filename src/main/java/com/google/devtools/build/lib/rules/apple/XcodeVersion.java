@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the {@code xcode_version} rule.
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 public class XcodeVersion implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     XcodeVersionRuleData ruleData =

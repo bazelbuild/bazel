@@ -305,8 +305,7 @@ public class ExecutionOptions extends OptionsBase {
               + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
               + " by [-|*]<float> (eg. HOST_CPUS*.5 to use half the available CPU cores).By"
               + " default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate"
-              + " the number of CPU cores available. Note: This is a no-op if --local_resources is"
-              + " set.",
+              + " the number of CPU cores available.",
       converter = CpuResourceConverter.class)
   public float localCpuResources;
 
@@ -320,8 +319,7 @@ public class ExecutionOptions extends OptionsBase {
               + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
               + " followed by [-|*]<float> (eg. HOST_RAM*.5 to use half the available RAM). By"
               + " default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate"
-              + " the amount of RAM available and will use 67% of it. Note: This is a no-op if"
-              + " --local_resources is set.",
+              + " the amount of RAM available and will use 67% of it.",
       converter = RamResourceConverter.class)
   public float localRamResources;
 
@@ -419,7 +417,13 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      help =
+          "Log the executed spawns into this file as delimited Spawn protos, according to "
+              + "src/main/protobuf/spawn.proto. This file is written in order of the execution "
+              + "of the Spawns. Related flags:"
+              + " --execution_log_binary_file (ordered binary protobuf format),"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogFile;
 
   @Option(
@@ -430,9 +434,13 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as delimited Spawn protos. Related flags:"
-              + " --execution_log_json_file (text json format), --subcommands (for displaying"
-              + " subcommands in terminal output).")
+          "Log the executed spawns into this file as delimited Spawn protos, according to"
+              + " src/main/protobuf/spawn.proto. The log is first written unordered and is then,"
+              + " at the end of the invocation, sorted in a stable order (can be CPU and memory"
+              + " intensive). Related flags:"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
 
   @Option(
@@ -444,7 +452,11 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as json representation of the delimited Spawn"
-              + " protos. Related flags: --execution_log_binary_file (binary protobuf format),"
+              + " protos, according to src/main/protobuf/spawn.proto. The log is first written"
+              + " unordered and is then, at the end of the invocation, sorted in a stable order"
+              + " (can be CPU and memory intensive). Related flags:"
+              + " Related flags: --execution_log_binary_file (ordered binary protobuf format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
@@ -458,24 +470,6 @@ public class ExecutionOptions extends OptionsBase {
               + "Bazel uses a separate action to generate a dummy test.xml file containing the "
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
-
-  @Option(
-      name = "experimental_path_agnostic_action",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Setting this to an action's mnemonic declares that the action's output doesn't "
-              + "depend on its input or output paths. For example, "
-              + "\"mytool blaze-out/x86-fastbuild/input -o  bar/output\" produces the same output "
-              + "as \"mytool blaze-out/input -o baz/output\". The action executor may strip "
-              + "configuration prefixes from paths before running these actions to improve cache "
-              + "efficiency. For for example, \"blaze-out/k8-fastbuild/foo\" -> \"blaze-out/foo\". "
-              + "Be especially careful with actions that process debug symbol paths or manifest "
-              + "files.")
-  // TODO(bazel-team): merge this and --experimental_output_paths into a coherent final API.
-  public List<String> pathAgnosticActions;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {

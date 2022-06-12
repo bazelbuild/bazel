@@ -446,7 +446,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return lookupVariable(variable, /* throwOnMissingVariable= */ false, expander) != null;
     } catch (ExpansionException e) {
       throw new IllegalStateException(
-          "Should not happen - call to lookupVariable threw when asked not to.");
+          "Should not happen - call to lookupVariable threw when asked not to.", e);
     }
   }
 

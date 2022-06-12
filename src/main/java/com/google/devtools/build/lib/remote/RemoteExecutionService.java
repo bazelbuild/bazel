@@ -984,13 +984,21 @@ public class RemoteExecutionService {
             hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
 
     if (downloadOutputs) {
+      HashSet<PathFragment> queuedFilePaths = new HashSet<>();
+
       for (FileMetadata file : metadata.files()) {
-        downloadsBuilder.add(downloadFile(action, file));
+        PathFragment filePath = file.path().asFragment();
+        if (queuedFilePaths.add(filePath)) {
+          downloadsBuilder.add(downloadFile(action, file));
+        }
       }
 
       for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
         for (FileMetadata file : entry.getValue().files()) {
-          downloadsBuilder.add(downloadFile(action, file));
+          PathFragment filePath = file.path().asFragment();
+          if (queuedFilePaths.add(filePath)) {
+            downloadsBuilder.add(downloadFile(action, file));
+          }
         }
       }
     } else {
@@ -1119,7 +1127,9 @@ public class RemoteExecutionService {
               action.getCommand(),
               outputFiles.build(),
               action.getSpawnExecutionContext().getFileOutErr(),
-              spawnResult.exitCode());
+              spawnResult.exitCode(),
+              spawnResult.getStartTime(),
+              spawnResult.getWallTime());
         });
   }
 

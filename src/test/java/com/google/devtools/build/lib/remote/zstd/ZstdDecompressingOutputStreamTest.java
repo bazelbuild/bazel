@@ -34,9 +34,10 @@ public class ZstdDecompressingOutputStreamTest {
     byte[] compressed = Zstd.compress(data);
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ZstdDecompressingOutputStream zdos = new ZstdDecompressingOutputStream(baos);
-    zdos.write(compressed);
-    zdos.flush();
+    try (ZstdDecompressingOutputStream zdos = new ZstdDecompressingOutputStream(baos)) {
+      zdos.write(compressed);
+      zdos.flush();
+    }
 
     assertThat(baos.toByteArray()).isEqualTo(data);
   }

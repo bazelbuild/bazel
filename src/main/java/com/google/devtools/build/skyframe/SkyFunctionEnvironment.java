@@ -994,4 +994,10 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       return depKeys;
     }
   }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return maxTransitiveSourceVersion;
+  }
 }

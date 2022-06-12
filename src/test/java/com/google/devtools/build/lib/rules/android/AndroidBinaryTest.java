@@ -156,7 +156,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
           ")",
           "config_setting(",
           "    name = 'is_arm',",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm'],",
+          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
           ")",
           "android_library(",
           "    name = 'lib',",
@@ -223,7 +223,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
           "platform(",
           "    name = 'armeabi-v7a',",
           "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + "/android:armeabi-v7a'],",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm'],",
+          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
           ")");
       scratch.file(
           "/workspace/platform_mappings",
@@ -239,7 +239,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
           "flags:",
           "  --crosstool_top=//android/crosstool:everything",
           "  --cpu=armeabi-v7a",
-          "    //java/android/platforms:arm",
+          "    //java/android/platforms:armv7",
           "  --crosstool_top=//android/crosstool:everything",
           "  --cpu=x86",
           "    //java/android/platforms:x86");

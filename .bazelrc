@@ -1,14 +1,12 @@
 common --enable_platform_specific_config
 
 # Shared configuration flags to build and test Bazel on RBE.
-build:remote_shared --define=EXECUTOR=remote
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com
 build:remote_shared --remote_timeout=600
 build:remote_shared --google_default_credentials
 build:remote_shared --jobs=100
 build:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
-build:remote_shared --disk_cache=
 build:remote_shared --java_runtime_version=rbe_jdk
 build:remote_shared --tool_java_runtime_version=rbe_jdk
 # Workaround for singlejar incompatibility with RBE

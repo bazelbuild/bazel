@@ -63,7 +63,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       ```posix-terminal
       bazel clean
 
-      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_json_file=/tmp/exec1.json
+      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_binary_file=/tmp/exec1.log
       ```
 
    b. [Compare the execution logs](#compare-logs-the-execution-logs) between the
@@ -77,6 +77,11 @@ If you are not getting the cache hit rate you are expecting, do the following:
    If your action IDs are identical but there are no cache hits, then something
    in your configuration is preventing caching. Continue with this section to
    check for common problems.
+
+   If you do not need to diff execution logs, you can use the
+   human-readable `--execution_log_json_file` flag instead. It cannot be
+   used for stable diffing since it contains execution time and doesn't
+   guarantee ordering.
 
 5. Check that all actions in the execution log have `cacheable` set to true. If
    `cacheable` does not appear in the execution log for a give action, that
@@ -119,7 +124,7 @@ not happening across machines, do the following:
    ```posix-terminal
     bazel clean
 
-    bazel ... build ... --execution_log_json_file=/tmp/exec1.json
+    bazel ... build ... --execution_log_binary_file=/tmp/exec1.log
    ```
 
 3. Run the build on the second machine, ensuring the modification from step 1
@@ -128,7 +133,7 @@ not happening across machines, do the following:
    ```posix-terminal
     bazel clean
 
-    bazel ... build ... --execution_log_json_file=/tmp/exec2.json
+    bazel ... build ... --execution_log_binary_file=/tmp/exec2.log
    ```
 
 4. [Compare the execution logs](#compare-logs-the-execution-logs) for the two
@@ -147,8 +152,27 @@ logs are identical then so are the action cache keys.
 To compare logs for two builds that are not sharing cache hits as expected,
 do the folowing:
 
-1. Get the execution logs from each build and store them as `/tmp/exec1.json` and
-   `/tmp/exec2.json`.
+1. Get the execution logs from each build and store them as `/tmp/exec1.log` and
+   `/tmp/exec2.log`.
 
-2. Use your favourite text differ to diff `/tmp/exec1.json` and
-   `/tmp/exec2.json`.
+2. Download the Bazel source code and navigate to the Bazel folder by using
+    the command below. You need the source code to parse the
+    execution logs with the
+    [execlog parser](https://source.bazel.build/bazel/+/master:src/tools/execlog/).
+
+        git clone https://github.com/bazelbuild/bazel.git
+        cd bazel
+
+3. Use the execution log parser to convert the logs to text. The following
+   invocation also sorts the actions in the second log to match the action order
+   in the first log for ease of comparison.
+
+        bazel build src/tools/execlog:parser
+        bazel-bin/src/tools/execlog/parser \
+          --log_path=/tmp/exec1.log \
+          --log_path=/tmp/exec2.log \
+          --output_path=/tmp/exec1.log.txt \
+          --output_path=/tmp/exec2.log.txt
+
+4. Use your favourite text differ to diff `/tmp/exec1.log.txt` and
+   `/tmp/exec2.log.txt`.

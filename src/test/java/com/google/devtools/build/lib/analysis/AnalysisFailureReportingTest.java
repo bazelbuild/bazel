@@ -114,6 +114,31 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                     Code.BUILD_FILE_MISSING)));
   }
 
+  @Test
+  public void testExpanderFailure() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "genrule(",
+        "    name = 'bad',",
+        "    outs = ['bad.out'],",
+        "    cmd = 'cp $< $@',  # Error to use $< with no srcs",
+        ")");
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//test:bad");
+    assertThat(result.hasError()).isTrue();
+    Label topLevel = Label.parseAbsoluteUnchecked("//test:bad");
+    assertThat(collector.events.keySet()).containsExactly(topLevel);
+    assertThat(collector.events)
+        .valuesForKey(topLevel)
+        .containsExactly(
+            new AnalysisFailedCause(
+                topLevel,
+                toId(
+                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
+                        .getConfiguration()),
+                createAnalysisDetailedExitCode(
+                    "in cmd attribute of genrule rule //test:bad: variable '$<' : no input file")));
+  }
+
   /**
    * This error gets reported twice - once when we try to analyze the //cycles1 target, and the
    * other time when we analyze the //c target (which depends on //cycles1). This test checks that

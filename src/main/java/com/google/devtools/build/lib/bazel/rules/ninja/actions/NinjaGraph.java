@@ -53,6 +53,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Configured target factory for {@link NinjaGraphRule}. */
 public class NinjaGraph implements RuleConfiguredTargetFactory {
@@ -66,6 +67,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           NinjaGraph.class.getSimpleName());
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     if (!ruleContext

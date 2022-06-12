@@ -150,6 +150,18 @@ public class BuildEventServiceOptions extends OptionsBase {
               + " used to configure a Unix domain socket (unix:/path/to/socket).")
   public String besProxy;
 
+  @Option(
+      name = "bes_check_preceding_lifecycle_events",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Sets the field check_preceding_lifecycle_events_present on"
+              + " PublishBuildToolEventStreamRequest which tells BES to check whether it previously"
+              + " received InvocationAttemptStarted and BuildEnqueued events matching the current"
+              + " tool event.")
+  public boolean besCheckPrecedingLifecycleEvents;
+
   /** Determines the mode that will be used to upload data to the Build Event Service. */
   public enum BesUploadMode {
     /** Block at the end of the build waiting for the upload to complete */

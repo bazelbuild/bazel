@@ -181,4 +181,10 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   interface Informee {
     void inform() throws InterruptedException;
   }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return delegate.getMaxTransitiveSourceVersionSoFar();
+  }
 }

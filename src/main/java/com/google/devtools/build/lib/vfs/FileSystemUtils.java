@@ -687,8 +687,7 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes the specified String using the specified encoding to the file.
-   * Follows symbolic links.
+   * Writes the specified String using the specified encoding to the file. Follows symbolic links.
    *
    * @throws IOException if there was an error
    */
@@ -698,28 +697,26 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
+   * Writes the specified byte array to the output file. Follows symbolic links.
+   *
+   * @throws IOException if there was an error
+   */
+  public static void writeContent(Path outputFile, byte[] content) throws IOException {
+    asByteSink(outputFile).write(content);
+  }
+
+  /**
+   * Writes lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
    */
   @ThreadSafe // but not atomic
-  public static void writeLinesAs(Path file, Charset charset, String... lines)
-      throws IOException {
+  public static void writeLinesAs(Path file, Charset charset, String... lines) throws IOException {
     writeLinesAs(file, charset, Arrays.asList(lines));
   }
 
   /**
-   * Appends lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
-   */
-  @ThreadSafe // but not atomic
-  public static void appendLinesAs(Path file, Charset charset, String... lines)
-      throws IOException {
-    appendLinesAs(file, charset, Arrays.asList(lines));
-  }
-
-  /**
-   * Writes lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
+   * Writes lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
    */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
@@ -729,23 +726,23 @@ public class FileSystemUtils {
   }
 
   /**
-   * Appends lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
+   * Appends lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
+   */
+  @ThreadSafe // but not atomic
+  public static void appendLinesAs(Path file, Charset charset, String... lines) throws IOException {
+    appendLinesAs(file, charset, Arrays.asList(lines));
+  }
+
+  /**
+   * Appends lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
    */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     file.getParentDirectory().createDirectoryAndParents();
     asByteSink(file, true).asCharSink(charset).writeLines(lines);
-  }
-
-  /**
-   * Writes the specified byte array to the output file. Follows symbolic links.
-   *
-   * @throws IOException if there was an error
-   */
-  public static void writeContent(Path outputFile, byte[] content) throws IOException {
-    asByteSink(outputFile).write(content);
   }
 
   /**

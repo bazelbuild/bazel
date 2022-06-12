@@ -126,18 +126,6 @@ function test_java_tools_has_junitrunner() {
   expect_path_in_java_tools "src/java_tools/junitrunner/java/com/google/testing/junit/runner/util"
 }
 
-function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "jdk_compiler-src.jar"
-}
-
-function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_compiler-src.jar"
-}
-
-function test_java_tools_has_javac() {
-  expect_path_in_java_tools "javac-9+181-r4173-1.srcjar"
-}
-
 function test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-.*-sources.jar"
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.core-.*-sources.jar"

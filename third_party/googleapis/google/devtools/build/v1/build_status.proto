@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC.
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 syntax = "proto3";
 
 package google.devtools.build.v1;
 
-import "google/api/annotations.proto";
+import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
 
 option cc_enable_arenas = true;
@@ -25,7 +24,7 @@ option go_package = "google.golang.org/genproto/googleapis/devtools/build/v1;bui
 option java_multiple_files = true;
 option java_outer_classname = "BuildStatusProto";
 option java_package = "com.google.devtools.build.v1";
-
+option php_namespace = "Google\\Cloud\\Build\\V1";
 
 // Status used for both invocation attempt and overall build completion.
 message BuildStatus {
@@ -61,6 +60,14 @@ message BuildStatus {
 
   // The end result.
   Result result = 1;
+
+  // Final invocation ID of the build, if there was one.
+  // This field is only set on a status in BuildFinished event.
+  string final_invocation_id = 3;
+
+  // Build tool exit code. Integer value returned by the executed build tool.
+  // Might not be available in some cases, e.g., a build timeout.
+  google.protobuf.Int32Value build_tool_exit_code = 4;
 
   // Fine-grained diagnostic information to complement the status.
   google.protobuf.Any details = 2;

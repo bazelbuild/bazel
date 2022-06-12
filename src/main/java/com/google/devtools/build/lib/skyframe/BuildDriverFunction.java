@@ -24,12 +24,12 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
@@ -40,6 +40,10 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
@@ -58,20 +62,16 @@ import javax.annotation.Nullable;
 public class BuildDriverFunction implements SkyFunction {
   private final TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
-  private final Supplier<EventBus> eventBus;
 
   BuildDriverFunction(
       TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
-      Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
-      Supplier<EventBus> eventBus) {
+      Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder) {
     this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
-    this.eventBus = eventBus;
   }
 
   private static class State implements SkyKeyComputeState {
     private ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts;
-    private boolean sentTestAnalysisCompleteEvent = false;
   }
   /**
    * From the ConfiguredTarget/Aspect keys, get the top-level artifacts. Then evaluate them together
@@ -123,13 +123,10 @@ public class BuildDriverFunction implements SkyFunction {
         topLevelSkyValue instanceof ConfiguredTargetValue
             || topLevelSkyValue instanceof TopLevelAspectsValue);
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
+      ConfiguredTarget configuredTarget =
+          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget();
       requestConfiguredTargetExecution(
-          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget(),
-          buildDriverKey,
-          actionLookupKey,
-          env,
-          topLevelArtifactContext,
-          state);
+          configuredTarget, buildDriverKey, actionLookupKey, env, topLevelArtifactContext);
     } else {
       requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
     }
@@ -137,6 +134,8 @@ public class BuildDriverFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
+
+    // If we get to this point, the execution of this target/aspect succeeded.
 
     if (EXCLUSIVE.equals(buildDriverKey.getTestType())) {
       Preconditions.checkState(topLevelSkyValue instanceof ConfiguredTargetValue);
@@ -152,9 +151,9 @@ public class BuildDriverFunction implements SkyFunction {
       BuildDriverKey buildDriverKey,
       ActionLookupKey actionLookupKey,
       Environment env,
-      TopLevelArtifactContext topLevelArtifactContext,
-      State state)
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
+    env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
@@ -169,18 +168,14 @@ public class BuildDriverFunction implements SkyFunction {
       return;
     }
 
-    if (!state.sentTestAnalysisCompleteEvent) {
-      SkyValue buildConfigurationValue = env.getValue(configuredTarget.getConfigurationKey());
-      if (env.valuesMissing()) {
-        return;
-      }
-      eventBus
-          .get()
-          .post(
-              new TestAnalysisCompleteEvent(
-                  configuredTarget, (BuildConfigurationValue) buildConfigurationValue));
-      state.sentTestAnalysisCompleteEvent = true;
+    SkyValue buildConfigurationValue = env.getValue(configuredTarget.getConfigurationKey());
+    if (env.valuesMissing()) {
+      return;
     }
+    env.getListener()
+        .post(
+            TestAnalyzedEvent.create(
+                configuredTarget, (BuildConfigurationValue) buildConfigurationValue));
 
     if (PARALLEL.equals(buildDriverKey.getTestType())) {
       // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
@@ -209,15 +204,14 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
     for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
+      AspectKey aspectKey = ((AspectValue) aspectValue).getKey();
+      ConfiguredAspect configuredAspect = ((AspectValue) aspectValue).getConfiguredAspect();
       addExtraActionsIfRequested(
-          ((AspectValue) aspectValue)
-              .getConfiguredAspect()
-              .getProvider(ExtraActionArtifactsProvider.class),
-          artifactsToBuild);
-      aspectCompletionKeys.add(
-          AspectCompletionKey.create(
-              ((AspectValue) aspectValue).getKey(), topLevelArtifactContext));
+          configuredAspect.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+      aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
+
     declareDependenciesAndCheckValues(
         env, Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
   }

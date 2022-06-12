@@ -1,3 +1,47 @@
+## Release 6.0.0-pre.20220414.2 (2022-04-26)
+
+```
+Baseline: 6872fd230b7fe4a15fa900d16f6f9ddd5726cdc3
+
+Cherry picks:
+
+   + a603c2382ffcc49f344eee73dfcd65aa2332f64f:
+     Automated rollback of commit
+     b93f828133e74cb3589ba7ffcfe74d2fe72430cd.
+   + 6142eac9153b539661c43dada5e11b552a6f58f6:
+     Automated rollback of commit
+     314b0900cec69a9d017ab84e94ee1cc0b6782470.
+```
+
+Important changes:
+
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - Make ijar / java_import preserve classes with `@kotlin.Metadata`
+    annotations
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - android_sdk_repository read $ANDROID_SDK_ROOT in addition to
+    $ANDROID_HOME.
+
+This release contains contributions from many people at Google, as well as Alex Torok, gkorlam, hvadehra, Vasilios Pantazopoulos, Yannic.
+
+## Release 6.0.0-pre.20220411.2 (2022-04-19)
+
+```
+Baseline: 8f0034ce1e7854521e259a5eaf71859b1e6f95bc
+
+Cherry picks:
+
+   + a9465dfa4b124e331b8bb3e8d0219ea3dff7cdb1:
+     Automated rollback of commit
+     240af807c935225d98b630666000cc03934f2ce7.
+```
+
+Important changes:
+
+  - Allow specialization to work with constraint_values.
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, Keith Smiley, Noa Resare, Sahin Yort, Thomas Zayouna, Vasilios Pantazopoulos.
+
 ## Release 6.0.0-pre.20220407.1 (2022-04-14)
 
 ```

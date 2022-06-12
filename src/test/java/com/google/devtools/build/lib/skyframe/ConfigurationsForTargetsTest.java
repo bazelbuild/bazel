@@ -156,7 +156,6 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 toolchainContexts,
-                /*useToolchainTransition=*/ true,
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig());
         return env.valuesMissing() ? null : new Value(depMap);
