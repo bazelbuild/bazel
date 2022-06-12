@@ -88,6 +88,7 @@ java_test(
 
 java_test(
     name = "JavaStarlarkApiTest",
+    timeout = "long",
     srcs = ["JavaStarlarkApiTest.java"],
     deps = [
         ":java_compile_action_test_helper",

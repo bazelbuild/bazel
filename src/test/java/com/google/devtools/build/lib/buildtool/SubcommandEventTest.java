@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -39,8 +38,6 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
 
   @Before
   public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
-
     addOptions("--spawn_strategy=standalone");
   }
 

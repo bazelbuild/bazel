@@ -18,7 +18,6 @@ import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
-import com.google.devtools.build.lib.util.ProcessUtils;
 
 /** Info item for server_pid. */
 public final class ServerPidInfoItem extends InfoItem {
@@ -29,6 +28,6 @@ public final class ServerPidInfoItem extends InfoItem {
   @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
-    return print(ProcessUtils.getpid());
+    return print(ProcessHandle.current().pid());
   }
 }

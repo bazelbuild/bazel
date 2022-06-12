@@ -36,6 +36,9 @@ import java.util.Map;
 /**
  * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique {@link
  * WorkspaceStatusValue} and the constant {@link #BUILD_INFO_FACTORIES} injected value.
+ *
+ * <p>For more information, see {@link
+ * com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory}.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
 

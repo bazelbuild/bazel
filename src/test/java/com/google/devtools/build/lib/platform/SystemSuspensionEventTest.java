@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.ProcessUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -65,7 +64,7 @@ public final class SystemSuspensionEventTest extends BuildIntegrationTestCase {
           .append("genrule(name='signal', ")
           .append("outs=['signal.out'], ")
           .append("cmd='/bin/kill -s CONT ")
-          .append(ProcessUtils.getpid())
+          .append(ProcessHandle.current().pid())
           .append(" > $@')\n");
       write("system_suspension_event/BUILD", buildFile.toString());
       buildTarget("//system_suspension_event:signal");

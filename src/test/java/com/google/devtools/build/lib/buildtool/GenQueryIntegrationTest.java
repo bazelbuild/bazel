@@ -22,12 +22,10 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,11 +35,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
-
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
-  }
 
   @Test
   public void testDoesNotFailHorribly() throws Exception {

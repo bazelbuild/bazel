@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,11 +34,6 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Before
   public final void addNoBuildOption() throws Exception  {
     addOptions("--nobuild"); // Target enforcement happens before the execution phase.
-  }
-
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
   }
 
   private void writeEnvironmentRules(String... defaults) throws Exception {

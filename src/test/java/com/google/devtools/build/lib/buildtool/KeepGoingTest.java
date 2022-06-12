@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
@@ -43,7 +42,6 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
 
   @Before
   public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
     MockGenruleSupport.setup(mockToolsConfig);
   }
 

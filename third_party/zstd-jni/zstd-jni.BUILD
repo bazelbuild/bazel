@@ -18,6 +18,7 @@ cc_binary(
         "//conditions:default": [
             "-std=c99",
             "-Wno-unused-variable",
+            "-Wno-maybe-uninitialized",
             "-Wno-sometimes-uninitialized",
         ]
     }),

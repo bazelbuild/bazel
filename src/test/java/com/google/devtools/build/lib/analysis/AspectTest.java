@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectApplyingToFiles;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
+import com.google.devtools.build.lib.analysis.util.TestAspects.ExtraAttributeAspect;
 import com.google.devtools.build.lib.analysis.util.TestAspects.RuleInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -58,6 +61,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
@@ -901,6 +905,120 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectWithExtraAttribute_ignoredForOutputFile() throws Exception {
+    ExtraAttributeAspect aspect =
+        new ExtraAttributeAspect("//nonexistent", /*applyToFiles=*/ false);
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspect), ImmutableList.of());
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
+    AnalysisResult analysisResult =
+        update(new EventBus(), defaultFlags(), ImmutableList.of(aspect.getName()), "//a");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(configuredAspect.getProvider(ExtraAttributeAspect.Provider.class)).isNull();
+  }
+
+  @Test
+  public void aspectWithExtraAttributeApplyToFiles_outputFile_hasResolvedAttribute()
+      throws Exception {
+    ExtraAttributeAspect aspect = new ExtraAttributeAspect("//extra", /*applyToFiles=*/ true);
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(aspect), ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
+    scratch.file("extra/BUILD", "simple(name='extra')");
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
+    AnalysisResult analysisResult =
+        update(new EventBus(), defaultFlags(), ImmutableList.of(aspect.getName()), "//a");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    ExtraAttributeAspect.Provider provider =
+        configuredAspect.getProvider(ExtraAttributeAspect.Provider.class);
+    assertThat(provider.label()).isEqualTo("//extra:extra");
+  }
+
+  @Test
+  public void aspectWithExtraAttributeApplyToFiles_ignoredForSourceFile() throws Exception {
+    ExtraAttributeAspect aspect = new ExtraAttributeAspect("//nonexistent", /*applyToFiles=*/ true);
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspect), ImmutableList.of());
+    scratch.file("a/BUILD", "exports_files(['a.txt'])");
+    scratch.file("a/a.txt", "hello");
+
+    AnalysisResult analysisResult =
+        update(new EventBus(), defaultFlags(), ImmutableList.of(aspect.getName()), "//a:a.txt");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(configuredAspect.getProvider(ExtraAttributeAspect.Provider.class)).isNull();
+  }
+
+  @Test
+  public void aspectWithExtraAttributeApplyToFilesAndNot_outputFile_onlyApplyToFilesIsResolved()
+      throws Exception {
+    ExtraAttributeAspect aspectApplies =
+        new ExtraAttributeAspect("//extra", /*applyToFiles=*/ true);
+    ExtraAttributeAspect aspectDoesNotApply =
+        new ExtraAttributeAspect("//nonexistent", /*applyToFiles=*/ false);
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(aspectApplies, aspectDoesNotApply),
+        ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
+    scratch.file("extra/BUILD", "simple(name='extra')");
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplies.getName(), aspectDoesNotApply.getName()),
+            "//a");
+
+    assertThat(analysisResult.getAspectsMap()).hasSize(2);
+    ExtraAttributeAspect.Provider provider =
+        getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
+            .getProvider(ExtraAttributeAspect.Provider.class);
+    assertThat(provider.label()).isEqualTo("//extra:extra");
+    assertThat(
+            getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
+                .getProviders()
+                .getProviderCount())
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void aspectWithExtraAttributeDependsOnNotApplicable_usesAttributeFromDependentAspect()
+      throws Exception {
+    ExtraAttributeAspect aspectApplies =
+        new ExtraAttributeAspect(
+            "//extra", /*applyToFiles=*/ true, ExtraAttributeAspect.Provider.class);
+    ExtraAttributeAspect aspectDoesNotApply =
+        new ExtraAttributeAspect("//extra:extra2", /*applyToFiles=*/ false);
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(aspectApplies, aspectDoesNotApply),
+        ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
+    scratch.file("extra/BUILD", "simple(name='extra')", "simple(name='extra2')");
+    scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectDoesNotApply.getName(), aspectApplies.getName()),
+            "//a");
+
+    assertThat(analysisResult.getAspectsMap()).hasSize(2);
+    ExtraAttributeAspect.Provider provider =
+        getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
+            .getProvider(ExtraAttributeAspect.Provider.class);
+    assertThat(provider.label()).isEqualTo("//extra:extra2");
+    assertThat(
+            getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
+                .getProviders()
+                .getProviderCount())
+        .isEqualTo(0);
+  }
+
+  @Test
   public void sameConfiguredAttributeOnAspectAndRule() throws Exception {
     scratch.file(
         "a/a.bzl",
@@ -1296,5 +1414,13 @@ public class AspectTest extends AnalysisTestCase {
             Label.parseAbsolute("//aspect_hints:hints_counter.bzl", ImmutableMap.of()),
             "HintsCntInfo");
     return (StructImpl) configuredTarget.get(key);
+  }
+
+  private static ConfiguredAspect getAspectByName(
+      ImmutableMap<AspectKey, ConfiguredAspect> aspectMap, String name) {
+    return aspectMap.entrySet().stream()
+        .filter(e -> e.getKey().getAspectName().equals(name))
+        .map(Map.Entry::getValue)
+        .collect(onlyElement());
   }
 }

@@ -121,24 +121,6 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   @Rule public TemporaryFolder tmpFolder = new TemporaryFolder();
 
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
-    // TODO(b/195130137): move these calls to somewhere common.
-    write("embedded_tools/tools/cpp/cc_configure.bzl", "def cc_configure(**kwargs):", "  pass");
-
-    write("embedded_tools/tools/sh/BUILD");
-    write("embedded_tools/tools/sh/sh_configure.bzl", "def sh_configure(**kwargs):", "  pass");
-    write("embedded_tools/tools/osx/BUILD");
-    write(
-        "embedded_tools/tools/osx/xcode_configure.bzl",
-        "def xcode_configure(*args, **kwargs):", // no positional arguments for XCode
-        "  pass");
-    write("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
-
-    addOptions("--spawn_strategy=standalone");
-  }
-
   @Override
   protected BlazeModule getConnectivityModule() {
     return connectivityModule;

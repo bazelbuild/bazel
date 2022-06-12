@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -73,11 +72,6 @@ import org.w3c.dom.NodeList;
 public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private final CustomFileSystem fs = new CustomFileSystem();
   private final List<String> options = new ArrayList<>();
-
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
-  }
 
   @Override
   protected EventCollectionApparatus createEvents() {
