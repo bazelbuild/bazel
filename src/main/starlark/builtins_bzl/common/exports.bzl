@@ -16,14 +16,14 @@
 
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
-load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
+load("@_builtins//:common/cc/cc_test.bzl", cc_test = "cc_test_wrapper")
 load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "cc_shared_library", "cc_shared_library_permissions")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
-load("@_builtins//:common/proto/proto_common.bzl", "proto_common")
+load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
@@ -33,6 +33,7 @@ exported_toplevels = {
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
+    "proto_common_do_not_use": proto_common_do_not_use,
 }
 
 # A list of Starlarkified native rules.
@@ -58,6 +59,9 @@ exported_rules = {
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
-    "create_proto_compile_action": proto_common.create_proto_compile_action,
+    "proto_common_compile": proto_common_do_not_use.compile,
+    "proto_common_declare_generated_files": proto_common_do_not_use.declare_generated_files,
+    "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
+    "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
 }

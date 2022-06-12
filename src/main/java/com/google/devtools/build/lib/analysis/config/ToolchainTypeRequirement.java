@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkToolchainTypeRequirement;
 
@@ -31,6 +32,24 @@ public abstract class ToolchainTypeRequirement implements StarlarkToolchainTypeR
     return new AutoValue_ToolchainTypeRequirement.Builder()
         .toolchainType(toolchainType)
         .mandatory(true);
+  }
+
+  /**
+   * Returns the ToolchainTypeRequirement with the strictest restriction, or else the first.
+   * Mandatory toolchain type requirements are stricter than optional.
+   */
+  public static ToolchainTypeRequirement strictest(
+      ToolchainTypeRequirement first, ToolchainTypeRequirement second) {
+    Preconditions.checkArgument(
+        first.toolchainType().equals(second.toolchainType()),
+        "Cannot use strictest() for two instances with different type labels.");
+    if (first.mandatory()) {
+      return first;
+    }
+    if (second.mandatory()) {
+      return second;
+    }
+    return first;
   }
 
   /** Returns the label of the toolchain type that is requested. */

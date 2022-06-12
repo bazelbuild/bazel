@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -157,9 +158,6 @@ public final class SkyframeErrorProcessor {
       boolean includeExecutionPhase)
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
-    if (result.getCatastrophe() != null) {
-      rethrow(result.getCatastrophe(), bugReporter, result);
-    }
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
     // At this point, we consider the build to already have an analysis error, unless the error
@@ -338,6 +336,10 @@ public final class SkyframeErrorProcessor {
   private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
     if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
       return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
+    }
+    // For exclusive tests.
+    if (errorEntry.getKey().argument() instanceof TestCompletionKey) {
+      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey();
     }
     return errorEntry.getKey();
   }
@@ -574,7 +576,6 @@ public final class SkyframeErrorProcessor {
 
   /**
    * Figure out why an action's analysis/execution failed and rethrow the right kind of exception.
-   * At the moment, we don't expect any analysis failure to be catastrophic.
    */
   @VisibleForTesting
   static void rethrow(

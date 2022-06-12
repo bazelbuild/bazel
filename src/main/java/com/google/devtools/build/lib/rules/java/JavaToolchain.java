@@ -80,6 +80,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
+    Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
@@ -174,6 +175,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             oneVersion,
             oneVersionAllowlist,
             genClass,
+            depsChecker,
             resourceJarBuilder,
             timezoneData,
             ijar,

@@ -34,23 +34,23 @@ public class NoSuchPackageExceptionCodecTest {
   public void smoke() throws Exception {
     new SerializationTester(
             new BuildFileNotFoundException(
-                PackageIdentifier.create("@repo", PathFragment.create("foo")), "msg"),
+                PackageIdentifier.create("repo", PathFragment.create("foo")), "msg"),
             new BuildFileNotFoundException(
-                PackageIdentifier.create("@repo", PathFragment.create("foo")),
+                PackageIdentifier.create("repo", PathFragment.create("foo")),
                 "msg",
                 new IOException("bar")),
             new BuildFileContainsErrorsException(
-                PackageIdentifier.create("@repo", PathFragment.create("foo")), "msg"),
+                PackageIdentifier.create("repo", PathFragment.create("foo")), "msg"),
             new BuildFileContainsErrorsException(
-                PackageIdentifier.create("@repo", PathFragment.create("foo")),
+                PackageIdentifier.create("repo", PathFragment.create("foo")),
                 "msg",
                 new IOException("bar")),
             new InvalidPackageNameException(
-                PackageIdentifier.create("@repo", PathFragment.create("foo")), "msg"),
+                PackageIdentifier.create("repo", PathFragment.create("foo")), "msg"),
             new NoSuchPackageException(
-                PackageIdentifier.create("@repo", PathFragment.create("foo")), "msg"),
+                PackageIdentifier.create("repo", PathFragment.create("foo")), "msg"),
             new NoSuchPackageException(
-                PackageIdentifier.create("@repo", PathFragment.create("foo")),
+                PackageIdentifier.create("repo", PathFragment.create("foo")),
                 "msg",
                 new IOException("bar")))
         .setVerificationFunction(verifyDeserialization)

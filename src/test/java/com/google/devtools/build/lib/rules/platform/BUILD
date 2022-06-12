@@ -40,6 +40,7 @@ java_library(
     name = "testutil",
     srcs = TESTUTIL_SRCS,
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",

@@ -368,9 +368,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     modifiedFiles.set(0);
     numSourceFilesCheckedBecauseOfMissingDiffs = 0;
 
+    // Read the WORKSPACE file header, but only invalidate if tracking incremental state. Otherwise,
+    // this command started with a fresh graph already, and attempting to invalidate edgeless nodes
+    // results in a crash.
     boolean managedDirectoriesChanged =
         repositoryHelpersHolder != null && refreshWorkspaceHeader(eventHandler);
-    if (managedDirectoriesChanged) {
+    if (managedDirectoriesChanged && trackIncrementalState) {
       invalidateCachedWorkspacePathsStates();
     }
 

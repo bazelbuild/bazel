@@ -27,6 +27,7 @@ public class ManifestMergerActionBuilder {
   private Artifact manifest;
   private Map<Artifact, Label> mergeeManifests;
   private boolean isLibrary;
+  private boolean mergeManifestPermissions;
   private Map<String, String> manifestValues;
   private String customPackage;
   private Artifact manifestOutput;
@@ -44,6 +45,11 @@ public class ManifestMergerActionBuilder {
 
   public ManifestMergerActionBuilder setLibrary(boolean isLibrary) {
     this.isLibrary = isLibrary;
+    return this;
+  }
+
+  public ManifestMergerActionBuilder setMergeManifestPermissions(boolean mergeManifestPermissions) {
+    this.mergeManifestPermissions = mergeManifestPermissions;
     return this;
   }
 
@@ -78,6 +84,10 @@ public class ManifestMergerActionBuilder {
           mapToDictionaryString(
               mergeeManifests, Artifact::getExecPathString, /* valueConverter = */ null),
           mergeeManifests.keySet());
+    }
+
+    if (mergeManifestPermissions) {
+      builder.addFlag("--mergeManifestPermissions");
     }
 
     builder

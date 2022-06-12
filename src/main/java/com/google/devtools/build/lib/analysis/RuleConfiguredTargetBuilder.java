@@ -358,7 +358,7 @@ public final class RuleConfiguredTargetBuilder {
       Label rdeLabel =
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
       // only allow native and builtins to override transitive validation propagation
-      if (rdeLabel != null && !"@_builtins".equals(rdeLabel.getRepository().getName())) {
+      if (rdeLabel != null && !"@_builtins".equals(rdeLabel.getRepository().getNameWithAt())) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
       }

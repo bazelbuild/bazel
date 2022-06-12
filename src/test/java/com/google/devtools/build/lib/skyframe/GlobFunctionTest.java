@@ -656,6 +656,15 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
+  public void testDoubleStarPatternWithErrorChild() throws Exception {
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("self"), "self");
+
+    IOException ioException =
+        assertThrows(IOException.class, () -> runGlob("**/self", Operation.FILES));
+    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
+  }
+
+  @Test
   public void testDoubleStarPatternWithChildGlob() throws Exception {
     assertGlobMatches("**/ba*", "foo/bar", "foo/barnacle", "food/barnacle", "fool/barnacle");
   }

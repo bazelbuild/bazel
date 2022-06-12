@@ -22,7 +22,7 @@ These rules return a BuildSettingInfo with the value of the build setting.
 For label-typed settings, use the native label_flag and label_setting rules.
 
 More documentation on how to use build settings at
-https://docs.bazel.build/versions/main/skylark/config.html#user-defined-build-settings
+https://bazel.build/rules/config#user-defined-build-settings
 """
 
 BuildSettingInfo = provider(

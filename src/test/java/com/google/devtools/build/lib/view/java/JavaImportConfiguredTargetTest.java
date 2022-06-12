@@ -59,6 +59,13 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "java_import(name = 'libraryjar_with_srcjar',",
         "            jars = ['library.jar'],",
         "            srcjar = 'library.srcjar')");
+
+    scratch.overwriteFile(
+        "tools/allowlists/java_import_exports/BUILD",
+        "package_group(",
+        "    name = 'java_import_exports',",
+        "    packages = ['//...'],",
+        ")");
   }
 
   @Test
@@ -539,5 +546,18 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
                 .getTransitiveCompileTimeJars());
     assertThat(jars).doesNotContain("b-ijar.jar");
     assertThat(jars).contains("b.jar");
+  }
+
+  @Test
+  public void testExports() throws Exception {
+    useConfiguration("--incompatible_disallow_java_import_exports");
+    checkError(
+        "ugly",
+        "jar",
+        "java_import.exports is no longer supported; use java_import.deps instead",
+        "java_library(name = 'dep', srcs = ['dep.java'])",
+        "java_import(name = 'jar',",
+        "    jars = ['dummy.jar'],",
+        "    exports = [':dep'])");
   }
 }

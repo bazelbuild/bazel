@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.IterableSubject;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -50,7 +51,8 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
   public ConstraintValueInfo defaultedConstraint;
 
   public Label testToolchainTypeLabel;
-  public ToolchainTypeInfo testToolchainType;
+  public ToolchainTypeRequirement testToolchainType;
+  public ToolchainTypeInfo testToolchainTypeInfo;
 
   protected static IterableSubject assertToolchainLabels(
       RegisteredToolchainsValue registeredToolchainsValue) {
@@ -195,7 +197,8 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         "bar");
 
     testToolchainTypeLabel = Label.parseAbsoluteUnchecked("//toolchain:test_toolchain");
-    testToolchainType = ToolchainTypeInfo.create(testToolchainTypeLabel);
+    testToolchainType = ToolchainTypeRequirement.create(testToolchainTypeLabel);
+    testToolchainTypeInfo = ToolchainTypeInfo.create(testToolchainTypeLabel);
   }
 
   protected EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(

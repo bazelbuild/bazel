@@ -104,6 +104,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean experimentalEnableJspecify;
   private final boolean requireJavaPluginInfo;
   private final boolean multiReleaseDeployJars;
+  private final boolean disallowJavaImportExports;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -141,6 +142,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.limitAndroidLintToAndroidCompatible = javaOptions.limitAndroidLintToAndroidCompatible;
     this.requireJavaPluginInfo = javaOptions.requireJavaPluginInfo;
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
+    this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
     if (optimizers.size() > 1) {
@@ -347,6 +349,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return multiReleaseDeployJars;
   }
 
+  public boolean disallowJavaImportExports() {
+    return disallowJavaImportExports;
+  }
+
   @Override
   public String starlarkOneVersionEnforcementLevel() {
     return oneVersionEnforcementLevel().name();
@@ -380,6 +386,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return addTestSupportToCompileTimeDeps;
   }
 
+  @Override
   public boolean runAndroidLint() {
     return runAndroidLint;
   }

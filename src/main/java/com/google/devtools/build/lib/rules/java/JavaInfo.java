@@ -215,6 +215,7 @@ public final class JavaInfo extends NativeInfo
   /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
   // TODO(adonovan): rename these three overloads of getProvider to avoid
   // confusion with the unrelated no-arg Info.getProvider method.
+  @SuppressWarnings("UngroupedOverloads")
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     return providers.getProvider(providerClass);

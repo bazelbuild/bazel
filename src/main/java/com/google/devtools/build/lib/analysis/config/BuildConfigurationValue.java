@@ -442,7 +442,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public String getMainRepositoryName() {
-    return mainRepositoryName.strippedName();
+    return mainRepositoryName.getName();
   }
 
   /**
@@ -597,7 +597,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
     return stampBinaries();
@@ -677,7 +677,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
     return isToolConfiguration();

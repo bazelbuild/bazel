@@ -205,7 +205,11 @@ public class BuildTool {
           Set<AspectKey> builtAspects = new HashSet<>();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
+            executionTool.prepareForExecution(
+                request.getId(),
+                builtTargets,
+                builtAspects,
+                loadingResult.getNotSymlinkedInExecrootDirectories());
           }
 
           // TODO(b/199053098): implement support for --nobuild.

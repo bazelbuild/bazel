@@ -205,7 +205,10 @@ public final class JavaCompileActionBuilder {
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
-        ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
+        ruleContext
+            .getConfiguration()
+            .getActionEnvironment()
+            .withAdditionalFixedVariables(UTF8_ENVIRONMENT);
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     mandatoryInputsBuilder

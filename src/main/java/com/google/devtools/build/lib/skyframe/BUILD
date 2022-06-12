@@ -8,6 +8,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -88,7 +89,6 @@ java_library(
         ":action_input_map_helper",
         ":action_lookup_conflict_finding_value",
         ":action_metadata_handler",
-        ":action_rewind_strategy",
         ":action_template_expansion_function",
         ":action_template_expansion_value",
         ":action_utils",
@@ -128,6 +128,7 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
+        ":exclusive_test_build_driver_value",
         ":execution_finished_event",
         ":file_function",
         ":fileset_entry_function",
@@ -318,6 +319,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -491,35 +493,6 @@ java_library(
 )
 
 java_library(
-    name = "action_rewind_strategy",
-    srcs = [
-        "ActionRewindStrategy.java",
-        "ActionRewindingStats.java",
-    ],
-    deps = [
-        ":action_utils",
-        ":artifact_function",
-        ":artifact_nested_set_key",
-        ":skyframe_aware_action",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "action_template_expansion_function",
     srcs = ["ActionTemplateExpansionFunction.java"],
     deps = [
@@ -647,7 +620,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
@@ -881,6 +853,7 @@ java_library(
         ":build_driver_key",
         ":build_driver_value",
         ":configured_target_key",
+        ":exclusive_test_build_driver_value",
         ":incremental_artifact_conflict_finder",
         ":precomputed_value",
         ":target_completion_value",
@@ -1273,6 +1246,16 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "exclusive_test_build_driver_value",
+    srcs = ["ExclusiveTestBuildDriverValue.java"],
+    deps = [
+        ":build_driver_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 
@@ -1720,34 +1703,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "path_casing_lookup_function",
-    srcs = ["PathCasingLookupFunction.java"],
-    deps = [
-        ":directory_listing_value",
-        ":path_casing_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "path_casing_lookup_value",
-    srcs = ["PathCasingLookupValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
@@ -2249,6 +2204,7 @@ java_library(
         ":detailed_exceptions",
         ":sane_analysis_exception",
         ":sky_functions",
+        ":test_completion_value",
         ":top_level_conflict_exception",
         ":transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/actions",

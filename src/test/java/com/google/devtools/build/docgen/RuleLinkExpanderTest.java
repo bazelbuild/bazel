@@ -45,7 +45,9 @@ public class RuleLinkExpanderTest {
                 "make-variables",
                 "make-variables.html",
                 "common-definitions",
-                "common-definitions.html"));
+                "common-definitions.html",
+                "standalone",
+                "standalone.html"));
     multiPageExpander = new RuleLinkExpander(index, false, linkMap);
     singlePageExpander = new RuleLinkExpander(index, true, linkMap);
   }
@@ -112,13 +114,24 @@ public class RuleLinkExpanderTest {
         "<a href=\"#cc_binary_implicit_outputs\">args</a>");
   }
 
-  @Test public void testStaticPageRef() {
+  @Test
+  public void testStaticPageRef_pageReplacedBySinglePageBE() {
     checkExpandMulti(
         "<a href=\"${link common-definitions}\">Common Definitions</a>",
         "<a href=\"common-definitions.html\">Common Definitions</a>");
     checkExpandSingle(
         "<a href=\"${link common-definitions}\">Common Definitions</a>",
         "<a href=\"#common-definitions\">Common Definitions</a>");
+  }
+
+  @Test
+  public void testStaticPageRef_separatePage() {
+    checkExpandMulti(
+        "<a href=\"${link standalone}\">standalone</a>",
+        "<a href=\"standalone.html\">standalone</a>");
+    checkExpandSingle(
+        "<a href=\"${link standalone}\">standalone</a>",
+        "<a href=\"standalone.html\">standalone</a>");
   }
 
   @Test
@@ -150,13 +163,24 @@ public class RuleLinkExpanderTest {
         "<a href=\"#alwayslink_lib_example\">examples</a>");
   }
 
-  @Test public void testStaticPageHeadingLink() {
+  @Test
+  public void testStaticPageHeadingLink_pageReplacedBySinglePageBE() {
     checkExpandMulti(
         "<a href=\"${link make-variables#predefined_variables.genrule.cmd}\">genrule cmd</a>",
         "<a href=\"make-variables.html#predefined_variables.genrule.cmd\">genrule cmd</a>");
     checkExpandSingle(
         "<a href=\"${link make-variables#predefined_variables.genrule.cmd}\">genrule cmd</a>",
         "<a href=\"#predefined_variables.genrule.cmd\">genrule cmd</a>");
+  }
+
+  @Test
+  public void testStaticPageHeadingLink_separatePage() {
+    checkExpandMulti(
+        "<a href=\"${link standalone#foobar}\">standalone</a>",
+        "<a href=\"standalone.html#foobar\">standalone</a>");
+    checkExpandSingle(
+        "<a href=\"${link standalone#foobar}\">standalone</a>",
+        "<a href=\"standalone.html#foobar\">standalone</a>");
   }
 
   @Test public void testExpandRef() {

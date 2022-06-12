@@ -37,7 +37,7 @@ public class LabelConverterTest {
             currentRule,
             RepositoryMapping.createAllowingFallback(
                 ImmutableMap.of(
-                    RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"))),
+                    RepositoryName.create("orig_repo"), RepositoryName.create("new_repo"))),
             /* labelCache= */ new HashMap<>());
     Label label = BuildType.LABEL.convert("@orig_repo//foo:bar", null, context);
     assertThat(label)

@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeErrorProcessor.ErrorProces
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -98,6 +99,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -642,19 +644,8 @@ public final class SkyframeBuildView {
     }
 
     List<BuildDriverKey> buildDriverCTKeys = new ArrayList<>(/*initialCapacity=*/ ctKeys.size());
-    List<Label> exclusiveTestsLabels = new ArrayList<>();
 
     for (ConfiguredTargetKey ctKey : ctKeys) {
-      TestType testType =
-          determineTestType(
-              testsToRun,
-              labelTargetMap,
-              ctKey.getLabel(),
-              topLevelArtifactContext.runTestsExclusively());
-      if (TestType.EXCLUSIVE.equals(testType)) {
-        exclusiveTestsLabels.add(ctKey.getLabel());
-        continue;
-      }
       buildDriverCTKeys.add(
           BuildDriverKey.ofConfiguredTarget(
               ctKey,
@@ -667,14 +658,6 @@ public final class SkyframeBuildView {
                   topLevelArtifactContext.runTestsExclusively())));
     }
 
-    if (!exclusiveTestsLabels.isEmpty()) {
-      // TODO(b/223558573) Make exclusive tests work.
-      eventHandler.handle(
-          Event.warn(
-              "--experimental_merged_skyframe_analysis_execution is currently incompatible with"
-                  + " exclusive tests. The following exclusive tests won't be run: "
-                  + exclusiveTestsLabels));
-    }
     List<BuildDriverKey> buildDriverAspectKeys =
         topLevelAspectsKeys.stream()
             .map(
@@ -699,7 +682,37 @@ public final class SkyframeBuildView {
       skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
     }
 
-    if (!evaluationResult.hasError()) {
+    // The exclusive tests whose analysis succeeded i.e. those that can be run.
+    ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
+    boolean continueWithExclusiveTests = !evaluationResult.hasError() || keepGoing;
+    List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
+
+    if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
+      // Run exclusive tests sequentially.
+      Iterable<SkyKey> testCompletionKeys =
+          TestCompletionValue.keys(
+              exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
+      for (SkyKey testCompletionKey : testCompletionKeys) {
+        EvaluationResult<SkyValue> testRunResult =
+            skyframeExecutor.evaluateSkyKeys(
+                eventHandler, ImmutableSet.of(testCompletionKey), keepGoing);
+        if (testRunResult.hasError()) {
+          detailedExitCodes.add(
+              SkyframeErrorProcessor.processErrors(
+                      testRunResult,
+                      configurationLookupSupplier,
+                      skyframeExecutor.getCyclesReporter(),
+                      eventHandler,
+                      keepGoing,
+                      eventBus,
+                      bugReporter,
+                      /*includeExecutionPhase=*/ true)
+                  .executionDetailedExitCode());
+        }
+      }
+    }
+
+    if (!evaluationResult.hasError() && detailedExitCodes.isEmpty()) {
       Map<AspectKey, ConfiguredAspect> successfulAspects =
           getSuccessfulAspectMap(
               topLevelAspectsKeys.size(),
@@ -730,6 +743,7 @@ public final class SkyframeBuildView {
             eventBus,
             bugReporter,
             /*includeExecutionPhase=*/ true);
+    detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
 
     foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
     TopLevelActionConflictReport topLevelActionConflictReport =
@@ -763,7 +777,7 @@ public final class SkyframeBuildView {
         evaluationResult.getWalkableGraph(),
         ImmutableMap.copyOf(successfulAspects),
         /*packageRoots=*/ null,
-        errorProcessingResult.executionDetailedExitCode());
+        Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
   }
 
   /**
@@ -875,6 +889,18 @@ public final class SkyframeBuildView {
             failedCause.getDetailedExitCode().getFailureDetail(), conflictException);
       }
     }
+  }
+
+  private static ImmutableSet<ConfiguredTarget> getExclusiveTests(
+      EvaluationResult<BuildDriverValue> evaluationResult) {
+    ImmutableSet.Builder<ConfiguredTarget> exclusiveTests = ImmutableSet.builder();
+    for (BuildDriverValue value : evaluationResult.values()) {
+      if (value instanceof ExclusiveTestBuildDriverValue) {
+        exclusiveTests.add(
+            ((ExclusiveTestBuildDriverValue) value).getExclusiveTestConfiguredTarget());
+      }
+    }
+    return exclusiveTests.build();
   }
 
   private static TestType determineTestType(

@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
 import com.google.devtools.build.lib.rules.android.BaselineProfileProvider;
+import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
@@ -111,6 +112,7 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
@@ -290,6 +292,8 @@ public class BazelRuleClassProvider {
                   new StarlarkAspectStub(),
                   new ProviderStub());
           builder.addStarlarkBootstrap(bootstrap);
+          builder.addStarlarkBuiltinsInternal(
+              "ProtoLangToolchainInfo", ProtoLangToolchainProvider.PROVIDER);
         }
 
         @Override
@@ -338,6 +342,7 @@ public class BazelRuleClassProvider {
           RepositoryName toolsRepository = checkNotNull(builder.getToolsRepository());
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
+          builder.addConfigurationFragment(BazelAndroidConfiguration.class);
           builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();

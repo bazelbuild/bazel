@@ -174,7 +174,7 @@ issues.
 *   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team
     * Contact: [gregestren](https://github.com/gregestren){: .external}
 *   [`team-Core`](https://github.com/bazelbuild/bazel/labels/team-Core){: .external}: Issues for Core team
-    * Contact: [janakdr](https://github.com/janakdr){: .external}
+    * Contact: [haxorz](https://github.com/haxorz){: .external}
 *   [`team-Documentation`](https://github.com/bazelbuild/bazel/labels/team-Documentation){: .external}: Issues for Documentation team
     * Contact: [communikit](https://github.com/communikit){: .external}
 *   [`team-ExternalDeps`](https://github.com/bazelbuild/bazel/labels/team-ExternalDeps): External dependency handling, Bzlmod, remote repositories, WORKSPACE file

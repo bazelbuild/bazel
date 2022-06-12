@@ -345,6 +345,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -519,4 +520,22 @@ genrule(
           "zip -qr tmp.zip . && " +
           "popd && mv $(@D)/gen_docs/tmp.zip $@",
     visibility = ["//scripts/docs:__pkg__"],
+)
+
+genrule(
+    name = "gen_api_proto",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+    ],
+    outs = ["builtin.pb"],
+    cmd = (
+        "$(location //src/main/java/com/google/devtools/build/docgen:api_exporter)" +
+        " --output_file=$@" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
+        " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib"
+    ),
+    tools = [
+        "//src/main/java/com/google/devtools/build/docgen:api_exporter",
+    ],
 )

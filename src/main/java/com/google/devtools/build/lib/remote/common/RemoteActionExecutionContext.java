@@ -13,37 +13,71 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Spawn;
 import javax.annotation.Nullable;
 
 /** A context that provide remote execution related information for executing an action remotely. */
-public interface RemoteActionExecutionContext {
-  /** The type of the context. */
-  enum Type {
-    REMOTE_EXECUTION,
-    BUILD_EVENT_SERVICE,
+public class RemoteActionExecutionContext {
+  /** The current step of the context. */
+  public enum Step {
+    INIT,
+    CHECK_ACTION_CACHE,
+    UPLOAD_INPUTS,
+    EXECUTE_REMOTELY,
+    UPLOAD_OUTPUTS,
+    DOWNLOAD_OUTPUTS,
+    UPLOAD_BES_FILES,
   }
 
-  /** Returns the {@link Type} of the context. */
-  Type getType();
+  @Nullable private final Spawn spawn;
+  private final RequestMetadata requestMetadata;
+  private final NetworkTime networkTime;
+
+  @Nullable private ExecuteResponse executeResponse;
+  private Step step;
+
+  private RemoteActionExecutionContext(
+      @Nullable Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
+    this.spawn = spawn;
+    this.requestMetadata = requestMetadata;
+    this.networkTime = networkTime;
+    this.step = Step.INIT;
+  }
+
+  /** Returns current {@link Step} of the context. */
+  public Step getStep() {
+    return step;
+  }
+
+  /** Sets current {@link Step} of the context. */
+  public void setStep(Step step) {
+    this.step = step;
+  }
 
   /** Returns the {@link Spawn} of the action being executed or {@code null}. */
   @Nullable
-  Spawn getSpawn();
+  public Spawn getSpawn() {
+    return spawn;
+  }
 
   /** Returns the {@link RequestMetadata} for the action being executed. */
-  RequestMetadata getRequestMetadata();
+  public RequestMetadata getRequestMetadata() {
+    return requestMetadata;
+  }
 
   /**
    * Returns the {@link NetworkTime} instance used to measure the network time during the action
    * execution.
    */
-  NetworkTime getNetworkTime();
+  public NetworkTime getNetworkTime() {
+    return networkTime;
+  }
 
   @Nullable
-  default ActionExecutionMetadata getSpawnOwner() {
+  public ActionExecutionMetadata getSpawnOwner() {
     Spawn spawn = getSpawn();
     if (spawn == null) {
       return null;
@@ -52,23 +86,26 @@ public interface RemoteActionExecutionContext {
     return spawn.getResourceOwner();
   }
 
-  /** Creates a {@link SimpleRemoteActionExecutionContext} with given {@link RequestMetadata}. */
-  static RemoteActionExecutionContext create(RequestMetadata metadata) {
-    return new SimpleRemoteActionExecutionContext(
-        /*type=*/ Type.REMOTE_EXECUTION, /*spawn=*/ null, metadata, new NetworkTime());
+  public void setExecuteResponse(@Nullable ExecuteResponse executeResponse) {
+    this.executeResponse = executeResponse;
+  }
+
+  @Nullable
+  public ExecuteResponse getExecuteResponse() {
+    return executeResponse;
+  }
+
+  /** Creates a {@link RemoteActionExecutionContext} with given {@link RequestMetadata}. */
+  public static RemoteActionExecutionContext create(RequestMetadata metadata) {
+    return new RemoteActionExecutionContext(/*spawn=*/ null, metadata, new NetworkTime());
   }
 
   /**
-   * Creates a {@link SimpleRemoteActionExecutionContext} with given {@link Spawn} and {@link
+   * Creates a {@link RemoteActionExecutionContext} with given {@link Spawn} and {@link
    * RequestMetadata}.
    */
-  static RemoteActionExecutionContext create(@Nullable Spawn spawn, RequestMetadata metadata) {
-    return new SimpleRemoteActionExecutionContext(
-        /*type=*/ Type.REMOTE_EXECUTION, spawn, metadata, new NetworkTime());
-  }
-
-  static RemoteActionExecutionContext createForBES(RequestMetadata metadata) {
-    return new SimpleRemoteActionExecutionContext(
-        /*type=*/ Type.BUILD_EVENT_SERVICE, /*spawn=*/ null, metadata, new NetworkTime());
+  public static RemoteActionExecutionContext create(
+      @Nullable Spawn spawn, RequestMetadata metadata) {
+    return new RemoteActionExecutionContext(spawn, metadata, new NetworkTime());
   }
 }

@@ -91,6 +91,7 @@ public final class MockJ2ObjcSupport {
         "    visibility = ['//visibility:public'],",
         "    plugin = '//third_party/java/j2objc:proto_plugin',",
         "    runtime = '//third_party/java/j2objc:proto_runtime',",
+        "    progress_message = 'Generating j2objc proto_library %{label}',",
         ")",
         "exports_files([",
         "    'j2objc_deploy.jar',",
