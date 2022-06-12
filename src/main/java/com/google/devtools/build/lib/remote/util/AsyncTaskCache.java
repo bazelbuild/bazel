@@ -24,6 +24,7 @@ import io.reactivex.rxjava3.core.CompletableEmitter;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.functions.Action;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -256,14 +257,25 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   /**
    * Executes a task.
    *
+   * @see #execute(Object, Single, Action, boolean).
+   */
+  public Single<ValueT> execute(KeyT key, Single<ValueT> task, boolean force) {
+    return execute(key, task, () -> {}, force);
+  }
+
+  /**
+   * Executes a task. If the task has already finished, this execution of the task is ignored unless
+   * `force` is true. If the task is in progress this execution of the task is always ignored.
+   *
    * <p>If the cache is already shutdown, a {@link CancellationException} will be emitted.
    *
    * @param key identifies the task.
+   * @param onIgnored callback called when provided task is ignored.
    * @param force re-execute a finished task if set to {@code true}.
    * @return a {@link Single} which turns to completed once the task is finished or propagates the
    *     error if any.
    */
-  public Single<ValueT> execute(KeyT key, Single<ValueT> task, boolean force) {
+  public Single<ValueT> execute(KeyT key, Single<ValueT> task, Action onIgnored, boolean force) {
     return Single.create(
         emitter -> {
           synchronized (lock) {
@@ -273,14 +285,20 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             }
 
             if (!force && finished.containsKey(key)) {
+              onIgnored.run();
               emitter.onSuccess(finished.get(key));
               return;
             }
 
             finished.remove(key);
 
-            Execution execution =
-                inProgress.computeIfAbsent(key, ignoredKey -> new Execution(key, task));
+            Execution execution = inProgress.get(key);
+            if (execution != null) {
+              onIgnored.run();
+            } else {
+              execution = new Execution(key, task);
+              inProgress.put(key, execution);
+            }
 
             // We must subscribe the execution within the scope of lock to avoid race condition
             // that:
@@ -425,10 +443,15 @@ public final class AsyncTaskCache<KeyT, ValueT> {
           cache.executeIfNot(key, task.toSingleDefault(Optional.empty())));
     }
 
-    /** Same as {@link AsyncTaskCache#executeIfNot} but operates on {@link Completable}. */
+    /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
     public Completable execute(KeyT key, Completable task, boolean force) {
+      return execute(key, task, () -> {}, force);
+    }
+
+    /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
+    public Completable execute(KeyT key, Completable task, Action onIgnored, boolean force) {
       return Completable.fromSingle(
-          cache.execute(key, task.toSingleDefault(Optional.empty()), force));
+          cache.execute(key, task.toSingleDefault(Optional.empty()), onIgnored, force));
     }
 
     /** Returns a set of keys for tasks which is finished. */

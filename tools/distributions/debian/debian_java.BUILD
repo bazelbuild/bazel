@@ -452,3 +452,17 @@ java_import(
         "java/junit4.jar",
     ],
 )
+
+# libreactive-streams-java
+java_import(
+    name = "reactive_streams",
+    jars = ["reactive-streams.jar"],
+)
+
+# librx-java
+java_import(
+    name = "rxjava3",
+    jars = ["rxjava.jar"],
+    deps = [":reactive_streams"],
+)
+

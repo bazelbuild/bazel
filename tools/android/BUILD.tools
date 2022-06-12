@@ -68,7 +68,7 @@ alias(
     actual = select({
         "d8_incremental_dexing": ":d8_dexbuilder",
         "dx_incremental_dexing": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
-        "//conditions:default": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
+        "//conditions:default": ":d8_dexbuilder",
     }),
 )
 
@@ -105,7 +105,7 @@ alias(
     actual = select({
         "use_d8_dexmerger": ":d8_dexmerger",
         "use_dx_dexmerger": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
-        "//conditions:default": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
+        "//conditions:default": ":d8_dexmerger",
     }),
 )
 

@@ -145,6 +145,8 @@ class ManifestCombiner : public Combiner {
   }
   ~ManifestCombiner() override;
 
+  void EnableMultiRelease();
+
   void AppendLine(const std::string &line);
 
   bool Merge(const CDH *cdh, const LH *lh) override;

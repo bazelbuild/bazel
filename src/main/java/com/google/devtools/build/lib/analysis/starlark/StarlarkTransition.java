@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -146,8 +148,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /** Given a set of labels, return a set of their package {@link PackageValue.Key}s. */
-  public static ImmutableSet<PackageValue.Key> getPackageKeysFromLabels(
-      ImmutableSet<Label> buildSettings) {
+  public static ImmutableSet<PackageValue.Key> getPackageKeysFromLabels(Set<Label> buildSettings) {
     ImmutableSet.Builder<PackageValue.Key> keyBuilder = new ImmutableSet.Builder<>();
     for (Label setting : buildSettings) {
       keyBuilder.add(PackageValue.key(setting.getPackageIdentifier()));
@@ -216,15 +217,21 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         }
       }
       ImmutableSet<PackageValue.Key> packageKeys =
-          getPackageKeysFromLabels(ImmutableSet.copyOf(unverifiedBuildSettings));
-      Map<SkyKey, SkyValue> newlyLoaded = env.getValues(packageKeys);
+          getPackageKeysFromLabels(unverifiedBuildSettings);
+      SkyframeIterableResult newlyLoaded = env.getOrderedValuesAndExceptions(packageKeys);
       if (env.valuesMissing()) {
         return null;
       }
-      for (Map.Entry<SkyKey, SkyValue> buildSettingOrAliasPackage : newlyLoaded.entrySet()) {
-        buildSettingPackages.put(
-            (PackageValue.Key) buildSettingOrAliasPackage.getKey(),
-            (PackageValue) buildSettingOrAliasPackage.getValue());
+      for (SkyKey packageKey : packageKeys) {
+        SkyValue skyValue = newlyLoaded.next();
+        if (skyValue == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "PackageValue " + packageKey + " was missing, this should never happen"));
+
+          return null;
+        }
+        buildSettingPackages.put((PackageValue.Key) packageKey, (PackageValue) skyValue);
       }
       unverifiedBuildSettings =
           verifyBuildSettingsAndGetAliases(buildSettingPackages, unverifiedBuildSettings);

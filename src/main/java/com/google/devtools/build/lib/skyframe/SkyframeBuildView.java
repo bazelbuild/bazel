@@ -372,6 +372,7 @@ public final class SkyframeBuildView {
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
+      BugReporter bugReporter,
       boolean keepGoing,
       int numThreads,
       boolean strictConflictChecks,
@@ -489,7 +490,8 @@ public final class SkyframeBuildView {
             skyframeExecutor.getCyclesReporter(),
             eventHandler,
             keepGoing,
-            eventBus);
+            eventBus,
+            bugReporter);
 
     ViewCreationFailedException noKeepGoingExceptionDueToConflict = null;
     // Sometimes there are action conflicts, but the actions aren't actually required to run by the

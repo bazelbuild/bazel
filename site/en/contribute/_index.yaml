@@ -1,0 +1,76 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+
+title: Contribute
+landing_page:
+  nav: left
+  rows:
+  - background: BAZEL_THEME
+    options:
+    - hero
+    - description-50
+    - no-image-background
+    - padding-large
+    items:
+    - image_path: "/images/placeholder_960.png"
+      heading: Contributing to Bazel
+      description: >
+        Be a part of the community by helping to improve the Bazel open source project.
+
+  - options:
+    - cards
+    background: grey
+    items:
+    - heading: Contributors' guide
+      classname: fully-clickable
+      path: /contribute/guide
+      description: >
+        Discover how you can provide feedback, participate in the community, or write code for the Bazel project.
+      icon:
+        name: info
+        position: top
+    - heading: Getting started
+      classname: fully-clickable
+      path: /contribute/getting-started
+      description: >
+        Learn how to contribute code to Bazel, starting with our contribution policy and patch acceptance process.
+      icon:
+        name: start
+        position: top
+    - heading: Understanding
+      classname: fully-clickable
+      path: /contribute/codebase
+      description: >
+        Discover the structure of the Bazel codebase, including how to use a searchable interface.
+      icon:
+        name: library_books
+        position: top
+
+  - options:
+    - cards
+    background: grey
+    items:
+    - heading: Larger-scale changes
+      classname: fully-clickable
+      path: /contribute/design-documents
+      description: >
+        Coordinate with other Bazel developers and seek guidance from Bazel's core team to contribute new features and updates.
+      icon:
+        name: create
+        position: top
+    - heading: Bazel community
+      classname: fully-clickable
+      path: /help
+      description: >
+        Get and give support by joining the Bazel community on Slack, Stack Overflow, and more.
+      icon:
+        name: groups
+        position: top
+    - heading: Maintainers' guide
+      classname: fully-clickable
+      path: /contribute/maintainers-guide
+      description: >
+        Read about the release process and team expectations for maintainers of the Bazel open source project.
+      icon:
+        name: build
+        position: top

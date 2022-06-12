@@ -247,6 +247,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:runfiles_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
@@ -377,6 +378,8 @@ java_test(
     srcs = ["PrepareDepsOfTargetsUnderDirectoryFunctionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:collect_packages_under_directory_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:prepare_deps_of_targets_under_directory_value",

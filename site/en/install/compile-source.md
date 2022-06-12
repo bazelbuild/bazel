@@ -208,7 +208,7 @@ sudo apt-get install build-essential openjdk-11-jdk python zip unzip
 
 3.  `cd` to the directory where you unpacked the distribution archive.
 
-3.  Run the compilation script: `env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" bash ./compile.sh`.
+3.  Run the compilation script: `env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh`.
 
 The compiled output is placed into `output/bazel`. This is a self-contained
 Bazel binary, without an embedded JDK. You can copy it anywhere or use it
@@ -279,7 +279,7 @@ For instructions for Unix-like systems, see
 
 3.  `cd` to the directory where you unpacked the distribution archive.
 
-4.  Run the compilation script: `env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh`
+4.  Run the compilation script: `env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" ./compile.sh`
 
 The compiled output is placed into `output/bazel.exe`. This is a self-contained
 Bazel binary, without an embedded JDK. You can copy it anywhere or use it

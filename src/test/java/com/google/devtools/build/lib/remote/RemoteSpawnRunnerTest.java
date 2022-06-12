@@ -1197,6 +1197,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
     RemoteExecutionService service = runner.getRemoteExecutionService();
     doReturn(cachedActionResult).when(service).lookupCache(any());
+    doReturn(null).when(service).downloadOutputs(any(), any());
 
     Spawn spawn = newSimpleSpawn(topLevelOutput);
     FakeSpawnExecutionContext policy = getSpawnContext(spawn);

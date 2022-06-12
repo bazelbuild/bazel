@@ -190,12 +190,11 @@ public final class OptionProcessor extends AbstractProcessor {
             optionType);
       }
       DeclaredType optionDeclaredType = (DeclaredType) optionType;
-      // optionDeclaredType.asElement().asType() gets us from List<actualType> to List<E>, so this
-      // is unfortunately necessary.
-      if (!typeUtils.isAssignable(optionDeclaredType.asElement().asType(), listType)) {
+      if (!typeUtils.isAssignable(typeUtils.erasure(optionDeclaredType), listType)) {
         throw new OptionProcessorException(
             optionField,
-            "Option that allows multiple occurrences must be of type %s, but is of type %s",
+            "Option that allows multiple occurrences must be assignable to type %s, but is of type"
+                + " %s",
             listType,
             optionType);
       }

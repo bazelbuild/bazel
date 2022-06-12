@@ -66,19 +66,6 @@ public class BuildEventServiceOptions extends OptionsBase {
   public List<Map.Entry<String, String>> besHeaders;
 
   @Option(
-      name = "bes_best_effort",
-      defaultValue = "false",
-      deprecationWarning =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.")
-  public boolean besBestEffort;
-
-  @Option(
     name = "bes_lifecycle_events",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.LOGGING,

@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
@@ -120,16 +121,24 @@ public class RuleLinkExpanderTest {
         "<a href=\"#common-definitions\">Common Definitions</a>");
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testRefNotFound() {
     String docs = "<a href=\"${link foo.bar}\">bar</a>";
-    multiPageExpander.expand(docs);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          multiPageExpander.expand(docs);
+        });
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testIncorrectStaticPageHeadingLink() {
     String docs = "<a href=\"${link common-definitions.label-expansion}\">Label Expansion</a>";
-    multiPageExpander.expand(docs);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          multiPageExpander.expand(docs);
+        });
   }
 
   @Test public void testRuleHeadingLink() {

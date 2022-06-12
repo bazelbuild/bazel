@@ -1001,6 +1001,63 @@ EOF
            || fail "Failed to run //a:starlark_output_dir_test with remote execution"
 }
 
+function generate_empty_treeartifact_build() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load(":output_dir.bzl", "gen_output_dir")
+gen_output_dir(
+    name = "output-dir",
+    outdir = "dir",
+)
+EOF
+  cat > a/output_dir.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+    ctx.actions.run_shell(
+        outputs = [output_dir],
+        inputs = [],
+        command = "",
+        arguments = [output_dir.path],
+    )
+    return [
+        DefaultInfo(files = depset(direct = [output_dir])),
+    ]
+
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+}
+
+function test_empty_treeartifact_works_with_remote_execution() {
+  # Test that empty tree artifact works with remote execution
+  generate_empty_treeartifact_build
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+}
+
+function test_empty_treeartifact_works_with_remote_cache() {
+  # Test that empty tree artifact works with remote cache
+  generate_empty_treeartifact_build
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:output-dir >& $TEST_log || fail "Failed to build"
+
+  expect_log "remote cache hit"
+}
+
 function test_downloads_minimal() {
   # Test that genrule outputs are not downloaded when using
   # --remote_download_minimal

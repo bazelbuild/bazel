@@ -127,44 +127,4 @@ public final class MutabilityTest {
     Mutability mutability = Mutability.createAllowingShallowFreeze("test");
     Freezable.checkUnsafeShallowFreezePrecondition(new DummyFreezable(mutability));
   }
-
-  @Test
-  public void notifyOnFreeze() {
-    class FreezableWithNotify implements Freezable {
-      private final Mutability mutability;
-      private boolean onFreezeCalled = false;
-
-      FreezableWithNotify(Mutability mutability) {
-        this.mutability = mutability;
-      }
-
-      @Override
-      public Mutability mutability() {
-        return mutability;
-      }
-
-      @Override
-      public void onFreeze() {
-        onFreezeCalled = true;
-      }
-    }
-
-    // When we have an unfrozen Mutability,
-    Mutability mutability = Mutability.create("test");
-
-    // And we create two Freezables using the Mutability,
-    FreezableWithNotify freezable1 = new FreezableWithNotify(mutability);
-    FreezableWithNotify freezable2 = new FreezableWithNotify(mutability);
-
-    // And we tell the Mutability to notify one of the two Freezables when it has been frozen,
-    mutability.notifyOnFreeze(freezable1);
-
-    // And we freeze the Mutability,
-    mutability.freeze();
-
-    // Then the Freezable that was supposed to be notified was notified,
-    assertThat(freezable1.onFreezeCalled).isTrue();
-    // And the other one wasn't.
-    assertThat(freezable2.onFreezeCalled).isFalse();
-  }
 }

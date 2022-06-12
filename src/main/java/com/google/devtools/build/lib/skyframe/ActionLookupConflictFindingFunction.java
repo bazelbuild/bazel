@@ -29,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -65,8 +66,16 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
     // Avoid silly cycles.
     depKeys.remove(skyKey);
 
-    env.getValues(depKeys);
-    return env.valuesMissing() ? null : ActionLookupConflictFindingValue.INSTANCE;
+    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(depKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    while (result.hasNext()) {
+      if (result.next() == null) {
+        return null;
+      }
+    }
+    return ActionLookupConflictFindingValue.INSTANCE;
   }
 
   static Stream<ActionLookupConflictFindingValue.Key> convertArtifacts(

@@ -318,7 +318,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/server/signal",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
@@ -342,6 +341,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:test_analysis_complete_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -444,7 +444,8 @@ genrule(
         " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
-        " --output_dir=$(@D)/be &&" +
+        " --output_dir=$(@D)/be" +
+        " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
     ),
     tools = [
@@ -488,6 +489,7 @@ genrule(
           "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin)" +
           " $(@D)/skylark-lib" +
           " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
+          " --create_toc=true" +
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],

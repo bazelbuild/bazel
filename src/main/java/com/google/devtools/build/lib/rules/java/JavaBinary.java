@@ -355,7 +355,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Runfiles defaultRunfiles = runfilesBuilder.build();
 
     RunfilesSupport runfilesSupport = null;
-    Runfiles persistentTestRunnerRunfiles = null;
     NestedSetBuilder<Artifact> extraFilesToRunBuilder = NestedSetBuilder.stableOrder();
     if (createExecutable) {
       List<String> extraArgs =
@@ -369,9 +368,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
           RunfilesSupport.withExecutable(
               ruleContext, defaultRunfiles, executableForRunfiles, extraArgs);
       extraFilesToRunBuilder.add(runfilesSupport.getRunfilesMiddleman());
-      if (JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
-        persistentTestRunnerRunfiles = JavaSemantics.getTestSupportRunfiles(ruleContext);
-      }
     }
 
     RunfilesProvider runfilesProvider =
@@ -549,7 +545,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addTransitiveOnlyRuntimeJars(common.getDependencies())
             .build();
 
     return builder
@@ -561,7 +556,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // shell script), on Windows they are different (the executable to run is a batch file, the
         // executable for runfiles is the shell script).
         .setRunfilesSupport(runfilesSupport, executableToRun)
-        .setPersistentTestRunnerRunfiles(persistentTestRunnerRunfiles)
         // Add the native libraries as test action tools. Useful for the persistent test runner
         // to include them in the worker's key and re-build a worker if the native dependencies
         // have changed.

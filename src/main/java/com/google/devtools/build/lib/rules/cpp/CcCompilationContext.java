@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -42,8 +45,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextAp
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -388,12 +391,20 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ArrayList<Artifact> treeArtifacts)
         throws InterruptedException {
       if (!treeArtifacts.isEmpty()) {
-        Map<SkyKey, SkyValue> valueMap = env.getValues(treeArtifacts);
+        SkyframeIterableResult result = env.getOrderedValuesAndExceptions(treeArtifacts);
         if (env.valuesMissing()) {
           return false;
         }
-        for (SkyValue value : valueMap.values()) {
-          Preconditions.checkState(value instanceof TreeArtifactValue);
+        while (result.hasNext()) {
+          SkyValue value = result.next();
+          if (value == null) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "Some value from " + treeArtifacts + " was missing, this should never happen"));
+            return false;
+          }
+          checkState(
+              value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
           TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
           for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
             pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);

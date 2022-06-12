@@ -87,7 +87,6 @@ public final class RuleConfiguredTargetBuilder {
 
   private final NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
-  private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
   private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
 
@@ -481,7 +480,6 @@ public final class RuleConfiguredTargetBuilder {
     TestParams testParams =
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
-            .setPersistentTestRunnerRunfiles(persistentTestRunnerRunfiles)
             .addTools(additionalTestActionTools.build())
             .setExecutionRequirements(
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
@@ -606,11 +604,6 @@ public final class RuleConfiguredTargetBuilder {
       RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
     this.executable = executable;
-    return this;
-  }
-
-  public RuleConfiguredTargetBuilder setPersistentTestRunnerRunfiles(Runfiles testSupportRunfiles) {
-    this.persistentTestRunnerRunfiles = testSupportRunfiles;
     return this;
   }
 

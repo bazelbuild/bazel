@@ -124,6 +124,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.Differencer.Diff;
@@ -362,7 +363,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void sync_onlyExternalListingChanged_reportsAffectedListing() throws Exception {
     Root externalRoot = Root.fromPath(scratch.dir("/external"));
     RootedPath dir = RootedPath.toRootedPath(externalRoot, scratch.dir("/external/foo"));
-    DirectoryListingStateValue value = DirectoryListingStateValue.create(dir);
+    DirectoryListingStateValue value =
+        DirectoryListingStateValue.create(dir.asPath().readdir(Symlinks.NOFOLLOW));
     DirectoryListingStateValue.Key dirListingKey = DirectoryListingStateValue.key(dir);
     initializeSkyframeExecutor(
         /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
@@ -400,7 +402,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       throws Exception {
     Root externalRoot = Root.fromPath(scratch.dir("/external"));
     RootedPath dir = RootedPath.toRootedPath(externalRoot, scratch.dir("/external/foo"));
-    DirectoryListingStateValue value = DirectoryListingStateValue.create(dir);
+    DirectoryListingStateValue value =
+        DirectoryListingStateValue.create(dir.asPath().readdir(Symlinks.NOFOLLOW));
     DirectoryListingStateValue.Key dirListingKey = DirectoryListingStateValue.key(dir);
     initializeSkyframeExecutor(
         /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));

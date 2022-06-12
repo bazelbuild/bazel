@@ -90,7 +90,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -240,7 +239,7 @@ final class AspectFunction implements SkyFunction {
     } else {
       LinkedHashSet<AspectKey> orderedKeys = new LinkedHashSet<>();
       collectAspectKeysInTopologicalOrder(key.getBaseKeys(), orderedKeys);
-      Map<SkyKey, SkyValue> aspectValues = env.getValues(orderedKeys);
+      SkyframeLookupResult aspectValues = env.getValuesAndExceptions(orderedKeys);
       if (env.valuesMissing()) {
         return null;
       }
@@ -248,6 +247,12 @@ final class AspectFunction implements SkyFunction {
           ImmutableList.builderWithExpectedSize(orderedKeys.size() + 1);
       for (AspectKey aspectKey : orderedKeys) {
         AspectValue aspectValue = (AspectValue) aspectValues.get(aspectKey);
+        if (aspectValue == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "aspectValue " + aspectKey + " was missing, this should never happen"));
+          return null;
+        }
         topologicalAspectPathBuilder.add(aspectValue.getAspect());
       }
       topologicalAspectPath = topologicalAspectPathBuilder.add(aspect).build();

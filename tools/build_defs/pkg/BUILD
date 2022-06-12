@@ -81,7 +81,6 @@ genrule(
     modes = {"usr/titi": "0755"},
     owner = "42.24",
     ownername = "titi.tata",
-    owners = {"etc/nsswitch.conf": "24.42"},
     package_dir = "/",
     strip_prefix = ".",
     symlinks = {"usr/bin/java": "/path/to/bin/java"},

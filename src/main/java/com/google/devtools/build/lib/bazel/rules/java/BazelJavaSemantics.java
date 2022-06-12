@@ -301,43 +301,8 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
     NestedSet<Artifact> classpath = classpathBuilder.build();
 
-    if (JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
-      // Create an artifact that stores the test's runtime classpath (excluding the test support
-      // classpath). The file is read by the test runner. The jars inside the file are loaded
-      // dynamically for every test run into a custom classloader.
-      arguments.add(
-          new ComputedClasspathSubstitution(
-              JavaSemantics.getTestSupportRuntimeClasspath(ruleContext),
-              workspacePrefix,
-              isRunfilesEnabled));
-
-      // Create an artifact that stores the test's runtime classpath.
-      Artifact testRuntimeClasspathArtifact =
-          ruleContext.getBinArtifact(
-              ruleContext.getLabel().getName() + "_test_runtime_classpath.txt");
-      ruleContext.registerAction(
-          new LazyWritePathsFileAction(
-              ruleContext.getActionOwner(),
-              testRuntimeClasspathArtifact,
-              javaCommon.getRuntimeClasspath(),
-              /* filesToIgnore= */ ImmutableSet.of(),
-              true));
-      filesBuilder.add(testRuntimeClasspathArtifact);
-
-      arguments.add(
-          Substitution.of(
-              TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER,
-              "export WORKSPACE_PREFIX="
-                  + workspacePrefix
-                  + "\nexport TEST_RUNTIME_CLASSPATH_FILE=${JAVA_RUNFILES}"
-                  + File.separator
-                  + workspacePrefix
-                  + testRuntimeClasspathArtifact.getRepositoryRelativePathString()));
-    } else {
-      arguments.add(
-          new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
-      arguments.add(Substitution.of(TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER, ""));
-    }
+    arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
+    arguments.add(Substitution.of(TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER, ""));
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       if (createCoverageMetadataJar) {
@@ -485,14 +450,12 @@ public class BazelJavaSemantics implements JavaSemantics {
       // targets may break, we are keeping it behind this flag.
       return;
     }
-    if (!JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
-      // Only add the test support to the dependencies when running in regular mode.
-      // In persistent test runner mode don't pollute the classpath of the test with
-      // the test support classes.
-      TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
-      if (testSupport != null) {
-        builder.add(testSupport);
-      }
+    // Only add the test support to the dependencies when running in regular mode.
+    // In persistent test runner mode don't pollute the classpath of the test with
+    // the test support classes.
+    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
+    if (testSupport != null) {
+      builder.add(testSupport);
     }
   }
 

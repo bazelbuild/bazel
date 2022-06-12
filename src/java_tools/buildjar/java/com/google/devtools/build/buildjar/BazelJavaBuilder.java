@@ -51,11 +51,15 @@ public class BazelJavaBuilder {
                   new ProtoWorkerMessageProcessor(System.in, System.out))
               .setCpuUsageBeforeGc(Duration.ofSeconds(10))
               .build();
+      int exitCode = 1;
       try {
         workerHandler.processRequests();
+        exitCode = 0;
       } catch (IOException e) {
         System.err.println(e.getMessage());
-        System.exit(1);
+      } finally {
+        // Prevent hanging threads from keeping the worker alive.
+        System.exit(exitCode);
       }
     } else {
       PrintWriter pw =

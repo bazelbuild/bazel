@@ -460,7 +460,6 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
-        "manual",
         "no_windows",
     ],
 )
@@ -484,7 +483,6 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
-            "manual",
             "no_windows",
         ],
     )
@@ -657,7 +655,10 @@ sh_test(
     name = "external_integration_test",
     size = "large",
     srcs = ["external_integration_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
+    ],
     shard_count = 15,
     tags = [
         "no_windows",
@@ -968,18 +969,6 @@ sh_test(
     ],
     tags = [
         "no-sandbox",
-        "no_windows",
-    ],
-)
-
-sh_test(
-    name = "persistent_test_runner_test",
-    size = "large",
-    srcs = ["persistent_test_runner_test.sh"],
-    data = [
-        ":test-deps",
-    ],
-    tags = [
         "no_windows",
     ],
 )

@@ -81,7 +81,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -172,22 +171,20 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_deploy.jar")))
         .add(
             attr("$j2objc_wrapper", LABEL)
-                .allowedFileTypes(FileType.of(".py"))
                 .cfg(ExecutionTransitionFactory.create())
                 .exec()
-                .singleArtifact()
+                .legacyAllowAnyFileType()
                 .value(
                     Label.parseAbsoluteUnchecked(
-                        toolsRepository + "//tools/j2objc:j2objc_wrapper")))
+                        toolsRepository + "//tools/j2objc:j2objc_wrapper_binary")))
         .add(
             attr("$j2objc_header_map", LABEL)
-                .allowedFileTypes(FileType.of(".py"))
                 .cfg(ExecutionTransitionFactory.create())
                 .exec()
-                .singleArtifact()
+                .legacyAllowAnyFileType()
                 .value(
                     Label.parseAbsoluteUnchecked(
-                        toolsRepository + "//tools/j2objc:j2objc_header_map")))
+                        toolsRepository + "//tools/j2objc:j2objc_header_map_binary")))
         .add(
             attr("$jre_emul_jar", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
@@ -584,8 +581,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     SpawnAction.Builder transpilationAction =
         new SpawnAction.Builder()
             .setMnemonic("TranspilingJ2objc")
-            .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper"))
-            .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper"))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_wrapper"))
             .addInput(j2ObjcDeployJar)
             .addInput(bootclasspathJar)
             .addInputs(moduleFiles)
@@ -627,8 +623,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .setMnemonic("GenerateJ2objcHeaderMap")
-              .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_header_map"))
-              .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_header_map"))
+              .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_header_map"))
               .addInputs(sources)
               .addInputs(sourceJars)
               .addCommandLine(

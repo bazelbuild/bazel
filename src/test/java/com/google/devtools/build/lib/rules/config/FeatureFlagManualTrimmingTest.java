@@ -698,42 +698,6 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void noDistinctHostConfiguration_DisablesEnforcementForBothHostAndTargetConfigs()
-      throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host', ':reader'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        // no transitive_configs
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        // no transitive_configs
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        // no transitive_configs
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
-
-    enableManualTrimmingAnd("--nodistinct_host_configuration");
-    getConfiguredTarget("//test:target");
-    assertNoEvents();
-  }
-
-  @Test
   public void featureFlagAccessedDirectly_ReturnsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",

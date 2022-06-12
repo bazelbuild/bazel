@@ -529,16 +529,17 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
     assertThat(baseArtifactNames(headerMappingAction.getInputs()))
         .containsAtLeast("libOne.java", "jar.srcjar");
-    assertThat(headerMappingAction.getArguments())
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/j2objc/j2objc_header_map.py",
-            "--source_files",
-            "java/com/google/transpile/libOne.java",
-            "--source_jars",
-            "java/com/google/transpile/jar.srcjar",
-            "--output_mapping_file",
-            execPath + "java/com/google/transpile/lib1.mapping.j2objc")
-        .inOrder();
+    assertThat(headerMappingAction.getArguments().get(0))
+        .contains("tools/j2objc/j2objc_header_map_binary");
+    assertThat(headerMappingAction.getArguments().get(1)).isEqualTo("--source_files");
+    assertThat(headerMappingAction.getArguments().get(2))
+        .isEqualTo("java/com/google/transpile/libOne.java");
+    assertThat(headerMappingAction.getArguments().get(3)).isEqualTo("--source_jars");
+    assertThat(headerMappingAction.getArguments().get(4))
+        .isEqualTo("java/com/google/transpile/jar.srcjar");
+    assertThat(headerMappingAction.getArguments().get(5)).isEqualTo("--output_mapping_file");
+    assertThat(headerMappingAction.getArguments().get(6))
+        .isEqualTo(execPath + "java/com/google/transpile/lib1.mapping.j2objc");
   }
 
   protected void checkObjcCompileActions(
@@ -1045,17 +1046,17 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['j2objc_deploy.jar'])",
-        "filegroup(",
-        "    name = 'j2objc_wrapper',",
-        "    srcs = ['j2objc_wrapper.py'],",
+        "py_binary(",
+        "    name = 'j2objc_wrapper_binary',",
+        "    srcs = ['j2objc_wrapper_binary.py'],",
         ")",
         "proto_library(",
         "    name = 'excluded_protos',",
         "    srcs = ['proto_to_exclude.proto'],",
         ")",
-        "filegroup(",
-        "    name = 'j2objc_header_map',",
-        "    srcs = ['j2objc_header_map.py'],",
+        "py_binary(",
+        "    name = 'j2objc_header_map_binary',",
+        "    srcs = ['j2objc_header_map_binary.py'],",
         ")",
         "proto_lang_toolchain(",
         "    name = 'alt_j2objc_proto_toolchain',",
@@ -1162,13 +1163,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             "com.google.app.test.test"));
 
     SpawnAction deadCodeRemovalAction = (SpawnAction) getGeneratingAction(prunedArchive);
-    assertContainsSublist(
-        deadCodeRemovalAction.getArguments(),
-        new ImmutableList.Builder<String>()
-            .add(
-                TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                    + "tools/objc/j2objc_dead_code_pruner.py")
-            .build());
+    assertThat(deadCodeRemovalAction.getArguments().get(0))
+        .contains("tools/objc/j2objc_dead_code_pruner_binary");
     assertThat(deadCodeRemovalAction.getOutputs()).containsExactly(prunedArchive);
   }
 

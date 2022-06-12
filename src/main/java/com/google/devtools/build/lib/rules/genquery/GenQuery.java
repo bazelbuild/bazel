@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -243,12 +244,21 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // saves us from iterating over the same sub-NestedSets multiple times.
     NestedSetBuilder<Label> validTargets = NestedSetBuilder.stableOrder();
     Set<SkyKey> successfulPackageKeys = Sets.newHashSetWithExpectedSize(scope.size());
-    Map<SkyKey, SkyValue> transitiveTargetValues =
-        env.getValues(Collections2.transform(scope, TransitiveTargetKey::of));
+    Collection<SkyKey> transitiveTargetKeys =
+        Collections2.transform(scope, TransitiveTargetKey::of);
+    SkyframeIterableResult transitiveTargetValues =
+        env.getOrderedValuesAndExceptions(transitiveTargetKeys);
     if (env.valuesMissing()) {
       return null;
     }
-    for (SkyValue value : transitiveTargetValues.values()) {
+    for (SkyKey skyKey : transitiveTargetKeys) {
+      SkyValue value = transitiveTargetValues.next();
+      if (value == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "SkyValue " + skyKey + " was missing, this should never happen"));
+        return null;
+      }
       TransitiveTargetValue transNode = (TransitiveTargetValue) value;
       if (transNode.encounteredLoadingError()) {
         // This should only happen if the unsuccessful package was loaded in a non-selected
@@ -263,19 +273,26 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     // Construct the package id to package map for all successful packages.
-    Map<SkyKey, SkyValue> transitivePackages = env.getValues(successfulPackageKeys);
+    SkyframeIterableResult transitivePackages =
+        env.getOrderedValuesAndExceptions(successfulPackageKeys);
     if (env.valuesMissing()) {
       // Packages from an untaken select branch could be missing: analysis avoids these, but query
       // does not.
       return null;
     }
     ImmutableMap.Builder<PackageIdentifier, Package> packageMapBuilder = ImmutableMap.builder();
-    for (Map.Entry<SkyKey, SkyValue> pkgEntry : transitivePackages.entrySet()) {
-      PackageValue pkg = (PackageValue) pkgEntry.getValue();
+    for (SkyKey skyKey : successfulPackageKeys) {
+      PackageValue pkg = (PackageValue) transitivePackages.next();
+      if (pkg == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "SkyValue " + skyKey + " was missing, this should never happen"));
+        return null;
+      }
       Preconditions.checkState(
           !pkg.getPackage().containsErrors(),
           "package %s was found to both have and not have errors.",
-          pkgEntry);
+          skyKey);
       packageMapBuilder.put(pkg.getPackage().getPackageIdentifier(), pkg.getPackage());
     }
     ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.buildOrThrow();
@@ -363,7 +380,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
-              /*transitivePackageLoader=*/ null,
+              /* queryTransitivePackagePreloader= */ null,
               /* graphFactory= */ null,
               packageProvider,
               packageProvider,

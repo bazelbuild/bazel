@@ -398,6 +398,7 @@ public class BuildView {
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
                 eventBus,
+                bugReporter,
                 keepGoing,
                 loadingPhaseThreads,
                 viewOptions.strictConflictChecks,

@@ -362,6 +362,9 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *
    * <p>Make sure that the label refers to a file. Non-file labels do not necessarily have
    * PathFragment representations.
+   *
+   * <p>The package's repository is not included in the returned fragment. To account for it,
+   * compose this with {@code #getRepository()#getExecPath}.
    */
   public PathFragment toPathFragment() {
     // PathFragments are normalized, so if we do this on a non-file target named '.'

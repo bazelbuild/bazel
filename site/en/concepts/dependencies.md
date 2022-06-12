@@ -245,7 +245,7 @@ more details, see
 [Attributes common to all rules](/reference/be/common-definitions).
 
 Many rules also have additional attributes for rule-specific kinds of
-dependency, for example, `compiler` or `resources`. These are detailed in the
+dependencies, for example, `compiler` or `resources`. These are detailed in the
 [Build Encyclopedia](/reference/be/).
 
 ### `srcs` dependencies {:#srcs-dependencies}

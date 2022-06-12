@@ -63,6 +63,7 @@ public class CriticalPathComputer {
 
   private static final int LARGEST_MEMORY_COMPONENTS_SIZE = 20;
   private static final int LARGEST_INPUT_SIZE_COMPONENTS_SIZE = 20;
+  private static final int LARGEST_INPUT_COUNT_COMPONENTS_SIZE = 20;
 
   /** Selects and returns the longer of two components (the first may be {@code null}). */
   private static final BinaryOperator<CriticalPathComponent> SELECT_LONGER_COMPONENT =
@@ -193,6 +194,16 @@ public class CriticalPathComputer {
                 LARGEST_INPUT_SIZE_COMPONENTS_SIZE,
                 Comparator.comparingLong(
                     (c) -> c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::inputBytes))));
+  }
+
+  /** Returns the list of components with the largest input counts. */
+  public List<CriticalPathComponent> getLargestInputCountComponents() {
+    return uniqueActions()
+        .collect(
+            Comparators.greatest(
+                LARGEST_INPUT_COUNT_COMPONENTS_SIZE,
+                Comparator.comparingLong(
+                    (c) -> c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::inputFiles))));
   }
 
   /** Returns the list of slowest components. */

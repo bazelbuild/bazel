@@ -30,7 +30,7 @@ static const char kCombinedXmlContents[] =
     "<toplevel>\n<tag1>Contents1</tag1><tag2>Contents2</tag2></toplevel>\n";
 static const char kConcatenatedContents[] =
     "<tag1>Contents1</tag1>\n<tag2>Contents2</tag2>";
-const char kCombinedManifestContents[] = "Multi-Release: true\r\n";
+const char kCombinedManifestContents[] = "Multi-Release: true\r\n\r\n";
 const char kCombinedManifestContentsDisabled[] = "\r\n";
 const uint8_t kPoison = 0xFA;
 
@@ -292,6 +292,44 @@ TEST_F(CombinersTest, ManifestCombiner) {
   // Check contents.
   EXPECT_EQ(
       kCombinedManifestContents,
+      std::string(reinterpret_cast<char *>(entry->data()), original_size));
+  free(reinterpret_cast<void *>(entry));
+}
+
+// Test ManifestCombiner.
+TEST_F(CombinersTest, ManifestCombinerJarOnly) {
+  InputJar input_jar;
+  ManifestCombiner manifest_combiner("META-INF/MANIFEST.MF");
+  ASSERT_TRUE(
+      input_jar.Open(runfiles
+                         ->Rlocation("io_bazel/src/tools/"
+                                     "singlejar/data/multi_release.jar")
+                         .c_str()));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    if (cdh->file_name_is("META-INF/MANIFEST.MF")) {
+      ASSERT_TRUE(manifest_combiner.Merge(cdh, lh));
+    }
+  }
+
+  // check that Multi-Release is ignored if present only in deps
+
+  // Create output, verify Local Header contents.
+  LH *entry = reinterpret_cast<LH *>(manifest_combiner.OutputEntry(true));
+  EXPECT_TRUE(entry->is());
+  EXPECT_EQ(20, entry->version());
+  EXPECT_EQ(Z_NO_COMPRESSION, entry->compression_method());
+  uint64_t original_size = entry->uncompressed_file_size();
+  uint64_t compressed_size = entry->compressed_file_size();
+  EXPECT_EQ(strlen(kCombinedManifestContentsDisabled), original_size);
+  EXPECT_LE(compressed_size, original_size);
+  EXPECT_TRUE(entry->file_name_is("META-INF/MANIFEST.MF"));
+  EXPECT_EQ(0, entry->extra_fields_length());
+
+  // Check contents.
+  EXPECT_EQ(
+      kCombinedManifestContentsDisabled,
       std::string(reinterpret_cast<char *>(entry->data()), original_size));
   free(reinterpret_cast<void *>(entry));
 }

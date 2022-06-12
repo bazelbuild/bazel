@@ -17,13 +17,9 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
-/**
- * Creates mock BUILD files required for J2Objc.
- */
+/** Creates mock BUILD files required for J2Objc. */
 public final class MockJ2ObjcSupport {
-  /**
-   * Setup the support for building with J2ObjC.
-   */
+  /** Setup the support for building with J2ObjC. */
   public static void setup(MockToolsConfig config) throws IOException {
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/jre_emul.jar");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/java/j2objc/mod/release");
@@ -79,12 +75,14 @@ public final class MockJ2ObjcSupport {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
-        "filegroup(",
-        "    name = 'j2objc_wrapper',",
-        "    srcs = ['j2objc_wrapper.py'])",
-        "filegroup(",
-        "    name = 'j2objc_header_map',",
-        "    srcs = ['j2objc_header_map.py'])",
+        "py_binary(",
+        "    name = 'j2objc_wrapper_binary',",
+        "    srcs = ['j2objc_wrapper_binary.py'],",
+        ")",
+        "py_binary(",
+        "    name = 'j2objc_header_map_binary',",
+        "    srcs = ['j2objc_header_map_binary.py'],",
+        ")",
         "proto_lang_toolchain(",
         "    name = 'j2objc_proto_toolchain',",
         "    blacklisted_protos = [':j2objc_proto_blacklist'],",
@@ -94,7 +92,9 @@ public final class MockJ2ObjcSupport {
         "    plugin = '//third_party/java/j2objc:proto_plugin',",
         "    runtime = '//third_party/java/j2objc:proto_runtime',",
         ")",
-        "exports_files(['j2objc_deploy.jar'])",
+        "exports_files([",
+        "    'j2objc_deploy.jar',",
+        "])",
         "proto_library(",
         "    name = 'j2objc_proto_blacklist',",
         "    deps = [",
@@ -112,12 +112,15 @@ public final class MockJ2ObjcSupport {
 
     if (config.isRealFileSystem()) {
       config.linkTool(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_deploy.jar");
-      config.linkTool(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_wrapper.py");
-      config.linkTool(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_header_map.py");
+      config.linkTool(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_wrapper_binary");
+      config.linkTool(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_header_map_binary");
     } else {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_deploy.jar");
-      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_wrapper.py");
-      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_header_map.py");
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_wrapper_binary");
+      config.create(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/j2objc_header_map_binary");
     }
   }
 }

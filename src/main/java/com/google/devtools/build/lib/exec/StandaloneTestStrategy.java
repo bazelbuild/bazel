@@ -127,9 +127,6 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
-    if (action.getTestProperties().isPersistentTestRunner()) {
-      executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
-    }
 
     SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
         () ->
@@ -147,9 +144,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
             /*inputs=*/ action.getInputs(),
-            action.getTestProperties().isPersistentTestRunner()
-                ? action.getTools()
-                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createSpawnOutputs(action),
             /*mandatoryOutputs=*/ ImmutableSet.of(),
             localResourcesSupplier);
