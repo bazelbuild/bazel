@@ -367,6 +367,7 @@ public class AbstractSpawnStrategyTest {
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
             .setWalltime(Duration.getDefaultInstance())
+            .setTargetLabel("//dummy:label")
             .build();
     verify(messageOutput).write(expectedSpawnLog);
   }
@@ -493,6 +494,7 @@ public class AbstractSpawnStrategyTest {
         .setStatus("NON_ZERO_EXIT")
         .setExitCode(23)
         .setRemoteCacheable(true)
-        .setWalltime(Duration.getDefaultInstance());
+        .setWalltime(Duration.getDefaultInstance())
+        .setTargetLabel("//dummy:label");
   }
 }

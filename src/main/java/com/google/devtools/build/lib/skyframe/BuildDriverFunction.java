@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.NOT_TEST;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PARALLEL;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
@@ -53,15 +55,15 @@ import javax.annotation.Nullable;
  * Drives the analysis & execution of an ActionLookupKey, which is wrapped inside a BuildDriverKey.
  */
 public class BuildDriverFunction implements SkyFunction {
-  private final TransitiveActionLookupValuesCollector transitiveActionLookupValuesCollector;
+  private final TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<EventBus> eventBus;
 
   BuildDriverFunction(
-      TransitiveActionLookupValuesCollector transitiveActionLookupValuesCollector,
+      TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
       Supplier<EventBus> eventBus) {
-    this.transitiveActionLookupValuesCollector = transitiveActionLookupValuesCollector;
+    this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.eventBus = eventBus;
   }
@@ -224,13 +226,23 @@ public class BuildDriverFunction implements SkyFunction {
     }
   }
 
-  private ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
+  @VisibleForTesting
+  ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
       ActionLookupKey actionLookupKey, boolean strictConflictCheck) throws InterruptedException {
-    return incrementalArtifactConflictFinder
-        .get()
-        .findArtifactConflicts(
-            transitiveActionLookupValuesCollector.collect(actionLookupKey), strictConflictCheck)
-        .getConflicts();
+    ActionLookupValuesCollectionResult transitiveValueCollectionResult =
+        transitiveActionLookupValuesHelper.collect(actionLookupKey);
+
+    ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts =
+        incrementalArtifactConflictFinder
+            .get()
+            .findArtifactConflicts(
+                transitiveValueCollectionResult.collectedValues(), strictConflictCheck)
+            .getConflicts();
+    if (conflicts.isEmpty()) {
+      transitiveActionLookupValuesHelper.registerConflictFreeKeys(
+          transitiveValueCollectionResult.visitedKeys());
+    }
+    return conflicts;
   }
 
   private void addExtraActionsIfRequested(
@@ -261,7 +273,28 @@ public class BuildDriverFunction implements SkyFunction {
     }
   }
 
-  interface TransitiveActionLookupValuesCollector {
-    Sharder<ActionLookupValue> collect(ActionLookupKey key) throws InterruptedException;
+  interface TransitiveActionLookupValuesHelper {
+
+    /**
+     * Perform the traversal of the transitive closure of the {@code key} and collect the
+     * corresponding ActionLookupValues.
+     */
+    ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
+
+    /** Register with the helper that the {@code keys} are conflict-free. */
+    void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);
+  }
+
+  @AutoValue
+  abstract static class ActionLookupValuesCollectionResult {
+    abstract Sharder<ActionLookupValue> collectedValues();
+
+    abstract ImmutableSet<ActionLookupKey> visitedKeys();
+
+    static ActionLookupValuesCollectionResult create(
+        Sharder<ActionLookupValue> collectedValues, ImmutableSet<ActionLookupKey> visitedKeys) {
+      return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
+          collectedValues, visitedKeys);
+    }
   }
 }

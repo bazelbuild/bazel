@@ -475,6 +475,7 @@ public final class RuleConfiguredTargetBuilder {
             providersBuilder.getProvider(TestEnvironmentInfo.PROVIDER.getKey());
     if (environmentProvider != null) {
       testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
+      testActionBuilder.addExtraInheritedEnv(environmentProvider.getInheritedEnvironment());
     }
 
     TestParams testParams =

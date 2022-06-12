@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,10 +36,33 @@ public final class ActionEnvironmentTest {
     // entries added by env2 override the existing entries
     ActionEnvironment env2 = env1.addFixedVariables(ImmutableMap.of("FOO", "foo2"));
 
-    assertThat(env1.getFixedEnv().toMap()).containsExactly("FOO", "foo1", "BAR", "bar");
+    assertThat(env1.getFixedEnv()).containsExactly("FOO", "foo1", "BAR", "bar");
     assertThat(env1.getInheritedEnv()).containsExactly("baz");
 
-    assertThat(env2.getFixedEnv().toMap()).containsExactly("FOO", "foo2", "BAR", "bar");
+    assertThat(env2.getFixedEnv()).containsExactly("FOO", "foo2", "BAR", "bar");
     assertThat(env2.getInheritedEnv()).containsExactly("baz");
+  }
+
+  @Test
+  public void fixedInheritedInteraction() {
+    ActionEnvironment env =
+        ActionEnvironment.create(
+                ImmutableMap.of("FIXED_ONLY", "fixed"), ImmutableSet.of("INHERITED_ONLY"))
+            .addVariables(
+                ImmutableMap.of("FIXED_AND_INHERITED", "fixed"),
+                ImmutableSet.of("FIXED_AND_INHERITED"));
+    Map<String, String> clientEnv =
+        ImmutableMap.of("INHERITED_ONLY", "inherited", "FIXED_AND_INHERITED", "inherited");
+    Map<String, String> result = new HashMap<>();
+    env.resolve(result, clientEnv);
+
+    assertThat(result)
+        .containsExactly(
+            "FIXED_ONLY",
+            "fixed",
+            "FIXED_AND_INHERITED",
+            "inherited",
+            "INHERITED_ONLY",
+            "inherited");
   }
 }

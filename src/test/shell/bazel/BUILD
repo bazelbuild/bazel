@@ -512,7 +512,8 @@ sh_test(
         ],
         tags = ["no_windows"],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    # TODO: Update JAVA_VERSIONS_COVERAGE on the next java_tools release.
+    for java_version in JAVA_VERSIONS_COVERAGE + ("17",)
 ]
 
 sh_test(

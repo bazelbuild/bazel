@@ -26,8 +26,7 @@ import javax.annotation.Nullable;
  *
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
-public class ErrorInfo {
-
+public final class ErrorInfo {
   /** Create an ErrorInfo from a {@link ReifiedSkyFunctionException}. */
   public static ErrorInfo fromException(
       ReifiedSkyFunctionException skyFunctionException, boolean isTransitivelyTransient) {

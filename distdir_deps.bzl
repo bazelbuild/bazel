@@ -167,17 +167,18 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
-    "abseil-cpp": {
-        "archive": "997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
-        "sha256": "35f22ef5cb286f09954b7cc4c85b5a3f6221c9d4df6b8c4a1e9d399555b366ee",
+    "com_google_absl": {
+        "archive": "20211102.0.tar.gz",
+        "sha256": "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
         "urls": [
-            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
-            "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "strip_prefix": "abseil-cpp-20211102.0",
     },
     "zstd-jni": {
         "archive": "v1.5.0-4.zip",
@@ -526,6 +527,72 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
         ],
         "used_in": [],
+    },
+    "remotejdk18_linux": {
+        "aliases": [
+            "remotejdk18_linux_for_testing",
+            "openjdk18_linux_archive",
+        ],
+        "sha256": "959a94ca4097dcaabc7886784cec10dfdf2b0a3bff890ea8943cc09c5fff29cb",
+        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-linux_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk18_macos": {
+        "aliases": [
+            "remotejdk18_macos_for_testing",
+            "openjdk18_darwin_archive",
+        ],
+        "sha256": "780a9aa4bda95a6793bf41d13f837c59ef915e9bfd0e0c5fd4c70e4cdaa88541",
+        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-macosx_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_x64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk18_macos_aarch64": {
+        "aliases": [
+            "remotejdk18_macos_aarch64_for_testing",
+            "openjdk18_darwin_aarch64_archive",
+        ],
+        "sha256": "9595e001451e201fdf33c1952777968a3ac18fe37273bdeaea5b5ed2c4950432",
+        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-macosx_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_aarch64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk18_win": {
+        "aliases": [
+            "remotejdk18_win_for_testing",
+            "openjdk18_windows_archive",
+        ],
+        "sha256": "6c75498163b047595386fdb909cb6d4e04282c3a81799743c5e1f9316391fe16",
+        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-win_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_x64.zip",
+        ],
+        "used_in": [],
+    },
+    "remotejdk18_win_arm64": {
+        "aliases": [
+            "remotejdk18_win_arm64_for_testing",
+            "openjdk18_windows_arm64_archive",
+        ],
+        "archive": "zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+        "sha256": "9b52b259516e4140ee56b91f77750667bffbc543e78ad8c39082449d4c377b54",
+        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-win_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
     },
 }
 

@@ -170,7 +170,6 @@ public final class JavaInfo extends NativeInfo
       javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
     for (JavaInfo javaInfo : exports) {
-      runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
       javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
 

@@ -96,6 +96,6 @@ public class JavaProtoStarlarkCommon
       StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
     ConfiguredTarget javaliteToolchain =
         (ConfiguredTarget) checkNotNull(starlarkRuleContext.getAttr().getValue(protoToolchainAttr));
-    return checkNotNull(javaliteToolchain.getProvider(ProtoLangToolchainProvider.class));
+    return checkNotNull(javaliteToolchain.get(ProtoLangToolchainProvider.PROVIDER));
   }
 }

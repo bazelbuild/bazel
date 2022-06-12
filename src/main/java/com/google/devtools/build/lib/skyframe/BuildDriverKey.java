@@ -29,26 +29,48 @@ public final class BuildDriverKey implements SkyKey {
   private final TestType testType;
   private final boolean strictActionConflictCheck;
 
-  public BuildDriverKey(
-      ActionLookupKey actionLookupKey,
-      TopLevelArtifactContext topLevelArtifactContext,
-      boolean strictActionConflictCheck) {
-    this(
-        actionLookupKey,
-        topLevelArtifactContext,
-        strictActionConflictCheck,
-        /*testType=*/ TestType.NOT_TEST);
+  public boolean isTopLevelAspectDriver() {
+    return isTopLevelAspectDriver;
   }
 
-  public BuildDriverKey(
+  private final boolean isTopLevelAspectDriver;
+
+  private BuildDriverKey(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
-      TestType testType) {
+      TestType testType,
+      boolean isTopLevelAspectDriver) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.strictActionConflictCheck = strictActionConflictCheck;
     this.testType = testType;
+    this.isTopLevelAspectDriver = isTopLevelAspectDriver;
+  }
+
+  public static BuildDriverKey ofTopLevelAspect(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        strictActionConflictCheck,
+        TestType.NOT_TEST,
+        /*isTopLevelAspectDriver=*/ true);
+  }
+
+  public static BuildDriverKey ofConfiguredTarget(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck,
+      TestType testType) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        strictActionConflictCheck,
+        testType,
+        /*isTopLevelAspectDriver=*/ false);
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {

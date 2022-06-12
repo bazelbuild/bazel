@@ -80,6 +80,7 @@ sh_test(
     size = "medium",
     srcs = ["runfiles_test.sh"],
     data = [
+        "runfiles_test_utils.sh",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],

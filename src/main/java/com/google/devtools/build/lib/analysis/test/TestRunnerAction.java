@@ -1045,7 +1045,7 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
-    return getEnvironment().getFixedEnv().toMap();
+    return getEnvironment().getFixedEnv();
   }
 
   @Override

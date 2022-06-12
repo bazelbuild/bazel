@@ -275,6 +275,10 @@ class ArtifactFunction implements SkyFunction {
       return new MissingArtifactValue(artifact);
     }
 
+    if (fileValue.isDirectory()) {
+      env.getListener().post(SourceDirectoryEvent.create(artifact.getExecPath()));
+    }
+
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       FileArtifactValue metadata;
       try {
@@ -365,9 +369,6 @@ class ArtifactFunction implements SkyFunction {
 
       SkyValue inputValue = values.next();
       if (inputValue == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "SkyValue " + input + " was missing, this should never happen"));
         return null;
       }
       if (inputValue instanceof FileArtifactValue) {

@@ -392,7 +392,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
 
     ProtoLangToolchainProvider protoToolchain =
-        ruleContext.getPrerequisite(J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+        ruleContext.getPrerequisite(
+            J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
     // Avoid pulling in any generated files from forbidden protos.
     ProtoSourceFileExcludeList protoExcludeList =
         new ProtoSourceFileExcludeList(ruleContext, protoToolchain.forbiddenProtos());

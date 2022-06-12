@@ -24,6 +24,7 @@ EXCLUDED_FROM_SKYFRAME_TESTS = [
     "LocalDiffAwarenessIntegrationTest.java",
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
     "SkyframeErrorProcessorTest.java",
+    "BuildDriverFunctionTest.java",
 ] + CROSS_PLATFORM_WINDOWS_TESTS
 
 java_library(
@@ -470,5 +471,22 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "@com_google_testparameterinjector//:testparameterinjector",
+    ],
+)
+
+java_test(
+    name = "BuildDriverFunctionTest",
+    srcs = ["BuildDriverFunctionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_artifact_conflict_finder",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
     ],
 )

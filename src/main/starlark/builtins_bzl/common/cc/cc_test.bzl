@@ -28,7 +28,7 @@ _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
 # Update cc_test defaults:
 _cc_test_attrs.update(
     _is_test = attr.bool(default = True),
-    stamp = attr.int(default = 0),
+    stamp = attr.int(values = [-1, 0, 1], default = 0),
     linkstatic = attr.bool(default = False),
     malloc = attr.label(
         default = Label("@//tools/cpp:cc_test_malloc"),

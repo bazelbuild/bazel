@@ -398,6 +398,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .setOneVersionEnforcementLevel(
             javaConfig.oneVersionEnforcementLevel(),
             JavaToolchainProvider.from(ruleContext).getOneVersionAllowlist())
+        .setMultiReleaseDeployJars(javaConfig.multiReleaseDeployJars())
         .setSharedArchive(jsa)
         .build();
 

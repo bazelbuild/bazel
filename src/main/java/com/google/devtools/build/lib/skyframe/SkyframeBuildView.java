@@ -656,7 +656,7 @@ public final class SkyframeBuildView {
         continue;
       }
       buildDriverCTKeys.add(
-          new BuildDriverKey(
+          BuildDriverKey.ofConfiguredTarget(
               ctKey,
               topLevelArtifactContext,
               strictConflictCheck,
@@ -677,7 +677,10 @@ public final class SkyframeBuildView {
     }
     List<BuildDriverKey> buildDriverAspectKeys =
         topLevelAspectsKeys.stream()
-            .map(k -> new BuildDriverKey(k, topLevelArtifactContext, strictConflictCheck))
+            .map(
+                k ->
+                    BuildDriverKey.ofTopLevelAspect(
+                        k, topLevelArtifactContext, strictConflictCheck))
             .collect(Collectors.toList());
 
     try (SilentCloseable c =
@@ -693,7 +696,7 @@ public final class SkyframeBuildView {
               mergedPhasesExecutionJobsCount);
     } finally {
       enableAnalysis(false);
-      skyframeExecutor.resetIncrementalArtifactConflictFinder();
+      skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
     }
 
     if (!evaluationResult.hasError()) {
@@ -810,7 +813,7 @@ public final class SkyframeBuildView {
       return topLevelActionConflictReport;
     } finally {
       skyframeExecutor.resetActionConflictsStoredInSkyframe();
-      skyframeExecutor.resetIncrementalArtifactConflictFinder();
+      skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
     }
   }
 

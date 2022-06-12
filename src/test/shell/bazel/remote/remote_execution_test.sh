@@ -3389,6 +3389,40 @@ EOF
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
+function test_download_top_level_remote_execution_after_local_fetches_inputs() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+  mkdir a
+  cat > a/BUILD <<'EOF'
+genrule(name="dep", srcs=["not_used"], outs=["dep.c"], cmd="touch $@")
+cc_library(name="foo", srcs=["dep.c"])
+EOF
+  echo hello > a/not_used
+  bazel build \
+      --experimental_ui_debug_all_events \
+      --remote_executor=grpc://localhost:"${worker_port}" \
+      --remote_download_toplevel \
+      --genrule_strategy=local \
+      //a:dep >& "${TEST_log}" || fail "Expected success"
+  expect_log "START.*: \[.*\] Executing genrule //a:dep"
+
+  echo there > a/not_used
+  # Local compilation requires now remote dep.c to successfully download.
+  bazel build \
+      --experimental_ui_debug_all_events \
+      --remote_executor=grpc://localhost:"${worker_port}" \
+      --remote_download_toplevel \
+      --genrule_strategy=remote \
+      --strategy=CppCompile=local \
+      //a:foo >& "${TEST_log}" || fail "Expected success"
+
+  expect_log "START.*: \[.*\] Executing genrule //a:dep"
+}
+
 function test_uploader_respect_no_cache() {
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -3613,6 +3647,25 @@ EOF
   [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
   remote_ac_files="$(count_remote_ac_files)"
   [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+}
+
+function test_failed_action_dont_check_declared_outputs() {
+  # Test that if action failed, outputs are not checked
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "exit 1",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log && fail "Should failed to build"
+
+  expect_log "Executing genrule .* failed: (Exit 1):"
 }
 
 run_suite "Remote execution and remote cache tests"

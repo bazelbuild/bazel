@@ -468,100 +468,6 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  // Resolves a non-binding identifier to an existing binding, or null.
-  private Binding use(Identifier id) {
-    String name = id.getName();
-
-    // Locally defined in this function, comprehension,
-    // or file block, or an enclosing one?
-    Binding bind = lookupLexical(name, locals);
-    if (bind != null) {
-      return bind;
-    }
-
-    // Defined at toplevel (global, predeclared, universal)?
-    bind = toplevel.get(name);
-    if (bind != null) {
-      return bind;
-    }
-    Scope scope;
-    try {
-      scope = module.resolve(name);
-    } catch (Resolver.Module.Undefined ex) {
-      if (!Identifier.isValid(name)) {
-        // If Identifier was created by Parser.makeErrorExpression, it
-        // contains misparsed text. Ignore ex and report an appropriate error.
-        errorf(id, "contains syntax errors");
-      } else if (ex.candidates != null) {
-        // Exception provided toplevel candidates.
-        // Show spelling suggestions of all symbols in scope,
-        String suggestion = SpellChecker.didYouMean(name, getAllSymbols(ex.candidates));
-        errorf(id, "%s%s", ex.getMessage(), suggestion);
-      } else {
-        errorf(id, "%s", ex.getMessage());
-      }
-      return null;
-    }
-    switch (scope) {
-      case GLOBAL:
-        bind = new Binding(scope, globals.size(), id);
-        // Accumulate globals in module.
-        globals.add(name);
-        break;
-      case PREDECLARED:
-      case UNIVERSAL:
-        bind = new Binding(scope, 0, id); // index not used
-        break;
-      default:
-        throw new IllegalStateException("bad scope: " + scope);
-    }
-    toplevel.put(name, bind);
-    return bind;
-  }
-
-  // lookupLexical finds a lexically enclosing local binding of the name,
-  // plumbing it through enclosing functions as needed.
-  private static Binding lookupLexical(String name, Block b) {
-    Binding bind = b.bindings.get(name);
-    if (bind != null) {
-      return bind;
-    }
-
-    if (b.parent != null) {
-      bind = lookupLexical(name, b.parent);
-      if (bind != null) {
-        // If a local binding was found in a parent block,
-        // and this block is a function, then it is a free variable
-        // of this function and must be plumbed through.
-        // Add an implicit FREE binding (a hidden parameter) to this function,
-        // and record the outer binding that will supply its value when
-        // we construct the closure.
-        // Also, mark the outer LOCAL as a CELL: a shared, indirect local.
-        // (For a comprehension block there's nothing to do,
-        // because it's part of the same frame as the enclosing block.)
-        //
-        // This step may occur many times if the lookupLexical
-        // recursion returns through many functions.
-        if (b.syntax instanceof DefStatement || b.syntax instanceof LambdaExpression) {
-          Scope scope = bind.getScope();
-          if (scope == Scope.LOCAL || scope == Scope.FREE || scope == Scope.CELL) {
-            if (scope == Scope.LOCAL) {
-              bind.scope = Scope.CELL;
-            }
-            int index = b.freevars.size();
-            b.freevars.add(bind);
-            bind = new Binding(Scope.FREE, index, bind.first);
-          }
-        }
-
-        // Memoize, to avoid duplicate free vars and repeated walks.
-        b.bindings.put(name, bind);
-      }
-    }
-
-    return bind;
-  }
-
   @Override
   public void visit(ReturnStatement node) {
     if (locals.syntax instanceof StarlarkFile) {
@@ -717,6 +623,126 @@ public final class Resolver extends NodeVisitor {
             ImmutableList.of(ReturnStatement.make(expr.getBody()))));
   }
 
+  @Override
+  public void visit(IfStatement node) {
+    if (locals.syntax instanceof StarlarkFile) {
+      errorf(
+          node,
+          "if statements are not allowed at the top level. You may move it inside a function "
+              + "or use an if expression (x if condition else y).");
+    }
+    super.visit(node);
+  }
+
+  @Override
+  public void visit(AssignmentStatement node) {
+    visit(node.getRHS());
+
+    // Disallow: [e, ...] += rhs
+    // Other bad cases are handled in assign.
+    if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
+      errorf(
+          node.getOperatorLocation(),
+          "cannot perform augmented assignment on a list or tuple expression");
+    }
+
+    assign(node.getLHS());
+  }
+
+  // Resolves a non-binding identifier to an existing binding, or null.
+  private Binding use(Identifier id) {
+    String name = id.getName();
+
+    // Locally defined in this function, comprehension,
+    // or file block, or an enclosing one?
+    Binding bind = lookupLexical(name, locals);
+    if (bind != null) {
+      return bind;
+    }
+
+    // Defined at toplevel (global, predeclared, universal)?
+    bind = toplevel.get(name);
+    if (bind != null) {
+      return bind;
+    }
+    Scope scope;
+    try {
+      scope = module.resolve(name);
+    } catch (Resolver.Module.Undefined ex) {
+      if (!Identifier.isValid(name)) {
+        // If Identifier was created by Parser.makeErrorExpression, it
+        // contains misparsed text. Ignore ex and report an appropriate error.
+        errorf(id, "contains syntax errors");
+      } else if (ex.candidates != null) {
+        // Exception provided toplevel candidates.
+        // Show spelling suggestions of all symbols in scope,
+        String suggestion = SpellChecker.didYouMean(name, getAllSymbols(ex.candidates));
+        errorf(id, "%s%s", ex.getMessage(), suggestion);
+      } else {
+        errorf(id, "%s", ex.getMessage());
+      }
+      return null;
+    }
+    switch (scope) {
+      case GLOBAL:
+        bind = new Binding(scope, globals.size(), id);
+        // Accumulate globals in module.
+        globals.add(name);
+        break;
+      case PREDECLARED:
+      case UNIVERSAL:
+        bind = new Binding(scope, 0, id); // index not used
+        break;
+      default:
+        throw new IllegalStateException("bad scope: " + scope);
+    }
+    toplevel.put(name, bind);
+    return bind;
+  }
+
+  // lookupLexical finds a lexically enclosing local binding of the name,
+  // plumbing it through enclosing functions as needed.
+  private static Binding lookupLexical(String name, Block b) {
+    Binding bind = b.bindings.get(name);
+    if (bind != null) {
+      return bind;
+    }
+
+    if (b.parent != null) {
+      bind = lookupLexical(name, b.parent);
+      if (bind != null) {
+        // If a local binding was found in a parent block,
+        // and this block is a function, then it is a free variable
+        // of this function and must be plumbed through.
+        // Add an implicit FREE binding (a hidden parameter) to this function,
+        // and record the outer binding that will supply its value when
+        // we construct the closure.
+        // Also, mark the outer LOCAL as a CELL: a shared, indirect local.
+        // (For a comprehension block there's nothing to do,
+        // because it's part of the same frame as the enclosing block.)
+        //
+        // This step may occur many times if the lookupLexical
+        // recursion returns through many functions.
+        if (b.syntax instanceof DefStatement || b.syntax instanceof LambdaExpression) {
+          Scope scope = bind.getScope();
+          if (scope == Scope.LOCAL || scope == Scope.FREE || scope == Scope.CELL) {
+            if (scope == Scope.LOCAL) {
+              bind.scope = Scope.CELL;
+            }
+            int index = b.freevars.size();
+            b.freevars.add(bind);
+            bind = new Binding(Scope.FREE, index, bind.first);
+          }
+        }
+
+        // Memoize, to avoid duplicate free vars and repeated walks.
+        b.bindings.put(name, bind);
+      }
+    }
+
+    return bind;
+  }
+
   // Common code for def, lambda.
   private Function resolveFunction(
       Node syntax, // DefStatement or LambdaExpression
@@ -831,32 +857,6 @@ public final class Resolver extends NodeVisitor {
       errorf(param, "duplicate parameter: %s", param.getName());
     }
     params.add(param);
-  }
-
-  @Override
-  public void visit(IfStatement node) {
-    if (locals.syntax instanceof StarlarkFile) {
-      errorf(
-          node,
-          "if statements are not allowed at the top level. You may move it inside a function "
-              + "or use an if expression (x if condition else y).");
-    }
-    super.visit(node);
-  }
-
-  @Override
-  public void visit(AssignmentStatement node) {
-    visit(node.getRHS());
-
-    // Disallow: [e, ...] += rhs
-    // Other bad cases are handled in assign.
-    if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
-      errorf(
-          node.getOperatorLocation(),
-          "cannot perform augmented assignment on a list or tuple expression");
-    }
-
-    assign(node.getLHS());
   }
 
   /**

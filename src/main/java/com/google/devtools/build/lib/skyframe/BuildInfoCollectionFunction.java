@@ -26,11 +26,13 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Map;
 
 /**
@@ -59,17 +61,24 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     ImmutableSet<SkyKey> keysToRequest =
         ImmutableSet.of(
             WorkspaceStatusValue.BUILD_INFO_KEY,
-            WorkspaceNameValue.key(),
             keyAndConfig.getConfigurationKey());
-    Map<SkyKey, SkyValue> result = env.getValues(keysToRequest);
+    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(keysToRequest);
     if (env.valuesMissing()) {
       return null;
     }
-    WorkspaceStatusValue infoArtifactValue =
-        (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
+    WorkspaceStatusValue infoArtifactValue = (WorkspaceStatusValue) result.next();
+    if (infoArtifactValue == null) {
+      BugReport.logUnexpected("Value for: BuildInfoKey was missing, this should never happen");
+      return null;
+    }
 
-    BuildConfigurationValue config =
-        (BuildConfigurationValue) result.get(keyAndConfig.getConfigurationKey());
+    BuildConfigurationValue config = (BuildConfigurationValue) result.next();
+    if (config == null) {
+      BugReport.logUnexpected(
+          "Value for: '%s' was missing, this should never happen",
+          keyAndConfig.getConfigurationKey());
+      return null;
+    }
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories = BUILD_INFO_FACTORIES.get(env);
     BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
     Preconditions.checkState(buildInfoFactory.isEnabled(config));

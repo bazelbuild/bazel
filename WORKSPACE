@@ -457,44 +457,18 @@ dist_http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-
 )
 
-dist_http_archive(
-    name = "remotejdk17_linux_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_macos_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_macos_aarch64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_win_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk17_win_arm64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-
-)
+[
+    dist_http_archive(
+        name = "remotejdk%s_%s_for_testing" % (version, os),
+        build_file = "@local_jdk//:BUILD.bazel",
+        patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+        patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    )
+    for version in ("17", "18")
+    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
@@ -597,49 +571,17 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_linux_archive",
-    build_file_content = """
+[
+    dist_http_archive(
+        name = "openjdk%s_%s_archive" % (version, os),
+        build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_darwin_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_darwin_aarch64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_windows_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk17_windows_arm64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
+    )
+    for version in ("17", "18")
+    for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
+]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
@@ -681,6 +623,12 @@ register_toolchains("//src/main/res:empty_rc_toolchain")
 
 dist_http_archive(
     name = "com_github_grpc_grpc",
+)
+
+# Override the abseil-cpp version defined in grpc_deps(), which doesn't work on latest macOS
+# Fixes https://github.com/bazelbuild/bazel/issues/15168
+dist_http_archive(
+    name = "com_google_absl",
 )
 
 # Projects using gRPC as an external dependency must call both grpc_deps() and

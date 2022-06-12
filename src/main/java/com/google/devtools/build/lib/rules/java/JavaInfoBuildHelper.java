@@ -257,6 +257,7 @@ final class JavaInfoBuildHelper {
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       boolean enableJSpecify,
+      boolean createOutputSourceJar,
       JavaSemantics javaSemantics,
       Object injectingRuleKind,
       StarlarkThread thread)
@@ -317,7 +318,7 @@ final class JavaInfoBuildHelper {
             javaSemantics,
             toolchainProvider,
             outputJarsBuilder,
-            /*createOutputSourceJar=*/ true,
+            createOutputSourceJar,
             outputSourceJar,
             enableCompileJarAction,
             javaInfoBuilder,

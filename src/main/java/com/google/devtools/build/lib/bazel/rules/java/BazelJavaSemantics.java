@@ -302,7 +302,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     NestedSet<Artifact> classpath = classpathBuilder.build();
 
     arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
-    arguments.add(Substitution.of(TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER, ""));
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       if (createCoverageMetadataJar) {
@@ -568,7 +567,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
-      Artifact sharedArchive) {
+      Artifact sharedArchive,
+      boolean multiReleaseDeployJars) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,
@@ -578,7 +578,8 @@ public class BazelJavaSemantics implements JavaSemantics {
             classpath,
             includeBuildData,
             compression,
-            launcher)
+            launcher,
+            /* multiReleaseDeployJars= */ multiReleaseDeployJars)
         .build();
   }
 

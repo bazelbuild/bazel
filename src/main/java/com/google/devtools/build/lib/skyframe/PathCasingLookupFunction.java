@@ -24,9 +24,8 @@ import com.google.devtools.build.lib.vfs.RootedPathAndCasing;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
-import java.util.Map;
 
 /** SkyFunction for {@link PathCasingLookupValue}s. */
 public final class PathCasingLookupFunction implements SkyFunction {
@@ -51,17 +50,25 @@ public final class PathCasingLookupFunction implements SkyFunction {
     SkyKey parentCasingKey = PathCasingLookupValue.key(parent);
     SkyKey parentFileKey = FileValue.key(parent);
     SkyKey childFileKey = FileValue.key(arg.getPath());
-    Map<SkyKey, SkyValue> values =
-        env.getValues(ImmutableList.of(parentCasingKey, parentFileKey, childFileKey));
+    SkyframeIterableResult values =
+        env.getOrderedValuesAndExceptions(
+            ImmutableList.of(parentCasingKey, parentFileKey, childFileKey));
     if (env.valuesMissing()) {
       return null;
     }
-    if (!((PathCasingLookupValue) values.get(parentCasingKey)).isCorrect()) {
+    PathCasingLookupValue pathCasingLookupValue = (PathCasingLookupValue) values.next();
+    if (pathCasingLookupValue == null) {
+      return null;
+    }
+    if (!pathCasingLookupValue.isCorrect()) {
       // Parent's casing is bad, so this path's casing is also bad.
       return PathCasingLookupValue.BAD;
     }
 
-    FileValue parentFile = (FileValue) values.get(parentFileKey);
+    FileValue parentFile = (FileValue) values.next();
+    if (parentFile == null) {
+      return null;
+    }
     if (!parentFile.exists()) {
       // Parent's casing is good, because it's missing.
       // That means this path is also missing, so by definition its casing is good.
@@ -76,7 +83,10 @@ public final class PathCasingLookupFunction implements SkyFunction {
                   + ": its parent exists but is not a directory"));
     }
 
-    FileValue childFile = (FileValue) values.get(childFileKey);
+    FileValue childFile = (FileValue) values.next();
+    if (childFile == null) {
+      return null;
+    }
     if (!childFile.exists()) {
       // Parent's casing is good, but this file is missing.
       // That means this path is missing, so by definition its casing is good.

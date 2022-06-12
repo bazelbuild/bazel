@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
@@ -130,7 +129,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         }
       }
     }
-    Map<SkyKey, SkyValue> expandedTests = env.getValues(testExpansionKeys.values());
+    SkyframeLookupResult expandedTests = env.getValuesAndExceptions(testExpansionKeys.values());
     if (env.valuesMissing()) {
       return null;
     }
@@ -200,13 +199,16 @@ final class TargetPatternPhaseFunction implements SkyFunction {
 
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
     ImmutableMap.Builder<Label, ImmutableSet<Label>> testSuiteExpansions =
-        ImmutableMap.builderWithExpectedSize(expandedTests.size());
+        ImmutableMap.builderWithExpectedSize(testExpansionKeys.size());
     for (Target target : targets.getTargets()) {
       Label label = target.getLabel();
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey = Preconditions.checkNotNull(testExpansionKeys.get(label));
-        ResolvedTargets<Label> testExpansion =
-            ((TestsForTargetPatternValue) expandedTests.get(expansionKey)).getLabels();
+        var value = (TestsForTargetPatternValue) expandedTests.get(expansionKey);
+        if (value == null) {
+          return null;
+        }
+        ResolvedTargets<Label> testExpansion = value.getLabels();
         expandedLabelsBuilder.merge(testExpansion);
         testSuiteExpansions.put(label, testExpansion.getTargets());
       } else {
@@ -443,7 +445,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
       expandedSuiteKeys.add(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
     }
-    Map<SkyKey, SkyValue> expandedSuites = env.getValues(expandedSuiteKeys);
+    SkyframeIterableResult expandedSuites = env.getOrderedValuesAndExceptions(expandedSuiteKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -466,8 +468,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
 
       TestsForTargetPatternValue expandedSuitesValue =
-          (TestsForTargetPatternValue)
-              expandedSuites.get(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
+          (TestsForTargetPatternValue) expandedSuites.next();
+      if (expandedSuitesValue == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "expandedSuitesValue " + pattern + " was missing, this should never happen"));
+        return null;
+      }
       if (pattern.isNegative()) {
         ResolvedTargets<Target> negativeTargets =
             TestsForTargetPatternFunction.labelsToTargets(
