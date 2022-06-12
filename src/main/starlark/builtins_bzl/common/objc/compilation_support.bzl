@@ -482,19 +482,20 @@ def _cc_compile_and_link(
     if hasattr(common_variables.ctx.attr, "deps"):
         linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps)
 
-    cc_common.create_linking_context_from_compilation_outputs(
-        actions = ctx.actions,
-        feature_configuration = feature_configuration,
-        cc_toolchain = common_variables.toolchain,
-        compilation_outputs = compilation_outputs,
-        linking_contexts = linking_contexts,
-        name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
-        language = language,
-        disallow_dynamic_library = True,
-        additional_inputs = additional_inputs,
-        grep_includes = _get_grep_includes(ctx),
-        variables_extension = non_arc_extensions,
-    )
+    if len(compilation_outputs.objects) != 0 or len(compilation_outputs.pic_objects) != 0:
+        cc_common.create_linking_context_from_compilation_outputs(
+            actions = ctx.actions,
+            feature_configuration = feature_configuration,
+            cc_toolchain = common_variables.toolchain,
+            compilation_outputs = compilation_outputs,
+            linking_contexts = linking_contexts,
+            name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
+            language = language,
+            disallow_dynamic_library = True,
+            additional_inputs = additional_inputs,
+            grep_includes = _get_grep_includes(ctx),
+            variables_extension = non_arc_extensions,
+        )
 
     arc_output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
         arc_compilation_outputs,

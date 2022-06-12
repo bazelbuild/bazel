@@ -10,11 +10,11 @@ OSX_TOOLS_CONSTRAINTS = {
     "armeabi-v7a": ["@platforms//cpu:arm"],
     "darwin_arm64": [
         "@platforms//os:osx",
-        "@platforms//cpu:aarch64",
+        "@platforms//cpu:arm64",
     ],
     "darwin_arm64e": [
         "@platforms//os:osx",
-        "@platforms//cpu:aarch64",
+        "@platforms//cpu:arm64",
     ],
     "darwin_x86_64": [
         "@platforms//os:osx",
@@ -22,19 +22,19 @@ OSX_TOOLS_CONSTRAINTS = {
     ],
     "ios_arm64": [
         "@platforms//os:ios",
-        "@platforms//cpu:aarch64",
+        "@platforms//cpu:arm64",
     ],
     "ios_arm64e": [
         "@platforms//os:ios",
-        "@platforms//cpu:aarch64",
+        "@platforms//cpu:arm64",
     ],
     "ios_armv7": [
         "@platforms//os:ios",
-        "@platforms//cpu:arm",
+        "@platforms//cpu:armv7",
     ],
     "ios_i386": [
         "@platforms//os:ios",
-        "@platforms//cpu:x86_32",
+        "@platforms//cpu:i386",
     ],
     "ios_x86_64": [
         "@platforms//os:ios",
@@ -42,44 +42,44 @@ OSX_TOOLS_CONSTRAINTS = {
     ],
     "ios_sim_arm64": [
         "@platforms//os:ios",
-        "@platforms//cpu:aarch64",
+        "@platforms//cpu:arm64",
     ],
     "tvos_arm64": [
-        "@platforms//os:ios",
-        "@platforms//cpu:aarch64",
+        "@platforms//os:tvos",
+        "@platforms//cpu:arm64",
     ],
     "tvos_x86_64": [
-        "@platforms//os:ios",
+        "@platforms//os:tvos",
         "@platforms//cpu:x86_64",
     ],
     "tvos_sim_arm64": [
-        "@platforms//os:ios",
-        "@platforms//cpu:aarch64",
+        "@platforms//os:tvos",
+        "@platforms//cpu:arm64",
     ],
     "watchos_arm64": [
-        "@platforms//os:ios",
-        "@platforms//cpu:aarch64",
+        "@platforms//os:watchos",
+        "@platforms//cpu:arm64",
     ],
     "watchos_arm64_32": [
-        "@platforms//os:ios",
-        "@platforms//cpu:aarch64",
+        "@platforms//os:watchos",
+        "@platforms//cpu:arm64_32",
     ],
     "watchos_armv7k": [
-        "@platforms//os:ios",
-        "@platforms//cpu:arm",
+        "@platforms//os:watchos",
+        "@platforms//cpu:armv7k",
     ],
     "watchos_i386": [
-        "@platforms//os:ios",
-        "@platforms//cpu:x86_32",
+        "@platforms//os:watchos",
+        "@platforms//cpu:i386",
     ],
     "watchos_x86_64": [
-        "@platforms//os:ios",
+        "@platforms//os:watchos",
         "@platforms//cpu:x86_64",
     ],
 }
 
 OSX_DEVELOPER_PLATFORM_CPUS = [
-    "aarch64",
+    "arm64",
     "x86_64",
 ]
 

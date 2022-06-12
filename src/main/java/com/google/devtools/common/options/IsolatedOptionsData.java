@@ -247,8 +247,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         Constructor<? extends OptionsBase> constructor = parsedOptionsClass.getConstructor();
         constructorBuilder.put(parsedOptionsClass, constructor);
       } catch (NoSuchMethodException e) {
-        throw new IllegalArgumentException(parsedOptionsClass
-            + " lacks an accessible default constructor");
+        throw new IllegalArgumentException(
+            parsedOptionsClass + " lacks an accessible default constructor", e);
       }
       ImmutableList<OptionDefinition> optionDefinitions =
           getAllOptionDefinitionsForClass(parsedOptionsClass);

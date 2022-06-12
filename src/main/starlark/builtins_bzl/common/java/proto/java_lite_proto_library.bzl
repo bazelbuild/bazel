@@ -114,7 +114,9 @@ def _aspect_impl(target, ctx):
             deps = deps,
             exports = exports,
             java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+            enable_jspecify = False,
         )
+        java_info = semantics.add_constraints(java_info, ["android"])
     else:
         # If there are no proto sources just pass along the compilation dependencies.
         java_info = java_common.merge(deps)
@@ -147,4 +149,5 @@ java_lite_proto_library = rule(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),
     },
+    provides = [JavaInfo],
 )

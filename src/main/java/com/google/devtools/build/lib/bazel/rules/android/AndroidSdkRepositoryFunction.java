@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.stream;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -21,10 +22,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -43,7 +44,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -481,13 +482,13 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   /**
    * Gets DirectoryListingValues for subdirectories of the directory or returns null.
    *
-   * Ignores all non-directory files.
+   * <p>Ignores all non-directory files.
    */
   private static ImmutableMap<PathFragment, DirectoryListingValue> getSubdirectoryListingValues(
       final Path root, final PathFragment path, DirectoryListingValue directory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     Map<PathFragment, SkyKey> skyKeysForSubdirectoryLookups =
-        Streams.stream(directory.getDirents())
+        stream(directory.getDirents())
             .filter(dirent -> dirent.getType().equals(Dirent.Type.DIRECTORY))
             .collect(
                 toImmutableMap(
@@ -498,16 +499,22 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
                                 Root.fromPath(root),
                                 root.getRelative(path).getRelative(input.getName())))));
 
-    Map<SkyKey, ValueOrException<InconsistentFilesystemException>> values =
-        env.getValuesOrThrow(
-            skyKeysForSubdirectoryLookups.values(), InconsistentFilesystemException.class);
+    SkyframeLookupResult values =
+        env.getValuesAndExceptions(skyKeysForSubdirectoryLookups.values());
+    boolean valuesMissing = env.valuesMissing();
 
     ImmutableMap.Builder<PathFragment, DirectoryListingValue> directoryListingValues =
         new ImmutableMap.Builder<>();
     for (PathFragment pathFragment : skyKeysForSubdirectoryLookups.keySet()) {
       try {
-        SkyValue skyValue = values.get(skyKeysForSubdirectoryLookups.get(pathFragment)).get();
+        SkyKey skyKey = skyKeysForSubdirectoryLookups.get(pathFragment);
+        SkyValue skyValue = values.getOrThrow(skyKey, InconsistentFilesystemException.class);
         if (skyValue == null) {
+          if (!valuesMissing) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "SkyValue " + skyKey + " was missing, this should never happern"));
+          }
           return null;
         }
         directoryListingValues.put(pathFragment, (DirectoryListingValue) skyValue);

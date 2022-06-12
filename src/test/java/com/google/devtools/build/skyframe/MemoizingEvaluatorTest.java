@@ -2286,8 +2286,7 @@ public abstract class MemoizingEvaluatorTest {
                 topRequestedDepOrRestartedBuild.countDown();
               }
               // top's builder just requests both deps in a group.
-              env.getValuesOrThrow(
-                  ImmutableList.of(firstKey, slowAddingDep), SomeErrorException.class);
+              env.getOrderedValuesAndExceptions(ImmutableList.of(firstKey, slowAddingDep));
               return env.valuesMissing() ? null : new StringValue("top");
             });
     // First build : just prime the graph.

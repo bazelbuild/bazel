@@ -34,7 +34,9 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -77,6 +79,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -198,7 +201,8 @@ public class BuildViewForTesting {
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
-      throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException {
+      throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException,
+          BuildFailedException, TestExecException {
     populateActionLookupKeyMapAndGetDiff();
     return buildView.update(
         loadingResult,
@@ -215,6 +219,7 @@ public class BuildViewForTesting {
         /*reportIncompatibleTargets=*/ true,
         eventHandler,
         eventBus,
+        BugReporter.defaultInstance(),
         /*includeExecutionPhase=*/ false,
         /*mergedPhasesExecutionJobsCount=*/ 0);
   }

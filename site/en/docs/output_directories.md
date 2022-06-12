@@ -31,7 +31,7 @@ The solution that's currently implemented:
   `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if set,
   else `%USERPROFILE%` if set, else the result of calling
   `SHGetKnownFolderPath()` with the `FOLDERID_Profile` flag set. If the
-  environment variable `$TEST_TMPDIR` is set, as in a test of bazel itself,
+  environment variable `$TEST_TMPDIR` is set, as in a test of Bazel itself,
   then that value overrides the default.
 * The Bazel user's build state is located beneath `outputRoot/_bazel_$USER`.
   This is called the _outputUserRoot_ directory.

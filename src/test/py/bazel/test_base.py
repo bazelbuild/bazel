@@ -351,8 +351,7 @@ class TestBase(unittest.TestCase):
     """
     return self.RunProgram([
         self.Rlocation('io_bazel/src/bazel'),
-        '--bazelrc=' + self._test_bazelrc,
-        '--nomaster_bazelrc',
+        '--bazelrc=' + self._test_bazelrc
     ] + args, env_remove, env_add, False, cwd, allow_failure)
 
   def StartRemoteWorker(self):

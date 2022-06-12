@@ -41,7 +41,7 @@ technically they are interpreted using the Latin-1 character set.
 
 Because `BUILD` files need to be updated whenever the dependencies of the
 underlying code change, they are typically maintained by multiple people on a
-team. `BUILD` file authors are should comments liberally to document the role
+team. `BUILD` file authors should comment liberally to document the role
 of each build target, whether or not it is intended for public use, and to
 document the role of the package itself.
 

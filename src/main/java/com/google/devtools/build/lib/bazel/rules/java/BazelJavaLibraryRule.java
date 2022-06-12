@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -159,7 +160,12 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
                 .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                 .allowedFileTypes())
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+        // optional.
+        .addToolchainTypes(
+            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                .mandatory(true)
+                .build())
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }

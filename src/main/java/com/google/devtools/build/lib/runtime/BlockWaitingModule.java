@@ -51,6 +51,7 @@ public class BlockWaitingModule extends BlazeModule {
     try {
       executorService.awaitTermination(Long.MAX_VALUE, SECONDS);
     } catch (InterruptedException e) {
+      executorService.shutdownNow();
       Thread.currentThread().interrupt();
     }
 

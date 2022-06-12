@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -102,7 +103,12 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                         return rule.get("create_executable", BOOLEAN);
                       }
                     }))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+        // optional.
+        .addToolchainTypes(
+            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                .mandatory(true)
+                .build())
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }

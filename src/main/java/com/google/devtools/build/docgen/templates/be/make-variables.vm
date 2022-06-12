@@ -1,15 +1,10 @@
 #if (!$singlePage)
----
-layout: documentation
-title: Make Variables
----
-
-<div style="background-color: #EFCBCB; color: #AE2B2B;  border: 1px solid #AE2B2B; border-radius: 5px; border-left: 10px solid #AE2B2B; padding: 0.5em;">
-<b>IMPORTANT:</b> The Bazel docs have moved! Please update your bookmark to <a href="https://bazel.build/reference/be/make-variables" style="color: #0000EE;">https://bazel.build/reference/be/make-variables</a>
-<p/>
-You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html" style="color: #0000EE;">read about</a> the migration, and let us <a href="https://forms.gle/onkAkr2ZwBmcbWXj7" style="color: #0000EE;">know what you think</a>.
-</div>
-
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 #end
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
@@ -19,18 +14,16 @@ You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.ht
                       variables
      ============================================
 -->
-<h1 id="make-variables">"Make" Variables</h1>
+<h1 class="page-title" id="make-variables">"Make" Variables</h1>
 
 #if (!$singlePage)
-<div class="toc">
-  <ul>
-    <li><a href="#use">Use</a></li>
-    <li><a href="#predefined_variables">Predefined variables</a></li>
-    <li><a href="#predefined_genrule_variables">Predefined genrule variables</a></li>
-    <li><a href="#predefined_label_variables">Predefined source/output path variables</a></li>
-    <li><a href="#custom_variables">Custom variables</a></li>
-  </ul>
-</div>
+<ul>
+  <li><a href="#use">Use</a></li>
+  <li><a href="#predefined_variables">Predefined variables</a></li>
+  <li><a href="#predefined_genrule_variables">Predefined genrule variables</a></li>
+  <li><a href="#predefined_label_variables">Predefined source/output path variables</a></li>
+  <li><a href="#custom_variables">Custom variables</a></li>
+</ul>
 #end
 <p>
   "Make" variables are a special class of expandable string variables available
@@ -123,7 +116,7 @@ You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.ht
 <ul><!--  keep alphabetically sorted  -->
   <li><code>COMPILATION_MODE</code>:
     <code>fastbuild</code>, <code>dbg</code>, or <code>opt</code>. (<a
-  href="https://docs.bazel.build/versions/main/user-manual.html#flag--compilation_mode">more
+  href="https://bazel.build/docs/user-manual#flag--compilation_mode">more
   details</a>)
   </li>
 </ul>
@@ -256,7 +249,7 @@ You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.ht
     <p>
       <code>execpath</code>:  Denotes the path beneath the
 
-      <a href="../output_directories.html">execroot</a>
+      <a href="/docs/output_directories">execroot</a>
     where Bazel runs build actions.
     </p>
     <p>
@@ -446,9 +439,9 @@ You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.ht
 <p><strong>Starlark-defined variables</strong></p>
 
 <p>
-  Rule and <a href="../toolchains.html">toolchain</a> writers can define
+  Rule and <a href="$expander.expandRef("toolchains")">toolchain</a> writers can define
   completely custom variables by returning a
-  <a href="../skylark/lib/TemplateVariableInfo.html">TemplateVariableInfo</a>
+  <a href="/rules/lib/TemplateVariableInfo">TemplateVariableInfo</a>
   provider. Any rules depending on these through the
   <code>toolchains</code> attribute can then read their values:
 </p>
@@ -460,3 +453,8 @@ You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.ht
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
 #end
 
+
+#if (!$singlePage)
+</body>
+</html>
+#end

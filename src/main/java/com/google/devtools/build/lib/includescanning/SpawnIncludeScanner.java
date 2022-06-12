@@ -125,7 +125,13 @@ public class SpawnIncludeScanner {
     if (remoteExtractionThreshold == 0 || (outputService != null && !file.isSourceArtifact())) {
       return true;
     }
-    FileStatus status = syscallCache.statIfFound(file.getPath(), Symlinks.FOLLOW);
+    Path path = file.getPath();
+    // Don't use syscallCache for a derived artifact: it might have been statted before it was
+    // regenerated.
+    FileStatus status =
+        file.isSourceArtifact()
+            ? syscallCache.statIfFound(path, Symlinks.FOLLOW)
+            : path.statIfFound(Symlinks.FOLLOW);
     return status == null || status.getSize() > remoteExtractionThreshold;
   }
 

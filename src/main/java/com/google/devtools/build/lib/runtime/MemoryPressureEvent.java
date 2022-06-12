@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 
 /** A memory pressure event. */
 @AutoValue
@@ -25,18 +26,21 @@ public abstract class MemoryPressureEvent {
 
   public abstract long tenuredSpaceMaxBytes();
 
-  static Builder newBuilder() {
+  @VisibleForTesting
+  public static Builder newBuilder() {
     return new AutoValue_MemoryPressureEvent.Builder();
   }
 
+  /** A memory pressure event builder. */
+  @VisibleForTesting
   @AutoValue.Builder
-  abstract static class Builder {
-    abstract Builder setWasManualGc(boolean value);
+  public abstract static class Builder {
+    public abstract Builder setWasManualGc(boolean value);
 
-    abstract Builder setTenuredSpaceUsedBytes(long value);
+    public abstract Builder setTenuredSpaceUsedBytes(long value);
 
-    abstract Builder setTenuredSpaceMaxBytes(long value);
+    public abstract Builder setTenuredSpaceMaxBytes(long value);
 
-    abstract MemoryPressureEvent build();
+    public abstract MemoryPressureEvent build();
   }
 }

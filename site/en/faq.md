@@ -154,7 +154,7 @@ For other IDEs, check out the [blog post](https://blog.bazel.build/2016/06/10/id
 
 Bazel returns a non-zero exit code if the build or test invocation fails, and this should be enough for basic CI integration. Since Bazel does not need clean builds for correctness, the CI system should not be configured to clean before starting a build/test run.
 
-Further details on exit codes are in the [User Guide](/docs/user-guide).
+Further details on exit codes are in the [User Manual](/docs/user-manual).
 
 ## What future features can we expect in Bazel?
 

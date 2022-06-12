@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -210,7 +211,7 @@ public final class BazelPyRuleClasses {
           <ul>
             <li>
               <code>stamp = 1</code>: Always stamp the build information into the binary, even in
-              <a href="../user-manual.html#flag--stamp"><code>--nostamp</code></a> builds. <b>This
+              <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
               setting should be avoided</b>, since it potentially kills remote caching for the
               binary and any downstream actions that depend on it.
             </li>
@@ -220,7 +221,7 @@ public final class BazelPyRuleClasses {
             </li>
             <li>
               <code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="../user-manual.html#flag--stamp"><code>--[no]stamp</code></a> flag.
+              <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
             </li>
           </ul>
           <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
@@ -233,7 +234,10 @@ public final class BazelPyRuleClasses {
           .add(
               attr("$py_toolchain_type", NODEP_LABEL)
                   .value(env.getToolsLabel("//tools/python:toolchain_type")))
-          .addRequiredToolchains(env.getToolsLabel("//tools/python:toolchain_type"))
+          .addToolchainTypes(
+              ToolchainTypeRequirement.builder(env.getToolsLabel("//tools/python:toolchain_type"))
+                  .mandatory(true)
+                  .build())
           .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }

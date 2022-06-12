@@ -73,9 +73,6 @@ starlark_apple_binary = rule(
             cfg = apple_common.multi_arch_split,
             default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
         ),
-        "_cc_toolchain": attr.label(
-            default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
-        ),
         "_xcode_config": attr.label(
             default = configuration_field(
                 fragment = "apple",

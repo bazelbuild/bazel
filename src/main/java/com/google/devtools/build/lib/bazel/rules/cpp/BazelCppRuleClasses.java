@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -105,7 +106,12 @@ public class BazelCppRuleClasses {
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .requiresConfigurationFragments(PlatformConfiguration.class)
-          .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+          // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+          // optional.
+          .addToolchainTypes(
+              ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                  .mandatory(true)
+                  .build())
           .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }
@@ -551,7 +557,7 @@ public class BazelCppRuleClasses {
           <ul>
             <li>
               <code>stamp = 1</code>: Always stamp the build information into the binary, even in
-              <a href="../user-manual.html#flag--stamp"><code>--nostamp</code></a> builds. <b>This
+              <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
               setting should be avoided</b>, since it potentially kills remote caching for the
               binary and any downstream actions that depend on it.
             </li>
@@ -561,7 +567,7 @@ public class BazelCppRuleClasses {
             </li>
             <li>
               <code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="../user-manual.html#flag--stamp"><code>--[no]stamp</code></a> flag.
+              <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
             </li>
           </ul>
           <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>

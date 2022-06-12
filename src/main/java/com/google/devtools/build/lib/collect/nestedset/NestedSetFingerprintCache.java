@@ -100,7 +100,7 @@ public class NestedSetFingerprintCache {
         throw new IllegalArgumentException(
             String.format(
                 "Too many instances of CommandLineItem.ParametrizedMapFn '%s' detected. "
-                    + "Please construct fewer instances or use CommandLineItem.CapturingMapFn.",
+                    + "Please construct fewer instances.",
                 mapFnClass.getName()));
       }
     } else {
@@ -108,9 +108,8 @@ public class NestedSetFingerprintCache {
         throw new IllegalArgumentException(
             String.format(
                 "Illegal mapFn implementation: '%s'. "
-                    + "CommandLineItem.MapFn instances must be singletons. "
-                    + "Please see CommandLineItem.ParametrizedMapFn or "
-                    + "CommandLineItem.CapturingMapFn for alternatives.",
+                    + "CommandLineItem.MapFn instances must be singletons."
+                    + "Please see CommandLineItem.ParametrizedMapFn for an alternative.",
                 mapFnClass.getName()));
       }
     }

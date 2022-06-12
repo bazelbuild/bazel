@@ -36,7 +36,7 @@ public class AndroidResourceMergingActionBuilder {
   private Artifact classJarOut;
   private Artifact aapt2RTxtOut;
   private Artifact manifestOut;
-  private @Nullable Artifact dataBindingInfoZip;
+  @Nullable private Artifact dataBindingInfoZip;
 
   // Flags
   private String customJavaPackage;

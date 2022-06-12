@@ -225,6 +225,8 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         ctx.actions.write(descriptor_set, "")
         return
 
+    dependencies_descriptor_sets = depset(transitive = [dep.transitive_descriptor_sets for dep in deps])
+
     args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
         args.add("--include_source_info")
@@ -246,6 +248,13 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         args.add(ctx.label, format = semantics.STRICT_DEPS_FLAG_TEMPLATE)
 
     strict_public_imports_mode = ctx.fragments.proto.strict_public_imports()
+    strict_imports = strict_public_imports_mode != "OFF" and strict_public_imports_mode != "DEFAULT"
+    if strict_imports:
+        if not proto_info.public_import_sources():
+            # This line is necessary to trigger the check.
+            args.add("--allowed_public_imports=")
+        else:
+            args.add_joined("--allowed_public_imports", proto_info.public_import_sources(), map_each = _get_import_path, join_with = ":")
     proto_common.create_proto_compile_action(
         ctx,
         proto_info,
@@ -253,8 +262,8 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         mnemonic = "GenProtoDescriptorSet",
         progress_message = "Generating Descriptor Set proto_library %{label}",
         outputs = [descriptor_set],
+        additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
-        strict_imports = strict_public_imports_mode != "OFF" and strict_public_imports_mode != "DEFAULT",
     )
 
 proto_library = rule(

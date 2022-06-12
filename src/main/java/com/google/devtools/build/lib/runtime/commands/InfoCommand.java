@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -162,11 +163,10 @@ public class InfoCommand implements BlazeCommand {
                 // information is available here.
                 env.syncPackageLoading(optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
+                BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
+                env.getSkyframeExecutor().setBaselineConfiguration(buildOptions);
                 return env.getSkyframeExecutor()
-                    .getConfiguration(
-                        env.getReporter(),
-                        runtime.createBuildOptions(optionsParsingResult),
-                        /*keepGoing=*/ true);
+                    .getConfiguration(env.getReporter(), buildOptions, /*keepGoing=*/ true);
               } catch (InvalidConfigurationException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
                 throw new AbruptExitRuntimeException(e.getDetailedExitCode());

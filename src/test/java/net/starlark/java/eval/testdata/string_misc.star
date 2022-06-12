@@ -177,3 +177,35 @@ assert_eq("abc" * 0, "")
 assert_eq("abc" * -1, "")
 assert_fails(lambda: "abc" * (1 << 35), "got 34359738368 for repeat, want value in signed 32-bit range")
 assert_fails(lambda: "abc" * (1 << 30), "excessive repeat \\(3 \\* 1073741824 characters\\)")
+
+# removeprefix
+assert_eq("Apricot".removeprefix("Apr"), "icot")
+assert_eq("Apricot".removeprefix("apr"), "Apricot")
+assert_eq("Apricot".removeprefix("A"), "pricot")
+assert_eq("a".removeprefix(""), "a")
+assert_eq("".removeprefix(""), "")
+assert_eq("".removeprefix("a"), "")
+assert_eq("Apricot".removeprefix("pr"), "Apricot")
+assert_eq("AprApricot".removeprefix("Apr"), "Apricot")
+def removeprefix_self_unmodified():
+    original_string = "Apricot"
+    assert_eq(original_string.removeprefix("Apr"), "icot")
+    assert_eq(original_string, "Apricot")
+removeprefix_self_unmodified()
+assert_fails(lambda: "1234".removeprefix(1), "got value of type 'int', want 'string")
+
+# removesuffix
+assert_eq("Apricot".removesuffix("cot"), "Apri")
+assert_eq("Apricot".removesuffix("Cot"), "Apricot")
+assert_eq("Apricot".removesuffix("t"), "Aprico")
+assert_eq("a".removesuffix(""), "a")
+assert_eq("".removesuffix(""), "")
+assert_eq("".removesuffix("a"), "")
+assert_eq("Apricot".removesuffix("co"), "Apricot")
+assert_eq("Apricotcot".removesuffix("cot"), "Apricot")
+def removesuffix_self_unmodified():
+    original_string = "Apricot"
+    assert_eq(original_string.removesuffix("cot"), "Apri")
+    assert_eq(original_string, "Apricot")
+removesuffix_self_unmodified()
+assert_fails(lambda: "1234".removesuffix(4), "got value of type 'int', want 'string")

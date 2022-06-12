@@ -66,7 +66,7 @@ class TopLevelActionLookupConflictFindingFunction implements SkyFunction {
   }
 
   @AutoValue
-  abstract static class Key implements CompletionFunction.TopLevelActionLookupKey {
+  abstract static class Key implements TopLevelActionLookupKey {
     static Key create(
         ActionLookupKey actionLookupKey, TopLevelArtifactContext topLevelArtifactContext) {
       return new AutoValue_TopLevelActionLookupConflictFindingFunction_Key(

@@ -39,7 +39,7 @@ public final class ExtraActionRule implements RuleDefinition {
         /*<!-- #BLAZE_RULE(extra_action).ATTRIBUTE(tools) -->
         A list of <code>tool</code> dependencies for this rule.
         <p>
-          See the definition of <a href="../build-ref.html#deps">dependencies</a> for more
+          See the definition of <a href="${link build-ref#deps}">dependencies</a> for more
           information.
         </p>
         <p>
@@ -135,7 +135,7 @@ public final class ExtraActionRule implements RuleDefinition {
 
 <p>
   <b>WARNING:</b> Extra actions are deprecated. Use
-  <a href="https://docs.bazel.build/versions/main/skylark/aspects.html">aspects</a>
+  <a href="https://bazel.build/rules/aspects">aspects</a>
   instead.
 </p>
 

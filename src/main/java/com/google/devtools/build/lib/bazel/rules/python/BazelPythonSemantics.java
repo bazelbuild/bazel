@@ -75,7 +75,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public String getSrcsVersionDocURL() {
     // TODO(#8996): Update URL to point to rules_python's docs instead of the Bazel site.
-    return "https://docs.bazel.build/versions/main/be/python.html#py_binary.srcs_version";
+    return "https://bazel.build/reference/be/python#py_binary.srcs_version";
   }
 
   @Override

@@ -74,6 +74,52 @@ public class OutputConsumer implements ClassFileConsumer {
     return finish;
   }
 
+  @Override
+  public void finished(DiagnosticsHandler handler) {
+    if (!finished()) {
+      return;
+    }
+    FilteringDependencyCollector dependencyCollector =
+        new FilteringDependencyCollector(this.dependencyCollector);
+    initializeInputDependencies(handler, dependencyCollector);
+    dependencyCollector.setFiltering();
+    try (ZipOutputStream out =
+        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archive)))) {
+      for (ClassFileData classFile : classFiles) {
+        ZipUtils.addEntry(classFile.fileName, classFile.data, ZipEntry.STORED, out);
+        new DesugaredClassFileDependencyCollector(classFile, dependencyCollector).run();
+      }
+      // Add dependency metadata if required.
+      byte[] desugarDeps = dependencyCollector.toByteArray();
+      if (desugarDeps != null) {
+        ZipUtils.addEntry(Desugar.DESUGAR_DEPS_FILENAME, desugarDeps, ZipEntry.STORED, out);
+      }
+      ZipUtils.copyEntries(
+          input,
+          out,
+          entryName ->
+              ("module-info.class".equals(entryName) || entryName.startsWith("META-INF/versions/"))
+                  || ArchiveProgramResourceProvider.includeClassFileEntries(entryName)
+                  || (entryName.endsWith("/") && flags == EXCLUDE_PATH_ENTRIES),
+          name -> {
+            final String metainfServicesPrefix = "META-INF/services/";
+            if (name.startsWith(metainfServicesPrefix)) {
+              String serviceName = name.substring(metainfServicesPrefix.length());
+              if (serviceName.startsWith("java.time.")) {
+                name =
+                    metainfServicesPrefix
+                        + "j$.time."
+                        + serviceName.substring("java.time.".length());
+              }
+            }
+            return name;
+          });
+
+    } catch (IOException e) {
+      handler.error(new ExceptionDiagnostic(e, origin));
+    }
+  }
+
   public void setFinish(boolean finish) {
     this.finish = finish;
   }
@@ -123,52 +169,6 @@ public class OutputConsumer implements ClassFileConsumer {
     classFiles.add(
         new ClassFileData(
             DescriptorUtils.descriptorToClassFileName(descriptor), data.copyByteData()));
-  }
-
-  @Override
-  public void finished(DiagnosticsHandler handler) {
-    if (!finished()) {
-      return;
-    }
-    FilteringDependencyCollector dependencyCollector =
-        new FilteringDependencyCollector(this.dependencyCollector);
-    initializeInputDependencies(handler, dependencyCollector);
-    dependencyCollector.setFiltering();
-    try (ZipOutputStream out =
-        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archive)))) {
-      for (ClassFileData classFile : classFiles) {
-        ZipUtils.addEntry(classFile.fileName, classFile.data, ZipEntry.STORED, out);
-        new DesugaredClassFileDependencyCollector(classFile, dependencyCollector).run();
-      }
-      // Add dependency metadata if required.
-      byte[] desugarDeps = dependencyCollector.toByteArray();
-      if (desugarDeps != null) {
-        ZipUtils.addEntry(Desugar.DESUGAR_DEPS_FILENAME, desugarDeps, ZipEntry.STORED, out);
-      }
-      ZipUtils.copyEntries(
-          input,
-          out,
-          entryName ->
-              ("module-info.class".equals(entryName) || entryName.startsWith("META-INF/versions/"))
-                  || ArchiveProgramResourceProvider.includeClassFileEntries(entryName)
-                  || (entryName.endsWith("/") && flags == EXCLUDE_PATH_ENTRIES),
-          name -> {
-            final String metainfServicesPrefix = "META-INF/services/";
-            if (name.startsWith(metainfServicesPrefix)) {
-              String serviceName = name.substring(metainfServicesPrefix.length());
-              if (serviceName.startsWith("java.time.")) {
-                name =
-                    metainfServicesPrefix
-                        + "j$.time."
-                        + serviceName.substring("java.time.".length());
-              }
-            }
-            return name;
-          });
-
-    } catch (IOException e) {
-      handler.error(new ExceptionDiagnostic(e, origin));
-    }
   }
 
   private void initializeInputDependencies(

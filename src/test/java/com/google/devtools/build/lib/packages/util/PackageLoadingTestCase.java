@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DelegatingSyscallCache;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -73,6 +74,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   protected SkyframeExecutor skyframeExecutor;
   protected BlazeDirectories directories;
   protected PackageValidator validator = null;
+  protected final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
@@ -110,6 +112,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
                   }
                 })
             .build(ruleClassProvider, fileSystem);
+    delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
     skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe();
   }
@@ -126,7 +129,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setPerCommandSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(

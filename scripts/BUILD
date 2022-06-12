@@ -39,7 +39,6 @@ sh_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//scripts/docs:srcs",
         "//scripts/packages:srcs",
         "//scripts/release:srcs",
         "//scripts/zsh_completion:srcs",

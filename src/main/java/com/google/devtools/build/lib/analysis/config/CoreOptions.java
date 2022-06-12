@@ -287,6 +287,45 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INTERNAL})
   public List<String> affectedByStarlarkTransition;
 
+  /** Values for the --experimental_exec_configuration_distinguisher options * */
+  public enum ExecConfigurationDistinguisherScheme {
+    /** Use hash of selected execution platform for platform_suffix. * */
+    LEGACY,
+    /** Do not touch platform_suffix or do anything else. * */
+    OFF,
+    /** Use hash of entire configuration (with platform_suffix="") for platform_suffix. * */
+    FULL_HASH,
+    /** Set platform_suffix to "exec", instead update `affected by starlark transition` * */
+    DIFF_TO_AFFECTED
+  }
+
+  /** Converter for the {@code --experimental_exec_configuration_distinguisher} options. */
+  public static class ExecConfigurationDistinguisherSchemeConverter
+      extends EnumConverter<ExecConfigurationDistinguisherScheme> {
+    public ExecConfigurationDistinguisherSchemeConverter() {
+      super(
+          ExecConfigurationDistinguisherScheme.class,
+          "Exec transition configuration distinguisher scheme");
+    }
+  }
+
+  @Option(
+      name = "experimental_exec_configuration_distinguisher",
+      defaultValue = "legacy",
+      converter = ExecConfigurationDistinguisherSchemeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy due to"
+              + " potential for action conflicts. Controls how the execution transition changes the"
+              + " platform_suffix flag. In legacy mode, sets it to a hash of the execution"
+              + " platform. In fullhash mode, sets it to a hash of the entire configuration. In off"
+              + " mode, does not touch it.")
+  public ExecConfigurationDistinguisherScheme execConfigurationDistinguisherScheme;
+
+  /* At the moment, EXPLICIT_IN_OUTPUT_PATH is not being set here because platform_suffix
+   * is being used as a configuration distinguisher for the exec transition. */
   @Option(
       name = "platform_suffix",
       defaultValue = "null",
@@ -496,6 +535,37 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Deprecated in favor of aspects. Use action_listener to attach an extra_action to"
               + " existing build actions.")
   public List<Label> actionListeners;
+
+  /** Values for the --experimental_output_directory_naming_scheme options */
+  public enum OutputDirectoryNamingScheme {
+    /** Use `affected by starlark transition` to track configuration changes */
+    LEGACY,
+    /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
+    DIFF_AGAINST_BASELINE
+  }
+
+  /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
+  public static class OutputDirectoryNamingSchemeConverter
+      extends EnumConverter<OutputDirectoryNamingScheme> {
+    public OutputDirectoryNamingSchemeConverter() {
+      super(OutputDirectoryNamingScheme.class, "Output directory naming scheme");
+    }
+  }
+
+  @Option(
+      name = "experimental_output_directory_naming_scheme",
+      defaultValue = "legacy",
+      converter = OutputDirectoryNamingSchemeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy. In"
+              + " legacy mode, transitions (generally only Starlark) set and use `affected by"
+              + " Starlark transition` to determine the ST hash. In diff_against_baseline mode,"
+              + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
+              + " for all configuration, by diffing against the top-level configuration.")
+  public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
   @Option(
       name = "is host configuration",
@@ -855,9 +925,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.affectedByStarlarkTransition = affectedByStarlarkTransition;
+    host.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
+    host.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;
     host.executionInfoModifier = executionInfoModifier;

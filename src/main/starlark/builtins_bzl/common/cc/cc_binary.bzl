@@ -23,6 +23,7 @@ ProtoInfo = _builtins.toplevel.ProtoInfo
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
+StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"
@@ -267,7 +268,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
     )
     cc_info = CcInfo(
         compilation_context = compilation_context,
-        cc_native_library_info = cc_internal.collect_native_cc_libraries(deps = ctx.attr.deps, libraries_to_link = libraries),
+        cc_native_library_info = cc_helper.collect_native_cc_libraries(deps = ctx.attr.deps, libraries = libraries),
     )
     output_groups["_validation"] = compilation_context.validation_artifacts
     return (cc_info, instrumented_files_provider, output_groups)
@@ -295,6 +296,9 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
         runfiles_is_not_static.append(ctx.runfiles(transitive_files = _runfiles_function(ctx, transitive_info_collection, False)))
         runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, True).to_list())
         runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, False).to_list())
+
+    for dynamic_dep in ctx.attr.dynamic_deps:
+        builder = builder.merge(dynamic_dep[DefaultInfo].default_runfiles)
 
     builder = builder.merge_all(runfiles_is_static + runfiles_is_not_static)
     if linking_mode == _LINKING_DYNAMIC:
@@ -452,12 +456,13 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
 
     (link_statically_labels, link_dynamically_labels) = _separate_static_and_dynamic_link_libraries(graph_structure_aspect_nodes, can_be_linked_dynamically)
 
-    owners_seen = {}
+    linker_inputs_seen = {}
     for linker_input in linker_inputs:
-        owner = str(linker_input.owner)
-        if owner in owners_seen:
+        stringified_linker_input = cc_helper.stringify_linker_input(linker_input)
+        if stringified_linker_input in linker_inputs_seen:
             continue
-        owners_seen[owner] = True
+        linker_inputs_seen[stringified_linker_input] = True
+        owner = str(linker_input.owner)
         if owner not in link_dynamically_labels and (owner in link_statically_labels or _get_canonical_form(ctx.label) == owner):
             if owner in link_once_static_libs_map:
                 fail(owner + " is already linked statically in " + link_once_static_libs_map[owner] + " but not exported.")
@@ -655,7 +660,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     Returns:
       Appropriate providers for cc_binary/cc_test.
     """
-    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary")
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
     common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 
@@ -691,10 +696,9 @@ def cc_binary_impl(ctx, additional_linkopts):
     if has_legacy_link_shared_name:
         binary = ctx.actions.declare_file(target_name)
     else:
-        binary = cc_internal.get_linked_artifact(
+        binary = cc_helper.get_linked_artifact(
             ctx = ctx,
             cc_toolchain = cc_toolchain,
-            config = ctx.configuration,
             is_dynamic_link_type = is_dynamic_link_type,
         )
     linking_mode = _get_link_staticness(ctx, cpp_config)
@@ -969,7 +973,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         OutputGroupInfo(**output_groups),
     ]
     if "fully_static_link" in ctx.features:
-        result.append(cc_internal.statically_linked_marker_provider(is_linked_statically = True))
+        result.append(StaticallyLinkedMarkerInfo(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
     return binary_info, cc_info, result

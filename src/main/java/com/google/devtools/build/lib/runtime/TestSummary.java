@@ -605,11 +605,22 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public ImmutableList<LocalFile> referencedLocalFiles() {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    // TODO(b/199940216): Can we populate metadata for these files?
     for (Path path : getFailedLogs()) {
-      localFiles.add(new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT));
+      localFiles.add(
+          new LocalFile(
+              path,
+              LocalFileType.FAILED_TEST_OUTPUT,
+              /*artifact=*/ null,
+              /*artifactMetadata=*/ null));
     }
     for (Path path : getPassedLogs()) {
-      localFiles.add(new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT));
+      localFiles.add(
+          new LocalFile(
+              path,
+              LocalFileType.SUCCESSFUL_TEST_OUTPUT,
+              /*artifact=*/ null,
+              /*artifactMetadata=*/ null));
     }
     return localFiles.build();
   }

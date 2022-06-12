@@ -99,7 +99,8 @@ public class TracingMetadataUtils {
    * Extracts a {@link RequestMetadata} from a {@link Metadata} and returns it if it exists. If it
    * does not exist, returns {@code null}.
    */
-  public static @Nullable RequestMetadata requestMetadataFromHeaders(Metadata headers) {
+  @Nullable
+  public static RequestMetadata requestMetadataFromHeaders(Metadata headers) {
     return headers.get(METADATA_KEY);
   }
 

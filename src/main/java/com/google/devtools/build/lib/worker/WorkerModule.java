@@ -161,7 +161,7 @@ public class WorkerModule extends BlazeModule {
             env.getOptions().getOptions(WorkerOptions.class),
             env.getEventBus(),
             Runtime.getRuntime(),
-            env.getSyscallCache());
+            env.getXattrProvider());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(

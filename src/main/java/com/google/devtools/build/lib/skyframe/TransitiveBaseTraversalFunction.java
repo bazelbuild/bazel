@@ -39,11 +39,9 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -82,8 +80,8 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       ProcessedTargetsT processedTargets,
       EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
-      Iterable<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-          depEntries);
+      SkyframeLookupResult depEntries,
+      Iterable<? extends SkyKey> depKeys);
 
   /**
    * Returns a {@link SkyValue} based on the target and any errors it has, and the values
@@ -114,9 +112,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     // skyframe for building this node was for the corresponding PackageValue.
     Collection<SkyKey> labelDepKeys = getLabelDepKeys(env, targetAndErrorIfAny);
 
-    Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap =
-        env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
-            NoSuchTargetException.class);
+    SkyframeLookupResult depMap = env.getValuesAndExceptions(labelDepKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -124,18 +120,19 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     // made to skyframe for building this node was for the corresponding PackageValue.
     Iterable<SkyKey> labelAspectKeys =
         getStrictLabelAspectDepKeys(env, depMap, targetAndErrorIfAny);
-    Set<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-        labelAspectEntries =
-            env.getValuesOrThrow(
-                    labelAspectKeys, NoSuchPackageException.class, NoSuchTargetException.class)
-                .entrySet();
+    SkyframeLookupResult labelAspectEntries = env.getValuesAndExceptions(labelAspectKeys);
     if (env.valuesMissing()) {
       return null;
     }
 
     ProcessedTargetsT processedTargets = processTarget(targetAndErrorIfAny);
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap.entrySet());
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, labelAspectEntries);
+    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap, labelDepKeys);
+    processDeps(
+        processedTargets,
+        env.getListener(),
+        targetAndErrorIfAny,
+        labelAspectEntries,
+        labelAspectKeys);
 
     return computeSkyValue(targetAndErrorIfAny, processedTargets);
   }
@@ -153,7 +150,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
 
   Iterable<SkyKey> getStrictLabelAspectDepKeys(
       SkyFunction.Environment env,
-      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
+      SkyframeLookupResult depMap,
       TargetAndErrorIfAny targetAndErrorIfAny)
       throws InterruptedException {
     return getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), depMap, env);
@@ -171,10 +168,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
    * dependencies from the env to do so.
    */
   private Iterable<SkyKey> getStrictLabelAspectKeys(
-      Target target,
-      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
-      Environment env)
-      throws InterruptedException {
+      Target target, SkyframeLookupResult depMap, Environment env) throws InterruptedException {
     if (!(target instanceof Rule)) {
       // Aspects can be declared only for Rules.
       return ImmutableList.of();
@@ -204,20 +198,21 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
 
   @Nullable
   protected abstract AdvertisedProviderSet getAdvertisedProviderSet(
-      Label toLabel,
-      @Nullable ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-      Environment env)
-      throws InterruptedException;
+      Label toLabel, SkyValue toVal, Environment env) throws InterruptedException;
 
   private final boolean hasDepThatSatisfies(
-      Aspect aspect,
-      Iterable<Label> depLabels,
-      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> fullDepMap,
-      Environment env)
+      Aspect aspect, Iterable<Label> depLabels, SkyframeLookupResult fullDepMap, Environment env)
       throws InterruptedException {
     for (Label depLabel : depLabels) {
-      AdvertisedProviderSet advertisedProviderSet =
-          getAdvertisedProviderSet(depLabel, fullDepMap.get(depLabel), env);
+      SkyValue toVal;
+      try {
+        toVal =
+            fullDepMap.getOrThrow(
+                getKey(depLabel), NoSuchPackageException.class, NoSuchTargetException.class);
+      } catch (NoSuchPackageException | NoSuchTargetException e) {
+        continue;
+      }
+      AdvertisedProviderSet advertisedProviderSet = getAdvertisedProviderSet(depLabel, toVal, env);
       if (advertisedProviderSet != null
           && AspectDefinition.satisfies(aspect, advertisedProviderSet)) {
         return true;

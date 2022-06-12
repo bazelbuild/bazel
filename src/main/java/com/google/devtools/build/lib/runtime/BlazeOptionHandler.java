@@ -122,7 +122,7 @@ public final class BlazeOptionHandler {
               + "' command is only supported from within a workspace"
               + " (below a directory having a WORKSPACE file).\n"
               + "See documentation at"
-              + " https://docs.bazel.build/versions/main/build-ref.html#workspace";
+              + " https://bazel.build/concepts/build-ref#workspace";
       eventHandler.handle(Event.error(message));
       return createDetailedExitCode(message, Code.NOT_IN_WORKSPACE);
     }

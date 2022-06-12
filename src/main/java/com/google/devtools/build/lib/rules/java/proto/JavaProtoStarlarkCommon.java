@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -59,7 +58,6 @@ public class JavaProtoStarlarkCommon
           protoInfo,
           ImmutableList.of(sourceJar),
           "Generating JavaLite proto_library %{label}",
-          Exports.USE,
           Services.ALLOW);
     } catch (RuleErrorException e) {
       throw new EvalException(e);

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,11 +33,11 @@ import java.io.OutputStream;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
-  private final SyscallCache syscallCache;
+  private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
 
-  public DigestUtil(SyscallCache syscallCache, DigestHashFunction hashFn) {
-    this.syscallCache = syscallCache;
+  public DigestUtil(XattrProvider xattrProvider, DigestHashFunction hashFn) {
+    this.xattrProvider = xattrProvider;
     this.hashFn = hashFn;
   }
 
@@ -63,7 +63,7 @@ public class DigestUtil {
 
   public Digest compute(Path file, long fileSize) throws IOException {
     return buildDigest(
-        DigestUtils.getDigestWithManualFallback(file, fileSize, syscallCache), fileSize);
+        DigestUtils.getDigestWithManualFallback(file, fileSize, xattrProvider), fileSize);
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {

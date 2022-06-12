@@ -143,25 +143,50 @@ class TarFileWriterTest(unittest.TestCase):
 
   def testMergeTar(self):
     content = [
-        {"name": "./a", "data": b"a"},
-        {"name": "./ab", "data": b"ab"},
-        ]
+        {
+            "name": "./a",
+            "data": b"a"
+        },
+        {
+            "name": "./b",
+            "data": b"b"
+        },
+        {
+            "name": "./ab",
+            "data": b"ab"
+        },
+    ]
     for ext in ["", ".gz", ".bz2"]:
       with archive.TarFileWriter(self.tempfile) as f:
-        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext),
-                  name_filter=lambda n: n != "./b")
+        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext))
       self.assertTarFileContent(self.tempfile, content)
 
   def testMergeTarRelocated(self):
     content = [
-        {"name": ".", "mode": 0o755},
-        {"name": "./foo", "mode": 0o755},
-        {"name": "./foo/a", "data": b"a"},
-        {"name": "./foo/ab", "data": b"ab"},
-        ]
+        {
+            "name": ".",
+            "mode": 0o755
+        },
+        {
+            "name": "./foo",
+            "mode": 0o755
+        },
+        {
+            "name": "./foo/a",
+            "data": b"a"
+        },
+        {
+            "name": "./foo/b",
+            "data": b"b"
+        },
+        {
+            "name": "./foo/ab",
+            "data": b"ab"
+        },
+    ]
     with archive.TarFileWriter(self.tempfile) as f:
-      f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"),
-                name_filter=lambda n: n != "./b", root="/foo")
+      f.add_tar(
+          os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"), root="/foo")
     self.assertTarFileContent(self.tempfile, content)
 
   def testAddingDirectoriesForFile(self):

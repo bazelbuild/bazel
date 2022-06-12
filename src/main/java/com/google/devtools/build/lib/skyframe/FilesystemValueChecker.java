@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.FunctionHermeticity;
@@ -82,6 +83,7 @@ public class FilesystemValueChecker {
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
 
   @Nullable private final TimestampGranularityMonitor tsgm;
+  private final SyscallCache syscallCache;
   @Nullable private final Range<Long> lastExecutionTimeRange;
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
   private AtomicInteger modifiedOutputFilesIntraBuildCounter = new AtomicInteger(0);
@@ -89,9 +91,11 @@ public class FilesystemValueChecker {
 
   public FilesystemValueChecker(
       @Nullable TimestampGranularityMonitor tsgm,
+      SyscallCache syscallCache,
       @Nullable Range<Long> lastExecutionTimeRange,
       int numThreads) {
     this.tsgm = tsgm;
+    this.syscallCache = syscallCache;
     this.lastExecutionTimeRange = lastExecutionTimeRange;
     this.numThreads = numThreads;
   }
@@ -335,7 +339,8 @@ public class FilesystemValueChecker {
         FileArtifactValue lastKnownData = actionValue.getExistingFileArtifactValue(artifact);
         try {
           FileArtifactValue newData =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(artifact, stat, tsgm);
+              ActionMetadataHandler.fileArtifactValueFromArtifact(
+                  artifact, stat, syscallCache, tsgm);
           if (newData.couldBeModifiedSince(lastKnownData)) {
             updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1);
             modifiedOutputFilesCounter.getAndIncrement();
@@ -451,7 +456,7 @@ public class FilesystemValueChecker {
     }
     try {
       FileArtifactValue fileMetadata =
-          ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, tsgm);
+          ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, syscallCache, tsgm);
       boolean trustRemoteValue =
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
@@ -600,7 +605,7 @@ public class FilesystemValueChecker {
               }
 
               numKeysChecked.incrementAndGet();
-              DirtyResult result = checker.check(key, value, tsgm);
+              DirtyResult result = checker.check(key, value, syscallCache, tsgm);
               if (result.isDirty()) {
                 batchResult.add(key, value, result.getNewValue());
               }

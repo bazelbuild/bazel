@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
-import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -121,12 +119,6 @@ public final class CompletionFunction<
         ArtifactsToBuild artifactsToBuild,
         Environment env)
         throws InterruptedException;
-  }
-
-  interface TopLevelActionLookupKey extends SkyKey {
-    ActionLookupKey actionLookupKey();
-
-    TopLevelArtifactContext topLevelArtifactContext();
   }
 
   private final PathResolverFactory pathResolverFactory;

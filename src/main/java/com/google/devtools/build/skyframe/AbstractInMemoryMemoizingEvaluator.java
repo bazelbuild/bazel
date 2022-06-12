@@ -83,7 +83,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     long edges = 0;
     for (InMemoryNodeEntry entry : inMemoryGraph().getAllValues().values()) {
       nodes++;
-      if (entry.isDone()) {
+      if (entry.isDone() && entry.keepEdges() != NodeEntry.KeepEdgesPolicy.NONE) {
         edges += Iterables.size(entry.getDirectDeps());
       }
     }

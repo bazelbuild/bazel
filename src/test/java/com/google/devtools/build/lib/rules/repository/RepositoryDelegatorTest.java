@@ -311,7 +311,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setDigest(new byte[] {1})
             .build();
 
-    assertThat(checker.check(key, usual, tsgm).isDirty()).isFalse();
+    assertThat(checker.check(key, usual, SyscallCache.NO_CACHE, tsgm).isDirty()).isFalse();
 
     SuccessfulRepositoryDirectoryValue fetchDelayed =
         RepositoryDirectoryValue.builder()
@@ -320,7 +320,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setDigest(new byte[] {1})
             .build();
 
-    assertThat(checker.check(key, fetchDelayed, tsgm).isDirty()).isTrue();
+    assertThat(checker.check(key, fetchDelayed, SyscallCache.NO_CACHE, tsgm).isDirty()).isTrue();
 
     RepositoryName managedName = RepositoryName.create("@managed");
     RepositoryDirectoryValue.Key managedKey = RepositoryDirectoryValue.key(managedName);
@@ -331,15 +331,27 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .build();
 
     knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), managedName));
-    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isTrue();
+    assertThat(
+            checker
+                .check(managedKey, withManagedDirectories, SyscallCache.NO_CACHE, tsgm)
+                .isDirty())
+        .isTrue();
 
     Path managedDirectoryM = rootPath.getRelative("m");
     assertThat(managedDirectoryM.createDirectory()).isTrue();
 
-    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isFalse();
+    assertThat(
+            checker
+                .check(managedKey, withManagedDirectories, SyscallCache.NO_CACHE, tsgm)
+                .isDirty())
+        .isFalse();
 
     managedDirectoryM.deleteTree();
-    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isTrue();
+    assertThat(
+            checker
+                .check(managedKey, withManagedDirectories, SyscallCache.NO_CACHE, tsgm)
+                .isDirty())
+        .isTrue();
   }
 
   @Test

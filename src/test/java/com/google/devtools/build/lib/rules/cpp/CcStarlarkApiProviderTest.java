@@ -34,7 +34,7 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
     return (CcStarlarkApiProvider) rule.get(CcStarlarkApiProvider.NAME);
   }
 
-  private CcStarlarkApiInfo getApiForCcBinary(String label) throws Exception {
+  private CcStarlarkApiInfo getApiForBuiltin(String label) throws Exception {
     RuleConfiguredTarget rule = (RuleConfiguredTarget) getConfiguredTarget(label);
     return (CcStarlarkApiInfo) rule.get(CcStarlarkApiProvider.NAME);
   }
@@ -104,7 +104,9 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveHeaders() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+cc_binary",
+        "--experimental_builtins_injection_override=+cc_library");
     useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
@@ -119,15 +121,19 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
         ")");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
-                getApiForCcBinary("//pkg:check").getTransitiveHeaders()))
+                getApiForBuiltin("//pkg:check").getTransitiveHeaders()))
         .containsAtLeast("lib.h", "bin.h");
-    assertThat(ActionsTestUtil.baseArtifactNames(getApi("//pkg:check_lib").getTransitiveHeaders()))
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                getApiForBuiltin("//pkg:check_lib").getTransitiveHeaders()))
         .contains("lib.h");
   }
 
   @Test
   public void testLinkFlags() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+cc_binary",
+        "--experimental_builtins_injection_override=+cc_library");
     useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
@@ -152,18 +158,19 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
         "    defines = ['foo'],",
         "    linkopts = ['-Wl,-M'],",
         ")");
-    assertThat(getApi("//pkg:check_lib").getLinkopts())
-        .contains("-Wl,-M");
-    assertThat(getApi("//pkg:dependent_lib").getLinkopts())
+    assertThat(getApiForBuiltin("//pkg:check_lib").getLinkopts()).contains("-Wl,-M");
+    assertThat(getApiForBuiltin("//pkg:dependent_lib").getLinkopts())
         .containsAtLeast("-lz", "-Wl,-M")
         .inOrder();
-    assertThat(getApiForCcBinary("//pkg:check").getLinkopts()).isEmpty();
-    assertThat(getApiForCcBinary("//pkg:check_no_srcs").getLinkopts()).isEmpty();
+    assertThat(getApiForBuiltin("//pkg:check").getLinkopts()).isEmpty();
+    assertThat(getApiForBuiltin("//pkg:check_no_srcs").getLinkopts()).isEmpty();
   }
 
   @Test
   public void testLibraries() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+cc_binary",
+        "--experimental_builtins_injection_override=+cc_library");
     useConfiguration("--noincompatible_disable_legacy_cc_provider");
     scratch.file(
         "pkg/BUILD",
@@ -180,13 +187,14 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
         "    name = 'check_lib',",
         "    srcs = ['lib.cc', 'lib.h'],",
         ")");
-    assertThat(ActionsTestUtil.baseArtifactNames(getApi("//pkg:check_lib").getLibraries()))
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(getApiForBuiltin("//pkg:check_lib").getLibraries()))
         .containsExactly("libcheck_lib.a");
-    assertThat(ActionsTestUtil.baseArtifactNames(getApiForCcBinary("//pkg:check").getLibraries()))
+    assertThat(ActionsTestUtil.baseArtifactNames(getApiForBuiltin("//pkg:check").getLibraries()))
         .isEmpty();
     assertThat(
             ActionsTestUtil.baseArtifactNames(
-                getApiForCcBinary("//pkg:check_no_srcs").getLibraries()))
+                getApiForBuiltin("//pkg:check_no_srcs").getLibraries()))
         .isEmpty();
   }
 
@@ -205,7 +213,7 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
         "    name = 'check_lib',",
         "    defines = ['foo'],",
         ")");
-    assertThat(getApiForCcBinary("//pkg:check").getCcFlags()).contains("-Dfoo");
+    assertThat(getApiForBuiltin("//pkg:check").getCcFlags()).contains("-Dfoo");
   }
 
   @Test

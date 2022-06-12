@@ -81,6 +81,7 @@ cc_binary_attrs_with_aspects = {
     ),
     "env": attr.string_dict(),
     "distribs": attr.string_list(),
+    "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_cc_binary": attr.bool(),
     "_is_test": attr.bool(default = False),
     "_grep_includes": semantics.get_grep_includes(),
@@ -92,7 +93,6 @@ cc_binary_attrs_with_aspects = {
     "_def_parser": semantics.get_def_parser(),
 }
 
-cc_binary_attrs_with_aspects.update(semantics.get_licenses_attr())
 cc_binary_attrs_with_aspects.update(semantics.get_distribs_attr())
 cc_binary_attrs_with_aspects.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
 

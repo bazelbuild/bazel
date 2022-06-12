@@ -14,9 +14,8 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 
@@ -26,14 +25,14 @@ import java.util.regex.Matcher;
  * <p>See {@link com.google.devtools.build.docgen.DocgenConsts.BLAZE_RULE_LINK} for the regex used
  * to match link references.
  */
+// TODO(fwe): rename to LinkExpander
+// TODO(fwe): prefix rule links with BE root?
 public class RuleLinkExpander {
   private static final String EXAMPLES_SUFFIX = "_examples";
   private static final String ARGS_SUFFIX = "_args";
   private static final String IMPLICIT_OUTPUTS_SUFFIX = "_implicit_outputs";
   private static final String FUNCTIONS_PAGE = "functions";
 
-  private static final ImmutableSet<String> STATIC_PAGES =
-      ImmutableSet.<String>of("common-definitions", "make-variables");
   private static final ImmutableMap<String, String> FUNCTIONS =
       ImmutableMap.<String, String>builder()
           .put("load", FUNCTIONS_PAGE)
@@ -47,21 +46,25 @@ public class RuleLinkExpander {
           .put("select", FUNCTIONS_PAGE)
           .buildOrThrow();
 
-  private final String productName;
+  private final DocLinkMap linkMap;
   private final Map<String, String> ruleIndex = new HashMap<>();
   private final boolean singlePage;
 
-  RuleLinkExpander(String productName, Map<String, String> ruleIndex, boolean singlePage) {
-    this.productName = productName;
+  RuleLinkExpander(Map<String, String> ruleIndex, boolean singlePage, DocLinkMap linkMap) {
     this.ruleIndex.putAll(ruleIndex);
     this.ruleIndex.putAll(FUNCTIONS);
     this.singlePage = singlePage;
+    this.linkMap = linkMap;
   }
 
-  RuleLinkExpander(String productName, boolean singlePage) {
-    this.productName = productName;
+  RuleLinkExpander(boolean singlePage, DocLinkMap linkMap) {
     this.ruleIndex.putAll(FUNCTIONS);
     this.singlePage = singlePage;
+    this.linkMap = linkMap;
+  }
+
+  public String beRoot() {
+    return linkMap.beRoot;
   }
 
   public void addIndex(Map<String, String> ruleIndex) {
@@ -70,9 +73,10 @@ public class RuleLinkExpander {
 
   private void appendRuleLink(Matcher matcher, StringBuffer sb, String ruleName, String ref) {
     String ruleFamily = ruleIndex.get(ruleName);
-    String link = singlePage
-        ?  "#" + ref
-        : ruleFamily + ".html#" + ref;
+    String link =
+        singlePage
+            ? "#" + ref
+            : Paths.get(linkMap.beRoot, String.format("%s.html#%s", ruleFamily, ref)).toString();
     matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
   }
 
@@ -119,10 +123,9 @@ public class RuleLinkExpander {
 
       // The name is not the name of a rule but is the name of a static page, such as
       // common-definitions. Generate a link to that page.
-      if (STATIC_PAGES.contains(name)) {
-        String link = singlePage
-            ? "#" + name
-            : name + ".html";
+      String mapping = linkMap.values.get(name);
+      if (mapping != null) {
+        String link = singlePage ? "#" + name : mapping;
         // For referencing headings on a static page, use the following syntax:
         // ${link static_page_name#heading_name}, example: ${link make-variables#gendir}
         String pageHeading = matcher.group(4);
@@ -151,6 +154,8 @@ public class RuleLinkExpander {
     Matcher matcher = DocgenConsts.BLAZE_RULE_HEADING_LINK.matcher(htmlDoc);
     StringBuffer sb = new StringBuffer(htmlDoc.length());
     while (matcher.find()) {
+      // The first capture group matches the entire reference, e.g. "cc_library#some_heading".
+      String ref = matcher.group(1);
       // The second capture group only matches the rule name, e.g. "cc_library" in
       // "cc_library#some_heading"
       String name = matcher.group(2);
@@ -173,17 +178,32 @@ public class RuleLinkExpander {
       // The name is of a static page, such as common.definitions. Generate a link to that page, and
       // append the page heading. For example, ${link common-definitions#label-expansion} expands to
       // common-definitions.html#label-expansion.
-      if (STATIC_PAGES.contains(name)) {
-        String link = singlePage
-            ? "#" + heading
-            : name + ".html#" + heading;
-        matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
-        continue;
-      }
 
-      // Links to the user manual are handled specially. Meh.
-      if ("user-manual".equals(name)) {
-        String link = productName.toLowerCase(Locale.US) + "-" + name + ".html#" + heading;
+      // We need to search for the entire match first since some documentation files have a 1:n
+      // relation between Blaze and Bazel. Example: build-ref#labels points to build-ref.html#labels
+      // for Blaze, but to /concepts/labels for Bazel. However, we have to consider whether a single
+      // heading or the entire page has to be redirected.
+
+      // Not-null if page#heading has a mapping (other headings on the page are unaffected):
+      String headingMapping = linkMap.values.get(ref);
+      // Not-null if the entire page has a mapping, i.e. all headings should be redirected:
+      String pageMapping = linkMap.values.get(name);
+
+      if (headingMapping != null || pageMapping != null) {
+        String link;
+        if (singlePage) {
+          // Special case: For the single-page BE we don't use the value of the mapping, we just
+          // need to know that there is one (since that means `name` is a legitimate BE page).
+          link = "#" + heading;
+        } else if (headingMapping != null) {
+          // Multi-page BE where page#heading has to be redirected.
+          link = headingMapping;
+        } else { // pageMapping != null
+          // Multi-page BE where the entire page has to be forwarded (but the new page has
+          // identical headings).
+          link = String.format("%s#%s", pageMapping, heading);
+        }
+
         matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
         continue;
       }

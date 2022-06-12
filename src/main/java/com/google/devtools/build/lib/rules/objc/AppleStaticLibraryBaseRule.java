@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -81,7 +82,12 @@ public class AppleStaticLibraryBaseRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("defines an aspect of configuration")
                 .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+        // optional.
+        .addToolchainTypes(
+            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                .mandatory(true)
+                .build())
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }

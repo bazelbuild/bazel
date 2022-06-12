@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -298,7 +297,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           protoInfo,
           ImmutableList.of(sourceJar),
           "Generating Java (Immutable) proto_library %{label}",
-          Exports.USE,
           rpcSupport.allowServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
     }
   }

@@ -48,12 +48,11 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -273,10 +272,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public Object processSkyframeValues(
         ImmutableList<? extends SkyKey> keys,
-        Map<SkyKey, ValueOrException<IOException>> values,
+        SkyframeIterableResult values,
         boolean valuesMissing) {
       assertThat(keys).containsExactly(actionDepKey);
-      assertThat(values.keySet()).containsExactly(actionDepKey);
       return null;
     }
 
@@ -866,10 +864,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
           @Override
           public Object processSkyframeValues(
               ImmutableList<? extends SkyKey> keys,
-              Map<SkyKey, ValueOrException<IOException>> values,
+              SkyframeIterableResult values,
               boolean valuesMissing) {
             assertThat(keys).isEmpty();
-            assertThat(values).isEmpty();
             assertThat(valuesMissing).isFalse();
             return null;
           }

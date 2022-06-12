@@ -27,9 +27,9 @@ import net.starlark.java.eval.StarlarkValue;
     name = "configuration",
     category = DocCategory.BUILTIN,
     doc =
-        "This object holds information about the environment in which the build is running. See"
-            + " the <a href='../rules.$DOC_EXT#configurations'>Rules page</a> for more on the"
-            + " general concept of configurations.")
+        "This object holds information about the environment in which the build is running. See the"
+            + " <a href='$STARLARK_DOCS_ROOT/rules.html#configurations'>Rules page</a> for more on"
+            + " the general concept of configurations.")
 public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "bin_dir", structField = true, documented = false)

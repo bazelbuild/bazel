@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -60,9 +61,9 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link FileSystemValueCheckerInferringAncestors}. */
 @RunWith(TestParameterInjector.class)
 public final class FileSystemValueCheckerInferringAncestorsTest {
-
   private final Scratch scratch = new Scratch();
   private final List<String> statedPaths = new ArrayList<>();
+  private final PerBuildSyscallCache syscallCache = PerBuildSyscallCache.newBuilder().build();
   private Root root;
   private Root untrackedRoot;
   private Exception throwOnStat;
@@ -98,6 +99,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   @After
   public void checkExceptionThrown() {
     assertThat(throwOnStat).isNull();
+    syscallCache.clear();
   }
 
   @Test
@@ -109,7 +111,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             /*graphValues=*/ ImmutableMap.of(),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(fileStateValueKey("foo/file")),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(
@@ -135,7 +138,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             /*graphValues=*/ ImmutableMap.of(fileStateValueKey("file"), value),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(key),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     FileStateValue newValue = fileStateValue("file");
     assertThat(diff.changedKeysWithNewValues()).containsExactly(key, newValue);
@@ -155,7 +159,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 key, NONEXISTENT_FILE_STATE_NODE, fileStateValueKey(""), fileStateValue("")),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(key),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     FileStateValue value = fileStateValue("file");
     assertThat(diff.changedKeysWithNewValues()).containsExactly(key, value);
@@ -184,7 +189,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 NONEXISTENT_FILE_STATE_NODE),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(fileKey),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     FileStateValue value = fileStateValue("a/b/file");
     assertThat(diff.changedKeysWithNewValues())
@@ -223,7 +229,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 NONEXISTENT_FILE_STATE_NODE),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(fileKey, fileStateValueKey("a")),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     FileStateValue newState = fileStateValue("a/b/file");
     assertThat(diff.changedKeysWithNewValues())
@@ -261,7 +268,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 NONEXISTENT_FILE_STATE_NODE),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(fileStateValueKey("a/b/c/d")),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(
@@ -291,7 +299,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 key, NONEXISTENT_FILE_STATE_NODE, fileStateValueKey(""), fileStateValue("")),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(key),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues()).containsExactly(key, value);
     assertThat(diff.changedKeysWithoutNewValues())
@@ -314,7 +323,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 key, oldValue, fileStateValueKey("dir"), fileStateValue("dir")),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(key),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues()).containsExactly(key, NONEXISTENT_FILE_STATE_NODE);
     assertThat(diff.changedKeysWithoutNewValues())
@@ -339,7 +349,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 directoryListingStateValueKey("dir"),
                 directoryListingStateValue(file("file1"), file("file2"))),
             /*modifiedKeys=*/ ImmutableSet.of(key),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues()).containsExactly(key, NONEXISTENT_FILE_STATE_NODE);
     assertThat(diff.changedKeysWithoutNewValues())
@@ -367,7 +378,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 directoryListingStateValue(file("file1"), file("file2"))),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(key),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues()).containsExactly(key, NONEXISTENT_FILE_STATE_NODE);
     assertThat(diff.changedKeysWithoutNewValues())
@@ -393,7 +405,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 directoryListingStateValueKey("dir"),
                 directoryListingStateValue(file("file"), symlink("symlink"))),
             /*modifiedKeys=*/ ImmutableSet.of(fileKey, symlinkKey),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
@@ -418,7 +431,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             /*graphDoneValues=*/ ImmutableMap.of(
                 dirKey, directoryListingStateValue(file("file1"), file("file2"))),
             /*modifiedKeys=*/ ImmutableSet.of(file1Key, file2Key),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertIsSubsetOf(
         diff.changedKeysWithNewValues().entrySet(),
@@ -471,7 +485,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 fileStateValue("dir")),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(key1, key2, key3),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
@@ -509,7 +524,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 abcFileValue),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(abcFileKey),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
@@ -550,7 +566,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 abcFileValue),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(abcFileKey, abKey),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
@@ -589,7 +606,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 file2Value),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(file1Key, file2Key, fileStateValueKey("dir")),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     FileStateValue file2NewValue = fileStateValue("dir/file2");
     assertThat(diff.changedKeysWithNewValues())
@@ -625,7 +643,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 fileStateValue("")),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(dirKey),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(dirKey, NONEXISTENT_FILE_STATE_NODE);
@@ -644,7 +663,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 fileStateValueKey("file"), NONEXISTENT_FILE_STATE_NODE),
             /*graphDoneValues=*/ ImmutableMap.of(),
             /*modifiedKeys=*/ ImmutableSet.of(fileStateValueKey("file")),
-            fsvcThreads);
+            fsvcThreads,
+            syscallCache);
 
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
@@ -667,7 +687,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                     graphValues,
                     /*graphDoneValues=*/ ImmutableMap.of(),
                     modifiedKeys,
-                    fsvcThreads));
+                    fsvcThreads,
+                    syscallCache));
 
     assertThat(e.getDetailedExitCode().getFailureDetail().hasDiffAwareness()).isTrue();
     assertThat(e.getDetailedExitCode().getFailureDetail().getDiffAwareness().getCode())
@@ -690,7 +711,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
                 graphValues,
                 /*graphDoneValues=*/ ImmutableMap.of(),
                 modifiedKeys,
-                fsvcThreads));
+                fsvcThreads,
+                syscallCache));
   }
 
   private static <T> void assertIsSubsetOf(Iterable<T> list, T... elements) {
@@ -718,6 +740,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
     return FileStateValue.create(
         RootedPath.toRootedPath(
             untrackedRoot, untrackedRoot.asPath().asFragment().getRelative(relativePath)),
+        SyscallCache.NO_CACHE,
         /*tsgm=*/ null);
   }
 }

@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -339,7 +340,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     fs.stubStat(fooBuildFile, inconsistentFileStatus);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(pkgRoot, fooDir);
-    SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, tsgm);
+    SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, SyscallCache.NO_CACHE, tsgm);
     differencer.inject(ImmutableMap.of(FileStateValue.key(pkgRootedPath), fooDirValue));
 
     Exception ex = evaluatePackageToException("@//foo");

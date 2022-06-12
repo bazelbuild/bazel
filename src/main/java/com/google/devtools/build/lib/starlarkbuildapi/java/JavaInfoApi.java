@@ -293,9 +293,10 @@ public interface JavaInfoApi<
               named = true,
               defaultValue = "[]",
               doc =
-                  "Libraries to make available for users of this library. See also "
-                      + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
-                      + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
+                  "Libraries to make available for users of this library. See also <a"
+                      + " class=\"anchor\""
+                      + " href=\"$BE_ROOT/java.html#java_library.exports\">"
+                      + "java_library.exports</a>."),
           @Param(
               name = "exported_plugins",
               named = true,

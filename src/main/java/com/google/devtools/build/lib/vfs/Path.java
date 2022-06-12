@@ -703,7 +703,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @return a string representation of the bash of the directory
    * @throws IOException if the digest could not be computed for any reason
    */
-  public String getDirectoryDigest(SyscallCache syscallCache) throws IOException {
+  public String getDirectoryDigest(XattrProvider xattrProvider) throws IOException {
     ImmutableList<String> entries =
         ImmutableList.sortedCopyOf(fileSystem.getDirectoryEntries(asFragment()));
     Hasher hasher = fileSystem.getDigestFunction().getHashFunction().newHasher();
@@ -718,9 +718,9 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
           hasher.putChar('-');
         }
         hasher.putBytes(
-            DigestUtils.getDigestWithManualFallback(path, stat.getSize(), syscallCache));
+            DigestUtils.getDigestWithManualFallback(path, stat.getSize(), xattrProvider));
       } else if (stat.isDirectory()) {
-        hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest(syscallCache));
+        hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest(xattrProvider));
       } else if (stat.isSymbolicLink()) {
         PathFragment link = path.readSymbolicLink();
         if (link.isAbsolute()) {
@@ -733,7 +733,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
                 hasher.putChar('-');
               }
               hasher.putBytes(
-                  DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved, syscallCache));
+                  DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved, xattrProvider));
             } else {
               // link to a non-file: include the link itself in the hash
               hasher.putChar('l').putUnencodedChars(link.toString());

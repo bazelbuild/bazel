@@ -1348,6 +1348,7 @@ public class FileFunctionTest {
         fileStateSkyKey("foo"),
         FileStateValue.create(
             RootedPath.toRootedPath(pkgRoot, foo),
+            SyscallCache.NO_CACHE,
             new TimestampGranularityMonitor(BlazeClock.instance())));
     result = evaluator.evaluate(ImmutableList.of(fooKey), evaluationContext);
     assertThatEvaluationResult(result).hasNoError();

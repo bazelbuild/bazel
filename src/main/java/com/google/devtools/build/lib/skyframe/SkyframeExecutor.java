@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -286,7 +287,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final AtomicInteger numPackagesSuccessfullyLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
-  private final SyscallCache perCommandSyscallCache;
+  final SyscallCache perCommandSyscallCache;
 
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -640,7 +641,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new MapBasedActionGraph(actionKeyContext));
     map.put(
         SkyFunctions.BUILD_DRIVER,
-        new BuildDriverFunction(this, this::getIncrementalArtifactConflictFinder));
+        new BuildDriverFunction(
+            key -> collectTransitiveActionLookupKeys(key).getActionShards(),
+            this::getIncrementalArtifactConflictFinder,
+            this::getEventBus));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -1174,6 +1178,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
+  public void setBaselineConfiguration(BuildOptions buildOptions) {
+    PrecomputedValue.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
+  }
+
   public void injectExtraPrecomputedValues(List<PrecomputedValue.Injected> extraPrecomputedValues) {
     for (PrecomputedValue.Injected injected : extraPrecomputedValues) {
       injected.inject(injectable());
@@ -1297,7 +1305,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
 
     return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
-        tsgm, valuesMap, memoizingEvaluator.getDoneValues(), dirtyFileStateSkyKeys, fsvcThreads);
+        tsgm,
+        valuesMap,
+        memoizingEvaluator.getDoneValues(),
+        dirtyFileStateSkyKeys,
+        fsvcThreads,
+        perCommandSyscallCache);
   }
 
   /**
@@ -1845,15 +1858,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         () ->
             configs.values().stream()
                 .collect(toMap(BuildConfigurationValue::getKey, Functions.identity()));
-    // We ignore the return value here because tests effectively run with --keep_going, and the
-    // loading-phase-error bit is only needed if we're constructing a SkyframeAnalysisResult.
-    SkyframeErrorProcessor.processErrors(
-        result,
-        configurationLookupSupplier,
-        cyclesReporter,
-        eventHandler,
-        /*keepGoing=*/ true,
-        /*eventBus=*/ null);
+    // We ignore the return value and exceptions here because tests effectively run with
+    // --keep_going, and the loading-phase-error bit is only needed if we're constructing a
+    // SkyframeAnalysisResult.
+    try {
+      SkyframeErrorProcessor.processAnalysisErrors(
+          result,
+          configurationLookupSupplier,
+          cyclesReporter,
+          eventHandler,
+          /*keepGoing=*/ true,
+          /*eventBus=*/ null);
+    } catch (ViewCreationFailedException ignored) {
+      // Ignored.
+    }
     return cts.build();
   }
 

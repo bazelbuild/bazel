@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -130,19 +131,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   public void testBadStatPathAsTarget(@TestParameter boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
-    AtomicBoolean returnNull = new AtomicBoolean(false);
-    this.transformer =
-        new Transformer() {
-          @Nullable
-          @Override
-          public FileStatus stat(FileStatus stat, PathFragment path, boolean followSymlinks) {
-            if (path.endsWith(PathFragment.create("parent/BUILD")) && returnNull.getAndSet(true)) {
-              return null;
-            }
-            return stat;
-          }
-        };
-
+    delegatingSyscallCache.setDelegate(TestUtils.makeDisappearingFileCache("parent/BUILD"));
     TargetParsingException e =
         assertThrows(
             TargetParsingException.class,

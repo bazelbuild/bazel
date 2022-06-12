@@ -120,7 +120,7 @@ public final class SpawnLogModule extends BlazeModule {
             env.getExecRoot(),
             outStream,
             env.getOptions().getOptions(RemoteOptions.class),
-            env.getSyscallCache());
+            env.getXattrProvider());
   }
 
   @Override

@@ -20,13 +20,14 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link StarlarkMutable}. */
+/** Tests for how Starlark value implementations interact with {@link Mutability#freeze}. */
 @RunWith(JUnit4.class)
 public final class StarlarkMutableTest {
 
@@ -107,7 +108,7 @@ public final class StarlarkMutableTest {
         Dict.<String, String>builder()
             .put("one", "1")
             .put("two", "2.0")
-            .put("two", "2") // overrwrites previous entry
+            .put("two", "2") // overwrites previous entry
             .put("three", "3")
             .buildImmutable();
     assertThat(dict1.toString()).isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\"}");
@@ -125,19 +126,50 @@ public final class StarlarkMutableTest {
 
     // builder reuse and mutability
     Dict.Builder<String, String> builder = Dict.<String, String>builder().putAll(dict1);
+    builder.put("three", "33"); // overwrites previous entry
     Mutability mu = Mutability.create("test");
     Dict<String, String> dict3 = builder.build(mu);
-    dict3.putEntry("four", "4");
+    dict3.putEntry("four", "4"); // new entry
+    dict3.putEntry("two", "22"); // overwrites previous entry
     assertThat(dict3.toString())
-        .isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\", \"four\": \"4\"}");
+        .isEqualTo("{\"one\": \"1\", \"two\": \"22\", \"three\": \"33\", \"four\": \"4\"}");
     mu.close();
     assertThrows(EvalException.class, dict1::clearEntries); // frozen
     builder.put("five", "5"); // keep building
     Dict<String, String> dict4 = builder.buildImmutable();
     assertThat(dict4.toString())
-        .isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\", \"five\": \"5\"}");
+        .isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"33\", \"five\": \"5\"}");
     assertThat(dict3.toString())
         .isEqualTo(
-            "{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\", \"four\": \"4\"}"); // unchanged
+            "{\"one\": \"1\", \"two\": \"22\", \"three\": \"33\", \"four\": \"4\"}"); // unchanged
+  }
+
+  @Test
+  public void testImmutableDictUsesImmutableMap() {
+    Mutability mu = Mutability.IMMUTABLE;
+    Dict<String, String> dict = Dict.<String, String>builder().put("cat", "dog").build(mu);
+    assertThat(dict.getContentsForTesting()).isInstanceOf(ImmutableMap.class);
+    assertThat(dict.getContentsForTesting()).containsExactly("cat", "dog");
+  }
+
+  @Test
+  public void testMutableDictSwitchesToImmutableMapWhenFrozen() {
+    Mutability mu = Mutability.create("test");
+    Dict<String, String> dict = Dict.<String, String>builder().put("cat", "dog").build(mu);
+    assertThat(dict.getContentsForTesting()).isInstanceOf(LinkedHashMap.class);
+    assertThat(dict.getContentsForTesting()).containsExactly("cat", "dog");
+    mu.freeze();
+    assertThat(dict.getContentsForTesting()).isInstanceOf(ImmutableMap.class);
+    assertThat(dict.getContentsForTesting()).containsExactly("cat", "dog");
+  }
+
+  @Test
+  public void testMutableDictSwitchesToImmutableMapWhenFrozen_usesCanonicalEmptyImmutableMap() {
+    Mutability mu = Mutability.create("test");
+    Dict<String, String> dict = Dict.<String, String>builder().build(mu);
+    assertThat(dict.getContentsForTesting()).isInstanceOf(LinkedHashMap.class);
+    assertThat(dict.getContentsForTesting()).isEmpty();
+    mu.freeze();
+    assertThat(dict.getContentsForTesting()).isSameInstanceAs(ImmutableMap.of());
   }
 }

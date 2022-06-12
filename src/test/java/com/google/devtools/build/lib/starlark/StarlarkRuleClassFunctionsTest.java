@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -658,8 +660,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev, "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
     StarlarkDefinedAspect a = (StarlarkDefinedAspect) ev.lookup("a1");
-    assertThat(a.getRequiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(a.getToolchainTypes())
+        .containsExactly(
+            ToolchainTypeRequirement.create(
+                Label.parseAbsoluteUnchecked("//test:my_toolchain_type")));
   }
 
   @Test
@@ -759,9 +764,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAttrCfg() throws Exception {
+  public void testAttrCfgNoMoreHost() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.getTransitionFactory().isHost()).isTrue();
+    assertThat(attr.getTransitionFactory().isHost()).isFalse();
+    assertThat(attr.getTransitionFactory().isTool()).isTrue();
   }
 
   @Test
@@ -2298,9 +2304,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def impl(ctx): return None",
         "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.getRequiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    assertThat(c).hasToolchainType("//test:my_toolchain_type");
   }
 
   @Test
@@ -2337,7 +2343,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  },",
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
-    assertThat(plum.getRequiredToolchains()).isEmpty();
+    assertThat(plum.getToolchainTypes()).isEmpty();
     // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     assertThat(plum.getExecGroups().get("group")).hasToolchainType("//test:my_toolchain_type");
     assertThat(plum.getExecGroups().get("group"))

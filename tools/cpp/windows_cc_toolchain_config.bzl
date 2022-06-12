@@ -198,6 +198,22 @@ def _impl(ctx):
             tools = [tool(path = ctx.attr.msvc_cl_path)],
         )
 
+        linkstamp_compile_action = action_config(
+            action_name = ACTION_NAMES.linkstamp_compile,
+            implies = [
+                "compiler_input_flags",
+                "compiler_output_flags",
+                "default_compile_flags",
+                "nologo",
+                "msvc_env",
+                "parse_showincludes",
+                "user_compile_flags",
+                "sysroot",
+                "unfiltered_compile_flags",
+            ],
+            tools = [tool(path = ctx.attr.msvc_cl_path)],
+        )
+
         cpp_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_compile,
             implies = [
@@ -255,6 +271,7 @@ def _impl(ctx):
             assemble_action,
             preprocess_assemble_action,
             c_compile_action,
+            linkstamp_compile_action,
             cpp_compile_action,
             cpp_link_executable_action,
             cpp_link_dynamic_library_action,
@@ -317,6 +334,7 @@ def _impl(ctx):
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
@@ -343,6 +361,7 @@ def _impl(ctx):
                     actions = [
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
@@ -471,6 +490,7 @@ def _impl(ctx):
                     actions = [
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
@@ -629,6 +649,7 @@ def _impl(ctx):
                 env_set(
                     actions = [
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
@@ -650,6 +671,7 @@ def _impl(ctx):
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
@@ -755,6 +777,7 @@ def _impl(ctx):
                     actions = [
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_header_parsing,
@@ -805,6 +828,7 @@ def _impl(ctx):
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
@@ -906,6 +930,7 @@ def _impl(ctx):
                     actions = [
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
@@ -951,6 +976,7 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
@@ -992,6 +1018,7 @@ def _impl(ctx):
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
@@ -1028,6 +1055,7 @@ def _impl(ctx):
                 env_set(
                     actions = [
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
@@ -1114,6 +1142,7 @@ def _impl(ctx):
                 env_set(
                     actions = [
                         ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,

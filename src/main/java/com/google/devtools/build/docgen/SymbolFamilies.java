@@ -16,6 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkNativeModuleApi;
@@ -39,17 +40,18 @@ public class SymbolFamilies {
   private final ImmutableMap<String, Object> bzlGlobals;
 
   public SymbolFamilies(
-      String productName, String provider, List<String> inputDirs, String denyList)
+      StarlarkDocExpander expander, String provider, List<String> inputDirs, String denyList)
       throws NoSuchMethodException, ClassPathException, InvocationTargetException,
           IllegalAccessException, BuildEncyclopediaDocException, ClassNotFoundException,
           IOException {
     ConfiguredRuleClassProvider configuredRuleClassProvider = createRuleClassProvider(provider);
     this.nativeRules =
         ImmutableList.copyOf(
-            collectNativeRules(productName, configuredRuleClassProvider, inputDirs, denyList));
+            collectNativeRules(
+                expander.ruleExpander, configuredRuleClassProvider, inputDirs, denyList));
     this.globals = Starlark.UNIVERSE;
     this.bzlGlobals = collectBzlGlobals(configuredRuleClassProvider);
-    this.types = StarlarkDocumentationCollector.getAllModules();
+    this.types = StarlarkDocumentationCollector.getAllModules(expander);
   }
 
   /*
@@ -85,13 +87,13 @@ public class SymbolFamilies {
    * and in BZL files as methods of the native package.
    */
   private List<RuleDocumentation> collectNativeRules(
-      String productName,
+      RuleLinkExpander linkExpander,
       ConfiguredRuleClassProvider provider,
       List<String> inputDirs,
       String denyList)
       throws BuildEncyclopediaDocException, IOException {
     ProtoFileBuildEncyclopediaProcessor processor =
-        new ProtoFileBuildEncyclopediaProcessor(productName, provider);
+        new ProtoFileBuildEncyclopediaProcessor(linkExpander, provider);
     processor.generateDocumentation(inputDirs, "", denyList);
     return processor.getNativeRules();
   }

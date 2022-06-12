@@ -272,11 +272,6 @@ public class BazelRuleClassProvider {
           builder.addStarlarkBuiltinsInternal(
               BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
         }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of();
-        }
       };
 
   public static final RuleSet PROTO_RULES =

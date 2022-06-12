@@ -30,7 +30,7 @@ import net.starlark.java.eval.StarlarkThread;
     category = DocCategory.PROVIDER,
     doc =
         "Encapsulates information provided by <a href=\""
-            + "../../be/protocol-buffer.html#proto_library\">proto_library.</a>"
+            + "${link protocol-buffer#proto_library}\">proto_library.</a>"
             + "<p>"
             + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"ProtoInfo\")` "
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"

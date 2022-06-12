@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -125,7 +124,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
-            .addToolchainType(
+            .addToolchainTypes(
                 ToolchainTypeRequirement.builder(ccToolchainType)
                     // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this
                     // can be optional.
@@ -467,7 +466,6 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           protoInfo,
           outputs,
           "Generating C++ proto_library %{label}",
-          Exports.DO_NOT_USE,
           Services.ALLOW);
     }
 

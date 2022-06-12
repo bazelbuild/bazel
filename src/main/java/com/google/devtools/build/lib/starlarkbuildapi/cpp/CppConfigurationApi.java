@@ -62,7 +62,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "copts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--copt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--copt}\">"
               + "<code>--copt</code></a> option.")
   ImmutableList<String> getCopts() throws EvalException;
 
@@ -70,7 +70,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "cxxopts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--cxxopt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--cxxopt}\">"
               + "<code>--cxxopt</code></a> option.")
   ImmutableList<String> getCxxopts() throws EvalException;
 
@@ -78,7 +78,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "conlyopts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--conlyopt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--conlyopt}\">"
               + "<code>--conlyopt</code></a> option.")
   ImmutableList<String> getConlyopts() throws EvalException;
 
@@ -86,7 +86,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "linkopts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--linkopt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--linkopt}\">"
               + "<code>--linkopt</code></a> option.")
   ImmutableList<String> getLinkopts() throws EvalException;
 
@@ -95,7 +95,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       allowReturnNones = true,
       structField = true,
       doc =
-          "Returns label pointed to by <a href=\"../../user-manual.html#flag--custom_malloc\">"
+          "Returns label pointed to by <a href=\"${link user-manual#flag--custom_malloc}\">"
               + "<code>--custom_malloc</code></a> option. Can be accessed with"
               + " <a href=\"globals.html#configuration_field\"><code>configuration_field"
               + "</code></a>:<br/>"

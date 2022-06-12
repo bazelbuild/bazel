@@ -952,7 +952,7 @@ static void BlessFiles(const string &embedded_binaries) {
 // no-one has modified the extracted files beneath this directory once
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
-// becomes visible automically at the new path.
+// becomes visible atomically at the new path.
 static DurationMillis ExtractData(const string &self_path,
                                   const vector<string> &archive_contents,
                                   const string &expected_install_md5,

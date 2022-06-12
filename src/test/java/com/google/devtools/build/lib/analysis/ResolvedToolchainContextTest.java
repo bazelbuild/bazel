@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
@@ -49,7 +50,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     // Create a static UnloadedToolchainContext.
@@ -101,7 +102,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     // Create a static UnloadedToolchainContext.
@@ -143,7 +144,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     // Create a static UnloadedToolchainContext.
@@ -202,7 +203,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     // Create a static UnloadedToolchainContext.

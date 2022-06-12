@@ -99,7 +99,9 @@ public /*final*/ class ConfiguredRuleClassProvider
     void init(ConfiguredRuleClassProvider.Builder builder);
 
     /** List of required modules. */
-    ImmutableList<RuleSet> requires();
+    default ImmutableList<RuleSet> requires() {
+      return ImmutableList.of();
+    }
   }
 
   /** An InMemoryFileSystem for bundled builtins .bzl files. */

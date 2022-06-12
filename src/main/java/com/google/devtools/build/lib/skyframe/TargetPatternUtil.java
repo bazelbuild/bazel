@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern.Sign;
@@ -25,10 +26,8 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Utility class to help with evaluating target patterns. */
@@ -50,15 +49,14 @@ public class TargetPatternUtil {
 
     Iterable<TargetPatternKey> targetPatternKeys =
         TargetPatternValue.keys(targetPatterns, filteringPolicy);
-    Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
-        env.getValuesOrThrow(targetPatternKeys, TargetParsingException.class);
+    SkyframeIterableResult resolvedPatterns = env.getOrderedValuesAndExceptions(targetPatternKeys);
     boolean valuesMissing = env.valuesMissing();
     ImmutableList.Builder<Label> labels = valuesMissing ? null : new ImmutableList.Builder<>();
 
     for (TargetPatternKey pattern : targetPatternKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
+        value = (TargetPatternValue) resolvedPatterns.nextOrThrow(TargetParsingException.class);
         if (!valuesMissing && value != null) {
           labels.addAll(value.getTargets().getTargets());
         }
@@ -67,7 +65,12 @@ public class TargetPatternUtil {
       }
     }
 
-    if (valuesMissing) {
+    if (env.valuesMissing()) {
+      if (valuesMissing != env.valuesMissing()) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "Some value from " + targetPatternKeys + " was missing, this should never happen"));
+      }
       return null;
     }
 

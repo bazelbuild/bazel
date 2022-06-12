@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSub
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
@@ -70,7 +71,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -106,7 +107,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(aliasedToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(aliasedToolchainTypeLabel))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -185,8 +186,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(
-                testToolchainTypeLabel, Label.parseAbsoluteUnchecked("//fake/toolchain:type_1"))
+            .toolchainTypes(
+                ToolchainTypeRequirement.create(testToolchainTypeLabel),
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -206,10 +209,12 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(
-                testToolchainTypeLabel,
-                Label.parseAbsoluteUnchecked("//fake/toolchain:type_1"),
-                Label.parseAbsoluteUnchecked("//fake/toolchain:type_2"))
+            .toolchainTypes(
+                ToolchainTypeRequirement.create(testToolchainTypeLabel),
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")),
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_2")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -228,7 +233,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -254,7 +259,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -278,7 +283,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -303,7 +308,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -344,7 +349,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .execConstraintLabels(Label.parseAbsoluteUnchecked("//constraints:linux"))
             .build();
 
@@ -365,7 +370,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .execConstraintLabels(Label.parseAbsoluteUnchecked("//platforms:linux"))
             .build();
 
@@ -417,9 +422,11 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(
-                Label.parseAbsoluteUnchecked("//a:toolchain_type_A"),
-                Label.parseAbsoluteUnchecked("//b:toolchain_type_B"))
+            .toolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//a:toolchain_type_A")),
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//b:toolchain_type_B")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -454,7 +461,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(testToolchainTypeLabel))
             .forceExecutionPlatform(Label.parseAbsoluteUnchecked("//platforms:linux"))
             .build();
 

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
 import com.google.devtools.build.lib.skyframe.GlobValue;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
-import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -189,8 +188,7 @@ class IncludeParser {
     private final ImmutableList<Rule> rules;
     private final ArtifactFactory artifactFactory;
 
-    private final SyscallCache syscallCache =
-        PerBuildSyscallCache.newBuilder().setInitialCapacity(HINTS_CACHE_CONCURRENCY).build();
+    private final SyscallCache syscallCache;
 
     private final LoadingCache<Artifact, ImmutableList<Artifact>> fileLevelHintsCache =
         Caffeine.newBuilder()
@@ -202,7 +200,8 @@ class IncludeParser {
      *
      * @param hintsRules the {@link HintsRules} parsed from INCLUDE_HINTS
      */
-    Hints(HintsRules hintsRules, ArtifactFactory artifactFactory) {
+    Hints(HintsRules hintsRules, SyscallCache syscallCache, ArtifactFactory artifactFactory) {
+      this.syscallCache = syscallCache;
       this.artifactFactory = artifactFactory;
       this.rules = hintsRules.rules;
     }

@@ -62,8 +62,6 @@ public final class MockProtoSupport {
           "java_import(name = 'protocol2',",
           "            jars = [ 'protocol2.jar' ])");
 
-      config.linkTool("net/proto2/compiler/public/release/protocol_compiler_linux",
-          "net/proto2/compiler/public/protocol_compiler");
       config.linkTool("javatests/com/google/devtools/build/lib/prepackaged_protocol_deploy.jar",
           "java/com/google/io/protocol/protocol.jar");
       config.linkTool("javatests/com/google/devtools/build/lib/prepackaged_protocol2_deploy.jar",

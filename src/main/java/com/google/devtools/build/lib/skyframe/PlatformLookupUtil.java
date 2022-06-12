@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -33,9 +34,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
-import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -81,13 +80,12 @@ public class PlatformLookupUtil {
             .map(PackageValue::key)
             .collect(toImmutableSet());
 
-    Map<SkyKey, ValueOrException<NoSuchPackageException>> values =
-        env.getValuesOrThrow(packageKeys, NoSuchPackageException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(packageKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<PackageIdentifier, Package> packages = valuesMissing ? null : new HashMap<>();
-    for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> value : values.entrySet()) {
+    while (values.hasNext()) {
       try {
-        PackageValue packageValue = (PackageValue) value.getValue().get();
+        PackageValue packageValue = (PackageValue) values.nextOrThrow(NoSuchPackageException.class);
         if (!valuesMissing && packageValue != null) {
           packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
         }
@@ -95,7 +93,12 @@ public class PlatformLookupUtil {
         throw new InvalidPlatformException(e);
       }
     }
-    if (valuesMissing) {
+    if (env.valuesMissing()) {
+      if (valuesMissing != env.valuesMissing()) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "Some value from " + packageKeys + " was missing, this should never happen"));
+      }
       return;
     }
 

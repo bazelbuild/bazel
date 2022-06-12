@@ -25,8 +25,8 @@ import java.util.Map;
  */
 public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProcessor {
   public SinglePageBuildEncyclopediaProcessor(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
-    super(productName, ruleClassProvider);
+      RuleLinkExpander linkExpander, ConfiguredRuleClassProvider ruleClassProvider) {
+    super(linkExpander, ruleClassProvider);
   }
 
   /**
@@ -40,10 +40,8 @@ public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProce
   @Override
   public void generateDocumentation(List<String> inputDirs, String outputDir, String denyList)
       throws BuildEncyclopediaDocException, IOException {
-    BuildDocCollector collector = new BuildDocCollector(productName, ruleClassProvider, false);
-    RuleLinkExpander expander = new RuleLinkExpander(productName, true);
-    Map<String, RuleDocumentation> ruleDocEntries =
-        collector.collect(inputDirs, denyList, expander);
+    BuildDocCollector collector = new BuildDocCollector(linkExpander, ruleClassProvider, false);
+    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(inputDirs, denyList);
     warnAboutUndocumentedRules(
         Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
     RuleFamilies ruleFamilies = assembleRuleFamilies(ruleDocEntries.values());
@@ -51,18 +49,13 @@ public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProce
     Page page = TemplateEngine.newPage(DocgenConsts.SINGLE_BE_TEMPLATE);
 
     // Add the rule link expander.
-    page.add("expander", expander);
+    page.add("expander", linkExpander);
 
     // Populate variables for Common Definitions section.
-    page.add(
-        "typicalAttributes",
-        expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES, expander));
-    page.add("commonAttributes",
-        expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES, expander));
-    page.add("testAttributes",
-        expandCommonAttributes(PredefinedAttributes.TEST_ATTRIBUTES, expander));
-    page.add("binaryAttributes",
-        expandCommonAttributes(PredefinedAttributes.BINARY_ATTRIBUTES, expander));
+    page.add("typicalAttributes", expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES));
+    page.add("commonAttributes", expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES));
+    page.add("testAttributes", expandCommonAttributes(PredefinedAttributes.TEST_ATTRIBUTES));
+    page.add("binaryAttributes", expandCommonAttributes(PredefinedAttributes.BINARY_ATTRIBUTES));
 
     // Popualte variables for Overview section.
     page.add("langSpecificRuleFamilies", ruleFamilies.langSpecific);

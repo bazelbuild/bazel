@@ -77,7 +77,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
 </p>
 
 <p>
-  See the <a href="../toolchains.html">Toolchains</a> page for more details.
+  See the <a href="${link toolchains}">Toolchains</a> page for more details.
 </p>
 
 <h4 id="toolchain_type_examples">Example</h4>

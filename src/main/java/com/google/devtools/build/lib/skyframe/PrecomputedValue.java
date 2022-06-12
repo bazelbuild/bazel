@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -95,6 +96,10 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
       new Precomputed<>("remote_execution_enabled");
+
+  // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
+  public static final Precomputed<BuildOptions> BASELINE_CONFIGURATION =
+      new Precomputed<>("baseline_configuration", /*shareable=*/ false);
 
   private final Object value;
 

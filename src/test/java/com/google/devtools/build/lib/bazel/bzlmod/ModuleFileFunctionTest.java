@@ -503,21 +503,83 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testModuleExtensions_duplicateProxy() throws Exception {
+  public void testModuleExtensions_duplicateProxy_asRoot() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "myext1 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+        "use_repo(myext1, 'alpha')",
+        "myext2 = use_extension('//:defs.bzl','myext')",
+        "use_repo(myext2, 'beta')",
+        "myext3 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+        "use_repo(myext3, 'gamma')",
+        "myext4 = use_extension('//:defs.bzl','myext')",
+        "use_repo(myext4, 'delta')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+
+    SkyKey skyKey = ModuleFileValue.KEY_FOR_ROOT_MODULE;
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    ModuleFileValue moduleFileValue = result.get(skyKey);
+    assertThat(moduleFileValue.getModule())
+        .isEqualTo(
+            Module.builder()
+                .setKey(ModuleKey.ROOT)
+                .addExtensionUsage(
+                    ModuleExtensionUsage.builder()
+                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionName("myext")
+                        .setLocation(Location.fromFileLineColumn("<root>/MODULE.bazel", 1, 23))
+                        .setImports(
+                            ImmutableBiMap.of(
+                                "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
+                                "delta"))
+                        .build())
+                .build());
+  }
+
+  @Test
+  public void testModuleExtensions_duplicateProxy_asDep() throws Exception {
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("mymod", "1.0"),
                 "module(name='mymod',version='1.0')",
-                "myext1 = use_extension('//:defs.bzl','myext')",
-                "myext2 = use_extension('//:defs.bzl','myext')");
+                "myext1 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+                "use_repo(myext1, 'alpha')",
+                "myext2 = use_extension('//:defs.bzl','myext')",
+                "use_repo(myext2, 'beta')",
+                "myext3 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+                "use_repo(myext3, 'gamma')",
+                "myext4 = use_extension('//:defs.bzl','myext')",
+                "use_repo(myext4, 'delta')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    reporter.removeHandler(failFastHandler); // expect failures
-    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertContainsEvent("this extension is already being used at");
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    ModuleFileValue moduleFileValue = result.get(skyKey);
+    assertThat(moduleFileValue.getModule())
+        .isEqualTo(
+            Module.builder()
+                .setName("mymod")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("mymod", "1.0"))
+                .setRegistry(registry)
+                .addExtensionUsage(
+                    ModuleExtensionUsage.builder()
+                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionName("myext")
+                        .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 4, 23))
+                        .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
+                        .build())
+                .build());
   }
 
   @Test

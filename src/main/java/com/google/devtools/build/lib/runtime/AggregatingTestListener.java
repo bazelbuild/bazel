@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.TestAnalysisCompleteEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -106,6 +107,27 @@ public final class AggregatingTestListener {
       Preconditions.checkState(
           oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, aggregator);
     }
+  }
+
+  /** Creates the {@link TestResultAggregator} for the analyzed test target. */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void populateTest(TestAnalysisCompleteEvent event) {
+    AggregationPolicy policy =
+        new AggregationPolicy(
+            eventBus,
+            executionOptions.testCheckUpToDate,
+            summaryOptions.testVerboseTimeoutWarnings);
+    ConfiguredTarget target = event.getConfiguredTarget();
+    if (AliasProvider.isAlias(target)) {
+      return;
+    }
+    TestResultAggregator aggregator =
+        new TestResultAggregator(
+            target, event.getBuildConfigurationValue(), policy, /*skippedThisTest=*/ false);
+    TestResultAggregator oldAggregator = aggregators.put(asKey(target), aggregator);
+    Preconditions.checkState(
+        oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, aggregator);
   }
 
   /**

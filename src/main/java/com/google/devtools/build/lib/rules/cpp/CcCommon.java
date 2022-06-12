@@ -580,19 +580,29 @@ public final class CcCommon implements StarlarkValue {
     List<String> defines = new ArrayList<>();
 
     // collect labels that can be subsituted in defines
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
+    Map<Label, ImmutableCollection<Artifact>> map = Maps.newLinkedHashMap();
 
     if (ruleContext.attributes().has("deps", LABEL_LIST)) {
       for (TransitiveInfoCollection current : ruleContext.getPrerequisites("deps")) {
-        builder.put(
+        map.put(
             AliasProvider.getDependencyLabel(current),
             current.getProvider(FileProvider.class).getFilesToBuild().toList());
       }
     }
 
+    if (ruleContext.attributes().has("data", LABEL_LIST)) {
+      for (TransitiveInfoCollection current : ruleContext.getPrerequisites("data")) {
+        Label dataDependencyLabel = AliasProvider.getDependencyLabel(current);
+        if (!map.containsKey(dataDependencyLabel)) {
+          map.put(
+              dataDependencyLabel,
+              current.getProvider(FileProvider.class).getFilesToBuild().toList());
+        }
+      }
+    }
     // tokenize defines and substitute make variables
     for (String define :
-        ruleContext.getExpander().withExecLocations(builder.buildOrThrow()).list(attr)) {
+        ruleContext.getExpander().withExecLocations(ImmutableMap.copyOf(map)).list(attr)) {
       List<String> tokens = new ArrayList<>();
       try {
         ShellUtils.tokenize(tokens, define);

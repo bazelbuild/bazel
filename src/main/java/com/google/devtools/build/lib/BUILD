@@ -212,6 +212,7 @@ java_library(
     ],
     deps = [
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
@@ -298,6 +299,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
+        "//src/main/java/com/google/devtools/build/lib/metrics:garage-collection-metrics-util",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -317,6 +319,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
         "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
@@ -335,7 +338,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_executor_repository_helpers_holder",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:target_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:test_analysis_complete_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -428,12 +433,15 @@ filegroup(
 
 genrule(
     name = "gen_buildencyclopedia",
-    srcs = [":docs_embedded_in_sources"],
+    srcs = [
+        ":docs_embedded_in_sources",
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+    ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
         "mkdir -p $(@D)/be && " +
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-        " --product_name=bazel" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
         " --output_dir=$(@D)/be &&" +
@@ -474,9 +482,12 @@ genrule(
 
 genrule(
     name = "gen_skylarklibrary",
+    srcs = ["//src/main/java/com/google/devtools/build/docgen:bazel_link_map"],
     outs = ["skylark-library.zip"],
     cmd = "mkdir -p $(@D)/skylark-lib &&" +
-          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib" +
+          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin)" +
+          " $(@D)/skylark-lib" +
+          " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],

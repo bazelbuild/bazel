@@ -608,25 +608,23 @@ public final class PathFragmentTest {
 
   @Test
   public void testSerializationSimple() throws Exception {
-    checkSerialization("a", 6);
+    checkSerialization("a");
   }
 
   @Test
   public void testSerializationAbsolute() throws Exception {
-    checkSerialization("/foo", 9);
+    checkSerialization("/foo");
    }
 
   @Test
   public void testSerializationNested() throws Exception {
-    checkSerialization("foo/bar/baz", 16);
+    checkSerialization("foo/bar/baz");
   }
 
-  private static void checkSerialization(String pathFragmentString, int expectedSize)
-      throws Exception {
+  private static void checkSerialization(String pathFragmentString) throws Exception {
     PathFragment a = create(pathFragmentString);
     ByteString sa =
         TestUtils.toBytes(new SerializationContext(ImmutableClassToInstanceMap.of()), a);
-    assertThat(sa.size()).isEqualTo(expectedSize);
 
     PathFragment a2 =
         (PathFragment)

@@ -150,7 +150,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
      * <p>If null/unset, the V4 signing flag should not be passed to apksigner. This extra level of
      * control is needed to support environments where older build tools may be used.
      */
-    public @Nullable Boolean signV4() {
+    @Nullable
+    public Boolean signV4() {
       return signV4;
     }
   }
@@ -1291,7 +1292,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public @Nullable Boolean apkSigningMethodV4() {
+  @Nullable
+  public Boolean apkSigningMethodV4() {
     return apkSigningMethod.signV4();
   }
 

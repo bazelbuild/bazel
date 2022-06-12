@@ -33,7 +33,9 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
 
   private boolean isOverloaded;
 
-  public StarlarkJavaMethodDoc(String moduleName, Method method, StarlarkMethod callable) {
+  public StarlarkJavaMethodDoc(
+      String moduleName, Method method, StarlarkMethod callable, StarlarkDocExpander expander) {
+    super(expander);
     this.moduleName = moduleName;
     this.name = callable.name();
     this.method = method;
@@ -43,7 +45,8 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
             this,
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
-            callable.extraKeywords());
+            callable.extraKeywords(),
+            expander);
   }
 
   @Override
@@ -87,7 +90,7 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   }
 
   @Override
-  public String getDocumentation() {
+  public String getRawDocumentation() {
     String prefixWarning = "";
     if (!callable.enableOnlyWithFlag().isEmpty()) {
       prefixWarning =
@@ -105,7 +108,7 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
               + "</code>. Use this flag "
               + "to verify your code is compatible with its imminent removal. <br>";
     }
-    return prefixWarning + StarlarkDocUtils.substituteVariables(callable.doc());
+    return prefixWarning + callable.doc();
   }
 
   @Override

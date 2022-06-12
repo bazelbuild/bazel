@@ -37,8 +37,16 @@ public class RuleLinkExpanderTest {
             .put("Fileset", "fileset")
             .put("proto_library", "protocol-buffer")
             .buildOrThrow();
-    multiPageExpander = new RuleLinkExpander("product-name", index, false);
-    singlePageExpander = new RuleLinkExpander("product-name", index, true);
+    DocLinkMap linkMap =
+        new DocLinkMap(
+            "",
+            ImmutableMap.of(
+                "make-variables",
+                "make-variables.html",
+                "common-definitions",
+                "common-definitions.html"));
+    multiPageExpander = new RuleLinkExpander(index, false, linkMap);
+    singlePageExpander = new RuleLinkExpander(index, true, linkMap);
   }
 
   private void checkExpandSingle(String docs, String expected) {
@@ -112,15 +120,6 @@ public class RuleLinkExpanderTest {
         "<a href=\"#common-definitions\">Common Definitions</a>");
   }
 
-  @Test public void testUserManualRefIncludesProductName() {
-    checkExpandMulti(
-        "<a href=\"${link user-manual#overview}\">Link</a>",
-        "<a href=\"product-name-user-manual.html#overview\">Link</a>");
-    checkExpandSingle(
-        "<a href=\"${link user-manual#overview}\">Link</a>",
-        "<a href=\"product-name-user-manual.html#overview\">Link</a>");
-  }
-
   @Test(expected = IllegalArgumentException.class)
   public void testRefNotFound() {
     String docs = "<a href=\"${link foo.bar}\">bar</a>";
@@ -156,5 +155,15 @@ public class RuleLinkExpanderTest {
         .isEqualTo("java.html#java_binary.runtime_deps");
     assertThat(singlePageExpander.expandRef("java_binary.runtime_deps"))
         .isEqualTo("#java_binary.runtime_deps");
+  }
+
+  @Test
+  public void testExcplicitBuildEncyclopediaRoot() {
+    DocLinkMap linkMap = new DocLinkMap("/be_root", ImmutableMap.of());
+    RuleLinkExpander expander =
+        new RuleLinkExpander(ImmutableMap.of("java_binary", "java"), false, linkMap);
+
+    assertThat(expander.expand("<a href=\"${link java_binary}\">java_binary rule</a>"))
+        .isEqualTo("<a href=\"/be_root/java.html#java_binary\">java_binary rule</a>");
   }
 }

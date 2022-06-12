@@ -128,7 +128,7 @@ public class ModuleFileGlobals {
                 "A list of already-defined execution platforms to be registered when this module is"
                     + " selected. Should be a list of absolute target patterns (ie. beginning with"
                     + " either <code>@</code> or <code>//</code>). See <a"
-                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " href=\"${link toolchains}\">toolchain resolution</a> for more"
                     + " information.",
             named = true,
             positional = false,
@@ -140,7 +140,7 @@ public class ModuleFileGlobals {
                 "A list of already-defined toolchains to be registered when this module is"
                     + " selected. Should be a list of absolute target patterns (ie. beginning with"
                     + " either <code>@</code> or <code>//</code>). See <a"
-                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " href=\"${link toolchains}\">toolchain resolution</a> for more"
                     + " information.",
             named = true,
             positional = false,
@@ -273,20 +273,25 @@ public class ModuleFileGlobals {
   public ModuleExtensionProxy useExtension(
       String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread)
       throws EvalException {
+    ModuleExtensionProxy newProxy =
+        new ModuleExtensionProxy(extensionBzlFile, extensionName, thread.getCallerLocation());
+
+    if (ignoreDevDeps && devDependency) {
+      // This is a no-op proxy.
+      return newProxy;
+    }
+
+    // Find an existing proxy object corresponding to this extension.
     for (ModuleExtensionProxy proxy : extensionProxies) {
       if (proxy.extensionBzlFile.equals(extensionBzlFile)
           && proxy.extensionName.equals(extensionName)) {
-        throw Starlark.errorf("this extension is already being used at %s", proxy.location);
+        return proxy;
       }
     }
-    ModuleExtensionProxy proxy =
-        new ModuleExtensionProxy(extensionBzlFile, extensionName, thread.getCallerLocation());
 
-    if (!(ignoreDevDeps && devDependency)) {
-      extensionProxies.add(proxy);
-    }
-
-    return proxy;
+    // If no such proxy exists, we can just use a new one.
+    extensionProxies.add(newProxy);
+    return newProxy;
   }
 
   @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
@@ -368,9 +373,7 @@ public class ModuleFileGlobals {
       parameters = {
         @Param(
             name = "extension_proxy",
-            doc =
-                "A module extension proxy object returned by a <code>get_module_extension</code>"
-                    + " call."),
+            doc = "A module extension proxy object returned by a <code>use_extension</code> call."),
       },
       extraPositionals = @Param(name = "args", doc = "The names of the repos to import."),
       extraKeywords =

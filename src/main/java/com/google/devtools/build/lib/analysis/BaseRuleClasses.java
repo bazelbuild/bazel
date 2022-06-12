@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.test.CoverageConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -139,9 +140,6 @@ public class BaseRuleClasses {
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
-  private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
-      "@bazel_tools//tools/test:lcov_merger";
-
   @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
@@ -152,20 +150,14 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
-  public static LabelLateBoundDefault<BuildConfigurationValue> getCoverageOutputGeneratorLabel() {
+  public static LabelLateBoundDefault<CoverageConfiguration> getCoverageOutputGeneratorLabel() {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        BuildConfigurationValue.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
+        CoverageConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
   }
 
   @SerializationConstant @AutoCodec.VisibleForSerialization
-  static final Resolver<BuildConfigurationValue, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
-      (rule, attributes, configuration) -> {
-        if (configuration.isCodeCoverageEnabled()) {
-          return Label.parseAbsoluteUnchecked(DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE);
-        } else {
-          return null;
-        }
-      };
+  static final Resolver<CoverageConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+      (rule, attributes, configuration) -> configuration.outputGenerator();
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */

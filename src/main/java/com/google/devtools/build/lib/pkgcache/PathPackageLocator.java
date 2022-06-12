@@ -237,7 +237,13 @@ public final class PathPackageLocator {
     for (Root pathEntry : pathEntries) {
       Path buildFile = pathEntry.getRelative(suffix);
       try {
-        Dirent.Type type = cache.getType(buildFile, Symlinks.FOLLOW);
+        SyscallCache.DirentTypeWithSkip typeWithSkip = cache.getType(buildFile, Symlinks.FOLLOW);
+        Dirent.Type type = null;
+        if (typeWithSkip == SyscallCache.DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED) {
+          type = SyscallCache.statusToDirentType(cache.statIfFound(buildFile, Symlinks.FOLLOW));
+        } else if (typeWithSkip != null) {
+          type = typeWithSkip.getType();
+        }
         if (type == Dirent.Type.FILE || type == Dirent.Type.UNKNOWN) {
           return buildFile;
         }

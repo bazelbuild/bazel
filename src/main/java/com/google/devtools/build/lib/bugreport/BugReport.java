@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.TestType;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import com.sun.management.HotSpotDiagnosticMXBean;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -104,6 +106,15 @@ public final class BugReport {
         }
       }
     }
+  }
+
+  /**
+   * Convenience method for {@link #sendBugReport(Throwable)}, sending a bug report with a default
+   * {@link IllegalStateException}.
+   */
+  @FormatMethod
+  public static void sendBugReport(@FormatString String message, Object... args) {
+    sendBugReport(new IllegalStateException(String.format(message, args)));
   }
 
   /**

@@ -14,12 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyException;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyValue;
@@ -29,8 +30,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKe
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
-import java.util.Map;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import javax.annotation.Nullable;
 
 /**
@@ -90,21 +90,29 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
     // TODO(wyv): use the repo mapping of the main repo here.
     ImmutableList<SkyKey> skyKeys = getSkyKeys(skyKey, eventHandler);
 
-    Map<SkyKey, ValueOrException<TargetParsingException>> tokensByKey =
-        env.getValuesOrThrow(skyKeys, TargetParsingException.class);
+    SkyframeIterableResult tokensByKey = env.getOrderedValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
 
     for (SkyKey key : skyKeys) {
       try {
-        // The only exception type throwable by PrepareDepsOfPatternFunction is
-        // TargetParsingException. Therefore all ValueOrException values in the map will either
-        // be non-null or throw TargetParsingException when get is called.
-        Preconditions.checkNotNull(tokensByKey.get(key).get());
+        SkyValue value =
+            tokensByKey.nextOrThrow(
+                TargetParsingException.class, ProcessPackageDirectoryException.class);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "SkyValue " + key + " was missing, this should never happern"));
+          return null;
+        }
       } catch (TargetParsingException e) {
         // If a target pattern can't be evaluated, notify the user of the problem and keep going.
         handleTargetParsingException(eventHandler, key, e);
+      } catch (ProcessPackageDirectoryException e) {
+        // ProcessPackageDirectoryException indicates a catastrophic
+        // InconsistentFilesystemException, which will be handled later by a caller.
+        return null;
       }
     }
 

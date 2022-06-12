@@ -73,7 +73,7 @@ final class JavaInfoBuildHelper {
    * @param compileTimeDeps compile time dependencies that were used to create the output jar
    * @param runtimeDeps runtime dependencies that are needed for this library
    * @param exports libraries to make available for users of this library. <a
-   *     href="https://docs.bazel.build/versions/main/be/java.html#java_library"
+   *     href="https://bazel.build/reference/be/java#java_library"
    *     target="_top">java_library.exports</a>
    * @param exportedPlugins A list of exported plugins.
    * @param nativeLibraries CC library dependencies that are needed for this library
@@ -256,6 +256,7 @@ final class JavaInfoBuildHelper {
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      boolean enableJSpecify,
       JavaSemantics javaSemantics,
       Object injectingRuleKind,
       StarlarkThread thread)
@@ -272,6 +273,7 @@ final class JavaInfoBuildHelper {
             .addClasspathResources(classpathResources)
             .setSourcePathEntries(sourcepathEntries)
             .addAdditionalOutputs(annotationProcessorAdditionalOutputs)
+            .enableJspecify(enableJSpecify)
             .setJavacOpts(
                 ImmutableList.<String>builder()
                     .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))

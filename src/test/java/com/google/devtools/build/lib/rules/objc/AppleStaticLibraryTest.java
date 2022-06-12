@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.Set;
 import org.junit.Test;
@@ -44,6 +45,7 @@ import org.junit.runners.JUnit4;
 /** Test case for apple_static_library. */
 @RunWith(JUnit4.class)
 public class AppleStaticLibraryTest extends ObjcRuleTestCase {
+
   static final RuleType RULE_TYPE = new RuleType("apple_static_library") {
     @Override
     Iterable<String> requiredAttributes(Scratch scratch, String packageDir,
@@ -624,5 +626,70 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(
             artifactsToStrings(target.get(DefaultInfo.PROVIDER).getDataRunfiles().getArtifacts()))
         .contains("/ package/test_lipo.a");
+  }
+
+  @Test
+  public void testLinkingActionsWithCpus() throws Exception {
+    RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
+    scratch.file(
+        "package/starlark_apple_multi_library.bzl",
+        "def _starlark_apple_multi_library_impl(ctx):",
+        "  link_result = apple_common.link_multi_arch_static_library(",
+        "      ctx = ctx,",
+        "  )",
+        "  return [",
+        "      DefaultInfo(files = depset([o.library for o in link_result.outputs])),",
+        "      link_result.output_groups,",
+        "  ]",
+        "starlark_apple_multi_library = rule(",
+        "    attrs = {",
+        "        '_child_configuration_dummy': attr.label(",
+        "            cfg = apple_common.multi_arch_split,",
+        "            default = Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),",
+        "        ),",
+        "        'deps': attr.label_list(",
+        "            cfg = apple_common.multi_arch_split,",
+        "            providers = [apple_common.Objc],",
+        "            flags = ['DIRECT_COMPILE_TIME_INPUT'],",
+        "            allow_rules = ['cc_library', 'cc_inc_library'],",
+        "        ),",
+        "        'avoid_deps': attr.label_list(",
+        "            cfg = apple_common.multi_arch_split,",
+        "            providers = [apple_common.Objc],",
+        "            flags = ['DIRECT_COMPILE_TIME_INPUT'],",
+        "            allow_rules = ['cc_library', 'cc_inc_library'],",
+        "        ),",
+        "        # test attr to assert built targets",
+        "        # attrs for apple_common.multi_arch_split",
+        "        'platform_type': attr.string(),",
+        "        'minimum_os_version': attr.string(),",
+        "    },",
+        "    fragments = ['apple', 'objc', 'cpp'],",
+        "    implementation = _starlark_apple_multi_library_impl,",
+        ")");
+    scratch.file(
+        "package/BUILD",
+        "load('//package:starlark_apple_multi_library.bzl', 'starlark_apple_multi_library')",
+        "starlark_apple_multi_library(",
+        "    name = 'main_library',",
+        "    deps = [':main_lib'],",
+        "    # apple_common.multi_arch_split",
+        "    platform_type = 'ios',",
+        "    minimum_os_version = '11.0',",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['main.m'],",
+        ")");
+    scratch.file("package/main.m", "int main(void) {", "  return 0;", "}");
+    useConfiguration("--ios_multi_cpus=arm64,armv7,x86_64");
+
+    ImmutableList<String> cpus = ImmutableList.of("arm64", "x86_64");
+    for (String cpu : cpus) {
+      CommandAction action =
+          (CommandAction)
+              actionProducingArtifact("//package:main_library", String.format("-ios_%s-fl.a", cpu));
+      assertThat(action.getArguments()).containsAtLeast("-arch_only", cpu).inOrder();
+    }
   }
 }

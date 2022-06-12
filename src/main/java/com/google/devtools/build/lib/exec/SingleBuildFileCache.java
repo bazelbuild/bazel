@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -47,10 +47,10 @@ public class SingleBuildFileCache implements MetadataProvider {
           // unlikely that this default will adversely affect memory in most cases.
           .initialCapacity(10000)
           .build();
-  private final SyscallCache syscallCache;
+  private final XattrProvider xattrProvider;
 
-  public SingleBuildFileCache(String cwd, FileSystem fs, SyscallCache syscallCache) {
-    this.syscallCache = syscallCache;
+  public SingleBuildFileCache(String cwd, FileSystem fs, XattrProvider xattrProvider) {
+    this.xattrProvider = xattrProvider;
     this.execRoot = fs.getPath(cwd);
   }
 
@@ -68,7 +68,7 @@ public class SingleBuildFileCache implements MetadataProvider {
                         path,
                         // TODO(b/199940216): should we use syscallCache here since caching anyway?
                         path.stat(Symlinks.FOLLOW),
-                        syscallCache);
+                        xattrProvider);
               } catch (IOException e) {
                 return new ActionInputMetadata(input, e);
               }

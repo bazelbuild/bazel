@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSema
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -206,13 +209,16 @@ public class BuildView {
       boolean reportIncompatibleTargets,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
+      BugReporter bugReporter,
       boolean includeExecutionPhase,
       int mergedPhasesExecutionJobsCount)
-      throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException {
+      throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
+          BuildFailedException, TestExecException {
     logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
 
     skyframeBuildView.resetProgressReceiver();
+    skyframeExecutor.setBaselineConfiguration(targetOptions);
 
     ImmutableMap.Builder<Label, Target> labelToTargetsMapBuilder =
         ImmutableMap.builderWithExpectedSize(loadingResult.getTargetLabels().size());
@@ -404,9 +410,12 @@ public class BuildView {
                 eventHandler,
                 topLevelCtKeys,
                 aspectsKeys.build(),
+                loadingResult.getTestsToRunLabels(),
+                labelToTargetMap,
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
                 eventBus,
+                bugReporter,
                 keepGoing,
                 viewOptions.strictConflictChecks,
                 checkForActionConflicts,

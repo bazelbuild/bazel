@@ -698,41 +698,6 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void noDistinctHostConfiguration_DoesNotResultInActionConflicts() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host', ':reader'],",
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [],",
-        ")");
-
-    enableManualTrimmingAnd("--nodistinct_host_configuration");
-    ConfiguredTarget target = getConfiguredTarget("//test:target");
-    assertNoEvents();
-    // Note that '//test:reader' is accessed (and creates actions) in both the host and target
-    // configurations. If these are different but output to the same path (as was the case before
-    // --nodistinct_host_configuration caused --enforce_transitive_configs_for_config_feature_flag
-    // to become a no-op), then this causes action conflicts, as described in b/117932061 (for which
-    // this test is a regression test).
-    assertThat(getFilesToBuild(target).toList()).hasSize(1);
-    // Action conflict detection is not enabled for these tests. However, the action conflict comes
-    // from the outputs of the two configurations of //test:reader being unequal artifacts;
-    // hence, this test checks that the nested set of artifacts reachable from //test:target only
-    // contains one artifact, that is, they were deduplicated for being equal.
-  }
-
-
-  @Test
   public void noDistinctHostConfiguration_DisablesEnforcementForBothHostAndTargetConfigs()
       throws Exception {
     scratch.file(

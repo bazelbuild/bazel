@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth8.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -61,14 +62,40 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     getRuntime().overrideCommands(ImmutableList.of(new BuildCommand(), new ConfigCommand()));
     dispatcher = new BlazeCommandDispatcher(getRuntime());
     write(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = ['//...'],",
+        ")");
+    write(
         "test/defs.bzl",
         "def _simple_rule_impl(ctx):",
         "  pass",
         "simple_rule = rule(",
         "  implementation = _simple_rule_impl,",
         "  attrs = {},",
+        ")",
+        "def _sometransition_impl(settings, attr):",
+        "  _ignore = (settings, attr)",
+        "  return {'//command_line_option:platform_suffix': 'transitioned'}",
+        "_sometransition = transition(",
+        "  implementation = _sometransition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:platform_suffix'],",
+        ")",
+        "rule_with_transition = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  cfg = _sometransition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist'),",
+        "  },",
         ")");
-    write("test/BUILD", "load('//test:defs.bzl', 'simple_rule')", "simple_rule(name='buildme')");
+    write(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule', 'rule_with_transition')",
+        "simple_rule(name='buildme')",
+        "rule_with_transition(name='buildme_with_transition')");
   }
 
   /**
@@ -83,7 +110,22 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     params.add("//test:buildme");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
-    params.add("--trim_test_configuration"); // TODO(twigg): Remove once default.
+    Collections.addAll(params, args);
+    dispatcher.exec(params, "my client", outErr);
+  }
+
+  /**
+   * Performs loading and analysis on the fixed rule <code>//test:buildme</code> with the given
+   * build options (as they'd appear on the command line).
+   */
+  private void analyzeTargetWithTransition(String... args) throws Exception {
+    List<String> params = Lists.newArrayList("build");
+    // Basic flags required to make any build work. Ideally we'd go through BlazeRuntimeWrapper,
+    // which does the same setup. But that's explicitly documented as not supported command
+    // invocations, which is exactly what we we need here.
+    params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    params.add("//test:buildme_with_transition");
+    params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
   }
@@ -254,12 +296,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   @Test
   public void compareConfigs() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
-    analyzeTarget("--action_env=a=1", "--notrim_test_configuration");
+    analyzeTargetWithTransition("--platform_suffix=pure", "--notrim_test_configuration");
     String targetConfig1Hash = getTargetConfig().configHash;
-    analyzeTarget(
-        "--action_env=b=2",
-        "--notrim_test_configuration",
-        "--experimental_keep_config_nodes_on_analysis_discard");
     String targetConfig2Hash =
         getTargetConfig(/*excludedHashes=*/ ImmutableSet.of(targetConfig1Hash)).configHash;
 
@@ -272,24 +310,23 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     FragmentDiffForOutput fragmentDiff = Iterables.getOnlyElement(diff.fragmentsDiff);
     assertThat(fragmentDiff.name).endsWith("CoreOptions");
     Map.Entry<String, Pair<String, String>> optionDiff =
-        Iterables.getOnlyElement(fragmentDiff.optionsDiff.entrySet());
-    assertThat(optionDiff.getKey()).isEqualTo("action_env");
+        Iterators.getOnlyElement(
+            fragmentDiff.optionsDiff.entrySet().stream()
+                .filter(x -> !x.getKey().equals("affected by starlark transition"))
+                .iterator());
+    assertThat(optionDiff.getKey()).isEqualTo("platform_suffix");
     // Convert from Pair<firstVal, secondVal> to an ImmutableList because the ordering of the
     // difference depends on which configuration comes first, which depends on the configuration
     // hash name, which we can't predict statically.
     assertThat(ImmutableList.of(optionDiff.getValue().first, optionDiff.getValue().second))
-        .containsExactly("[a=1]", "[b=2]");
+        .containsExactly("pure", "transitioned");
   }
 
   @Test
   public void compareConfigsHashPrefix() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
-    analyzeTarget("--action_env=a=1", "--notrim_test_configuration");
+    analyzeTargetWithTransition("--platform_suffix=pure", "--notrim_test_configuration");
     String targetConfig1Hash = getTargetConfig().configHash;
-    analyzeTarget(
-        "--action_env=b=2",
-        "--notrim_test_configuration",
-        "--experimental_keep_config_nodes_on_analysis_discard");
     String targetConfig2Hash =
         getTargetConfig(/*excludedHashes=*/ ImmutableSet.of(targetConfig1Hash)).configHash;
 
@@ -309,12 +346,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   @Test
   public void compareConfigs_hostConfig() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
-    analyzeTarget("--action_env=a=1", "--notrim_test_configuration");
+    analyzeTarget("--platform_suffix=pure", "--notrim_test_configuration");
     String targetConfigHash = getTargetConfig().configHash;
-    analyzeTarget(
-        "--action_env=b=2",
-        "--notrim_test_configuration",
-        "--experimental_keep_config_nodes_on_analysis_discard");
 
     ConfigurationDiffForOutput diff =
         new Gson()

@@ -35,6 +35,9 @@ def _get_coverage_runner(ctx):
     # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
     return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
 
+def _add_constraints(java_info, constraints):
+    return java_info
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
@@ -57,4 +60,5 @@ semantics = struct(
     LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
     check_proto_registry_collision = _check_proto_registry_collision,
     get_coverage_runner = _get_coverage_runner,
+    add_constraints = _add_constraints,
 )

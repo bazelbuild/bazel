@@ -14,9 +14,17 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigStarlarkCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkToolchainTypeRequirement;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Starlark namespace used to interact with Blaze's configurability APIs. */
 public class ConfigStarlarkCommon implements ConfigStarlarkCommonApi {
@@ -30,5 +38,29 @@ public class ConfigStarlarkCommon implements ConfigStarlarkCommonApi {
   public StarlarkExposedRuleTransitionFactory createConfigFeatureFlagTransitionFactory(
       String attribute) {
     return new ConfigFeatureFlagTransitionFactory(attribute);
+  }
+
+  @Override
+  public StarlarkToolchainTypeRequirement toolchainType(
+      Object name, boolean mandatory, StarlarkThread thread) throws EvalException {
+
+    Label label;
+    if (name instanceof Label) {
+      label = (Label) name;
+    } else if (name instanceof String) {
+      LabelConverter converter = LabelConverter.forThread(thread);
+      try {
+        label = converter.convert((String) name);
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf(
+            "Unable to parse toolchain_type label '%s': %s", name, e.getMessage());
+      }
+    } else {
+      throw Starlark.errorf(
+          "config_common.toolchain_type() takes a Label or String, and instead got a %s",
+          name.getClass().getSimpleName());
+    }
+
+    return ToolchainTypeRequirement.builder(label).mandatory(mandatory).build();
   }
 }

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
@@ -112,13 +111,6 @@ public class RemoteOutputService implements OutputService {
   @Override
   public void clean() {
     // Intentionally left empty.
-  }
-
-  @Override
-  public boolean isRemoteFile(Artifact artifact) {
-    Path path = artifact.getPath();
-    return path.getFileSystem() instanceof RemoteActionFileSystem
-        && ((RemoteActionFileSystem) path.getFileSystem()).isRemote(path);
   }
 
   @Override

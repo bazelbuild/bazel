@@ -59,7 +59,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transition_factories",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",

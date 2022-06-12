@@ -3535,4 +3535,27 @@ EOF
   [[ "$disk_cas_files" == 3 ]] || fail "Expected 3 disk cas entries, not $disk_cas_files"
 }
 
+function test_missing_outputs_dont_upload_action_result() {
+  # Test that if declared outputs are not created, even the exit code of action
+  # is 0, we treat this as failed and don't upload action result.
+  # See https://github.com/bazelbuild/bazel/issues/14543.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo foo",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log && fail "Should failed to build"
+
+  remote_cas_files="$(count_remote_cas_files)"
+  [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
+  remote_ac_files="$(count_remote_ac_files)"
+  [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+}
+
 run_suite "Remote execution and remote cache tests"

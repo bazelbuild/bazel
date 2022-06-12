@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -213,24 +214,30 @@ public final class AnalysisPhaseRunner {
             env.getRuntime().getRuleClassProvider(),
             env.getSkyframeExecutor(),
             env.getRuntime().getCoverageReportActionFactory(request));
-    AnalysisResult analysisResult =
-        view.update(
-            loadingResult,
-            targetOptions,
-            multiCpu,
-            explicitTargetPatterns,
-            request.getAspects(),
-            request.getAspectsParameters(),
-            request.getViewOptions(),
-            request.getKeepGoing(),
-            request.getCheckForActionConflicts(),
-            request.getLoadingPhaseThreadCount(),
-            request.getTopLevelArtifactContext(),
-            request.reportIncompatibleTargets(),
-            env.getReporter(),
-            env.getEventBus(),
-            /*includeExecutionPhase=*/ false,
-            /*mergedPhasesExecutionJobsCount=*/ 0);
+    AnalysisResult analysisResult;
+    try {
+      analysisResult =
+          view.update(
+              loadingResult,
+              targetOptions,
+              multiCpu,
+              explicitTargetPatterns,
+              request.getAspects(),
+              request.getAspectsParameters(),
+              request.getViewOptions(),
+              request.getKeepGoing(),
+              request.getCheckForActionConflicts(),
+              request.getLoadingPhaseThreadCount(),
+              request.getTopLevelArtifactContext(),
+              request.reportIncompatibleTargets(),
+              env.getReporter(),
+              env.getEventBus(),
+              env.getRuntime().getBugReporter(),
+              /*includeExecutionPhase=*/ false,
+              /*mergedPhasesExecutionJobsCount=*/ 0);
+    } catch (BuildFailedException | TestExecException unexpected) {
+      throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
+    }
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus()

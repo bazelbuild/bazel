@@ -48,17 +48,17 @@ public class RuleDocumentationAttribute
           .put(Type.STRING_DICT, "Dictionary: String -> String")
           .put(Type.STRING_LIST, "List of strings")
           .put(BuildType.TRISTATE, "Integer")
-          .put(BuildType.LABEL, "<a href=\"../build-ref.html#labels\">Label</a>")
-          .put(BuildType.LABEL_LIST, "List of <a href=\"../build-ref.html#labels\">labels</a>")
+          .put(BuildType.LABEL, "<a href=\"${link build-ref#labels}\">Label</a>")
+          .put(BuildType.LABEL_LIST, "List of <a href=\"${link build-ref#labels}\">labels</a>")
           .put(
               BuildType.LABEL_DICT_UNARY,
-              "Dictionary mapping strings to <a href=\"../build-ref.html#labels\">labels</a>")
+              "Dictionary mapping strings to <a href=\"${link build-ref#labels}\">labels</a>")
           .put(BuildType.LICENSE, "Licence type")
-          .put(BuildType.NODEP_LABEL, "<a href=\"../build-ref.html#name\">Name</a>")
-          .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"../build-ref.html#name\">names</a>")
-          .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")
+          .put(BuildType.NODEP_LABEL, "<a href=\"${link build-ref#name}\">Name</a>")
+          .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"${link build-ref#name}\">names</a>")
+          .put(BuildType.OUTPUT, "<a href=\"${link build-ref#filename}\">Filename</a>")
           .put(
-              BuildType.OUTPUT_LIST, "List of <a href=\"../build-ref.html#filename\">filenames</a>")
+              BuildType.OUTPUT_LIST, "List of <a href=\"${link build-ref#filename}\">filenames</a>")
           .buildOrThrow();
 
   private final Class<? extends RuleDefinition> definitionClass;
@@ -150,15 +150,18 @@ public class RuleDocumentationAttribute
    * Returns the html documentation of the rule attribute.
    */
   public String getHtmlDocumentation() throws BuildEncyclopediaDocException {
-    String expandedHtmlDoc = htmlDocumentation;
-    if (linkExpander != null) {
-      try {
-        expandedHtmlDoc = linkExpander.expand(expandedHtmlDoc);
-      } catch (IllegalArgumentException e) {
-        throw new BuildEncyclopediaDocException(fileName, startLineCnt, e.getMessage());
-      }
+    return tryExpand(htmlDocumentation);
+  }
+
+  public String tryExpand(String html) throws BuildEncyclopediaDocException {
+    if (linkExpander == null) {
+      return html;
     }
-    return expandedHtmlDoc;
+    try {
+      return linkExpander.expand(html);
+    } catch (IllegalArgumentException e) {
+      throw new BuildEncyclopediaDocException(fileName, startLineCnt, e.getMessage());
+    }
   }
 
   /** Returns whether the param is required or optional. */
@@ -182,7 +185,7 @@ public class RuleDocumentationAttribute
     } else if (value instanceof String && !((String) value).isEmpty()) {
       return prefix + "\"" + value + "\"";
     } else if (value instanceof TriState) {
-      switch((TriState) value) {
+      switch ((TriState) value) {
         case AUTO:
           return prefix + "-1";
         case NO:
@@ -196,16 +199,15 @@ public class RuleDocumentationAttribute
     return "";
   }
 
-  /**
-   * Returns a string containing the synopsis for this attribute.
-   */
-  public String getSynopsis() {
+  /** Returns a string containing the synopsis for this attribute. */
+  public String getSynopsis() throws BuildEncyclopediaDocException {
     if (attribute == null) {
       return "";
     }
+    String rawType = TYPE_DESC.get(attribute.getType());
     StringBuilder sb =
         new StringBuilder()
-            .append(TYPE_DESC.get(attribute.getType()))
+            .append(rawType == null ? null : tryExpand(rawType))
             .append("; ")
             .append(attribute.isMandatory() ? "required" : "optional")
             .append(

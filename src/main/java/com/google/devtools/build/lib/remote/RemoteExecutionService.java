@@ -58,6 +58,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1123,24 +1124,52 @@ public class RemoteExecutionService {
     return null;
   }
 
+  private Single<UploadManifest> buildUploadManifestAsync(
+      RemoteAction action, SpawnResult spawnResult) {
+    return Single.fromCallable(
+        () -> {
+          ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+          for (ActionInput outputFile : action.spawn.getOutputFiles()) {
+            Path outputPath = execRoot.getRelative(outputFile.getExecPath());
+            if (!outputPath.exists()) {
+              String output;
+              if (outputFile instanceof Artifact) {
+                output = ((Artifact) outputFile).prettyPrint();
+              } else {
+                output = outputFile.getExecPathString();
+              }
+              throw new IOException("Expected output " + output + " was not created locally.");
+            }
+            outputFiles.add(outputPath);
+          }
+
+          return UploadManifest.create(
+              remoteOptions,
+              digestUtil,
+              remotePathResolver,
+              action.actionKey,
+              action.action,
+              action.command,
+              outputFiles.build(),
+              action.spawnExecutionContext.getFileOutErr(),
+              spawnResult.exitCode());
+        });
+  }
+
   @VisibleForTesting
   UploadManifest buildUploadManifest(RemoteAction action, SpawnResult spawnResult)
-      throws ExecException, IOException {
-    Collection<Path> outputFiles =
-        action.spawn.getOutputFiles().stream()
-            .map((inp) -> execRoot.getRelative(inp.getExecPath()))
-            .collect(ImmutableList.toImmutableList());
-
-    return UploadManifest.create(
-        remoteOptions,
-        digestUtil,
-        remotePathResolver,
-        action.actionKey,
-        action.action,
-        action.command,
-        outputFiles,
-        action.spawnExecutionContext.getFileOutErr(),
-        /* exitCode= */ 0);
+      throws IOException, ExecException, InterruptedException {
+    try {
+      return buildUploadManifestAsync(action, spawnResult).blockingGet();
+    } catch (RuntimeException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        Throwables.throwIfInstanceOf(cause, IOException.class);
+        Throwables.throwIfInstanceOf(cause, ExecException.class);
+        Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+      }
+      throw e;
+    }
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
@@ -1152,42 +1181,43 @@ public class RemoteExecutionService {
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");
 
-    try {
-      UploadManifest manifest = buildUploadManifest(action, spawnResult);
-      if (remoteOptions.remoteCacheAsync) {
-        Single.using(
-                remoteCache::retain,
-                remoteCache ->
-                    manifest.uploadAsync(
-                        action.getRemoteActionExecutionContext(), remoteCache, reporter),
-                RemoteCache::release)
-            .subscribeOn(scheduler)
-            .subscribe(
-                new SingleObserver<ActionResult>() {
-                  @Override
-                  public void onSubscribe(@NonNull Disposable d) {
-                    backgroundTaskPhaser.register();
-                  }
+    if (remoteOptions.remoteCacheAsync) {
+      Single.using(
+              remoteCache::retain,
+              remoteCache ->
+                  buildUploadManifestAsync(action, spawnResult)
+                      .flatMap(
+                          manifest ->
+                              manifest.uploadAsync(
+                                  action.getRemoteActionExecutionContext(), remoteCache, reporter)),
+              RemoteCache::release)
+          .subscribeOn(scheduler)
+          .subscribe(
+              new SingleObserver<ActionResult>() {
+                @Override
+                public void onSubscribe(@NonNull Disposable d) {
+                  backgroundTaskPhaser.register();
+                }
 
-                  @Override
-                  public void onSuccess(@NonNull ActionResult actionResult) {
-                    backgroundTaskPhaser.arriveAndDeregister();
-                  }
+                @Override
+                public void onSuccess(@NonNull ActionResult actionResult) {
+                  backgroundTaskPhaser.arriveAndDeregister();
+                }
 
-                  @Override
-                  public void onError(@NonNull Throwable e) {
-                    backgroundTaskPhaser.arriveAndDeregister();
-                    reportUploadError(e);
-                  }
-                });
-      } else {
-        try (SilentCloseable c =
-            Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
-          manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
-        }
+                @Override
+                public void onError(@NonNull Throwable e) {
+                  backgroundTaskPhaser.arriveAndDeregister();
+                  reportUploadError(e);
+                }
+              });
+    } else {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
+        UploadManifest manifest = buildUploadManifest(action, spawnResult);
+        manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
+      } catch (IOException e) {
+        reportUploadError(e);
       }
-    } catch (IOException e) {
-      reportUploadError(e);
     }
   }
 

@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -70,11 +69,11 @@ public class ProguardLibraryTest extends BuildViewTestCase {
           .add(attr("runtime_deps", LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE))
           .add(
               attr("plugins", LABEL_LIST)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .allowedFileTypes(FileTypeSet.NO_FILE))
           .add(
               attr("exported_plugins", LABEL_LIST)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
@@ -111,7 +110,7 @@ public class ProguardLibraryTest extends BuildViewTestCase {
           .add(attr("target_libs", LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE))
           .add(
               attr("host_libs", LABEL_LIST)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .allowedFileTypes(FileTypeSet.NO_FILE))
           .add(attr("target_attrs", STRING_LIST))
           .add(attr("host_attrs", STRING_LIST))
@@ -120,7 +119,7 @@ public class ProguardLibraryTest extends BuildViewTestCase {
                   .value(Label.parseAbsoluteUnchecked("//test/implicit:implicit_target")))
           .add(
               attr("$implicit_host", LABEL)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .value(Label.parseAbsoluteUnchecked("//test/implicit:implicit_host")))
           .build();
     }
@@ -283,7 +282,7 @@ public class ProguardLibraryTest extends BuildViewTestCase {
             .map(path -> path.replaceFirst(TestConstants.PRODUCT_NAME + "-out/[^/]+/", ""))
             .collect(Collectors.toList());
     List<String> expectedFilesToRun =
-        getFilesToRun(getHostConfiguredTarget(TestConstants.PROGUARD_ALLOWLISTER_TARGET))
+        getFilesToRun(getConfiguredTarget(TestConstants.PROGUARD_ALLOWLISTER_TARGET))
             .toList()
             .stream()
             .map(Artifact::getExecPathString)
@@ -348,11 +347,11 @@ public class ProguardLibraryTest extends BuildViewTestCase {
     Artifact validatedPlugin =
         getBinArtifact(
             "validated_proguard/plugin/test/plugin.cfg_valid",
-            getHostConfiguredTarget("//test:plugin"));
+            getDirectPrerequisite(target, "//test:plugin"));
     Artifact validatedExportedPlugin =
         getBinArtifact(
             "validated_proguard/exported_plugin/test/exported_plugin.cfg_valid",
-            getHostConfiguredTarget("//test:exported_plugin"));
+            getDirectPrerequisite(target, "//test:exported_plugin"));
 
     assertThat(getFilesToBuild(target).toList())
         .containsExactly(
@@ -383,7 +382,8 @@ public class ProguardLibraryTest extends BuildViewTestCase {
             getConfiguredTarget("//test:target"));
     Artifact validatedHost =
         getBinArtifact(
-            "validated_proguard/host/test/host.cfg_valid", getHostConfiguredTarget("//test:host"));
+            "validated_proguard/host/test/host.cfg_valid",
+            getDirectPrerequisite(target, "//test:host"));
     Artifact validatedImplicitTarget =
         getBinArtifact(
             "validated_proguard/implicit_target/test/implicit/implicit_target.cfg_valid",
@@ -391,7 +391,7 @@ public class ProguardLibraryTest extends BuildViewTestCase {
     Artifact validatedImplicitHost =
         getBinArtifact(
             "validated_proguard/implicit_host/test/implicit/implicit_host.cfg_valid",
-            getHostConfiguredTarget("//test/implicit:implicit_host"));
+            getDirectPrerequisite(target, "//test/implicit:implicit_host"));
 
     assertThat(getFilesToBuild(target).toList())
         .containsExactly(

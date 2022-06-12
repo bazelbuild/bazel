@@ -949,16 +949,15 @@ final class StringModule implements StarlarkValue {
   @StarlarkMethod(
       name = "format",
       doc =
-          "Perform string interpolation. Format strings contain replacement fields "
-              + "surrounded by curly braces <code>{}</code>. Anything that is not contained "
-              + "in braces is considered literal text, which is copied unchanged to the output."
-              + "If you need to include a brace character in the literal text, it can be "
-              + "escaped by doubling: <code>{{</code> and <code>}}</code>"
-              + "A replacement field can be either a name, a number, or empty. Values are "
-              + "converted to strings using the <a href=\"globals.html#str\">str</a> function."
-              + "<pre class=\"language-python\">"
-              + "# Access in order:\n"
-              + "\"{} < {}\".format(4, 5) == \"4 < 5\"\n"
+          "Perform string interpolation. Format strings contain replacement fields surrounded by"
+              + " curly braces <code>&#123;&#125;</code>. Anything that is not contained in braces"
+              + " is considered literal text, which is copied unchanged to the output.If you need"
+              + " to include a brace character in the literal text, it can be escaped by doubling:"
+              + " <code>&#123;&#123;</code> and <code>&#125;&#125;</code>A replacement field can be"
+              + " either a name, a number, or empty. Values are converted to strings using the <a"
+              + " href=\"globals.html#str\">str</a> function.<pre class=\"language-python\">#"
+              + " Access in order:\n"
+              + "\"&#123;&#125; < &#123;&#125;\".format(4, 5) == \"4 < 5\"\n"
               + "# Access by position:\n"
               + "\"{1}, {0}\".format(2, 1) == \"1, 2\"\n"
               + "# Access by name:\n"
@@ -1022,5 +1021,37 @@ final class StringModule implements StarlarkValue {
   // Computes str.substring(start, end).startsWith(prefix) without allocation.
   private static boolean substringStartsWith(String str, int start, int end, String prefix) {
     return start + prefix.length() <= end && str.startsWith(prefix, start);
+  }
+
+  @StarlarkMethod(
+      name = "removeprefix",
+      doc =
+          "If the string starts with <code>prefix</code>, returns a new string with the prefix "
+              + "removed. Otherwise, returns the string.",
+      parameters = {
+        @Param(name = "self", doc = "This string."),
+        @Param(name = "prefix", doc = "The prefix to remove if present."),
+      })
+  public String removePrefix(String self, String prefix) {
+    if (self.startsWith(prefix)) {
+      return self.substring(prefix.length());
+    }
+    return self;
+  }
+
+  @StarlarkMethod(
+      name = "removesuffix",
+      doc =
+          "If the string ends with <code>suffix</code>, returns a new string with the suffix "
+              + "removed. Otherwise, returns the string.",
+      parameters = {
+        @Param(name = "self", doc = "This string."),
+        @Param(name = "suffix", doc = "The suffix to remove if present."),
+      })
+  public String removeSuffix(String self, String suffix) {
+    if (self.endsWith(suffix)) {
+      return self.substring(0, self.length() - suffix.length());
+    }
+    return self;
   }
 }

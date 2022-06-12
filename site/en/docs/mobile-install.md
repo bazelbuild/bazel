@@ -190,7 +190,7 @@ and installing large apps after a small change.
 
 The following numbers were computed for a few Google products:
 
-<img src="/assets/mobile-install-performance.svg"/>
+<img src="/docs/images/mobile-install-performance.svg"/>
 
 This, of course, depends on the nature of the change: recompilation after
 changing a base library takes more time.

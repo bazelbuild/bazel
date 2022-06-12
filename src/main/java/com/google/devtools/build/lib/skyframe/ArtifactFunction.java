@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
-  private final SyscallCache syscallCache;
+  private final XattrProvider xattrProvider;
 
   static final class MissingArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
@@ -96,10 +96,10 @@ class ArtifactFunction implements SkyFunction {
   public ArtifactFunction(
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
-      SyscallCache syscallCache) {
+      XattrProvider xattrProvider) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
-    this.syscallCache = syscallCache;
+    this.xattrProvider = xattrProvider;
   }
 
   @Override
@@ -279,7 +279,7 @@ class ArtifactFunction implements SkyFunction {
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       FileArtifactValue metadata;
       try {
-        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue, syscallCache);
+        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue, xattrProvider);
       } catch (IOException e) {
         throw new ArtifactFunctionException(
             SourceArtifactException.create(artifact, e), Transience.TRANSIENT);

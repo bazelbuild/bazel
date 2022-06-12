@@ -33,7 +33,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "and cannot be used to directly read or write file contents. Rather, you use it to "
             + "construct the action graph in a rule implementation function by passing it to "
             + "action-creating functions. See the "
-            + "<a href='../rules.$DOC_EXT#files'>Rules page</a> for more information."
+            + "<a href='$STARLARK_DOCS_ROOT/rules.html#files'>Rules page</a> for more information."
             + "" // curse google-java-format b/145078219
             + "<p>When a <code>File</code> is passed to an <a"
             + " href='Args.html'><code>Args</code></a> object without using a"

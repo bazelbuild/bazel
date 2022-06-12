@@ -44,13 +44,15 @@ import java.util.TreeMap;
 public class BuildDocCollector {
   private static final Splitter SHARP_SPLITTER = Splitter.on('#').limit(2).trimResults();
 
-  private final String productName;
+  private final RuleLinkExpander linkExpander;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final boolean printMessages;
 
   public BuildDocCollector(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider, boolean printMessages) {
-    this.productName = productName;
+      RuleLinkExpander linkExpander,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      boolean printMessages) {
+    this.linkExpander = linkExpander;
     this.ruleClassProvider = ruleClassProvider;
     this.printMessages = printMessages;
   }
@@ -90,18 +92,16 @@ public class BuildDocCollector {
    * <p>In the Map's values, all references pointing to other rules, rule attributes, and general
    * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks. The
    * links generated follow either the multi-page or single-page Build Encyclopedia model depending
-   * on the mode set for the provided {@link RuleLinkExpander}.
+   * on the mode set for the {@link RuleLinkExpander} that was passed to the constructor.
    *
    * @param inputDirs list of directories to scan for documentation
    * @param denyList specify an optional denylist file that list some rules that should not be
    *     listed in the output.
-   * @param expander The RuleLinkExpander, which is used for expanding links in the rule doc.
    * @throws BuildEncyclopediaDocException
    * @throws IOException
    * @return Map of rule class to rule documentation.
    */
-  public Map<String, RuleDocumentation> collect(
-      List<String> inputDirs, String denyList, RuleLinkExpander expander)
+  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String denyList)
       throws BuildEncyclopediaDocException, IOException {
     // Read the denyList file
     Set<String> denylistedRules = readDenyList(denyList);
@@ -141,35 +141,11 @@ public class BuildDocCollector {
     }
 
     processAttributeDocs(ruleDocEntries.values(), attributeDocEntries);
-    expander.addIndex(buildRuleIndex(ruleDocEntries.values()));
+    linkExpander.addIndex(buildRuleIndex(ruleDocEntries.values()));
     for (RuleDocumentation rule : ruleDocEntries.values()) {
-      rule.setRuleLinkExpander(expander);
+      rule.setRuleLinkExpander(linkExpander);
     }
     return ruleDocEntries;
-  }
-
-  /**
-   * Creates a map of rule names (keys) to rule documentation (values).
-   *
-   * <p>This method crawls the specified input directories for rule class definitions (as Java
-   * source files) which contain the rules' and attributes' definitions as comments in a specific
-   * format. The keys in the returned Map correspond to these rule classes.
-   *
-   * <p>In the Map's values, all references pointing to other rules, rule attributes, and general
-   * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks. The
-   * links generated follow the multi-page Build Encyclopedia model (one page per rule class.).
-   *
-   * @param inputDirs list of directories to scan for documentation
-   * @param denyList specify an optional denylist file that list some rules that should not be
-   *     listed in the output.
-   * @throws BuildEncyclopediaDocException
-   * @throws IOException
-   * @return Map of rule class to rule documentation.
-   */
-  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String denyList)
-      throws BuildEncyclopediaDocException, IOException {
-    RuleLinkExpander expander = new RuleLinkExpander(productName, /* singlePage */ false);
-    return collect(inputDirs, denyList, expander);
   }
 
   /**

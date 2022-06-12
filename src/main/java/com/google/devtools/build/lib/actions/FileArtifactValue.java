@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -191,7 +192,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   public static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
 
   public static FileArtifactValue createForSourceArtifact(
-      Artifact artifact, FileValue fileValue, SyscallCache syscallCache) throws IOException {
+      Artifact artifact, FileValue fileValue, XattrProvider xattrProvider) throws IOException {
     // Artifacts with known generating actions should obtain the derived artifact's SkyValue
     // from the generating action, instead.
     Preconditions.checkState(!artifact.hasKnownGeneratingAction());
@@ -203,7 +204,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         isFile ? fileValue.getSize() : 0,
         isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
         isFile ? fileValue.getDigest() : null,
-        syscallCache);
+        xattrProvider);
   }
 
   public static FileArtifactValue createFromInjectedDigest(
@@ -225,14 +226,14 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   public static FileArtifactValue createFromStat(
-      Path path, FileStatus stat, SyscallCache syscallCache) throws IOException {
+      Path path, FileStatus stat, XattrProvider xattrProvider) throws IOException {
     return create(
         path,
         stat.isFile(),
         stat.getSize(),
         FileContentsProxy.create(stat),
         /*digest=*/ null,
-        syscallCache);
+        xattrProvider);
   }
 
   private static FileArtifactValue create(
@@ -241,7 +242,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       long size,
       FileContentsProxy proxy,
       @Nullable byte[] digest,
-      SyscallCache syscallCache)
+      XattrProvider xattrProvider)
       throws IOException {
     if (!isFile) {
       // In this case, we need to store the mtime because the action cache uses mtime for
@@ -250,7 +251,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
-      digest = DigestUtils.getDigestWithManualFallback(path, size, syscallCache);
+      digest = DigestUtils.getDigestWithManualFallback(path, size, xattrProvider);
     }
     Preconditions.checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size);
@@ -289,8 +290,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * handle getting the digest using the Path and size values.
    */
   public static FileArtifactValue createForNormalFileUsingPath(
-      Path path, long size, SyscallCache syscallCache) throws IOException {
-    return create(path, /*isFile=*/ true, size, /*proxy=*/ null, /*digest=*/ null, syscallCache);
+      Path path, long size, XattrProvider xattrProvider) throws IOException {
+    return create(path, /*isFile=*/ true, size, /*proxy=*/ null, /*digest=*/ null, xattrProvider);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {

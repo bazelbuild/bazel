@@ -68,10 +68,6 @@ flags.DEFINE_string(
 flags.DEFINE_string('owner_name', None,
                     'Specify the owner name of all files, e.g. root.root.')
 
-flags.DEFINE_multi_string(
-    'owner_names', None, 'Specify the owner names of individual files, e.g. '
-    'path/to/file=root.root.')
-
 flags.DEFINE_string('root_directory', './',
                     'Default root directory is named "."')
 
@@ -214,14 +210,6 @@ def main(unused_argv):
   default_ownername = ('', '')
   if FLAGS.owner_name:
     default_ownername = FLAGS.owner_name.split('.', 1)
-  names_map = {}
-  if FLAGS.owner_names:
-    for file_owner in FLAGS.owner_names:
-      (f, owner) = unquote_and_split(file_owner, '=')
-      (user, group) = owner.split('.', 1)
-      if f[0] == '/':
-        f = f[1:]
-      names_map[f] = (user, group)
 
   default_ids = FLAGS.owner.split('.', 1)
   default_ids = (int(default_ids[0]), int(default_ids[1]))
@@ -244,7 +232,7 @@ def main(unused_argv):
       return {
           'mode': mode_map.get(filename, default_mode),
           'ids': ids_map.get(filename, default_ids),
-          'names': names_map.get(filename, default_ownername),
+          'names': default_ownername,
       }
 
     for f in FLAGS.file:
