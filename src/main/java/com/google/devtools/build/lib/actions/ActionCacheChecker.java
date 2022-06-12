@@ -754,6 +754,33 @@ public class ActionCacheChecker {
     }
   }
 
+  /**
+   * Only call if action requires execution because there was a failure to record action cache hit
+   */
+  public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
+      Action action,
+      List<Artifact> resolvedCacheArtifacts,
+      Map<String, String> clientEnv,
+      EventHandler handler,
+      MetadataHandler metadataHandler,
+      ArtifactExpander artifactExpander,
+      Map<String, String> remoteDefaultPlatformProperties,
+      boolean isRemoteCacheEnabled)
+      throws InterruptedException {
+    if (action != null) {
+      removeCacheEntry(action);
+    }
+    return getTokenIfNeedToExecute(
+        action,
+        resolvedCacheArtifacts,
+        clientEnv,
+        handler,
+        metadataHandler,
+        artifactExpander,
+        remoteDefaultPlatformProperties,
+        isRemoteCacheEnabled);
+  }
+
   /** Returns an action key. It is always set to the first output exec path string. */
   private static String getKeyString(Action action) {
     checkState(!action.getOutputs().isEmpty());

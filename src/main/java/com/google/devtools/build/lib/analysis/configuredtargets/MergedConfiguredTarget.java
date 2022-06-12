@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 import net.starlark.java.eval.Dict;
@@ -129,11 +129,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /** Creates an instance based on a configured target and a set of aspects. */
-  public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
+  public static ConfiguredTarget of(ConfiguredTarget base, Collection<ConfiguredAspect> aspects)
       throws DuplicateException {
-    if (Iterables.isEmpty(aspects)) {
-      // If there are no aspects, don't bother with creating a proxy object
-      return base;
+    if (aspects.isEmpty()) {
+      return base; // If there are no aspects, don't bother with creating a proxy object.
     }
 
     TransitiveInfoProviderMapBuilder nonBaseProviders = new TransitiveInfoProviderMapBuilder();

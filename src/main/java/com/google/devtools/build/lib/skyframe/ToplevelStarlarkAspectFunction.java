@@ -54,7 +54,8 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
         (BuildTopLevelAspectsDetailsValue)
             env.getValue(
                 BuildTopLevelAspectsDetailsKey.create(
-                    topLevelAspectsKey.getTopLevelAspectsClasses()));
+                    topLevelAspectsKey.getTopLevelAspectsClasses(),
+                    topLevelAspectsKey.getTopLevelAspectsParameters()));
     if (topLevelAspectsDetails == null) {
       return null; // some aspects details are not ready
     }

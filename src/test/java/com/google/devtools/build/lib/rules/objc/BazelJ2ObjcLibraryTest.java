@@ -1056,6 +1056,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "proto_lang_toolchain(",
         "    name = 'alt_j2objc_proto_toolchain',",
         "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
+        "    plugin_format_flag = '--plugin=protoc-gen-PLUGIN_j2objc=%s', ",
         "    plugin = ':alt_proto_plugin',",
         "    runtime = ':alt_proto_runtime',",
         "    blacklisted_protos = [':excluded_protos'],",

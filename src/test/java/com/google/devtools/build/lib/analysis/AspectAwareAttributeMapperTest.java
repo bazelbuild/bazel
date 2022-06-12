@@ -60,7 +60,10 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
     mapper =
         new AspectAwareAttributeMapper(
             ConfiguredAttributeMapper.of(
-                rule, ct.getConfigConditions(), ct.getConfigurationChecksum()),
+                rule,
+                ct.getConfigConditions(),
+                ct.getConfigurationChecksum(),
+                /*alwaysSucceed=*/ false),
             aspectAttributes);
   }
 

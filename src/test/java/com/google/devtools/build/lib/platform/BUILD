@@ -39,15 +39,3 @@ java_test(
         "//third_party:truth",
     ],
 )
-
-java_test(
-    name = "MemoryPressureCounterTest",
-    timeout = "short",
-    srcs = ["MemoryPressureCounterTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/platform:memory_pressure_counter",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)

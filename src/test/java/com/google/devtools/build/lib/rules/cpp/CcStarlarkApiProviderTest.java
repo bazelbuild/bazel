@@ -196,4 +196,30 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
         ")");
     assertThat(getApi("//pkg:check").getCcFlags()).contains("-Dfoo");
   }
+
+  @Test
+  public void testCcInfoTransitiveNativeLibsIsPrivateAPI() throws Exception {
+    scratch.file(
+        "pkg/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  libs = ctx.attr.dep[CcInfo].transitive_native_libraries()",
+        "  return []",
+        "",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep' : attr.label(providers = [CcInfo])",
+        "  }",
+        ")");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'foo', dep = ':lib')",
+        "cc_library(name = 'lib', defines = ['foo'])");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//pkg:foo");
+
+    assertContainsEvent("Rule in 'pkg' cannot use private API");
+  }
 }

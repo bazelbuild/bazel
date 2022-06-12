@@ -12,27 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.buildtool.buildevent;
+package com.google.devtools.build.lib.platform;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
  * This event is fired from {@link
- * com.google.devtools.build.lib.platform.SystemSuspensionModule#suspendCallback} to indicate that
- * the user either suspended the build with a signal or put their computer to sleep.
+ * com.google.devtools.build.lib.platform.SystemMemoryPressureModule#memoryPressureCallback} to
+ * indicate that a memory pressure event has occurred.
  */
-public class SystemSuspensionEvent implements ExtendedEventHandler.Postable {
+public class SystemMemoryPressureEvent implements ExtendedEventHandler.Postable {
 
   /** The possible reasons a system could be suspended. */
-  public enum Reason {
-    SIGTSTP("Signal SIGTSTP"),
-    SIGCONT("Signal SIGCONT"),
-    SLEEP("Computer put to sleep"),
-    WAKE("Computer woken up");
+  public enum Level {
+    WARNING("Warning"),
+    CRITICAL("Critical");
 
     private final String logString;
 
-    Reason(String logString) {
+    Level(String logString) {
       this.logString = logString;
     }
 
@@ -41,33 +39,29 @@ public class SystemSuspensionEvent implements ExtendedEventHandler.Postable {
     }
 
     /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
-    static Reason fromInt(int number) {
+    static Level fromInt(int number) {
       switch (number) {
         case 0:
-          return SIGTSTP;
+          return WARNING;
         case 1:
-          return SIGCONT;
-        case 2:
-          return SLEEP;
-        case 3:
-          return WAKE;
+          return CRITICAL;
         default:
-          throw new IllegalStateException("Unknown suspension reason: " + number);
+          throw new IllegalStateException("Unknown memory pressure level: " + number);
       }
     }
   };
 
-  private final Reason reason;
+  private final Level level;
 
-  public SystemSuspensionEvent(int reason) {
-    this.reason = Reason.fromInt(reason);
+  public SystemMemoryPressureEvent(int level) {
+    this.level = Level.fromInt(level);
   }
 
-  public Reason getReason() {
-    return reason;
+  public Level level() {
+    return level;
   }
 
   public String logString() {
-    return "SystemSuspensionEvent: " + reason.logString();
+    return "SystemMemoryPressureEvent: " + level.logString();
   }
 }

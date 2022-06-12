@@ -42,7 +42,6 @@ import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -135,15 +134,11 @@ public final class ProcessPackageDirectory {
 
     SkyKey pkgLookupKey = PackageLookupValue.key(packageId);
     SkyKey dirListingKey = DirectoryListingValue.key(rootedPath);
-    Map<
-            SkyKey,
-            ValueOrException2<
-                NoSuchPackageException, IOException>>
-        pkgLookupAndDirectoryListingDeps =
-            env.getValuesOrThrow(
-                ImmutableList.of(pkgLookupKey, dirListingKey),
-                NoSuchPackageException.class,
-                IOException.class);
+    List<ValueOrException2<NoSuchPackageException, IOException>> pkgLookupAndDirectoryListingDeps =
+        env.getOrderedValuesOrThrow(
+            ImmutableList.of(pkgLookupKey, dirListingKey),
+            NoSuchPackageException.class,
+            IOException.class);
     if (env.valuesMissing()) {
       return null;
     }
@@ -152,7 +147,7 @@ public final class ProcessPackageDirectory {
       pkgLookupValue =
           (PackageLookupValue)
               Preconditions.checkNotNull(
-                  pkgLookupAndDirectoryListingDeps.get(pkgLookupKey).get(),
+                  pkgLookupAndDirectoryListingDeps.get(0).get(),
                   "%s %s %s",
                   rootedPath,
                   repositoryName,
@@ -167,7 +162,7 @@ public final class ProcessPackageDirectory {
       dirListingValue =
           (DirectoryListingValue)
               Preconditions.checkNotNull(
-                  pkgLookupAndDirectoryListingDeps.get(dirListingKey).get(),
+                  pkgLookupAndDirectoryListingDeps.get(1).getOrThrow(IOException.class),
                   "%s %s %s",
                   rootedPath,
                   repositoryName,
@@ -177,12 +172,10 @@ public final class ProcessPackageDirectory {
       // but FileFunction was evaluated for rootedPath above, and didn't throw there. It shouldn't
       // be able to avoid throwing there but throw here.
       throw new IllegalStateException(
-          "Symlink cycle found after not being found for \"" + rootedPath + "\"");
+          "Symlink cycle found after not being found for \"" + rootedPath + "\"", e);
     } catch (IOException e) {
       return reportErrorAndReturn(
           "Failed to list directory contents", e, rootRelativePath, env.getListener());
-    } catch (NoSuchPackageException e) {
-      throw new IllegalStateException(e);
     }
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (env.valuesMissing()) {
@@ -196,8 +189,7 @@ public final class ProcessPackageDirectory {
             repositoryName,
             excludedPaths,
             starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
-        /** additionalValuesToAggregate= */
-        ImmutableMap.of());
+        /*additionalValuesToAggregate=*/ ImmutableMap.of());
   }
 
   private Iterable<SkyKey> getSubdirDeps(

@@ -339,6 +339,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     if (isFetch.get()) {
+      // Fetching a repository is a long-running operation that can easily be interrupted. If it is
+      // and the marker file exists on disk, a new call of this method may treat this repository as
+      // valid even though it is in an inconsistent state. Clear the marker file and only recreate
+      // it after fetching is done to prevent this scenario.
+      DigestWriter.clearMarkerFile(directories, repositoryName);
       // Fetching enabled, go ahead.
       RepositoryDirectoryValue.Builder builder =
           fetchRepository(skyKey, repoRoot, env, digestWriter.getMarkerData(), handler, rule);

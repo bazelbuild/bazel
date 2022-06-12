@@ -593,27 +593,31 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver pathResolver)
       throws ActionExecutionException, InterruptedException {
     Token token;
+    RemoteOptions remoteOptions;
+    SortedMap<String, String> remoteDefaultProperties;
+    EventHandler handler;
+    boolean isRemoteCacheEnabled;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
-      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
-      SortedMap<String, String> remoteDefaultProperties =
+      remoteOptions = this.options.getOptions(RemoteOptions.class);
+      remoteDefaultProperties =
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      boolean isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      handler =
+          options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
               clientEnv,
-              options.getOptions(BuildRequestOptions.class).explanationPath != null
-                  ? reporter
-                  : null,
+              handler,
               metadataHandler,
               artifactExpander,
               remoteDefaultProperties,
               isRemoteCacheEnabled);
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
     if (token == null) {
       boolean eventPosted = false;
@@ -658,7 +662,19 @@ public final class SkyframeActionExecutor {
                 return executorEngine.getContext(type);
               }
             };
-        notify.actionCacheHit(context);
+        boolean recordActionCacheHit = notify.actionCacheHit(context);
+        if (!recordActionCacheHit) {
+          token =
+              actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
+                  action,
+                  resolvedCacheArtifacts,
+                  clientEnv,
+                  handler,
+                  metadataHandler,
+                  artifactExpander,
+                  remoteDefaultProperties,
+                  isRemoteCacheEnabled);
+        }
       }
 
       // We still need to check the outputs so that output file data is available to the value.
@@ -693,7 +709,7 @@ public final class SkyframeActionExecutor {
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
 
     try {

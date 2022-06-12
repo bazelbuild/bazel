@@ -53,7 +53,6 @@ java_library(
     deps = [
         ":nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//third_party:guava",
         "//third_party:truth",

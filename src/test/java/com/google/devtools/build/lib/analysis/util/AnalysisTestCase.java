@@ -340,6 +340,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       FlagBuilder config,
       ImmutableSet<String> explicitTargetPatterns,
       ImmutableList<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
       String... labels)
       throws Exception {
     Set<Flag> flags = config.flags;
@@ -397,6 +398,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             multiCpu,
             explicitTargetPatterns,
             aspects,
+            aspectsParameters,
             viewOptions,
             keepGoing,
             LOADING_PHASE_THREADS,
@@ -414,7 +416,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected AnalysisResult update(
       EventBus eventBus, FlagBuilder config, ImmutableList<String> aspects, String... labels)
       throws Exception {
-    return update(eventBus, config, /*explicitTargetPatterns=*/ ImmutableSet.of(), aspects, labels);
+    return update(
+        eventBus,
+        config,
+        /*explicitTargetPatterns=*/ ImmutableSet.of(),
+        aspects,
+        /*aspectsParameters=*/ ImmutableMap.of(),
+        labels);
   }
 
   protected AnalysisResult update(EventBus eventBus, FlagBuilder config, String... labels)
@@ -436,6 +444,20 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected AnalysisResult update(ImmutableList<String> aspects, String... labels)
       throws Exception {
     return update(new EventBus(), defaultFlags(), aspects, labels);
+  }
+
+  protected AnalysisResult update(
+      ImmutableList<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
+      String... labels)
+      throws Exception {
+    return update(
+        new EventBus(),
+        defaultFlags(),
+        /*explicitTargetPatterns=*/ ImmutableSet.of(),
+        aspects,
+        aspectsParameters,
+        labels);
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)

@@ -48,7 +48,10 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
 
   @Override
   public void putRequest(WorkRequest request) throws IOException {
+    // WorkRequests are serialized according to ndjson spec.
+    // https://github.com/ndjson/ndjson-spec
     jsonPrinter.appendTo(request, jsonWriter);
+    jsonWriter.append(System.lineSeparator());
     jsonWriter.flush();
   }
 

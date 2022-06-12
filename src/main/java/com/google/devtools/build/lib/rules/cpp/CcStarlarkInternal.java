@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -39,6 +41,23 @@ import net.starlark.java.eval.StarlarkValue;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
+
+  @StarlarkMethod(
+      name = "is_package_headers_checking_mode_set",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public boolean isPackageHeadersCheckingModeSetForStarlark(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getRule().getPackage().isDefaultHdrsCheckSet();
+  }
+
+  @StarlarkMethod(
+      name = "package_headers_checking_mode",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getRule().getPackage().getDefaultHdrsCheck();
+  }
 
   @StarlarkMethod(
       name = "get_linked_artifact",
@@ -176,5 +195,20 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
   public ProviderApi getCcLauncherInfoProvider() throws EvalException {
     return CcLauncherInfo.PROVIDER;
+  }
+
+  // TODO(b/207761932): perhaps move this to another internal module
+  @StarlarkMethod(
+      name = "declare_shareable_artifact",
+      parameters = {
+        @Param(name = "ctx"),
+        @Param(name = "path"),
+      },
+      documented = false)
+  public FileApi createShareableArtifact(StarlarkRuleContext ruleContext, String path)
+      throws EvalException {
+    return ruleContext
+        .getRuleContext()
+        .getShareableArtifact(PathFragment.create(path), ruleContext.getBinDirectory());
   }
 }

@@ -38,8 +38,7 @@ public interface InterfaceMethodWithParam {
    * @return The reflection representation of the method itself.
    */
   @Foo("custom-attr-value-1")
-  @TyFoo
-  static Method inspectCompanionMethodOfStaticMethod(
+  static @TyFoo Method inspectCompanionMethodOfStaticMethod(
       @Foo @TyFoo String v4897b02fddeda3bb31bc15b3cad0f6febc61508) throws Exception {
     return TestHelper.getEnclosingRuntimeMethod(
         new Throwable(v4897b02fddeda3bb31bc15b3cad0f6febc61508));
@@ -51,8 +50,7 @@ public interface InterfaceMethodWithParam {
    * @return The reflection representation of the method itself.
    */
   @Foo("custom-attr-value-2")
-  @TyFoo
-  default Method inspectCompanionMethodOfDefaultMethod(
+  default @TyFoo Method inspectCompanionMethodOfDefaultMethod(
       @Foo @TyFoo String v12525d61e4b10b3e27bc280dd61e56728e3e8c27) throws Exception {
     return TestHelper.getEnclosingRuntimeMethod(
         new Throwable(v12525d61e4b10b3e27bc280dd61e56728e3e8c27));

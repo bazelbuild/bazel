@@ -6660,6 +6660,562 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     update(ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"), "//test:bin");
   }
 
+  @Test
+  public void testTopLevelAspectsWithParameters() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p1 = {} and a_p = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.a_p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
+        "            'a_p' : attr.string(values = ['a_p_v1', 'a_p_v2'])},",
+        ")",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = ['aspect_b on target {}, p1 = {} and b_p = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.b_p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_b_result",
+        "  return struct(aspect_b_result = result)",
+        "",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
+        "            'b_p' : attr.string(values = ['b_p_v1', 'b_p_v2'])},",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:defs.bzl%aspect_a", "//test:defs.bzl%aspect_b"),
+            ImmutableMap.of("p1", "p1_v1", "a_p", "a_p_v1", "b_p", "b_p_v1"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p1 = p1_v1 and a_p = a_p_v1",
+            "aspect_a on target //test:dep_target_1, p1 = p1_v1 and a_p = a_p_v1",
+            "aspect_a on target //test:dep_target_2, p1 = p1_v1 and a_p = a_p_v1");
+
+    ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkList<?> aspectBResult = (StarlarkList) aspectB.get("aspect_b_result");
+    assertThat(Starlark.toIterable(aspectBResult))
+        .containsExactly(
+            "aspect_b on target //test:main_target, p1 = p1_v1 and b_p = b_p_v1",
+            "aspect_b on target //test:dep_target_1, p1 = p1_v1 and b_p = b_p_v1",
+            "aspect_b on target //test:dep_target_2, p1 = p1_v1 and b_p = b_p_v1");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_differentAllowedValues() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p1 = {} and p2 = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']) },",
+        ")",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = ['aspect_b on target {}, p1 = {} and p2 = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_b_result",
+        "  return struct(aspect_b_result = result)",
+        "",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v2', 'p1_v3']) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult =
+          update(
+              ImmutableList.of("//test:defs.bzl%aspect_a", "//test:defs.bzl%aspect_b"),
+              ImmutableMap.of("p1", "p1_v1"),
+              "//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("//test:defs.bzl%aspect_a", "//test:defs.bzl%aspect_b"),
+                  ImmutableMap.of("p1", "p1_v1"),
+                  "//test:main_target"));
+    }
+    assertContainsEvent(
+        "//test:defs.bzl%aspect_b: invalid value in 'p1' attribute: has to be one of 'p1_v2' or"
+            + " 'p1_v3' instead of 'p1_v1'");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_useDefaultValue() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p1 = {} and p2 = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2'], default = 'p1_v1'),",
+        "            'p2' : attr.string(values = ['p2_v1', 'p2_v2'], default = 'p2_v1')},",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:defs.bzl%aspect_a"),
+            ImmutableMap.of("p1", "p1_v2"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p1 = p1_v2 and p2 = p2_v1",
+            "aspect_a on target //test:dep_target_1, p1 = p1_v2 and p2 = p2_v1",
+            "aspect_a on target //test:dep_target_2, p1 = p1_v2 and p2 = p2_v1");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_passParametersToRequiredAspect() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = ['aspect_b on target {}, p1 = {} and p3 = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.p3)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_b_result",
+        "  return struct(aspect_b_result = result)",
+        "",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
+        "            'p3' : attr.string(values = ['p3_v1', 'p3_v2', 'p3_v3'])},",
+        ")",
+        "",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p1 = {} and p2 = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
+        "            'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},",
+        "  requires = [aspect_b],",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:defs.bzl%aspect_a"),
+            ImmutableMap.of("p1", "p1_v1", "p2", "p2_v2", "p3", "p3_v3"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p1 = p1_v1 and p2 = p2_v2",
+            "aspect_a on target //test:dep_target_1, p1 = p1_v1 and p2 = p2_v2",
+            "aspect_a on target //test:dep_target_2, p1 = p1_v1 and p2 = p2_v2");
+
+    ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkList<?> aspectBResult = (StarlarkList) aspectB.get("aspect_b_result");
+    assertThat(Starlark.toIterable(aspectBResult))
+        .containsExactly(
+            "aspect_b on target //test:main_target, p1 = p1_v1 and p3 = p3_v3",
+            "aspect_b on target //test:dep_target_1, p1 = p1_v1 and p3 = p3_v3",
+            "aspect_b on target //test:dep_target_2, p1 = p1_v1 and p3 = p3_v3");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_invalidParameterValue() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult =
+          update(
+              ImmutableList.of("//test:defs.bzl%aspect_a"),
+              ImmutableMap.of("p", "p_v"),
+              "//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("//test:defs.bzl%aspect_a"),
+                  ImmutableMap.of("p", "p_v"),
+                  "//test:main_target"));
+    }
+    assertContainsEvent(
+        "//test:defs.bzl%aspect_a: invalid value in 'p' attribute: has to be one of 'p_v1' or"
+            + " 'p_v2' instead of 'p_v'");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_missingMandatoryParameter() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p1 = {}'.",
+        "                                    format(target.label, ctx.attr.p1)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(mandatory = True, default = 'p1_v1',",
+        "                               values = ['p1_v1', 'p1_v2']),",
+        "            'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult =
+          update(
+              ImmutableList.of("//test:defs.bzl%aspect_a"),
+              ImmutableMap.of("p2", "p2_v1"),
+              "//test:main_target");
+
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("//test:defs.bzl%aspect_a"),
+                  ImmutableMap.of("p2", "p2_v1"),
+                  "//test:main_target"));
+    }
+    assertContainsEvent("Missing mandatory attribute 'p1' for aspect '//test:defs.bzl%aspect_a'");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_unusedParameter() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p1 = {} and a_p = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.a_p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
+        "            'a_p' : attr.string(values = ['a_p_v1', 'a_p_v2'])},",
+        ")",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = ['aspect_b on target {}, p1 = {} and b_p = {}'.",
+        "                                    format(target.label, ctx.attr.p1, ctx.attr.b_p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_b_result",
+        "  return struct(aspect_b_result = result)",
+        "",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
+        "            'b_p' : attr.string(values = ['b_p_v1', 'b_p_v2'])},",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult =
+          update(
+              ImmutableList.of("//test:defs.bzl%aspect_a", "//test:defs.bzl%aspect_b"),
+              ImmutableMap.of("p2", "p2_v1", "b_p", "b_p_v1"),
+              "//test:main_target");
+
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("//test:defs.bzl%aspect_a", "//test:defs.bzl%aspect_b"),
+                  ImmutableMap.of("p2", "p2_v1", "b_p", "b_p_v1"),
+                  "//test:main_target"));
+    }
+    assertContainsEvent(
+        "Parameters '[p2]' are not parameters of any of the top-level aspects but they are"
+            + " specified in --aspects_parameters.");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_invalidDefaultParameterValue() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult =
+          update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () -> update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target"));
+    }
+    assertContainsEvent(
+        "//test:defs.bzl%aspect_a: invalid value in 'p' attribute: has to be one of 'p_v1' or"
+            + " 'p_v2' instead of ''");
+  }
+
   private ConfiguredAspect getConfiguredAspect(
       Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName) {
     for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {

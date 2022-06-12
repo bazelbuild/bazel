@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -335,24 +333,6 @@ public class JavaCommon {
     }
 
     return builder.build();
-  }
-
-  /** Collects labels of targets and artifacts reached transitively via the "exports" attribute. */
-  protected JavaExportsProvider collectTransitiveExports() {
-    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
-    List<TransitiveInfoCollection> currentRuleExports = getExports(ruleContext);
-
-    builder.addAll(Iterables.transform(currentRuleExports, TransitiveInfoCollection::getLabel));
-
-    for (TransitiveInfoCollection dep : currentRuleExports) {
-      JavaExportsProvider exportsProvider = JavaInfo.getProvider(JavaExportsProvider.class, dep);
-
-      if (exportsProvider != null) {
-        builder.addTransitive(exportsProvider.getTransitiveExports());
-      }
-    }
-
-    return new JavaExportsProvider(builder.build());
   }
 
   public final void initializeJavacOpts() {
@@ -667,7 +647,6 @@ public class JavaCommon {
 
     JavaCompilationInfoProvider compilationInfoProvider = createCompilationInfoProvider();
 
-
     builder
         .addNativeDeclaredProvider(
             getInstrumentationFilesProvider(
@@ -678,13 +657,6 @@ public class JavaCommon {
                 coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
-    if (ruleContext
-        .getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
-      JavaExportsProvider exportsProvider = collectTransitiveExports();
-      javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
-    }
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
 
     addCcRelatedProviders(javaInfoBuilder);

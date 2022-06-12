@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.DebugPackageInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -31,7 +30,6 @@ import net.starlark.java.eval.Starlark;
  * ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the dwp file will be null.
  */
 @Immutable
-@AutoCodec
 public final class DebugPackageProvider extends NativeInfo
     implements DebugPackageInfoApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
@@ -41,7 +39,6 @@ public final class DebugPackageProvider extends NativeInfo
   private final Artifact unstrippedArtifact;
   @Nullable private final Artifact dwpArtifact;
 
-  @AutoCodec.Instantiator
   public DebugPackageProvider(
       Label targetLabel,
       @Nullable Artifact strippedArtifact,

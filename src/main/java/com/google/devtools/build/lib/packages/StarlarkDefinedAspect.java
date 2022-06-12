@@ -17,12 +17,11 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Objects;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -30,8 +29,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
-@AutoCodec
-public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
+public final class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
   private final StarlarkCallable implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
@@ -81,43 +79,6 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
     this.applyToGeneratingRules = applyToGeneratingRules;
   }
 
-  /** Constructor for post export reconstruction for serialization. */
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  StarlarkDefinedAspect(
-      StarlarkCallable implementation,
-      ImmutableList<String> attributeAspects,
-      ImmutableList<Attribute> attributes,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
-      ImmutableSet<StarlarkProviderIdentifier> provides,
-      ImmutableSet<String> paramAttributes,
-      ImmutableSet<StarlarkAspect> requiredAspects,
-      ImmutableSet<String> fragments,
-      // The host transition is in lib.analysis, so we can't reference it directly here.
-      ConfigurationTransition hostTransition,
-      ImmutableSet<String> hostFragments,
-      ImmutableList<Label> requiredToolchains,
-      boolean useToolchainTransition,
-      boolean applyToGeneratingRules,
-      StarlarkAspectClass aspectClass) {
-    this(
-        implementation,
-        attributeAspects,
-        attributes,
-        requiredProviders,
-        requiredAspectProviders,
-        provides,
-        paramAttributes,
-        requiredAspects,
-        fragments,
-        hostTransition,
-        hostFragments,
-        requiredToolchains,
-        useToolchainTransition,
-        applyToGeneratingRules);
-    this.aspectClass = aspectClass;
-  }
 
   public StarlarkCallable getImplementation() {
     return implementation;
@@ -257,6 +218,38 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       }
       return builder.build();
     };
+  }
+
+  public AspectParameters extractTopLevelParameters(ImmutableMap<String, String> parametersValues)
+      throws EvalException {
+    AspectParameters.Builder builder = new AspectParameters.Builder();
+    for (Attribute aspectParameter : attributes) {
+      String parameterName = aspectParameter.getName();
+      if (Attribute.isImplicit(parameterName) || Attribute.isLateBound(parameterName)) {
+        // These attributes are the private matters of the aspect
+        continue;
+      }
+
+      Preconditions.checkArgument(
+          aspectParameter.getType() == Type.STRING,
+          "Cannot pass value of non-string attribute '%s' in aspect %s.",
+          getName(),
+          parameterName);
+
+      String parameterValue =
+          parametersValues.getOrDefault(
+              parameterName, (String) aspectParameter.getDefaultValue(null));
+
+      PredicateWithMessage<Object> allowedValues = aspectParameter.getAllowedValues();
+      if (allowedValues.apply(parameterValue)) {
+        builder.addAttribute(parameterName, parameterValue);
+      } else {
+        throw Starlark.errorf(
+            "%s: invalid value in '%s' attribute: %s",
+            getName(), parameterName, allowedValues.getErrorReason(parameterValue));
+      }
+    }
+    return builder.build();
   }
 
   public ImmutableList<Label> getRequiredToolchains() {

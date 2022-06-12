@@ -146,15 +146,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalEnableAndroidMigrationApis;
 
   @Option(
-      name = "incompatible_enable_exports_provider",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "This flag enables exports provider and JavaInfo.transitive_exports call.")
-  public boolean incompatibleEnableExportsProvider;
-
-  @Option(
       name = "incompatible_existing_rules_immutable_view",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -538,6 +529,17 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " providers of the aspect.")
   public boolean incompatibleTopLevelAspectsRequireProviders;
 
+  @Option(
+      name = "experimental_allow_top_level_aspects_parameters",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set to true, top level aspects will accept values for their parameters passed via"
+              + " --aspects_parameters option.")
+  public boolean experimentalAllowTopLevelAspectsParameters;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -558,7 +560,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
-            .setBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER, incompatibleEnableExportsProvider)
             .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
@@ -605,6 +606,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
                 incompatibleTopLevelAspectsRequireProviders)
+            .setBool(
+                EXPERIMENTAL_ALLOW_TOP_LEVEL_ASPECTS_PARAMETERS,
+                experimentalAllowTopLevelAspectsParameters)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -626,8 +630,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
-  public static final String INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER =
-      "-incompatible_enable_exports_provider";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
       "-incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
@@ -673,6 +675,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
+  public static final String EXPERIMENTAL_ALLOW_TOP_LEVEL_ASPECTS_PARAMETERS =
+      "-experimental_allow_top_level_aspects_parameters";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

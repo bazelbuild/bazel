@@ -101,8 +101,9 @@ class DirectoryTreeBuilder {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
-          return 1;
+          boolean childAdded =
+              currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
+          return childAdded ? 1 : 0;
         });
   }
 
@@ -127,9 +128,11 @@ class DirectoryTreeBuilder {
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualActionInput = (VirtualActionInput) input;
             Digest d = digestUtil.compute(virtualActionInput);
-            currDir.addChild(
-                FileNode.createExecutable(path.getBaseName(), virtualActionInput.getBytes(), d));
-            return 1;
+            boolean childAdded =
+                currDir.addChild(
+                    FileNode.createExecutable(
+                        path.getBaseName(), virtualActionInput.getBytes(), d));
+            return childAdded ? 1 : 0;
           }
 
           FileArtifactValue metadata =
@@ -141,8 +144,9 @@ class DirectoryTreeBuilder {
             case REGULAR_FILE:
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
               Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
-              currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
-              return 1;
+              boolean childAdded =
+                  currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
+              return childAdded ? 1 : 0;
 
             case DIRECTORY:
               SortedMap<PathFragment, ActionInput> directoryInputs =

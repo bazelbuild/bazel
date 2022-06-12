@@ -223,6 +223,7 @@ public class LocalSpawnRunner implements SpawnRunner {
           // subprocess, so let them bubble up on first occurrence. In particular, we need this to
           // be true for InterruptedException to ensure that the dynamic scheduler can stop us
           // quickly.
+          Stopwatch rertyStopwatch = Stopwatch.createStarted();
           SpawnResult result = runOnce();
           if (attempts == localExecutionOptions.localRetriesOnCrash
               || !TerminationStatus.crashed(result.exitCode())) {
@@ -234,6 +235,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               result.exitCode(),
               attempts);
           Thread.sleep(attempts * 1000);
+          spawnMetrics.addRetryTime(result.exitCode(), rertyStopwatch.elapsed());
           attempts++;
         }
       }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -268,7 +269,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    tags = ['__ANDROID_RULES_MIGRATION__'],",
         ")");
 
-    config.create("embedded_tools/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
+    MockGenruleSupport.setup(config);
 
     config.create(
         "embedded_tools/tools/test/BUILD",

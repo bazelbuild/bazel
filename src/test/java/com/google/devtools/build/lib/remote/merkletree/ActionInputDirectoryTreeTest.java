@@ -130,6 +130,43 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(fileNodesAtDepth(tree, 3)).containsExactly(expectedBuzzNode);
   }
 
+  @Test
+  public void filesShouldBeDeduplicated() throws Exception {
+    // Test that a file specified as part of a directory and as an individual file is not counted
+    // twice.
+
+    SortedMap<PathFragment, ActionInput> sortedInputs = new TreeMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+
+    Path dirPath = execRoot.getRelative("srcs");
+    dirPath.createDirectoryAndParents();
+    Artifact dir = ActionsTestUtil.createArtifact(artifactRoot, dirPath);
+    sortedInputs.put(dirPath.relativeTo(execRoot), dir);
+    metadata.put(dir, FileArtifactValue.createForTesting(dirPath));
+
+    Path fooPath = dirPath.getRelative("foo.cc");
+    FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
+    ActionInput foo = ActionInputHelper.fromPath(fooPath.relativeTo(execRoot));
+    sortedInputs.put(fooPath.relativeTo(execRoot), foo);
+    metadata.put(foo, FileArtifactValue.createForTesting(fooPath));
+
+    DirectoryTree tree =
+        DirectoryTreeBuilder.fromActionInputs(
+            sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    assertLexicographicalOrder(tree);
+
+    assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
+    assertThat(directoriesAtDepth(1, tree)).isEmpty();
+
+    FileNode expectedFooNode =
+        FileNode.createExecutable(
+            "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"));
+    assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
+    assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
+
+    assertThat(tree.numFiles()).isEqualTo(1);
+  }
+
   private static VirtualActionInput addVirtualFile(
       String path, String content, SortedMap<PathFragment, ActionInput> sortedInputs) {
     PathFragment pathFragment = PathFragment.create(path);

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -48,14 +49,13 @@ public final class AspectKeyCreator {
   public static TopLevelAspectsKey createTopLevelAspectsKey(
       ImmutableList<AspectClass> topLevelAspectsClasses,
       Label targetLabel,
-      @Nullable BuildConfigurationValue configuration) {
+      @Nullable BuildConfigurationValue configuration,
+      ImmutableMap<String, String> topLevelAspectsParameters) {
     return TopLevelAspectsKey.createInternal(
         topLevelAspectsClasses,
         targetLabel,
-        ConfiguredTargetKey.builder()
-            .setLabel(targetLabel)
-            .setConfiguration(configuration)
-            .build());
+        ConfiguredTargetKey.builder().setLabel(targetLabel).setConfiguration(configuration).build(),
+        topLevelAspectsParameters);
   }
 
   /** Common superclass for {@link AspectKey} and {@link TopLevelAspectsKey}. */
@@ -223,36 +223,48 @@ public final class AspectKeyCreator {
     }
   }
 
-  /** The key for top level aspects specified by --aspects option on a top level target. */
+  /**
+   * The key for top level aspects specified by --aspects option and their parameters specified by
+   * --aspects_parameters applied on a top level target.
+   */
   @AutoCodec
   public static final class TopLevelAspectsKey extends AspectBaseKey {
     private static final Interner<TopLevelAspectsKey> interner = BlazeInterners.newWeakInterner();
 
     private final ImmutableList<AspectClass> topLevelAspectsClasses;
     private final Label targetLabel;
+    private final ImmutableMap<String, String> topLevelAspectsParameters;
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
     static TopLevelAspectsKey createInternal(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         Label targetLabel,
-        ConfiguredTargetKey baseConfiguredTargetKey) {
+        ConfiguredTargetKey baseConfiguredTargetKey,
+        ImmutableMap<String, String> topLevelAspectsParameters) {
       return interner.intern(
           new TopLevelAspectsKey(
               topLevelAspectsClasses,
               targetLabel,
               baseConfiguredTargetKey,
-              Objects.hashCode(topLevelAspectsClasses, targetLabel, baseConfiguredTargetKey)));
+              topLevelAspectsParameters,
+              Objects.hashCode(
+                  topLevelAspectsClasses,
+                  targetLabel,
+                  baseConfiguredTargetKey,
+                  topLevelAspectsParameters)));
     }
 
     private TopLevelAspectsKey(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         Label targetLabel,
         ConfiguredTargetKey baseConfiguredTargetKey,
+        ImmutableMap<String, String> topLevelAspectsParameters,
         int hashCode) {
       super(baseConfiguredTargetKey, hashCode);
       this.topLevelAspectsClasses = topLevelAspectsClasses;
       this.targetLabel = targetLabel;
+      this.topLevelAspectsParameters = topLevelAspectsParameters;
     }
 
     @Override
@@ -269,13 +281,19 @@ public final class AspectKeyCreator {
       return topLevelAspectsClasses;
     }
 
+    ImmutableMap<String, String> getTopLevelAspectsParameters() {
+      return topLevelAspectsParameters;
+    }
+
     @Override
     public Label getLabel() {
       return targetLabel;
     }
 
     String getDescription() {
-      return topLevelAspectsClasses + " on " + targetLabel;
+      return String.format(
+          "%s with parameters %s on %s",
+          topLevelAspectsClasses, topLevelAspectsParameters, targetLabel);
     }
 
     @Override
@@ -290,7 +308,8 @@ public final class AspectKeyCreator {
       return hashCode() == that.hashCode()
           && Objects.equal(targetLabel, that.targetLabel)
           && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
-          && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses);
+          && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses)
+          && Objects.equal(topLevelAspectsParameters, that.topLevelAspectsParameters);
     }
   }
 }

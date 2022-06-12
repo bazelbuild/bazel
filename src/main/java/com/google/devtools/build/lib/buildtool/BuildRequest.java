@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -31,6 +35,8 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.UiOptions;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
@@ -40,6 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /**
  * A BuildRequest represents a single invocation of the build tool by a user.
@@ -381,6 +388,24 @@ public class BuildRequest implements OptionsProvider {
       result.add(VALIDATION_ASPECT_NAME);
     }
     return result.build();
+  }
+
+  @Nullable
+  public ImmutableMap<String, String> getAspectsParameters() throws ViewCreationFailedException {
+    List<Map.Entry<String, String>> aspectsParametersList = getBuildOptions().aspectsParameters;
+    try {
+      return aspectsParametersList.stream()
+          .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    } catch (IllegalArgumentException e) {
+      String errorMessage = "Error in top-level aspects parameters";
+      throw new ViewCreationFailedException(
+          errorMessage,
+          FailureDetail.newBuilder()
+              .setMessage(errorMessage)
+              .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.ASPECT_CREATION_FAILED))
+              .build(),
+          e);
+    }
   }
 
   /** Whether {@value #VALIDATION_ASPECT_NAME} is in use. */

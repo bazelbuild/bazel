@@ -244,7 +244,7 @@ public final class LangModelHelper {
    *
    * @param mv The current method visitor that is visiting the class.
    * @param expectedTypesOnOperandStack The expected types at the bottom of the operand stack. The
-   *     end of the list corresponds to the the bottom of the operand stack.
+   *     end of the list corresponds to the bottom of the operand stack.
    */
   public static void expandObjectArrayToStackValues(
       MethodVisitor mv, ImmutableList<ClassName> expectedTypesOnOperandStack) {

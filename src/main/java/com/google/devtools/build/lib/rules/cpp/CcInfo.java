@@ -18,6 +18,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -70,6 +71,12 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return getCcDebugInfoContext();
+  }
+
+  @Override
+  public Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(LibraryToLink.TYPE, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
   }
 
   public CcDebugInfoContext getCcDebugInfoContext() {

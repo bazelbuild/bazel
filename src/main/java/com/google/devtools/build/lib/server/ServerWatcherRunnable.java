@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.platform.MemoryPressureCounter;
+import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import io.grpc.Server;
@@ -95,20 +95,18 @@ class ServerWatcherRunnable implements Runnable {
    * MemoryPressureCounter} class, which may be a no-op for the current platform.
    */
   private static class MemoryPressureLowMemoryChecker extends LowMemoryChecker {
-    private int warningCountAtIdleStart = MemoryPressureCounter.warningCount();
-    private int criticalCountAtIdleStart = MemoryPressureCounter.criticalCount();
+    private final SystemMemoryPressureMonitor monitor = SystemMemoryPressureMonitor.getInstance();
+    private int eventCountAtIdleStart = monitor.eventCount();
 
     @Override
     boolean check() {
-      return MemoryPressureCounter.warningCount() > warningCountAtIdleStart
-          || MemoryPressureCounter.criticalCount() > criticalCountAtIdleStart;
+      return monitor.eventCount() > eventCountAtIdleStart;
     }
 
     @Override
     void reset(long lastIdleTimeNanos) {
       super.reset(lastIdleTimeNanos);
-      warningCountAtIdleStart = MemoryPressureCounter.warningCount();
-      criticalCountAtIdleStart = MemoryPressureCounter.criticalCount();
+      eventCountAtIdleStart = monitor.eventCount();
     }
   }
 

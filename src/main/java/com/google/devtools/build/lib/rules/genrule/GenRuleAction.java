@@ -30,15 +30,13 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
 /**
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
  * checked for directories.
  */
-@AutoCodec
-public class GenRuleAction extends SpawnAction {
+public final class GenRuleAction extends SpawnAction {
 
   public static final String MNEMONIC = "Genrule";
 

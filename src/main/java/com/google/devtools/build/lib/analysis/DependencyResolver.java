@@ -263,8 +263,7 @@ public abstract class DependencyResolver {
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
       if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
         attributeMap =
-            ConfiguredAttributeMapper.of(
-                rule, configConditions, node.getConfiguration().checksum());
+            ConfiguredAttributeMapper.of(rule, configConditions, node.getConfiguration());
         resolveAttributes(
             getAspectAttributes(aspects),
             outgoingLabels,
@@ -280,8 +279,7 @@ public abstract class DependencyResolver {
     } else if (target instanceof Rule) {
       fromRule = (Rule) target;
       attributeMap =
-          ConfiguredAttributeMapper.of(
-              fromRule, configConditions, node.getConfiguration().checksum());
+          ConfiguredAttributeMapper.of(fromRule, configConditions, node.getConfiguration());
       visitRule(node, hostConfig, aspects, attributeMap, toolchainContexts, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());

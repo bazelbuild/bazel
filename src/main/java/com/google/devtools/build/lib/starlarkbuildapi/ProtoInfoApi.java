@@ -111,6 +111,9 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   @StarlarkMethod(name = "strict_importable_sources", documented = false, useStarlarkThread = true)
   Depset getStrictImportableSourcesForStarlark(StarlarkThread thread) throws EvalException;
 
+  @StarlarkMethod(name = "public_import_sources", documented = false, useStarlarkThread = true)
+  Depset getPublicImportSourcesForStarlark(StarlarkThread thread) throws EvalException;
+
   @StarlarkMethod(name = "transitive_proto_sources", documented = false, useStarlarkThread = true)
   Depset getTransitiveSourcesForStarlark(StarlarkThread thread) throws EvalException;
 

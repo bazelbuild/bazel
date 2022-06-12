@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/native/unix_jni.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -21,6 +20,9 @@
 #include <sys/xattr.h>
 
 #include <string>
+
+#include "src/main/native/macros.h"
+#include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 
@@ -108,16 +110,27 @@ void portable_start_suspend_monitoring() {
   // Currently not implemented.
 }
 
-int portable_memory_pressure_warning_count() {
+void portable_start_thermal_monitoring() {
   // Currently not implemented.
-  // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
+}
+
+int portable_thermal_load() {
+  // Currently not implemented.
   return 0;
 }
 
-int portable_memory_pressure_critical_count() {
+void portable_start_system_load_advisory_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_system_load_advisory() {
+  // Currently not implemented.
+  return 0;
+}
+
+void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
   // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
-  return 0;
 }
 
 }  // namespace blaze_jni

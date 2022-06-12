@@ -19,7 +19,7 @@ information about how to depend on and use data files.
 <p>
 New rules should define a <code>data</code> attribute if they process
 inputs which might use other inputs at runtime. Rules' implementation functions
-must also <a href="../skylark/rules.html#runfiles">populate the target's
+must also <a href="https://docs.bazel.build/versions/main/skylark/rules.html#runfiles">populate the target's
 runfiles</a> from the outputs and runfiles of any <code>data</code> attribute,
 as well as runfiles from any dependency attribute which provides either
 source code or runtime dependencies.

@@ -26,27 +26,28 @@ JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 
 java_common = _builtins.toplevel.java_common
 java_proto_common = _builtins.toplevel.java_proto_common
+JavaInfo = _builtins.toplevel.JavaInfo
+
+_JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
 
 def _rule_impl(ctx):
     # Merging the retrieved list of aspect providers from the dependencies.
-    deps_provider = java_common.merge([dep.aspect_provider.java_provider for dep in ctx.attr.deps])
+    java_info = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
 
     if not ctx.attr.strict_deps:
-        deps_provider = java_common.make_non_strict(deps_provider)
+        java_info = java_common.make_non_strict(java_info)
 
     # Collect the aspect output files.
-    files_to_build = depset(transitive = [dep.transitive_files_to_build for dep in ctx.attr.deps])
+    files_to_build = depset(transitive = [dep[_JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
 
     return [
         DefaultInfo(
             files = files_to_build,  # files to build
             runfiles = ctx.runfiles(
-                # This flattening is not desirable, but it's a workaround for the order mismatch between
-                # the underlying nested set in Runfiles and the one in JavaCompilationArgs.getRuntimeJars.
-                files = deps_provider.transitive_runtime_jars.to_list(),
+                transitive_files = depset(transitive = [java_info.transitive_runtime_jars]),
             ),
         ),
-        deps_provider,
+        java_info,
         OutputGroupInfo(default = depset()),
     ]
 
@@ -60,11 +61,11 @@ def _aspect_impl(target, ctx):
     Returns:
       A source_jars_provider containing all the propagated dependency source jars.
     """
-    transitive_files_to_build = [dep.transitive_files_to_build for dep in ctx.rule.attr.deps]
+    transitive_files_to_build = [dep[_JavaProtoAspectInfo].jars for dep in ctx.rule.attr.deps]
     files_to_build = []
 
     # Collect the dependencies' aspect providers.
-    compile_deps = [dep.aspect_provider.java_provider for dep in ctx.rule.attr.deps]
+    deps = [dep[JavaInfo] for dep in ctx.rule.attr.deps]
 
     if java_proto_common.has_proto_sources(target):
         source_jar = ctx.actions.declare_file(ctx.label.name + "-lite-src.jar")
@@ -86,22 +87,22 @@ def _aspect_impl(target, ctx):
             proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
         )
 
-        compilation_provider = java_common.compile(
+        java_info = java_common.compile(
             ctx,
             source_jars = [source_jar],
             output = output_jar,
-            deps = compile_deps + [toolchain_deps],
+            deps = deps + [toolchain_deps],
             strict_deps = "OFF",
             java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
         )
     else:
         # If there are no proto sources just pass along the compilation dependencies.
-        compilation_provider = java_common.merge(compile_deps)
+        java_info = java_common.merge(deps)
 
-    return struct(
-        aspect_provider = struct(java_provider = compilation_provider),
-        transitive_files_to_build = depset(files_to_build, transitive = transitive_files_to_build),
-    )
+    return [
+        java_info,
+        _JavaProtoAspectInfo(jars = depset(files_to_build, transitive = transitive_files_to_build)),
+    ]
 
 java_lite_proto_aspect = aspect(
     implementation = _aspect_impl,

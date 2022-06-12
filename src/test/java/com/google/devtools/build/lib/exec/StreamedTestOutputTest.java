@@ -81,7 +81,7 @@ public class StreamedTestOutputTest {
         new StreamedTestOutput(OutErr.create(out, err), fileSystem.getPath("/myfile"))) {}
 
     assertThat(out.toString(StandardCharsets.UTF_8.name()))
-        .isEqualTo(String.format("included%nlines%n"));
+        .isEqualTo("included" + System.lineSeparator() + "lines" + System.lineSeparator());
     assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
   }
 

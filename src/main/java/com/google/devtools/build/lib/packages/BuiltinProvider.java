@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
@@ -110,7 +109,6 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   }
 
   /** A serializable reference to a {@link BuiltinProvider}. */
-  @AutoCodec
   @Immutable
   public static final class Key extends Provider.Key {
     private final String name;

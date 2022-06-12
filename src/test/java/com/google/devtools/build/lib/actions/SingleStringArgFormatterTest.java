@@ -47,7 +47,7 @@ public class SingleStringArgFormatterTest {
     assertThat(format("%s hello", "world")).isEqualTo("world hello");
     assertThat(format("hello %s, hello", "world")).isEqualTo("hello world, hello");
     assertThat(format("hello %s, hello", "world")).isEqualTo("hello world, hello");
-    assertThat(format("hello %%s %s", "world")).isEqualTo("hello %%s world");
+    assertThat(format("hello %%s %s", "world")).isEqualTo("hello %s world");
     assertThrows(IllegalArgumentException.class, () -> format("hello", "hello"));
     assertThrows(IllegalArgumentException.class, () -> format("hello %s %s", "hello"));
   }

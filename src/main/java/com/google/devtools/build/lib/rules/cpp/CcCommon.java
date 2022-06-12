@@ -59,8 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -466,13 +464,11 @@ public final class CcCommon implements StarlarkValue {
   }
 
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
-  @AutoCodec
-  public static class CoptsFilter implements StarlarkValue {
+  public static final class CoptsFilter implements StarlarkValue {
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 
-    @VisibleForSerialization
-    CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
+    private CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
       this.noCoptsPattern = noCoptsPattern;
       this.allPasses = allPasses;
     }

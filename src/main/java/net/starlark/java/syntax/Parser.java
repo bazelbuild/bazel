@@ -970,7 +970,7 @@ final class Parser {
     return new LambdaExpression(locs, lambdaOffset, params, body);
   }
 
-  // parseTestNoCond parses a a single-component expression without
+  // parseTestNoCond parses a single-component expression without
   // consuming a trailing 'if expr else expr'.
   private Expression parseTestNoCond() {
     if (token.kind == TokenKind.LAMBDA) {

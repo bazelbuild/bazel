@@ -27,7 +27,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -237,9 +236,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
     assertThat((Map<?, ?>) javaInfoB).isEqualTo(javaInfoA);
   }
 
-  // TODO(b/159269546): enable once JavaInfo call is fixed to return JavaExportsProvider")
   @Test
-  @Ignore
   public void roundtipJavaInfo_exports() throws Exception {
     scratch.file("bar/BUILD", "java_library(name = 'exportlib', srcs = ['A.java'])");
 

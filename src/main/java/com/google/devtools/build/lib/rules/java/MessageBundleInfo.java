@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.MessageBundleInfoApi;
 import java.util.List;
@@ -37,7 +35,6 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Marks configured targets that are able to supply message bundles to their dependents. */
-@AutoCodec
 @Immutable
 public final class MessageBundleInfo extends NativeInfo implements MessageBundleInfoApi<Artifact> {
 
@@ -75,9 +72,7 @@ public final class MessageBundleInfo extends NativeInfo implements MessageBundle
     return new MessageBundleInfo(messages, null);
   }
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  MessageBundleInfo(ImmutableList<Artifact> messages, Location creationLocation) {
+  private MessageBundleInfo(ImmutableList<Artifact> messages, Location creationLocation) {
     super(creationLocation);
     this.messages = Preconditions.checkNotNull(messages);
   }

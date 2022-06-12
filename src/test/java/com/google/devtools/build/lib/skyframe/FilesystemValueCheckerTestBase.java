@@ -26,9 +26,12 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -36,6 +39,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,5 +164,32 @@ public class FilesystemValueCheckerTestBase {
     void advanceClockMillis(int millis) {
       ((ManualClock) clock).advanceMillis(millis);
     }
+  }
+
+  enum BatchStatMode {
+    DISABLED {
+      @Nullable
+      @Override
+      BatchStat getBatchStat(FileSystem fileSystem) {
+        return null;
+      }
+    },
+    ENABLED {
+      @Override
+      BatchStat getBatchStat(FileSystem fileSystem) {
+        return (useDigest, includeLinks, paths) -> {
+          List<FileStatusWithDigest> stats = new ArrayList<>();
+          for (PathFragment pathFrag : paths) {
+            stats.add(
+                FileStatusWithDigestAdapter.adapt(
+                    fileSystem.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
+          }
+          return stats;
+        };
+      }
+    };
+
+    @Nullable
+    abstract BatchStat getBatchStat(FileSystem fileSystem);
   }
 }

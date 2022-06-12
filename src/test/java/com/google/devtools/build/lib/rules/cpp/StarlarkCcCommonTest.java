@@ -6991,7 +6991,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "strip_opts()",
             "incompatible_enable_cc_test_feature()",
             "build_test_dwp()",
-            "grte_top()");
+            "grte_top()",
+            "share_native_deps()");
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'cpp_config_rule')",
@@ -7999,4 +8000,5 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     assertThat(e).hasMessageThat().contains("cannot use private API");
   }
+
 }

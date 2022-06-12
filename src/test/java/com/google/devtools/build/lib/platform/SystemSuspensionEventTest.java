@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.buildtool.buildevent.SystemSuspensionEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeModule;

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Objects;
 import java.util.function.Function;
@@ -41,7 +40,6 @@ import javax.annotation.Nullable;
  * </ul>
  */
 @Immutable
-@AutoCodec
 public final class RequiredProviders {
   /** A constraint: either ANY, NONE, or RESTRICTED */
   private final Constraint constraint;

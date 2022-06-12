@@ -85,3 +85,30 @@ cc_shared_library(
     ],
     tags = TAGS,
 )
+
+cc_shared_library(
+    name = "unaccounted_for_libs_so",
+    roots = [
+        ":d1",
+    ],
+    tags = TAGS,
+)
+
+cc_library(
+    name = "d1",
+    deps = ["d2"],
+)
+
+cc_library(
+    name = "d2",
+    deps = [
+        "d3",
+    ] + select({
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:is_bazel": ["@test_repo//:bar"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "d3",
+)

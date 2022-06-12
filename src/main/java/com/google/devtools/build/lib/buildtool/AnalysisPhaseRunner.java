@@ -220,6 +220,7 @@ public final class AnalysisPhaseRunner {
             multiCpu,
             explicitTargetPatterns,
             request.getAspects(),
+            request.getAspectsParameters(),
             request.getViewOptions(),
             request.getKeepGoing(),
             request.getCheckForActionConflicts(),

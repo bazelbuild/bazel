@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A {@link TransitiveInfoProvider} that supplies runfiles for Python dependencies.
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  * <p>Should only be used in proto_library, and even then only until a better mechanism is found.
  */
 @Immutable
-@AutoCodec
 public final class PythonRunfilesProvider implements TransitiveInfoProvider {
   private final Runfiles pythonRunfiles;
 

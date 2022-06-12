@@ -19,14 +19,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 
 /** Empty implementation of RunfilesSupplier */
 public final class EmptyRunfilesSupplier implements RunfilesSupplier {
 
-  @AutoCodec public static final EmptyRunfilesSupplier INSTANCE = new EmptyRunfilesSupplier();
+  @SerializationConstant
+  public static final EmptyRunfilesSupplier INSTANCE = new EmptyRunfilesSupplier();
 
   private EmptyRunfilesSupplier() {}
 

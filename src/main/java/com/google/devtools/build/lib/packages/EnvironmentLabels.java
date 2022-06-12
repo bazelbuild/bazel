@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -37,8 +36,7 @@ import java.util.Set;
  * mutability of fulfillersMap means that we must take care to wait until it is set before doing
  * anything with this class.
  */
-@AutoCodec
-public class EnvironmentLabels {
+public final class EnvironmentLabels {
   final Label label;
   final ImmutableSet<Label> environments;
   final ImmutableSet<Label> defaults;
@@ -57,9 +55,7 @@ public class EnvironmentLabels {
    * Only for use by serialization: the mutable fulfillersMap object is not properly initialized
    * otherwise during deserialization.
    */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  EnvironmentLabels(
+  private EnvironmentLabels(
       Label label,
       Collection<Label> environments,
       Collection<Label> defaults,

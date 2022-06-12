@@ -20,6 +20,28 @@ CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 
+def _check_src_extension(file, allowed_src_files):
+    extension = "." + file.extension
+    if _matches_extension(extension, allowed_src_files) or _is_shared_library_extension_valid(file.path):
+        return True
+    return False
+
+def _check_srcs_extensions(ctx, allowed_src_files, rule_name):
+    for src in ctx.attr.srcs:
+        if DefaultInfo in src:
+            files = src[DefaultInfo].files.to_list()
+            if len(files) == 1 and files[0].is_source:
+                if not _check_src_extension(files[0], allowed_src_files) and not files[0].is_directory:
+                    fail("in srcs attribute of {} rule {}: source file '{}' is misplaced here".format(rule_name, ctx.label, str(src.label)))
+            else:
+                at_least_one_good = False
+                for file in files:
+                    if _check_src_extension(file, allowed_src_files) or file.is_directory:
+                        at_least_one_good = True
+                        break
+                if not at_least_one_good:
+                    fail("'{}' does not produce any {} srcs files".format(str(src.label), rule_name), attr = "srcs")
+
 def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
     debug_context = cc_common.create_debug_context(compilation_outputs)
     debug_contexts = [debug_context]
@@ -371,4 +393,5 @@ cc_helper = struct(
     matches_extension = _matches_extension,
     get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
     should_create_per_object_debug_info = _should_create_per_object_debug_info,
+    check_srcs_extensions = _check_srcs_extensions,
 )

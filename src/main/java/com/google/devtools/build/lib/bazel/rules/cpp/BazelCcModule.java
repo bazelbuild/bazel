@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -217,6 +218,7 @@ public class BazelCcModule extends CcModule
         useTestOnlyFlags,
         pdbFile,
         winDefFile,
+        Starlark.UNBOUND,
         thread);
   }
 

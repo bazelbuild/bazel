@@ -169,7 +169,7 @@ Then:
 
 *   its test rule type should be named `foo_test` (`provider_contents_test`)
 
-*   the label of the target of this rule type should be `foo`
+*   the label of the target of this rule type should be `foo_test`
     (`provider_contents_test`)
 
 *   the implementation function for the testing rule should be named

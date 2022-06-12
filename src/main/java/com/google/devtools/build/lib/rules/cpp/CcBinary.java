@@ -562,6 +562,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Pair<CcLinkingOutputs, CcLauncherInfo> ccLinkingOutputsAndCcLinkingInfo =
         createTransitiveLinkingActions(
             ruleContext,
+            ruleBuilder,
             ccToolchain,
             featureConfiguration,
             fdoContext,
@@ -746,8 +747,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(ccLauncherInfo);
   }
 
-  public static Pair<CcLinkingOutputs, CcLauncherInfo> createTransitiveLinkingActions(
+  private static Pair<CcLinkingOutputs, CcLauncherInfo> createTransitiveLinkingActions(
       RuleContext ruleContext,
+      RuleConfiguredTargetBuilder ruleBuilder,
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
       FdoContext fdoContext,
@@ -874,7 +876,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcLinkingContext ccLinkingContext =
         ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")
             ? filterLibrariesThatAreLinkedDynamically(
-                ruleContext, ccInfo.getCcLinkingContext(), cppSemantics)
+                ruleContext, ruleBuilder, ccInfo.getCcLinkingContext(), cppSemantics)
             : ccInfo.getCcLinkingContext();
     if (ruleContext.hasErrors()) {
       return null;
@@ -1541,7 +1543,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   }
 
   private static CcLinkingContext filterLibrariesThatAreLinkedDynamically(
-      RuleContext ruleContext, CcLinkingContext ccLinkingContext, CppSemantics cppSemantics) {
+      RuleContext ruleContext,
+      RuleConfiguredTargetBuilder ruleBuilder,
+      CcLinkingContext ccLinkingContext,
+      CppSemantics cppSemantics) {
     ImmutableList<CcSharedLibraryInfo> mergedCcSharedLibraryInfos =
         mergeCcSharedLibraryInfos(ruleContext, cppSemantics);
     ImmutableList<CcLinkingContext.LinkerInput> preloadedDeps =
@@ -1556,6 +1561,38 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         buildExportsMapFromOnlyDynamicDeps(ruleContext, mergedCcSharedLibraryInfos);
     ImmutableList<CcLinkingContext.LinkerInput> staticLinkerInputs =
         filterInputs(ruleContext, ccLinkingContext, exportsMap, linkOnceStaticLibsMap);
+
+    if (ruleContext
+        .getConfiguration()
+        .getFragment(CppConfiguration.class)
+        .experimentalCcSharedLibraryDebug()) {
+      ImmutableList.Builder<String> debugLinkerInputsFile = ImmutableList.builder();
+      debugLinkerInputsFile.add("Owner: " + ruleContext.getLabel());
+      for (CcLinkingContext.LinkerInput linkerInput :
+          Iterables.concat(staticLinkerInputs, preloadedDeps)) {
+        debugLinkerInputsFile.add(linkerInput.getOwner().toString());
+      }
+      Artifact linkOnceStaticLibsDebugFile =
+          ruleContext.getBinArtifact(
+              ruleContext.getLabel().getName() + "_link_once_static_libs.txt");
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext,
+              linkOnceStaticLibsDebugFile,
+              Joiner.on("\n").join(debugLinkerInputsFile.build()),
+              false));
+      NestedSetBuilder<Artifact> transitiveDebugFiles = NestedSetBuilder.stableOrder();
+      for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("dynamic_deps")) {
+        transitiveDebugFiles.addTransitive(
+            dep.get(OutputGroupInfo.STARLARK_CONSTRUCTOR).getOutputGroup("rule_impl_debug_files"));
+      }
+      ruleBuilder.addOutputGroup(
+          "rule_impl_debug_files",
+          NestedSetBuilder.<Artifact>stableOrder()
+              .add(linkOnceStaticLibsDebugFile)
+              .addTransitive(transitiveDebugFiles.build())
+              .build());
+    }
 
     return createLinkingContextWithDynamicDependencies(
         staticLinkerInputs, preloadedDeps, exportsMap.values());

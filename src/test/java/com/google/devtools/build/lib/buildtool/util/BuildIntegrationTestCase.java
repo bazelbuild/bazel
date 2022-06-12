@@ -108,10 +108,12 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
@@ -283,19 +285,40 @@ public abstract class BuildIntegrationTestCase {
       throw new RuntimeException(subscriberException.getException());
     }
     LoggingUtil.installRemoteLoggerForTesting(null);
-    try {
+
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Bazel runtime still holds the file handle of windows_jni.dll making it impossible to delete
+      // on Windows. Try to delete all other files (and directories).
+      bestEffortDeleteTreesBelow(testRoot, "windows_jni.dll");
+    } else {
       testRoot.deleteTreesBelow(); // (comment out during debugging)
-    } catch (IOException e) {
-      // Ignore any IO failures on Windows when deleting the test root during clean up, because
-      // the Bazel runtime still holds the file handle of windows_jni.dll.
-      if (OS.getCurrent() != OS.WINDOWS) {
-        throw e;
-      }
     }
+
     // Make sure that a test which crashes with on a bug report does not taint following ones with
     // an unprocessed exception stored statically in BugReport.
     BugReport.maybePropagateUnprocessedThrowableIfInTest();
     Thread.interrupted(); // If there was a crash in test case, main thread was interrupted.
+  }
+
+  private static void bestEffortDeleteTreesBelow(Path path, String canSkip) throws IOException {
+    for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+      Path child = path.getRelative(dirent.getName());
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        try {
+          child.deleteTree();
+        } catch (IOException e) {
+          bestEffortDeleteTreesBelow(child, canSkip);
+        }
+        continue;
+      }
+      try {
+        child.delete();
+      } catch (IOException e) {
+        if (!child.getBaseName().equals(canSkip)) {
+          throw e;
+        }
+      }
+    }
   }
 
   /**

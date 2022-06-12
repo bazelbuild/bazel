@@ -1767,7 +1767,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ConfiguredAttributeMapper.of(
         (Rule) ctad.getTarget(),
         ctad.getConfiguredTarget().getConfigConditions(),
-        ctad.getConfiguration().checksum());
+        ctad.getConfiguration());
   }
 
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
@@ -2041,6 +2041,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         /* multiCpu= */ ImmutableSet.of(),
         /*explicitTargetPatterns=*/ ImmutableSet.of(),
         aspects,
+        /*aspectsParameters=*/ ImmutableMap.of(),
         viewOptions,
         keepGoing,
         loadingPhaseThreads,

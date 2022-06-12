@@ -73,10 +73,14 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
       return ConfiguredAttributeMapper.of(
           associatedRule,
           accessor.getGeneratingConfiguredTarget(kct).getConfigConditions(),
-          kct.getConfigurationChecksum());
+          kct.getConfigurationChecksum(),
+          /*alwaysSucceed=*/ false);
     } else {
       return ConfiguredAttributeMapper.of(
-          associatedRule, kct.getConfigConditions(), kct.getConfigurationChecksum());
+          associatedRule,
+          kct.getConfigConditions(),
+          kct.getConfigurationChecksum(),
+          /*alwaysSucceed=*/ false);
     }
   }
 

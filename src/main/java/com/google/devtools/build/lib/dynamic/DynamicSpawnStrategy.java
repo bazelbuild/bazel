@@ -964,4 +964,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       }
     }
   }
+
+  @Override
+  public String toString() {
+    return "dynamic";
+  }
 }

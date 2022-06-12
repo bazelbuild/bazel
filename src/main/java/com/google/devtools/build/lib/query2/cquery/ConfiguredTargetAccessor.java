@@ -122,7 +122,10 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
     ConfiguredAttributeMapper attributeMapper =
         ConfiguredAttributeMapper.of(
-            rule, configConditions, keyedConfiguredTarget.getConfigurationChecksum());
+            rule,
+            configConditions,
+            keyedConfiguredTarget.getConfigurationChecksum(),
+            /*alwaysSucceed=*/ false);
     if (!attributeMapper.has(attrName)) {
       throw new QueryException(
           caller,
@@ -208,7 +211,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     }
 
     Rule rule = ((Rule) target);
-    if (!rule.getRuleClassObject().useToolchainResolution()) {
+    if (!rule.useToolchainResolution()) {
       return null;
     }
 

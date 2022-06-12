@@ -396,8 +396,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
               + " option may be provided multiple times.")
   public List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>> appleBitcodeMode;
 
-  // TODO(b/180572694): Modify the Apple split transition to split the --apple_platforms out into a
-  // single --platform during the transition instead of splitting on the --*_cpus flags.
+  @Option(
+      name = "incompatible_enable_apple_toolchain_resolution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Use toolchain resolution to select the Apple SDK for apple rules (Starlark and native)")
+  public boolean incompatibleUseToolchainResolution;
+
   @Option(
       name = "apple_platforms",
       converter = LabelListConverter.class,
@@ -511,6 +519,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.preferMutualXcode = preferMutualXcode;
     host.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
     host.appleCrosstoolTop = appleCrosstoolTop;
+    host.applePlatforms = applePlatforms;
+    host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
 
     return host;
   }

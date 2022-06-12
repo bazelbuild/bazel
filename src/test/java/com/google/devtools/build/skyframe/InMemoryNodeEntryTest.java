@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.skyframe.InMemoryNodeEntry.ChangedValueAtSameVersionException;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
@@ -41,11 +40,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link InMemoryNodeEntry}.
- */
+/** Tests for {@link InMemoryNodeEntry}. */
 @RunWith(JUnit4.class)
-public class InMemoryNodeEntryTest {
+public final class InMemoryNodeEntryTest {
+
   private static final NestedSet<TaggedEvents> NO_EVENTS =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private static final NestedSet<Postable> NO_POSTS = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -188,20 +186,6 @@ public class InMemoryNodeEntryTest {
     assertThrows(
         IllegalStateException.class,
         () -> setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 1L));
-  }
-
-  @Test
-  public void crashOnChangedValueAtSameVersion() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
-    entry.addReverseDepAndCheckIfDone(null);
-    entry.markRebuilding();
-    setValue(entry, new IntegerValue(1), /*errorInfo=*/ null, /*graphVersion=*/ 0L);
-    entry.markDirty(DirtyType.CHANGE);
-    entry.addReverseDepAndCheckIfDone(null);
-    entry.markRebuilding();
-    assertThrows(
-        ChangedValueAtSameVersionException.class,
-        () -> setValue(entry, new IntegerValue(2), /*errorInfo=*/ null, /*graphVersion=*/ 0L));
   }
 
   @Test
@@ -630,24 +614,6 @@ public class InMemoryNodeEntryTest {
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/1L);
     assertThat(entry.isDone()).isTrue();
     // ErrorInfo is treated as a NotComparableSkyValue, so it is not pruned.
-    assertThat(entry.getVersion()).isEqualTo(ONE_VERSION);
-  }
-
-  @Test
-  public void ineligibleForPruning() throws InterruptedException {
-    NodeEntry entry =
-        new InMemoryNodeEntry() {
-          @Override
-          public boolean isEligibleForChangePruningOnUnchangedValue() {
-            return false;
-          }
-        };
-    entry.addReverseDepAndCheckIfDone(null);
-    setValue(entry, new IntegerValue(5), /*errorInfo=*/ null, /*graphVersion=*/ 0L);
-    entry.markDirty(DirtyType.CHANGE);
-    entry.addReverseDepAndCheckIfDone(null);
-    entry.markRebuilding();
-    setValue(entry, new IntegerValue(5), /*errorInfo=*/ null, /*graphVersion=*/ 1L);
     assertThat(entry.getVersion()).isEqualTo(ONE_VERSION);
   }
 

@@ -14,9 +14,9 @@ information on macros and rules.
 language that defines how software is built, and as such it is both a
 programming and a configuration language.
 
-You will use Starlark to write `BUILD` files, macros, and build rules. Macros and
-rules are essentially meta-languages - they define how `BUILD` files are written.
-`BUILD` files are intended to be simple and repetitive.
+You will use Starlark to write `BUILD` files, macros, and build rules. Macros
+and rules are essentially meta-languages - they define how `BUILD` files are
+written. `BUILD` files are intended to be simple and repetitive.
 
 All software is read more often than it is written. This is especially true for
 Starlark, as engineers read `BUILD` files to understand dependencies of their
@@ -25,16 +25,16 @@ in a hurry, or in parallel to accomplishing some other task. Consequently,
 simplicity and readability are very important so that users can parse and
 comprehend `BUILD` files quickly.
 
-When a user opens a `BUILD` file, they quickly want to know the list of targets in
-the file; or review the list of sources of that C++ library; or remove a
+When a user opens a `BUILD` file, they quickly want to know the list of targets
+in the file; or review the list of sources of that C++ library; or remove a
 dependency from that Java binary. Each time you add a layer of abstraction, you
 make it harder for a user to do these tasks.
 
-`BUILD` files are also analyzed and updated by many different tools. Tools may not
-be able to edit your `BUILD` file if it uses abstractions. Keeping your `BUILD`
-files simple will allow you to get better tooling. As a code base grows, it
-becomes more and more frequent to do changes across many `BUILD` files in order to
-update a library or do a cleanup.
+`BUILD` files are also analyzed and updated by many different tools. Tools may
+not be able to edit your `BUILD` file if it uses abstractions. Keeping your
+`BUILD` files simple will allow you to get better tooling. As a code base grows,
+it becomes more and more frequent to do changes across many `BUILD` files in
+order to update a library or do a cleanup.
 
 **IMPORTANT:** Do not create a variable or macro just to avoid some amount of
 repetition in `BUILD` files. Your `BUILD` file should be easily readable both by
@@ -54,12 +54,20 @@ really apply here.
 ### Python style
 
 When in doubt, follow the
-[PEP 8 style guide](https://www.python.org/dev/peps/pep-0008/). In particular,
-use four rather than two spaces for indentation to follow the Python convention.
+[PEP 8 style guide](https://www.python.org/dev/peps/pep-0008/) where possible.
+In particular, use four rather than two spaces for indentation to follow the
+Python convention.
+
+Since
+[Starlark is not Python](https://docs.bazel.build/versions/main/skylark/language.md#differences-with-python),
+some aspects of Python style do not apply. For example, PEP 8 advises that
+comparisons to singletons be done with `is`, which is not an operator in
+Starlark.
 
 ### Docstring
 
-Document files and functions using [docstrings](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#function-docstring).
+Document files and functions using
+[docstrings](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#function-docstring).
 Use a docstring at the top of each `.bzl` file, and a docstring for each public
 function.
 
@@ -79,7 +87,8 @@ fields, should be documented using the `doc` argument.
 ### Line length
 
 As in `BUILD` files, there is no strict line length limit as labels can be long.
-When possible, try to use at most 79 characters per line.
+When possible, try to use at most 79 characters per line (following Python's
+style guide, [PEP 8](https://www.python.org/dev/peps/pep-0008/)).
 
 ### Keyword arguments
 
@@ -116,7 +125,7 @@ their impact on readability.
 A macro is a function which instantiates one or more rules during the loading
 phase. In general, use rules whenever possible instead of macros. The build
 graph seen by the user is not the same as the one used by Bazel during the
-build - macros are expanded _before Bazel does any build graph analysis._
+build - macros are expanded *before Bazel does any build graph analysis.*
 
 Because of this, when something goes wrong, the user will need to understand
 your macro's implementation to troubleshoot build problems. Additionally, `bazel
@@ -124,15 +133,17 @@ query` results can be hard to interpret because targets shown in the results
 come from macro expansion. Finally, aspects are not aware of macros, so tooling
 depending on aspects (IDEs and others) might fail.
 
-A safe use for macros is leaf nodes, such as macros defining test permutations:
-in that case, only the *end users* of those targets need to know about those
-additional nodes, and any build problems introduced by macros are never far from
-their usage.
+A safe use for macros is for defining additional targets intended to be
+referenced directly at the Bazel CLI or in BUILD files: In that case, only the
+*end users* of those targets need to know about them, and any build problems
+introduced by macros are never far from their usage.
 
-For macros that define non-leaf nodes, follow these best practices:
+For macros that define internal targets (implementation details of the macro
+which are not supposed to be referred to at the CLI or depended on by targets
+not instantiated by that macro), follow these best practices:
 
 *   A macro should take a `name` argument and define a target with that name.
-    That target becomes that macro's _main target_.
+    That target becomes that macro's *main target*.
 *   All other targets defined by a macro should have their names preceded with
     an underscore (`_`), followed by the name attribute. For instance, if the
     macro is supplied with the name *resources*, internal targets should have
@@ -178,7 +189,7 @@ As a rule of thumb, the more macros resemble the rules, the better.
     attributes include:
     *   `srcs`: `label_list`, allowing files: source files, typically
         human-authored.
-    *   `deps`: `label_list`, typically _not_ allowing files: compilation
+    *   `deps`: `label_list`, typically *not* allowing files: compilation
         dependencies.
     *   `data`: `label_list`, allowing files: data files, such as test data etc.
     *   `runtime_deps`: `label_list`: runtime dependencies that are not needed
@@ -191,10 +202,50 @@ As a rule of thumb, the more macros resemble the rules, the better.
     (named with a leading underscore). A common style is to give the
     implementation function for `myrule` the name `_myrule_impl`.
 *   Pass information between your rules using a well-defined
-    [provider](rules.md#providers) interface. Declare and document provider
-    fields.
+    [provider](https://docs.bazel.build/versions/main/skylark/rules.html#providers)
+    interface. Declare and document provider fields.
 *   Design your rule with extensibility in mind. Consider that other rules might
     want to interact with your rule, access your providers, and reuse the
     actions you create.
+*   Follow
+    [performance guidelines](https://docs.bazel.build/versions/main/skylark/performance.html)
+    in your rules.
 
-*   Follow [performance guidelines](performance.md) in your rules.
+## Tests
+
+Non-trivial macros should be tested using
+`tools/build_defs/testing:build_def_testing`. Since the `.bzl` files are used by
+the tests, they need to be public. Do not use `exports_files`, create a
+`bzl_library` to list the `.bzl` files and their dependencies.
+
+```python
+load("//tools/build_defs/testing:bzl_library.bzl", "bzl_library")
+
+bzl_library(
+    name = "def",
+    srcs = ["def.bzl"],
+    visibility = ["//visibility:public"],
+)
+```
+
+If you add a dependency in your file, you'll just have to update the
+`bzl_library` - and every test that transitively depends on it will get the new
+dependency.
+
+Note that the `bzl_library()` rule will also create a `bzl_parse_file_test()`
+for each of the sources, to more quickly catch basic syntax errors.
+
+Changes in `.bzl` files have the potential to break a large fraction of Google3.
+Be very careful especially if the `.bzl` file is used in many places. A global
+presubmit will catch most of the problems (use `--sample` to reduce the load on
+TAP):
+
+```shell
+tap_presubmit -p all --sample --detach -c CL
+```
+
+## Widely Loaded Files
+
+Don't make your `.bzl` files unnecessarily widely loaded and don't make other
+teams' `.bzl` files unnecessarily widely loaded. See go/widely-loaded-bzl-files
+for details.

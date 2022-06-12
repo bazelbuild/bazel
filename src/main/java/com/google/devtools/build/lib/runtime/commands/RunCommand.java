@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -821,7 +822,7 @@ public class RunCommand implements BlazeCommand  {
     return isPlainFile(target)
         || isExecutableNonTestRule(target)
         || TargetUtils.isTestRule(target)
-        || TargetUtils.isAlias(target);
+        || AliasProvider.mayBeAlias(target);
   }
 
   /**

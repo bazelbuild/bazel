@@ -85,16 +85,6 @@ public final class TargetUtils {
     return target instanceof Rule && isTestSuiteRuleName(((Rule) target).getRuleClass());
   }
 
-  /** Returns true iff {@code target} is an {@code alias} rule. */
-  public static boolean isAlias(Target target) {
-    if (!(target instanceof Rule)) {
-      return false;
-    }
-
-    Rule rule = (Rule) target;
-    return !rule.getRuleClassObject().isStarlark() && rule.getRuleClass().equals("alias");
-  }
-
   /**
    * Returns true iff {@code target} is a {@code *_test} or {@code test_suite}.
    */

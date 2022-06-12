@@ -14,8 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -48,18 +52,62 @@ public final class AspectsListBuilder {
     return ImmutableList.copyOf(aspects.values());
   }
 
-  /**
-   * Returns a list of Aspect objects for top level aspects.
-   *
-   * <p>Since top level aspects do not have parameters, a rule is not required to create their
-   * Aspect objects.
-   */
-  public ImmutableList<Aspect> buildAspects() {
+  /** Returns a list of Aspect objects for top level aspects. */
+  public ImmutableList<Aspect> buildAspects(ImmutableMap<String, String> aspectsParameters)
+      throws EvalException {
+    Preconditions.checkArgument(aspectsParameters != null, "aspectsParameters cannot be null");
+
     ImmutableList.Builder<Aspect> aspectsList = ImmutableList.builder();
     for (AspectDetails<?> aspect : aspects.values()) {
-      aspectsList.add(aspect.getAspect(null));
+      aspectsList.add(aspect.getTopLevelAspect(aspectsParameters));
     }
     return aspectsList.build();
+  }
+
+  /**
+   * Validates top-level aspects parameters and reports error in the following cases:
+   *
+   * <p>If a parameter name is specified in command line but no aspect has a parameter with that
+   * name.
+   *
+   * <p>If a mandatory aspect attribute is not given a value in the top-level parameters list.
+   */
+  public boolean validateTopLevelAspectsParameters(ImmutableMap<String, String> aspectsParameters)
+      throws EvalException {
+    Preconditions.checkArgument(aspectsParameters != null, "aspectsParameters cannot be null");
+
+    ImmutableSet.Builder<String> usedParametersBuilder = ImmutableSet.builder();
+    for (AspectDetails<?> aspectDetails : aspects.values()) {
+      if (aspectDetails instanceof StarlarkAspectDetails) {
+        ImmutableList<Attribute> aspectAttributes =
+            ((StarlarkAspectDetails) aspectDetails).aspect.getAttributes();
+        for (Attribute attr : aspectAttributes) {
+          if (attr.isImplicit() || attr.isLateBound()) {
+            continue;
+          }
+          String attrName = attr.getName();
+          if (aspectsParameters.containsKey(attrName)) {
+            usedParametersBuilder.add(attrName);
+          } else if (attr.isMandatory()) {
+            throw Starlark.errorf(
+                "Missing mandatory attribute '%s' for aspect '%s'.",
+                attrName, aspectDetails.getName());
+          }
+        }
+      }
+    }
+    ImmutableSet<String> usedParameters = usedParametersBuilder.build();
+    ImmutableList<String> unusedParameters =
+        aspectsParameters.keySet().stream()
+            .filter(p -> !usedParameters.contains(p))
+            .collect(toImmutableList());
+    if (!unusedParameters.isEmpty()) {
+      throw Starlark.errorf(
+          "Parameters '%s' are not parameters of any of the top-level aspects but they are"
+              + " specified in --aspects_parameters.",
+          unusedParameters);
+    }
+    return true;
   }
 
   /** Wraps the information necessary to construct an Aspect. */
@@ -92,7 +140,10 @@ public final class AspectsListBuilder {
       return ImmutableSet.of();
     }
 
-    protected abstract Aspect getAspect(@Nullable Rule rule);
+    protected abstract Aspect getAspect(Rule rule);
+
+    protected abstract Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException;
 
     C getAspectClass() {
       return aspectClass;
@@ -114,13 +165,15 @@ public final class AspectsListBuilder {
 
     @Override
     public Aspect getAspect(Rule rule) {
-      AspectParameters params;
-      if (rule == null) {
-        params = AspectParameters.EMPTY;
-      } else {
-        params = parametersExtractor.apply(rule);
-      }
+      AspectParameters params = parametersExtractor.apply(rule);
       return params == null ? null : Aspect.forNative(aspectClass, params);
+    }
+
+    @Override
+    protected Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException {
+      // Native aspects ignore their top-level parameters values for now.
+      return Aspect.forNative(aspectClass, AspectParameters.EMPTY);
     }
   }
 
@@ -142,12 +195,14 @@ public final class AspectsListBuilder {
 
     @Override
     public Aspect getAspect(Rule rule) {
-      AspectParameters params;
-      if (rule == null) {
-        params = AspectParameters.EMPTY;
-      } else {
-        params = parametersExtractor.apply(rule);
-      }
+      AspectParameters params = parametersExtractor.apply(rule);
+      return Aspect.forStarlark(aspectClass, aspect.getDefinition(params), params);
+    }
+
+    @Override
+    public Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException {
+      AspectParameters params = aspect.extractTopLevelParameters(aspectParameters);
       return Aspect.forStarlark(aspectClass, aspect.getDefinition(params), params);
     }
   }
@@ -163,6 +218,12 @@ public final class AspectsListBuilder {
 
     @Override
     public Aspect getAspect(Rule rule) {
+      return aspect;
+    }
+
+    @Override
+    public Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException {
       return aspect;
     }
   }

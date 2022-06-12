@@ -20,13 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
 
 /** Provides information about C++ libraries to be linked into Java targets. */
 @Immutable
-@AutoCodec
-public class JavaCcInfoProvider implements TransitiveInfoProvider {
+public final class JavaCcInfoProvider implements TransitiveInfoProvider {
 
   // TODO(b/183579145): Replace CcInfo with only linking information.
   private final CcInfo ccInfo;
@@ -35,7 +33,6 @@ public class JavaCcInfoProvider implements TransitiveInfoProvider {
     return ccInfo;
   }
 
-  @AutoCodec.VisibleForSerialization
   public JavaCcInfoProvider(CcInfo ccInfo) {
     this.ccInfo =
         CcInfo.builder()

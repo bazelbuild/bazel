@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /**
@@ -108,7 +107,6 @@ public final class FilteringPolicies {
 
   /** FilteringPolicy that only matches a specific rule name. */
   @AutoValue
-  @AutoCodec
   abstract static class RuleTypeFilter implements FilteringPolicy {
     abstract String ruleName();
 
@@ -127,8 +125,7 @@ public final class FilteringPolicies {
       return false;
     }
 
-    @AutoCodec.Instantiator
-    static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
+    private static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
       return new AutoValue_FilteringPolicies_RuleTypeFilter(ruleName, keepExplicit);
     }
   }

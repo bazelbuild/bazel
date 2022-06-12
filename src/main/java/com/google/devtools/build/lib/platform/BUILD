@@ -23,6 +23,7 @@ java_library(
 java_library(
     name = "system_suspension_module",
     srcs = [
+        "SystemSuspensionEvent.java",
         "SystemSuspensionModule.java",
     ],
     deps = [
@@ -35,11 +36,58 @@ java_library(
 )
 
 java_library(
-    name = "memory_pressure_counter",
+    name = "system_thermal_module",
     srcs = [
-        "MemoryPressureCounter.java",
+        "SystemThermalEvent.java",
+        "SystemThermalModule.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:flogger",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "system_load_advisory_module",
+    srcs = [
+        "SystemLoadAdvisoryEvent.java",
+        "SystemLoadAdvisoryModule.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:flogger",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "system_memory_pressure_module",
+    srcs = [
+        "SystemMemoryPressureModule.java",
+    ],
+    deps = [
+        ":system_memory_pressure_monitor",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+    ],
+)
+
+java_library(
+    name = "system_memory_pressure_monitor",
+    srcs = [
+        "SystemMemoryPressureEvent.java",
+        "SystemMemoryPressureMonitor.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//third_party:flogger",
+        "//third_party:jsr305",
     ],
 )

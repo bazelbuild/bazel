@@ -25,18 +25,6 @@
 
 namespace blaze_jni {
 
-#define CHECK(condition) \
-    do { \
-      if (!(condition)) { \
-        fprintf(stderr, "%s:%d: check failed: %s\n", \
-                __FILE__, __LINE__, #condition); \
-        abort(); \
-      } \
-    } while (0)
-
-#define CHECK_EQ(a, b) CHECK((a) == (b))
-#define CHECK_NEQ(a, b) CHECK((a) != (b))
-
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 // stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;
@@ -125,13 +113,42 @@ typedef enum  {
 // when a suspension is detected.
 extern void suspend_callback(SuspensionReason value);
 
-// Returns the number of times that the system has received a memory pressure
-// warning notification since Bazel started.
-int portable_memory_pressure_warning_count();
+// Starts up any infrastructure needed to do thermal monitoring.
+// May be called more than once.
+void portable_start_thermal_monitoring();
 
-// Returns the number of times that the system has received a memory pressure
-// critical notification since Bazel started.
-int portable_memory_pressure_critical_count();
+// Declaration for callback function that is called by thermal monitoring
+// when a thermal event is detected.
+extern void thermal_callback(int value);
+
+// Returns the current thermal load.
+int portable_thermal_load();
+
+// Starts up any infrastructure needed to do system load advisory monitoring.
+// May be called more than once.
+void portable_start_system_load_advisory_monitoring();
+
+// Declaration for callback function that is called by system load advisory
+// monitoring when a system load advisory event is detected.
+extern void system_load_advisory_callback(int value);
+
+// Returns the system load advisory.
+int portable_system_load_advisory();
+
+// Starts up any infrastructure needed to do memory pressure monitoring.
+// May be called more than once.
+void portable_start_memory_pressure_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemMemoryPressureEvent.java
+typedef enum  {
+  MemoryPressureLevelWarning = 0,
+  MemoryPressureLevelCritical = 1,
+} MemoryPressureLevel;
+
+// Declaration for callback function that is called by memory pressure
+// monitoring when memory pressure is detected.
+extern void memory_pressure_callback(MemoryPressureLevel level);
 
 }  // namespace blaze_jni
 

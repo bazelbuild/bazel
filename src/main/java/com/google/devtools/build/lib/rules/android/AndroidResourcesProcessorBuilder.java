@@ -18,15 +18,15 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerType;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.Collections;
 import java.util.List;
 
 /** Builder for creating resource processing action. */
 public class AndroidResourcesProcessorBuilder {
 
-  @AutoCodec @VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
       AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
           .withRoots(ValidatedAndroidResources::getResourceRoots)

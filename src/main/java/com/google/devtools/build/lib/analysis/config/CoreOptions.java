@@ -800,6 +800,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " artifacts.")
   public RegexFilter archivedArtifactsMnemonicsFilter;
 
+  @Option(
+      name = "experimental_debug_selects_always_succeed",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "When set, select functions with no matching clause will return an empty value, instead"
+              + " of failing. This is to help use cquery diagnose failures in select.")
+  public boolean debugSelectsAlwaysSucceed;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -838,6 +848,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.platformInOutputDir = platformInOutputDir;
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
+    host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

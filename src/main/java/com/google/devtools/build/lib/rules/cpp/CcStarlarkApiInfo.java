@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcStarlarkApiProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * A class that exposes the C++ providers to Starlark. It is intended to provide a simple and stable
  * interface for Starlark users.
  */
-@AutoCodec
 public final class CcStarlarkApiInfo extends NativeInfo
     implements CcStarlarkApiProviderApi<Artifact> {
   public static final BuiltinProvider<CcStarlarkApiInfo> PROVIDER =

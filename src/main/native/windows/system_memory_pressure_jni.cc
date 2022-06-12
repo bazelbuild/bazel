@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,26 +21,13 @@
 #include "src/main/native/jni.h"
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressureCounter
- * Method:    warningCountJNI
- * Signature: ()I
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
+ * Method:    registerJNI
+ * Signature: ()V
  */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_warningCountJNI(
-    JNIEnv *, jclass) {
-  // Currently not implemented.
-  return 0;
-}
-
-/*
- * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressureCounter
- * Method:    criticalCountJNI
- * Signature: ()I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_criticalCountJNI(
-    JNIEnv *, jclass) {
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_registerJNI(
+    JNIEnv *env, jobject local_object) {
   // Currently not implemented.
   // https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-creatememoryresourcenotification
-  return 0;
 }

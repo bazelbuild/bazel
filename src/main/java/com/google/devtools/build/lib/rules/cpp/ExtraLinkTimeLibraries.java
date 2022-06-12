@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.ExtraLinkTimeLibrary.BuildLibraryOutput;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,7 +39,6 @@ import net.starlark.java.eval.Tuple;
  * one will add an ExtraLinkTimeLibrary to its CcLinkParams. ExtraLinkTimeLibrary is an interface,
  * and all ExtraLinkTimeLibrary objects of the same class will be gathered together.
  */
-@AutoCodec
 public final class ExtraLinkTimeLibraries implements StarlarkValue {
   /**
    * We can have multiple different kinds of lists of libraries to include
@@ -49,9 +46,7 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
    */
   private final Collection<ExtraLinkTimeLibrary> extraLibraries;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  ExtraLinkTimeLibraries(Collection<ExtraLinkTimeLibrary> extraLibraries) {
+  private ExtraLinkTimeLibraries(Collection<ExtraLinkTimeLibrary> extraLibraries) {
     this.extraLibraries = extraLibraries;
   }
 

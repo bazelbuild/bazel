@@ -18,6 +18,7 @@ Java Semantics
 
 java_common = _builtins.toplevel.java_common
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
+JavaInfo = _builtins.toplevel.JavaInfo
 
 def _macro_preprocess(kwargs):
     pass
@@ -37,9 +38,18 @@ def _postprocess(ctx, base_info):
 def _postprocess_plugin(ctx, base_info):
     return base_info.java_info, base_info.default_info
 
+def _check_proto_registry_collision(ctx):
+    pass
+
+def _get_coverage_runner(ctx):
+    runner = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner
+    if not runner:
+        fail("jacocorunner not set in java_toolchain")
+    runner_jar = runner.executable
+    # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
+    return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
+
 semantics = struct(
-    EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
-    EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = False,
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_LITE_PROTO_TOOLCHAIN_LABEL = "@//tools/proto/toolchains:javalite",
@@ -75,4 +85,6 @@ semantics = struct(
     preprocess = _preprocess,
     postprocess = _postprocess,
     postprocess_plugin = _postprocess_plugin,
+    check_proto_registry_collision = _check_proto_registry_collision,
+    get_coverage_runner = _get_coverage_runner,
 )

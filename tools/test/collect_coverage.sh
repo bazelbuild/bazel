@@ -30,6 +30,18 @@ if [[ -n "$VERBOSE_COVERAGE" ]]; then
   set -x
 fi
 
+if [[ -z "$LCOV_MERGER" ]]; then
+  # this can happen if a rule returns an InstrumentedFilesInfo (which all do
+  # following 5b216b2) but does not define an _lcov_merger attribute.
+  # Unfortunately, we cannot simply stop this script being called in this case
+  # due to conflicts with how things work within Google.
+  # The file creation is required because TestActionBuilder has already declared
+  # it.
+  # TODO(cmita): Improve this situation so this early-exit isn't required.
+  touch $COVERAGE_OUTPUT_FILE
+  exit 0
+fi
+
 function resolve_links() {
   local name="$1"
 

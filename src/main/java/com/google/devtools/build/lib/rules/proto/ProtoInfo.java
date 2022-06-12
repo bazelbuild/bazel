@@ -237,6 +237,12 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return Depset.of(ProtoSource.TYPE, strictImportableSources);
   }
 
+  @Override
+  public Depset getPublicImportSourcesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(ProtoSource.TYPE, publicImportSources);
+  }
+
   /**
    * Returns a set of {@code .proto} sources that may be re-exported by this {@code proto_library}'s
    * direct sources.

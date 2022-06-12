@@ -98,4 +98,12 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       allowReturnNones = true)
   @Nullable
   StarlarkValue stalarkAndroidLinter(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "timezone_data",
+      doc = "The latest timezone data resource jar that can be loaded by java binaries",
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException;
 }

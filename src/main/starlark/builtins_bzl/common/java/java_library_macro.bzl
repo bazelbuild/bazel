@@ -24,13 +24,4 @@ filegroup = _builtins.toplevel.native.filegroup
 def java_library(name, **kwargs):
     semantics.macro_preprocess(kwargs)
 
-    if semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY:
-        _java_library(name = name, classjar = "lib%s.jar" % name, sourcejar = "lib%s-src.jar" % name, **kwargs)
-    else:
-        _java_library(name = name, **kwargs)
-
-    if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY:
-        # We pass an argument only when it's present to preserve possible package defaults.
-        filegroup_kwargs = {param: kwargs[param] for param in ["testonly", "visibility", "licenses", "compatible_with"] if param in kwargs}
-        filegroup(name = "lib%s.jar" % name, srcs = [name], tags = ["manual"], **filegroup_kwargs)
-        filegroup(name = "lib%s-src.jar" % name, srcs = [name], tags = ["manual"], output_group = "_direct_source_jars", **filegroup_kwargs)
+    _java_library(name = name, **kwargs)

@@ -203,7 +203,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     myAliasRuleProto.forEach(
         configuredTarget -> depNames.add(configuredTarget.getTarget().getRule().getName()));
     assertThat(depNames)
-        .containsExactly("//test:my_alias_rule", "//test:config1", "//test:target1");
+        // The alias also includes platform info since aliases with select() trigger toolchain
+        // resolution. We're not interested in those here.
+        .containsAtLeast("//test:my_alias_rule", "//test:config1", "//test:target1");
   }
 
   private MockRule getSimpleRule() {

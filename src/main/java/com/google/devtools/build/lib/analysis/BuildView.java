@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -197,6 +198,7 @@ public class BuildView {
       Set<String> multiCpu,
       ImmutableSet<String> explicitTargetPatterns,
       List<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
       boolean keepGoing,
       boolean checkForActionConflicts,
@@ -348,7 +350,7 @@ public class BuildView {
       if (!aspectClasses.isEmpty()) {
         aspectsKeys.add(
             AspectKeyCreator.createTopLevelAspectsKey(
-                aspectClasses, targetSpec.getLabel(), configuration));
+                aspectClasses, targetSpec.getLabel(), configuration, aspectsParameters));
       }
     }
 

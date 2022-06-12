@@ -13,17 +13,53 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import javax.annotation.Nullable;
 
 /**
  * Wrapper for a value or the untyped exception thrown when trying to compute it.
  *
- * <p>This is an implementation detail of {@link ParallelEvaluator}. It's an abstract class (as
- * opposed to an interface) to avoid exposing the methods outside the package.
+ * <p>Sky functions should generally prefer using exception-typed subclasses such as {@link
+ * ValueOrException}, {@link ValueOrException2}, etc. Occasionally, it may be useful to work with
+ * {@link ValueOrUntypedException} instead, for example to share logic for processing Skyframe
+ * requests that use different exception types or arity.
  */
-@VisibleForTesting
 public abstract class ValueOrUntypedException {
+
+  /**
+   * Returns the stored value, or {@code null} if it has not yet been computed. If an exception is
+   * stored, it is wrapped in {@link IllegalStateException} and thrown.
+   *
+   * <p>This method is useful when a value is not expected to store an exception but was requested
+   * in the same batch as values which may store an exception.
+   */
+  @Nullable
+  public final SkyValue getUnchecked() {
+    Exception e = getException();
+    if (e != null) {
+      throw new IllegalStateException(e);
+    }
+    return getValue();
+  }
+
+  /**
+   * Returns the stored value, or {@code null} if it has not yet been computed. If an exception is
+   * stored, it is thrown as-is if it is an instance of {@code exceptionClass} and wrapped in {@link
+   * IllegalStateException} otherwise.
+   *
+   * <p>This method is useful when a value is only expected to store {@code exceptionClass} but was
+   * requested in the same batch as values which may store other types of exceptions.
+   */
+  @Nullable
+  public final <E extends Exception> SkyValue getOrThrow(Class<E> exceptionClass) throws E {
+    Exception e = getException();
+    if (e != null) {
+      Throwables.throwIfInstanceOf(e, exceptionClass);
+      throw new IllegalStateException(e);
+    }
+    return getValue();
+  }
+
   /** Returns the stored value, if there was one. */
   @Nullable
   abstract SkyValue getValue();
@@ -44,7 +80,7 @@ public abstract class ValueOrUntypedException {
     return new ValueOrUntypedExceptionExnImpl(e);
   }
 
-  private static class ValueOrUntypedExceptionImpl extends ValueOrUntypedException {
+  private static final class ValueOrUntypedExceptionImpl extends ValueOrUntypedException {
     static final ValueOrUntypedExceptionImpl NULL = new ValueOrUntypedExceptionImpl(null);
     @Nullable private final SkyValue value;
 
@@ -64,7 +100,7 @@ public abstract class ValueOrUntypedException {
     }
   }
 
-  private static class ValueOrUntypedExceptionExnImpl extends ValueOrUntypedException {
+  private static final class ValueOrUntypedExceptionExnImpl extends ValueOrUntypedException {
     private final Exception exception;
 
     ValueOrUntypedExceptionExnImpl(Exception exception) {

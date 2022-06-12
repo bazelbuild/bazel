@@ -18,7 +18,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -28,9 +27,8 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a single {@code .proto} source file. */
 @Immutable
-@AutoCodec
 @StarlarkBuiltin(name = "ProtoSource", category = DocCategory.BUILTIN, documented = false)
-class ProtoSource implements StarlarkValue {
+final class ProtoSource implements StarlarkValue {
   public static final Depset.ElementType TYPE = Depset.ElementType.of(ProtoSource.class);
 
   private final Artifact sourceFile;
@@ -41,7 +39,6 @@ class ProtoSource implements StarlarkValue {
     this(sourceFile, sourceFile, sourceRoot);
   }
 
-  @AutoCodec.Instantiator
   ProtoSource(Artifact sourceFile, Artifact originalSourceFile, PathFragment sourceRoot) {
     this.sourceFile = sourceFile;
     this.originalSourceFile = originalSourceFile;

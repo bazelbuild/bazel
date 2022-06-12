@@ -24,8 +24,15 @@ filegroup(
     name = "jni_os",
     srcs = select({
         "//src/conditions:darwin": [
-            "unix_jni_darwin.cc",
-            "fsevents.cc",
+            "darwin/fsevents.cc",
+            "darwin/file_jni.cc",
+            "darwin/sleep_prevention_jni.cc",
+            "darwin/system_load_advisory_monitor_jni.cc",
+            "darwin/system_memory_pressure_jni.cc",
+            "darwin/system_suspension_monitor_jni.cc",
+            "darwin/system_thermal_monitor_jni.cc",
+            "darwin/util.cc",
+            "darwin/util.h",
         ],
         "//src/conditions:freebsd": ["unix_jni_bsd.cc"],
         "//src/conditions:openbsd": ["unix_jni_bsd.cc"],

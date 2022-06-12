@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
@@ -69,8 +68,7 @@ public final class JavaCompileActionBuilder {
 
   @ThreadCompatible
   @Immutable
-  @AutoCodec
-  static class JavaCompileExtraActionInfoSupplier
+  private static final class JavaCompileExtraActionInfoSupplier
       implements JavaCompileAction.ExtraActionInfoSupplier {
 
     private final Artifact outputJar;

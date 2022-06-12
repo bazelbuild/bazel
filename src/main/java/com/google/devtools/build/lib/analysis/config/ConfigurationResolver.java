@@ -390,7 +390,7 @@ public final class ConfigurationResolver {
                   ConfiguredAttributeMapper.of(
                       ctgValue.getTarget().getAssociatedRule(),
                       configConditions,
-                      ctgValue.getConfiguration().checksum()))
+                      ctgValue.getConfiguration()))
               .build();
       ConfigurationTransition baseTransition = transitionFactory.create(transitionData);
       Map<String, BuildOptions> toOptions;

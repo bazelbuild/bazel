@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BranchFdoProfileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FdoContextApi;
 import javax.annotation.Nullable;
@@ -29,8 +28,7 @@ import net.starlark.java.eval.StarlarkThread;
  * <p><b>The {@code fdoProfilePath} member was a mistake. DO NOT USE IT FOR ANYTHING!</b>
  */
 @Immutable
-@AutoCodec
-public class FdoContext implements FdoContextApi<BranchFdoProfile> {
+public final class FdoContext implements FdoContextApi<BranchFdoProfile> {
   public static FdoContext getDisabledContext() {
     return new FdoContext(
         /* branchFdoProfile= */ null,
@@ -120,7 +118,6 @@ public class FdoContext implements FdoContextApi<BranchFdoProfile> {
   private final Artifact prefetchHintsArtifact;
   private final PropellerOptimizeInputFile propellerOptimizeInputFile;
 
-  @AutoCodec.Instantiator
   public FdoContext(
       BranchFdoProfile branchFdoProfile,
       Artifact prefetchHintsArtifact,
