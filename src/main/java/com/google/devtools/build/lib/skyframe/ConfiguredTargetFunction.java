@@ -353,7 +353,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // because of its "target_compatible_with" value.
       if (rule != null && !rule.getRuleClass().equals("toolchain")) {
         if (platformInfo != null) {
-          ConfiguredAttributeMapper attrs = ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), "");
+          ConfiguredAttributeMapper attrs = ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
           if (attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
             List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
 
