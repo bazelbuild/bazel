@@ -30,6 +30,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure() throws Exception {
+    String target = "//foo:bar";
     String[] args = new String[3];
     args[0] = "/bin/sh";
     args[1] = "-c";
@@ -42,15 +43,22 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
+            false,
+            Arrays.asList(args),
+            env,
+            cwd,
+            "cfg12345",
+            target,
+            executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing command "
+            "sh failed: error executing command (from target //foo:bar) "
                 + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'");
   }
 
   @Test
   public void describeCommandFailure_verbose() throws Exception {
+    String target = "//foo:bar";
     String[] args = new String[3];
     args[0] = "/bin/sh";
     args[1] = "-c";
@@ -63,10 +71,16 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
+            true,
+            Arrays.asList(args),
+            env,
+            cwd,
+            "cfg12345",
+            target,
+            executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing command \n"
+            "sh failed: error executing command (from target //foo:bar) \n"
                 + "  (exec env - \\\n"
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"
@@ -77,6 +91,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_longMessage() throws Exception {
+    String target = "//foo:bar";
     String[] args = new String[40];
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -92,11 +107,17 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
+            false,
+            Arrays.asList(args),
+            env,
+            cwd,
+            "cfg12345",
+            target,
+            executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command some_command arg1 "
-                + "arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
+            "some_command failed: error executing command (from target //foo:bar) "
+                + "some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
                 + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
                 + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
                 + "arg27 arg28 arg29 arg30 arg31 "
@@ -105,6 +126,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_longMessage_verbose() throws Exception {
+    String target = "//foo:bar";
     String[] args = new String[40];
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -120,10 +142,16 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
+            true,
+            Arrays.asList(args),
+            env,
+            cwd,
+            "cfg12345",
+            target,
+            executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command \n"
+            "some_command failed: error executing command (from target //foo:bar) \n"
                 + "  (cd /my/working/directory && \\\n"
                 + "  exec env - \\\n"
                 + "    FOO=foo \\\n"
@@ -139,6 +167,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_singleSkippedArgument() throws Exception {
+    String target = "//foo:bar";
     String[] args = new String[35]; // Long enough to make us skip 1 argument below.
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -150,10 +179,16 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
+            false,
+            Arrays.asList(args),
+            env,
+            cwd,
+            "cfg12345",
+            target,
+            executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command some_command"
+            "some_command failed: error executing command (from target //foo:bar) some_command"
                 + " arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9"
                 + " arg10 arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22"
                 + " arg23 arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ..."

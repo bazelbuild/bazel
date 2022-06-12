@@ -201,7 +201,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         converter = ConfigurationDistinguisherConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        metadataTags = {OptionMetadataTag.INTERNAL})
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH})
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.

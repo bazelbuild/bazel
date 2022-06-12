@@ -599,6 +599,7 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
+      boolean isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
@@ -609,7 +610,8 @@ public final class SkyframeActionExecutor {
                   : null,
               metadataHandler,
               artifactExpander,
-              remoteDefaultProperties);
+              remoteDefaultProperties,
+              isRemoteCacheEnabled);
     } catch (UserExecException e) {
       throw e.toActionExecutionException(action);
     }

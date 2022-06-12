@@ -34,7 +34,6 @@ import java.util.Objects;
  * argument and the location of the workspace and the latter is not available either during
  * configuration creation or during the analysis phase.
  */
-@AutoCodec
 @Immutable
 public class CcSkyframeFdoSupportValue implements SkyValue {
   public static final SkyFunctionName SKYFUNCTION = SkyFunctionName.createHermetic("FDO_SUPPORT");

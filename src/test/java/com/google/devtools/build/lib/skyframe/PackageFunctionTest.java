@@ -926,6 +926,48 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertContainsEvent("circular symlinks detected");
   }
 
+  // Regression test for b/206459361.
+  @Test
+  public void nonSkyframeGlobbingIOException_andLabelCrossingSubpackageBoundaries_withKeepGoing()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    // When a package's BUILD file and the relevant filesystem state is such that non-Skyframe
+    // globbing will encounter an IOException due to a directory symlink cycle *and* the BUILD file
+    // defines a target with a label that crosses subpackage boundaries,
+    Path pkgBUILDPath =
+        scratch.file(
+            "pkg/BUILD",
+            "exports_files(['sub/blah'])  # label crossing subpackage boundaries", //
+            "glob(['globcycle/**/foo.txt'])  # triggers non-Skyframe globbing error");
+    scratch.file("pkg/sub/BUILD");
+    Path pkgGlobcyclePath = pkgBUILDPath.getParentDirectory().getChild("globcycle");
+    FileSystemUtils.ensureSymbolicLink(pkgGlobcyclePath, pkgGlobcyclePath);
+    assertThrows(IOException.class, () -> pkgGlobcyclePath.statIfFound(Symlinks.FOLLOW));
+
+    invalidatePackages();
+
+    // ... and we evaluate the package with keepGoing == true, we expect the evaluation to fail with
+    // the non-Skyframe globbing error, but for the label crossing event to *not* get added (because
+    // the globbing IOException would put Package.Builder in a state on which we cannot run
+    // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions).
+    SkyKey pkgKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /*keepGoing=*/ true, reporter);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .isInstanceOf(NoSuchPackageException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Symlink cycle: /workspace/pkg/globcycle");
+    assertDoesNotContainEvent(
+        "Label '//pkg:sub/blah' is invalid because 'pkg/sub' is a subpackage");
+  }
+
   @Test
   public void testGlobAllowEmpty_paramValueMustBeBoolean() throws Exception {
     reporter.removeHandler(failFastHandler);

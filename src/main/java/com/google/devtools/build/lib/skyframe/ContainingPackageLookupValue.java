@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
@@ -20,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -34,7 +36,7 @@ import javax.annotation.Nonnull;
  */
 public abstract class ContainingPackageLookupValue implements SkyValue {
 
-  @AutoCodec public static final NoContainingPackage NONE = new NoContainingPackage();
+  @SerializationConstant public static final NoContainingPackage NONE = new NoContainingPackage();
 
   /** Returns whether there is a containing package. */
   public abstract boolean hasContainingPackage();
@@ -168,14 +170,12 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   }
 
   /** A successful lookup value. */
-  @AutoCodec
+  @VisibleForTesting
   public static class ContainingPackage extends ContainingPackageLookupValue {
     private final PackageIdentifier containingPackage;
     private final Root containingPackageRoot;
 
-    @AutoCodec.Instantiator
-    @AutoCodec.VisibleForSerialization
-    ContainingPackage(PackageIdentifier containingPackage, Root containingPackageRoot) {
+    private ContainingPackage(PackageIdentifier containingPackage, Root containingPackageRoot) {
       this.containingPackage = containingPackage;
       this.containingPackageRoot = containingPackageRoot;
     }

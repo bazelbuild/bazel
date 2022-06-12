@@ -130,7 +130,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",

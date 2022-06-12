@@ -235,7 +235,7 @@ final class JavaInfoBuildHelper {
 
   private JavaPluginInfo mergeExportedJavaPluginInfo(
       Iterable<JavaPluginInfo> plugins, Iterable<JavaInfo> javaInfos) {
-    return JavaPluginInfo.merge(
+    return JavaPluginInfo.mergeWithoutJavaOutputs(
         concat(
             plugins,
             stream(javaInfos)

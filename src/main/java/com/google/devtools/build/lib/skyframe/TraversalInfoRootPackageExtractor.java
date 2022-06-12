@@ -21,11 +21,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.ParallelVisitor;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,7 +53,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
 
   @Override
   public void streamPackagesFromRoots(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
@@ -96,15 +96,15 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
           TraversalInfo,
           TraversalInfo,
           PackageIdentifier,
-          UnusedException,
-          BatchCallback<PackageIdentifier, UnusedException>> {
+          QueryExceptionMarkerInterface.MarkerRuntimeException,
+          SafeBatchCallback<PackageIdentifier>> {
 
     private final ExtendedEventHandler eventHandler;
     private final RepositoryName repository;
     private final WalkableGraph graph;
 
     PackageCollectingParallelVisitor(
-        BatchCallback<PackageIdentifier, UnusedException> callback,
+        SafeBatchCallback<PackageIdentifier> callback,
         int visitBatchSize,
         int processResultsBatchSize,
         int minPendingTasks,
@@ -114,7 +114,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
         WalkableGraph graph) {
       super(
           callback,
-          UnusedException.class,
+          QueryExceptionMarkerInterface.MarkerRuntimeException.class,
           visitBatchSize,
           processResultsBatchSize,
           minPendingTasks,

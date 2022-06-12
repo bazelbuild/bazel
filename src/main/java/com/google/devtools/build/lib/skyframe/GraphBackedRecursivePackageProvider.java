@@ -22,12 +22,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -59,8 +58,8 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
    * Helper interface for clients of GraphBackedRecursivePackageProvider to indicate what universe
    * packages should be resolved in.
    *
-   * <p>Client can either specify a fixed set of target patterns (using {@link #of()}), or specify
-   * that all targets are valid (using {@link #all()}).
+   * <p>Client can either specify a fixed set of target patterns (using {@link #of}), or specify
+   * that all targets are valid (using {@link #all}).
    */
   public interface UniverseTargetPattern {
     ImmutableList<TargetPattern> patterns();
@@ -240,7 +239,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
   @Override
   public void streamPackagesUnderDirectory(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,

@@ -159,11 +159,7 @@ public final class AspectResolver {
     }
     AspectKey aspectKey =
         AspectKeyCreator.createAspectKey(
-            dep.getLabel(),
-            dep.getConfiguration(),
-            dependentAspects.build(),
-            aspectDeps.getAspect(),
-            dep.getAspectConfiguration(aspectDeps.getAspect()));
+            aspectDeps.getAspect(), dependentAspects.build(), dep.getConfiguredTargetKey());
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }

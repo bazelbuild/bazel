@@ -33,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/config:config_feature_flag_options",
         "//src/main/java/com/google/devtools/build/lib/rules/config:feature_flag_value",

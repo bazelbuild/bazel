@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.AspectDetails;
+import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsKey;
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -39,7 +40,8 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions one after
  * another, so BuildView calls this function to do the work.
  */
-public class ToplevelStarlarkAspectFunction implements SkyFunction {
+public final class ToplevelStarlarkAspectFunction implements SkyFunction {
+
   ToplevelStarlarkAspectFunction() {}
 
   @Nullable
@@ -51,7 +53,7 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
     BuildTopLevelAspectsDetailsValue topLevelAspectsDetails =
         (BuildTopLevelAspectsDetailsValue)
             env.getValue(
-                BuildTopLevelAspectsDetailsFunction.createBuildTopLevelAspectsDetailsKey(
+                BuildTopLevelAspectsDetailsKey.create(
                     topLevelAspectsKey.getTopLevelAspectsClasses()));
     if (topLevelAspectsDetails == null) {
       return null; // some aspects details are not ready
@@ -102,14 +104,13 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
         AspectKeyCreator.createAspectKey(
             aspect.getAspectDescriptor(),
             dependentAspects.build(),
-            topLevelTargetKey.getConfigurationKey(),
             topLevelTargetKey);
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }
 
   /** Exceptions thrown from ToplevelStarlarkAspectFunction. */
-  public static class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
+  public static final class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
     public TopLevelStarlarkAspectFunctionException(AspectCreationException cause) {
       super(cause, Transience.PERSISTENT);
     }

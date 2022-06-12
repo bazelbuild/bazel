@@ -27,6 +27,7 @@ filegroup(
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",
+        "//src/main/starlark/tests/builtins_bzl:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

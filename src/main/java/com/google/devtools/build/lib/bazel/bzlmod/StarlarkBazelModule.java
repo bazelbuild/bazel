@@ -45,7 +45,13 @@ public class StarlarkBazelModule implements StarlarkValue {
   private final String version;
   private final Tags tags;
 
-  @StarlarkBuiltin(name = "bazel_module_tags", doc = "TODO")
+  @StarlarkBuiltin(
+      name = "bazel_module_tags",
+      doc =
+          "Contains the tags in a module for the module extension currently being processed. This"
+              + " object has a field for each tag class of the extension, and the value of the"
+              + " field is a list containing an object for each tag instance. This \"tag instance\""
+              + " object in turn has a field for each attribute of the tag class.")
   static class Tags implements Structure {
     private final ImmutableMap<String, StarlarkList<TypeCheckedTag>> typeCheckedTags;
 

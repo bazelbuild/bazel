@@ -117,6 +117,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = AutoCpuConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "The target CPU.")
   public String cpu;
 
@@ -226,6 +227,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "fastbuild",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
+      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "Specify the mode the binary will be built in. Values: 'fastbuild', 'dbg', 'opt'.")
   public CompilationMode compilationMode;
 

@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
-import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -47,7 +45,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Intended drop-in replacement for AnalysisPhaseRunner after we're done with merging Skyframe's
@@ -170,7 +167,6 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildOptions targetOptions,
       Set<String> multiCpu)
       throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException {
-    Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
     ImmutableSet<String> explicitTargetPatterns =
@@ -200,16 +196,6 @@ public final class AnalysisAndExecutionPhaseRunner {
                 /*includeExecutionPhase=*/ true,
                 request.getBuildOptions().jobs);
 
-    // TODO(bazel-team): Merge these into one event.
-    env.getEventBus()
-        .post(
-            new AnalysisPhaseCompleteEvent(
-                analysisAndExecutionResult.getTargetsToBuild(),
-                view.getEvaluatedCounts(),
-                view.getEvaluatedActionsCounts(),
-                timer.stop().elapsed(TimeUnit.MILLISECONDS),
-                view.getAndClearPkgManagerStatistics(),
-                env.getSkyframeExecutor().wasAnalysisCacheDiscardedAndResetBit()));
     // TODO(b/199053098) TestFilteringCompleteEvent.
     return analysisAndExecutionResult;
   }

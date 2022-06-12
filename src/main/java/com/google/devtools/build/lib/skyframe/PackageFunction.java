@@ -542,6 +542,17 @@ public class PackageFunction implements SkyFunction {
     Package.Builder pkgBuilder = packageCacheEntry.builder;
     try {
       pkgBuilder.buildPartial();
+      // Since the Skyframe dependencies we request below in
+      // handleGlobDepsAndPropagateFilesystemExceptions are requested independently of the ones
+      // requested here in
+      // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions, we don't
+      // bother checking for missing values and instead piggyback on the env.missingValues() call
+      // for the former. This avoids a Skyframe restart.
+      // Note that handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions
+      // expects to mutate pkgBuilder.getTargets(), and thus can only be safely called if
+      // pkgBuilder.buildPartial() didn't throw.
+      handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
+          packageLookupValue.getRoot(), packageId, pkgBuilder, env);
     } catch (NoSuchPackageException e) {
       // If non-Skyframe globbing encounters an IOException, #buildPartial will throw a
       // NoSuchPackageException. If that happens, we prefer throwing an exception derived from
@@ -553,16 +564,6 @@ public class PackageFunction implements SkyFunction {
               e.getCause() instanceof SkyframeGlobbingIOException
                   ? Transience.PERSISTENT
                   : Transience.TRANSIENT);
-    }
-    try {
-      // Since the Skyframe dependencies we request below in
-      // handleGlobDepsAndPropagateFilesystemExceptions are requested independently of
-      // the ones requested here in
-      // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions, we don't
-      // bother checking for missing values and instead piggyback on the env.missingValues() call
-      // for the former. This avoids a Skyframe restart.
-      handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
-          packageLookupValue.getRoot(), packageId, pkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
       throw e.throwPackageFunctionException();
@@ -795,6 +796,14 @@ public class PackageFunction implements SkyFunction {
     return null;
   }
 
+  /**
+   * For each of a {@link Package.Builder}'s targets, propagate the target's corresponding {@link
+   * InconsistentFilesystemException} (if any) and verify that the target's label does not cross
+   * subpackage boundaries.
+   *
+   * @param pkgBuilder a {@link Package.Builder} whose {@code getTargets()} set is mutable (i.e.
+   *     {@code pkgBuilder.buildPartial()} must have been successfully called).
+   */
   private static void handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
       Root pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
       throws InternalInconsistentFilesystemException, InterruptedException {

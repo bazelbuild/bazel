@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -265,7 +266,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
                   partialResult instanceof Collection
                       ? (Collection<Target>) partialResult
                       : ImmutableSet.copyOf(partialResult)),
-          TargetParsingException.class);
+          QueryExceptionMarkerInterface.MarkerRuntimeException.class);
       return result.get();
     }
   }

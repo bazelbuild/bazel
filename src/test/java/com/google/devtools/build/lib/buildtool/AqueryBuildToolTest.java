@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.buildtool.AqueryBuildTool.AqueryActionFilterException;
+import com.google.devtools.build.lib.buildtool.AqueryProcessor.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
@@ -55,32 +55,28 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testAqueryBuildToolConstructor_wrongAqueryFilterFormat_throwsError()
-      throws Exception {
+  public void testConstructor_wrongAqueryFilterFormat_throwsError() throws Exception {
     QueryExpression expr = QueryParser.parse("deps(inputs('abc', //abc))", functions);
-    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
 
-    assertThrows(AqueryActionFilterException.class, () -> new AqueryBuildTool(env, expr));
+    assertThrows(AqueryActionFilterException.class, () -> new AqueryProcessor(expr));
   }
 
   @Test
-  public void testAqueryBuildToolConstructor_wrongPatternSyntax_throwsError() throws Exception {
+  public void testConstructor_wrongPatternSyntax_throwsError() throws Exception {
     QueryExpression expr = QueryParser.parse("inputs('*abc', //abc)", functions);
-    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
 
     AqueryActionFilterException thrown =
-        assertThrows(AqueryActionFilterException.class, () -> new AqueryBuildTool(env, expr));
+        assertThrows(AqueryActionFilterException.class, () -> new AqueryProcessor(expr));
     assertThat(thrown).hasMessageThat().contains("Wrong query syntax:");
   }
 
   @Test
-  public void testAqueryBuildToolDumpActionGraphFromSkyframe_wrongOutputFormat_returnsFailure()
-      throws Exception {
+  public void testDmpActionGraphFromSkyframe_wrongOutputFormat_returnsFailure() throws Exception {
     addOptions("--output=text");
     CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
-    AqueryBuildTool aqueryBuildTool = new AqueryBuildTool(env, null);
+    AqueryProcessor aqueryProcessor = new AqueryProcessor(null);
     BlazeCommandResult result =
-        aqueryBuildTool.dumpActionGraphFromSkyframe(createNewRequest("aquery"));
+        aqueryProcessor.dumpActionGraphFromSkyframe(env, createNewRequest("aquery"));
 
     assertThat(result.isSuccess()).isFalse();
     assertThat(result.getDetailedExitCode().getFailureDetail().getActionQuery().getCode())

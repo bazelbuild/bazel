@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.PrepareAnalysisPhaseValue;
+import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -360,23 +361,25 @@ public class BuildView {
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier =
-          () -> {
-            Map<BuildConfigurationKey, BuildConfigurationValue> result = new HashMap<>();
-            for (TargetAndConfiguration node : topLevelTargetsWithConfigs) {
-              if (node.getConfiguration() != null) {
-                result.put(node.getConfiguration().getKey(), node.getConfiguration());
-              }
-            }
-            return result;
-          };
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>>
+          memoizedConfigurationLookupSupplier =
+              Suppliers.memoize(
+                  () -> {
+                    Map<BuildConfigurationKey, BuildConfigurationValue> result = new HashMap<>();
+                    for (TargetAndConfiguration node : topLevelTargetsWithConfigs) {
+                      if (node.getConfiguration() != null) {
+                        result.put(node.getConfiguration().getKey(), node.getConfiguration());
+                      }
+                    }
+                    return result;
+                  });
       if (!includeExecutionPhase) {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
                 eventHandler,
                 topLevelCtKeys,
                 aspectsKeys.build(),
-                Suppliers.memoize(configurationLookupSupplier),
+                memoizedConfigurationLookupSupplier,
                 topLevelOptions,
                 eventBus,
                 keepGoing,
@@ -391,7 +394,9 @@ public class BuildView {
                 eventHandler,
                 topLevelCtKeys,
                 aspectsKeys.build(),
+                memoizedConfigurationLookupSupplier,
                 topLevelOptions,
+                eventBus,
                 keepGoing,
                 loadingPhaseThreads,
                 viewOptions.cpuHeavySkyKeysThreadPoolSize,
@@ -558,6 +563,8 @@ public class BuildView {
     ImmutableSet<ConfiguredTarget> parallelTests = testsPair.first;
     ImmutableSet<ConfiguredTarget> exclusiveTests = testsPair.second;
 
+    FailureDetail failureDetail =
+        createFailureDetail(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
     if (includeExecutionPhase) {
       return new AnalysisAndExecutionResult(
           configurations,
@@ -565,6 +572,7 @@ public class BuildView {
           aspects,
           allTargetsToTest == null ? null : ImmutableList.copyOf(allTargetsToTest),
           ImmutableSet.copyOf(targetsToSkip),
+          failureDetail,
           artifactsToBuild.build(),
           parallelTests,
           exclusiveTests,
@@ -574,8 +582,6 @@ public class BuildView {
           loadingResult.getNotSymlinkedInExecrootDirectories());
     }
 
-    FailureDetail failureDetail =
-        createFailureDetail(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
 
     WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
     ActionGraph actionGraph =
@@ -658,6 +664,15 @@ public class BuildView {
           .setMessage("command succeeded, but not all targets were analyzed")
           .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.NOT_ALL_TARGETS_ANALYZED))
           .build();
+    }
+    if (skyframeAnalysisResult instanceof SkyframeAnalysisAndExecutionResult) {
+      SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
+          (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
+      if (skyframeAnalysisAndExecutionResult.getRepresentativeExecutionExitCode() != null) {
+        return skyframeAnalysisAndExecutionResult
+            .getRepresentativeExecutionExitCode()
+            .getFailureDetail();
+      }
     }
     return null;
   }

@@ -19,8 +19,8 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +32,7 @@ public abstract class FileType implements Predicate<String> {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   // A special file type
-  @AutoCodec @VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   public static final FileType NO_EXTENSION =
       new FileType() {
         @Override
@@ -54,12 +54,9 @@ public abstract class FileType implements Predicate<String> {
     return of(ImmutableList.copyOf(extensions));
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class SingletonFileType extends FileType {
+  private static final class SingletonFileType extends FileType {
     private final String ext;
 
-    @AutoCodec.VisibleForSerialization
     SingletonFileType(String ext) {
       this.ext = ext;
     }
@@ -75,12 +72,9 @@ public abstract class FileType implements Predicate<String> {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class ListFileType extends FileType {
+  private static final class ListFileType extends FileType {
     private final ImmutableList<String> extensions;
 
-    @AutoCodec.VisibleForSerialization
     ListFileType(ImmutableList<String> extensions) {
       this.extensions = Preconditions.checkNotNull(extensions);
     }

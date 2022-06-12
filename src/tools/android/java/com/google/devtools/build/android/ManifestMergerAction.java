@@ -221,7 +221,10 @@ public class ManifestMergerAction {
               options.manifestOutput,
               options.log,
               optionsParser.getOptions(ResourceProcessorCommonOptions.class).logWarnings);
-
+      // Bazel expects a log file output as a result of manifest merging, even if it is a no-op.
+      if (options.log != null && !options.log.toFile().exists()) {
+        options.log.toFile().createNewFile();
+      }
       if (!mergedManifest.equals(options.manifestOutput)) {
         // manifestProcess.mergeManifest returns the merged manifest, or, if merging was a no-op,
         // the original primary manifest. In the latter case, explicitly copy that primary manifest

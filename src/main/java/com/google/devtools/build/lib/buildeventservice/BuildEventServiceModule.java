@@ -91,7 +91,7 @@ import javax.annotation.Nullable;
  * Module responsible for the Build Event Transport (BEP) and Build Event Service (BES)
  * functionality.
  */
-public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServiceOptions>
+public abstract class BuildEventServiceModule<OptionsT extends BuildEventServiceOptions>
     extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -140,7 +140,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Nullable private ConnectivityStatusProvider connectivityProvider;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
-  protected BESOptionsT besOptions;
+  protected OptionsT besOptions;
 
   protected void reportCommandLineError(EventHandler commandLineReporter, Exception exception) {
     // Don't hide unchecked exceptions as part of the error reporting.
@@ -819,18 +819,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         e);
   }
 
-  protected abstract Class<BESOptionsT> optionsClass();
+  protected abstract Class<OptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      BESOptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();
 
-  protected abstract Set<String> allowedCommands(BESOptionsT besOptions);
+  protected abstract Set<String> allowedCommands(OptionsT besOptions);
 
   protected Set<String> getBesKeywords(
-      BESOptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
+      OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
     return besOptions.besKeywords.stream()
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());

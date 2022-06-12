@@ -22,7 +22,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -177,14 +177,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   interface Singleton {}
 
-  @AutoCodec public static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
+  @SerializationConstant
+  public static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
   /** Data that marks that a file is not present on the filesystem. */
-  @AutoCodec public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
+  @SerializationConstant
+  public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
   /**
    * Represents an omitted file -- we are aware of it but it doesn't exist. All access methods are
    * unsupported.
    */
-  @AutoCodec public static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
+  @SerializationConstant
+  public static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
 
   public static FileArtifactValue createForSourceArtifact(Artifact artifact, FileValue fileValue)
       throws IOException {

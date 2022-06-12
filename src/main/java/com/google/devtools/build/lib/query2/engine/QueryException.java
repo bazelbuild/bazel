@@ -14,13 +14,14 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 
 /** Exception indicating a failure in Blaze query, aquery, or cquery. */
-public class QueryException extends Exception {
+public class QueryException extends Exception implements QueryExceptionMarkerInterface {
 
   /** Returns a better error message for the query. */
   static String describeFailedQuery(QueryException e, QueryExpression toplevel) {

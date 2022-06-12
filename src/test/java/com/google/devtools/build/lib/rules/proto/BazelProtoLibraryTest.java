@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -102,6 +103,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
    * deps, would break.
    */
   @Test
+  @Ignore("b/204266604 Remove if the testing shows it's not needed.")
   public void descriptorSetsDependOnChildren() throws Exception {
     scratch.file(
         "x/BUILD",

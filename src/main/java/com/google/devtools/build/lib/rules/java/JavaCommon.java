@@ -787,7 +787,7 @@ public class JavaCommon {
     Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, ":java_plugins"));
     Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, "plugins"));
     Iterables.addAll(result, getExportedJavaPluginInfoForAttribute(ruleContext, "deps"));
-    return JavaPluginInfo.merge(result);
+    return JavaPluginInfo.mergeWithoutJavaOutputs(result);
   }
 
   private static Iterable<JavaPluginInfo> getDirectJavaPluginInfoForAttribute(
@@ -841,7 +841,7 @@ public class JavaCommon {
   }
 
   public static JavaPluginInfo getTransitivePlugins(RuleContext ruleContext) {
-    return JavaPluginInfo.merge(
+    return JavaPluginInfo.mergeWithoutJavaOutputs(
         Iterables.concat(
             getDirectJavaPluginInfoForAttribute(ruleContext, "exported_plugins"),
             getExportedJavaPluginInfoForAttribute(ruleContext, "exports")));

@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /**
@@ -28,12 +27,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
  */
 @ThreadSafe
 public interface PackageIdentifierBatchingCallback
-    extends BatchCallback<PackageIdentifier, UnusedException>, AutoCloseable {
+    extends SafeBatchCallback<PackageIdentifier>, AutoCloseable {
   void close() throws InterruptedException;
 
   /** Factory for {@link PackageIdentifierBatchingCallback}. */
   interface Factory {
     PackageIdentifierBatchingCallback create(
-        BatchCallback<PackageIdentifier, UnusedException> batchResults, int maxBatchSize);
+        SafeBatchCallback<PackageIdentifier> batchResults, int maxBatchSize);
   }
 }

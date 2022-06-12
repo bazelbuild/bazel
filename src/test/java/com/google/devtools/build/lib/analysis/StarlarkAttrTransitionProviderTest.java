@@ -1121,6 +1121,22 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         ")");
   }
 
+  private CoreOptions getCoreOptions(ConfiguredTarget target) {
+    return getConfiguration(target).getOptions().get(CoreOptions.class);
+  }
+
+  private ImmutableMap<Label, Object> getStarlarkOptions(ConfiguredTarget target) {
+    return getConfiguration(target).getOptions().getStarlarkOptions();
+  }
+
+  private Object getStarlarkOption(ConfiguredTarget target, String absName) {
+    return getStarlarkOptions(target).get(Label.parseAbsoluteUnchecked(absName));
+  }
+
+  private String getTransitionDirectoryNameFragment(ConfiguredTarget target) {
+    return getConfiguration(target).getTransitionDirectoryNameFragment();
+  }
+
   @Test
   public void testTransitionOnBuildSetting_fromDefault() throws Exception {
     writeAllowlistFile();
@@ -1297,20 +1313,64 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 ImmutableList.of("//test/starlark:the-answer=42")));
   }
 
-  private CoreOptions getCoreOptions(ConfiguredTarget target) {
-    return getConfiguration(target).getOptions().get(CoreOptions.class);
-  }
+  @Test
+  public void testTransitionOnCompilationMode_hasNoHash() throws Exception {
+    writeAllowlistFile();
+    writeBuildSettingsBzl();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//command_line_option:compilation_mode': attr.cmode_for_dep,",
+        "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:compilation_mode']",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    'cmode_for_dep': attr.string(),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
+        "  }",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
+        "my_rule(name = 'test', dep = ':dep1', cmode_for_dep='opt')",
+        "my_rule(name = 'dep1', dep = ':dep2', cmode_for_dep='fastbuild')",
+        "my_rule(name = 'dep2')");
+    useConfiguration(ImmutableMap.of(), "--compilation_mode=fastbuild");
 
-  private ImmutableMap<Label, Object> getStarlarkOptions(ConfiguredTarget target) {
-    return getConfiguration(target).getOptions().getStarlarkOptions();
-  }
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
 
-  private Object getStarlarkOption(ConfiguredTarget target, String absName) {
-    return getStarlarkOptions(target).get(Label.parseAbsoluteUnchecked(absName));
-  }
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep1 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-  private String getTransitionDirectoryNameFragment(ConfiguredTarget target) {
-    return getConfiguration(target).getTransitionDirectoryNameFragment();
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep2 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(dep1).getValue("dep"));
+
+    // Assert transitionDirectoryNameFragment is empty for all configurations
+    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getTransitionDirectoryNameFragment(dep1)).isEmpty();
+    assertThat(getTransitionDirectoryNameFragment(dep2)).isEmpty();
+
+    // test and dep1 should have different configurations b/c compilation_mode changed
+    assertThat(getConfiguration(test)).isNotEqualTo(getConfiguration(dep1));
+
+    // test and dep2 should have identical configurations
+    assertThat(getConfiguration(test)).isEqualTo(getConfiguration(dep2));
   }
 
   @Test

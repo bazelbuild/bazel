@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -399,12 +400,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
   // single --platform during the transition instead of splitting on the --*_cpus flags.
   @Option(
       name = "apple_platforms",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "null",
+      converter = LabelListConverter.class,
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of platforms to use when building Apple binaries.")
-  public List<String> applePlatforms;
+  public List<Label> applePlatforms;
 
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {

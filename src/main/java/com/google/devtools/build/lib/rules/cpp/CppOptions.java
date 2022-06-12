@@ -150,6 +150,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "Specifies a suffix to be added to the configuration directory.")
   public String outputDirectoryTag;
 

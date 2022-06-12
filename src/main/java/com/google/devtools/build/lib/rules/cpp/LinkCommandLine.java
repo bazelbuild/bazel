@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -42,7 +40,6 @@ import javax.annotation.Nullable;
  * Represents the command line of a linker invocation. It supports executables and dynamic libraries
  * as well as static libraries.
  */
-@AutoCodec
 @Immutable
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
@@ -60,8 +57,7 @@ public final class LinkCommandLine extends CommandLine {
 
   @Nullable private final Artifact paramFile;
 
-  @VisibleForSerialization
-  LinkCommandLine(
+  private LinkCommandLine(
       String actionName,
       String forcedToolPath,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
@@ -221,9 +217,7 @@ public final class LinkCommandLine extends CommandLine {
    * A {@link CommandLine} implementation that returns the command line args pertaining to the
    * .params file.
    */
-  @AutoCodec
-  @VisibleForSerialization
-  static class ParamFileCommandLine extends CommandLine {
+  private static class ParamFileCommandLine extends CommandLine {
     private final Artifact paramsFile;
     private final LinkTargetType linkTargetType;
     private final String forcedToolPath;
@@ -231,7 +225,7 @@ public final class LinkCommandLine extends CommandLine {
     private final String actionName;
     private final CcToolchainVariables variables;
 
-    public ParamFileCommandLine(
+    ParamFileCommandLine(
         Artifact paramsFile,
         LinkTargetType linkTargetType,
         String forcedToolPath,

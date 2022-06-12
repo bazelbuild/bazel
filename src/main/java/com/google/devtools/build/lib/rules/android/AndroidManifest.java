@@ -86,7 +86,6 @@ public class AndroidManifest {
 
     return from(
         dataContext,
-        ruleContext,
         rawManifest,
         androidSemantics,
         getAndroidPackage(ruleContext),
@@ -106,12 +105,11 @@ public class AndroidManifest {
    */
   public static AndroidManifest from(
       AndroidDataContext dataContext,
-      RuleErrorConsumer errorConsumer,
       @Nullable Artifact rawManifest,
       @Nullable String pkg,
       boolean exportsManifest)
       throws InterruptedException {
-    return from(dataContext, errorConsumer, rawManifest, null, pkg, exportsManifest);
+    return from(dataContext, rawManifest, null, pkg, exportsManifest);
   }
 
   /**
@@ -128,16 +126,13 @@ public class AndroidManifest {
    */
   public static AndroidManifest from(
       AndroidDataContext dataContext,
-      RuleErrorConsumer errorConsumer,
       @Nullable Artifact rawManifest,
       @Nullable AndroidSemantics androidSemantics,
       @Nullable String pkg,
       boolean exportsManifest)
       throws InterruptedException {
     if (pkg == null) {
-      pkg =
-          getDefaultPackage(
-              dataContext.getLabel(), dataContext.getActionConstructionContext(), errorConsumer);
+      pkg = getDefaultPackage(dataContext.getLabel(), dataContext.getActionConstructionContext());
     }
 
     if (rawManifest == null) {
@@ -318,7 +313,7 @@ public class AndroidManifest {
       return ruleContext.attributes().get(CUSTOM_PACKAGE_ATTR, Type.STRING);
     }
 
-    return getDefaultPackage(ruleContext.getLabel(), ruleContext, ruleContext);
+    return getDefaultPackage(ruleContext.getLabel(), ruleContext);
   }
 
   /**
@@ -333,14 +328,13 @@ public class AndroidManifest {
    * <p>This method should not be called if the target specifies a custom package; in that case,
    * that package should be used instead.
    */
-  public static String getDefaultPackage(
-      Label label, ActionConstructionContext context, RuleErrorConsumer errorConsumer) {
+  public static String getDefaultPackage(Label label, ActionConstructionContext context) {
     PathFragment dummyJar =
         // For backwards compatibility, also include the target's name in case it contains multiple
         // directories - for example, target "//foo/bar:java/baz/quux" is a legal one and results in
         // Java path of "baz/quux"
         context.getPackageDirectory().getRelative(label.getName() + "Dummy.jar");
-    return getJavaPackageFromPath(context, errorConsumer, dummyJar);
+    return getJavaPackageFromPath(context, dummyJar);
   }
 
   /**
@@ -353,24 +347,15 @@ public class AndroidManifest {
    * @param jarPathFragment The path to a JAR file contained in the current BUILD file's directory.
    * @return the Java package, as a String
    */
+  @Nullable
   static String getJavaPackageFromPath(
-      ActionConstructionContext context,
-      RuleErrorConsumer errorConsumer,
-      PathFragment jarPathFragment) {
+      ActionConstructionContext context, PathFragment jarPathFragment) {
     // TODO(bazel-team): JavaUtil.getJavaPackageName does not check to see if the path is valid.
     // So we need to check for the JavaRoot.
-    if (JavaUtil.getJavaRoot(jarPathFragment) == null) {
-      errorConsumer.ruleError(
-          "The location of your BUILD file determines the Java package used for "
-              + "Android resource processing. A directory named \"java\" or \"javatests\" will "
-              + "be used as your Java source root and the path of your BUILD file relative to "
-              + "the Java source root will be used as the package for Android resource "
-              + "processing. The Java source root could not be determined for \""
-              + context.getPackageDirectory()
-              + "\". Move your BUILD file under a java or javatests directory, or set the "
-              + "'custom_package' attribute.");
+    if (JavaUtil.getJavaRoot(jarPathFragment) != null) {
+      return JavaUtil.getJavaPackageName(jarPathFragment);
     }
-    return JavaUtil.getJavaPackageName(jarPathFragment);
+    return null;
   }
 
   @Override

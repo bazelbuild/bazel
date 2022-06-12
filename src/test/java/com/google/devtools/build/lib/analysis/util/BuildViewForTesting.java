@@ -156,7 +156,7 @@ public class BuildViewForTesting {
     this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
   }
 
-  public Set<ActionLookupKey> getSkyframeEvaluatedActionLookupKeyCountForTesting() {
+  Set<ActionLookupKey> getSkyframeEvaluatedActionLookupKeyCountForTesting() {
     Set<ActionLookupKey> actionLookupKeys = populateActionLookupKeyMapAndGetDiff();
     Preconditions.checkState(
         actionLookupKeys.size() == skyframeBuildView.getEvaluatedCounts().total(),
@@ -360,16 +360,17 @@ public class BuildViewForTesting {
       return ctd;
     }
 
-    // Collect the aspects.
+    ConfiguredTargetKey ctKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(dependencyKey.getLabel())
+            .setConfiguration(ctd.getConfiguration())
+            .build();
+    List<SkyKey> aspectKeys =
+        dependencyKey.getAspects().getUsedAspects().stream()
+            .map(aspect -> AspectKeyCreator.createAspectKey(aspect.getAspect(), ctKey))
+            .collect(toImmutableList());
+
     try {
-      BuildConfigurationValue config = ctd.getConfiguration();
-      List<SkyKey> aspectKeys =
-          dependencyKey.getAspects().getUsedAspects().stream()
-              .map(
-                  aspect ->
-                      AspectKeyCreator.createAspectKey(
-                          dependencyKey.getLabel(), config, aspect.getAspect(), config))
-              .collect(toImmutableList());
       ImmutableList<ConfiguredAspect> configuredAspects =
           graph.getSuccessfulValues(aspectKeys).values().stream()
               .map(value -> (AspectValue) value)

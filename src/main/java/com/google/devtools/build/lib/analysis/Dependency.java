@@ -130,12 +130,6 @@ public abstract class Dependency {
    */
   public abstract AspectCollection getAspects();
 
-  /** Returns the configuration an aspect should be evaluated with. */
-  @Nullable
-  public BuildConfigurationValue getAspectConfiguration(AspectDescriptor aspect) {
-    return getConfiguration();
-  }
-
   /**
    * Returns the keys of a configuration transition, if any exist, associated with this dependency.
    * See {@link ConfigurationTransition#apply} for more details. Normally, this returns an empty

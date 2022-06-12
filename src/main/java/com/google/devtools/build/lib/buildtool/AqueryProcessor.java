@@ -52,18 +52,19 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 
-/** A version of {@link BuildTool} that handles all aquery work. */
-public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTargetValue> {
+/** Performs {@code aquery} processing. */
+public final class AqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTargetValue> {
   private final AqueryActionFilter actionFilters;
 
-  public AqueryBuildTool(CommandEnvironment env, @Nullable QueryExpression queryExpression)
+  public AqueryProcessor(@Nullable QueryExpression queryExpression)
       throws AqueryActionFilterException {
-    super(env, queryExpression);
+    super(queryExpression);
     actionFilters = buildActionFilters(queryExpression);
   }
 
   /** Outputs the current action graph from Skyframe. */
-  public BlazeCommandResult dumpActionGraphFromSkyframe(BuildRequest request) {
+  public BlazeCommandResult dumpActionGraphFromSkyframe(
+      CommandEnvironment env, BuildRequest request) {
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
       AqueryOptions aqueryOptions = request.getOptions(AqueryOptions.class);
@@ -112,6 +113,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
   @Override
   protected PostAnalysisQueryEnvironment<ConfiguredTargetValue> getQueryEnvironment(
       BuildRequest request,
+      CommandEnvironment env,
       BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,

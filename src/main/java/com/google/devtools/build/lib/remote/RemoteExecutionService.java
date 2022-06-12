@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -307,6 +308,11 @@ public class RemoteExecutionService {
       return actionKey.getDigest().getHash();
     }
 
+    /** Returns underlying {@link Action} of this remote action. */
+    public Action getAction() {
+      return action;
+    }
+
     /**
      * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
      * ActionInput}.
@@ -420,6 +426,22 @@ public class RemoteExecutionService {
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }
 
+  @Nullable
+  private static ByteString buildSalt(Spawn spawn) {
+    String workspace =
+        spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
+    if (workspace != null) {
+      Platform platform =
+          Platform.newBuilder()
+              .addProperties(
+                  Platform.Property.newBuilder().setName("workspace").setValue(workspace).build())
+              .build();
+      return platform.toByteString();
+    }
+
+    return null;
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, UserExecException, ForbiddenActionInputException {
@@ -442,7 +464,8 @@ public class RemoteExecutionService {
             merkleTree.getRootDigest(),
             platform,
             context.getTimeout(),
-            Spawns.mayBeCachedRemotely(spawn));
+            Spawns.mayBeCachedRemotely(spawn),
+            buildSalt(spawn));
 
     ActionKey actionKey = digestUtil.computeActionKey(action);
 

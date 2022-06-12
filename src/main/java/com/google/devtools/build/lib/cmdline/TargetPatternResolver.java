@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
@@ -88,32 +90,34 @@ public abstract class TargetPatternResolver<T> {
    * @param exceptionClass The class type of the parameterized exception.
    * @throws TargetParsingException under implementation-specific failure conditions
    */
-  public abstract <E extends Exception> void findTargetsBeneathDirectory(
-      RepositoryName repository,
-      String originalPattern,
-      String directory,
-      boolean rulesOnly,
-      ImmutableSet<PathFragment> forbiddenSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback,
-      Class<E> exceptionClass)
-      throws TargetParsingException, E, InterruptedException;
+  public abstract <E extends Exception & QueryExceptionMarkerInterface>
+      void findTargetsBeneathDirectory(
+          RepositoryName repository,
+          String originalPattern,
+          String directory,
+          boolean rulesOnly,
+          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          ImmutableSet<PathFragment> excludedSubdirectories,
+          BatchCallback<T, E> callback,
+          Class<E> exceptionClass)
+          throws TargetParsingException, E, InterruptedException;
 
   /**
    * Async version of {@link #findTargetsBeneathDirectory}
    *
    * <p>Default implementation is synchronous.
    */
-  public <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
-      RepositoryName repository,
-      String originalPattern,
-      String directory,
-      boolean rulesOnly,
-      ImmutableSet<PathFragment> forbiddenSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback,
-      Class<E> exceptionClass,
-      ListeningExecutorService executor) {
+  public <E extends Exception & QueryExceptionMarkerInterface>
+      ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
+          RepositoryName repository,
+          String originalPattern,
+          String directory,
+          boolean rulesOnly,
+          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          ImmutableSet<PathFragment> excludedSubdirectories,
+          BatchCallback<T, E> callback,
+          Class<E> exceptionClass,
+          ListeningExecutorService executor) {
       try {
       findTargetsBeneathDirectory(
           repository,
@@ -124,14 +128,14 @@ public abstract class TargetPatternResolver<T> {
           excludedSubdirectories,
           callback,
           exceptionClass);
-        return Futures.immediateFuture(null);
+      return immediateVoidFuture();
       } catch (TargetParsingException e) {
-        return Futures.immediateFailedFuture(e);
+      return immediateFailedFuture(e);
       } catch (InterruptedException e) {
-        return Futures.immediateCancelledFuture();
+      return immediateCancelledFuture();
       } catch (Exception e) {
         if (exceptionClass.isInstance(e)) {
-          return Futures.immediateFailedFuture(e);
+        return immediateFailedFuture(e);
         }
         throw new IllegalStateException(e);
       }

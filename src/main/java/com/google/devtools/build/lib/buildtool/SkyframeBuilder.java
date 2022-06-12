@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
+import com.google.devtools.build.lib.util.ExecutionDetailedExitCodeHelper;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -190,7 +191,8 @@ public class SkyframeBuilder implements Builder {
               reporter,
               result,
               options.getOptions(KeepGoingOption.class).keepGoing,
-              skyframeExecutor);
+              skyframeExecutor,
+              bugReporter);
 
       if (detailedExitCode != null) {
         detailedExitCodes.add(detailedExitCode);
@@ -217,7 +219,8 @@ public class SkyframeBuilder implements Builder {
                 reporter,
                 result,
                 options.getOptions(KeepGoingOption.class).keepGoing,
-                skyframeExecutor);
+                skyframeExecutor,
+                bugReporter);
         Preconditions.checkState(
             detailedExitCode != null || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
@@ -259,11 +262,12 @@ public class SkyframeBuilder implements Builder {
    * <p>Throws on catastrophic failures and, if !keepGoing, on any failure.
    */
   @Nullable
-  private DetailedExitCode processResult(
+  public static DetailedExitCode processResult(
       ExtendedEventHandler eventHandler,
       EvaluationResult<?> result,
       boolean keepGoing,
-      SkyframeExecutor skyframeExecutor)
+      SkyframeExecutor skyframeExecutor,
+      @Nullable BugReporter bugReporter)
       throws BuildFailedException, TestExecException {
     if (result.hasError()) {
       for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
@@ -275,48 +279,7 @@ public class SkyframeBuilder implements Builder {
         rethrow(result.getCatastrophe(), bugReporter);
       }
       if (keepGoing) {
-        // If build fails and keepGoing is true, an exit code is assigned using reported errors
-        // in the following order:
-        //   1. First infrastructure error with non-null exit code
-        //   2. First non-infrastructure error with non-null exit code
-        //   3. If the build fails but no interpretable error is specified, BUILD_FAILURE.
-        DetailedExitCode detailedExitCode = null;
-        Throwable undetailedCause = null;
-        for (Map.Entry<SkyKey, ErrorInfo> error : result.errorMap().entrySet()) {
-          Throwable cause = error.getValue().getException();
-          if (cause instanceof DetailedException) {
-            // Update global exit code when current exit code is not null and global exit code has
-            // a lower 'reporting' priority.
-            detailedExitCode =
-                DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                    detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
-            if (!(cause instanceof ActionExecutionException)
-                && !(cause instanceof InputFileErrorException)) {
-              logger.atWarning().withCause(cause).log(
-                  "Non-action-execution/input-error exception for %s", error);
-            }
-          } else {
-            undetailedCause = cause;
-          }
-        }
-        if (detailedExitCode != null) {
-          return detailedExitCode;
-        }
-        if (undetailedCause == null) {
-          logger.atWarning().log("No exceptions found despite error in %s", result);
-          return createDetailedExitCode(
-              "keep_going execution failed without an action failure",
-              Code.NON_ACTION_EXECUTION_FAILURE);
-        }
-        logger.atWarning().withCause(undetailedCause).log(
-            "No detailed exception found in %s", result);
-        return createDetailedExitCode(
-            "keep_going execution failed without an action failure: "
-                + undetailedCause.getMessage()
-                + " ("
-                + undetailedCause.getClass().getSimpleName()
-                + ")",
-            Code.NON_ACTION_EXECUTION_FAILURE);
+        return getDetailedExitCode(result);
       }
       ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
       Exception exception = errorInfo.getException();
@@ -327,13 +290,47 @@ public class SkyframeBuilder implements Builder {
         // we can do is throw a generic build failure exception, since we've already reported the
         // cycles above.
         throw new BuildFailedException(
-            null, createDetailedExitCode("cycle found during execution", Code.CYCLE));
+            null,
+            ExecutionDetailedExitCodeHelper.createDetailedExecutionExitCode(
+                "cycle found during execution", Code.CYCLE));
       } else {
         rethrow(exception, bugReporter);
       }
     }
 
     return null;
+  }
+
+  private static DetailedExitCode getDetailedExitCode(EvaluationResult<?> result) {
+    // If build fails and keepGoing is true, an exit code is assigned using reported errors
+    // in the following order:
+    //   1. First infrastructure error with non-null exit code
+    //   2. First non-infrastructure error with non-null exit code
+    //   3. If the build fails but no interpretable error is specified, BUILD_FAILURE.
+    DetailedExitCode detailedExitCode = null;
+    Throwable undetailedCause = null;
+    for (Map.Entry<SkyKey, ErrorInfo> error : result.errorMap().entrySet()) {
+      Throwable cause = error.getValue().getException();
+      if (cause instanceof DetailedException) {
+        // Update global exit code when current exit code is not null and global exit code has
+        // a lower 'reporting' priority.
+        detailedExitCode =
+            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
+        if (!(cause instanceof ActionExecutionException)
+            && !(cause instanceof InputFileErrorException)) {
+          logger.atWarning().withCause(cause).log(
+              "Non-action-execution/input-error exception for %s", error);
+        }
+      } else {
+        undetailedCause = cause;
+      }
+    }
+    if (detailedExitCode != null) {
+      return detailedExitCode;
+    }
+    return ExecutionDetailedExitCodeHelper.createDetailedExitCodeForUndetailedExecutionCause(
+        result, undetailedCause);
   }
 
   /** Figure out why an action's execution failed and rethrow the right kind of exception. */
@@ -418,11 +415,4 @@ public class SkyframeBuilder implements Builder {
     return count;
   }
 
-  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
-    return DetailedExitCode.of(
-        FailureDetail.newBuilder()
-            .setMessage(message)
-            .setExecution(Execution.newBuilder().setCode(detailedCode))
-            .build());
-  }
 }

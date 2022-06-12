@@ -132,7 +132,13 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     Digest commandHash = digestUtil.compute(command);
     MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
     Action action =
-        buildAction(commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
+        buildAction(
+            commandHash,
+            merkleTree.getRootDigest(),
+            platform,
+            timeout,
+            acceptCached,
+            /*salt=*/ null);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     CachedActionResult cachedActionResult;

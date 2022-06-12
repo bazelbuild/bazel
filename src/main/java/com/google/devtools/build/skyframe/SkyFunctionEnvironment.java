@@ -272,11 +272,14 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     postBuilder.addAll(eventHandler.getPosts());
 
     GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
+    // When there's no boundary between analysis & execution, we don't filter any dep.
     Collection<SkyValue> deps =
         getDepValuesForDoneNodeFromErrorOrDepsOrGraph(
-            Iterables.filter(
-                depKeys.getAllElementsAsIterable(),
-                eventFilter.depEdgeFilterForEventsAndPosts(skyKey)),
+            evaluatorContext.mergingSkyframeAnalysisExecutionPhases()
+                ? depKeys.getAllElementsAsIterable()
+                : Iterables.filter(
+                    depKeys.getAllElementsAsIterable(),
+                    eventFilter.depEdgeFilterForEventsAndPosts(skyKey)),
             expectDoneDeps,
             depKeys.numElements());
     for (SkyValue value : deps) {

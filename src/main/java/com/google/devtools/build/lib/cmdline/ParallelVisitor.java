@@ -11,12 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.concurrent;
+package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,7 +50,7 @@ public abstract class ParallelVisitor<
     VisitKeyT,
     OutputKeyT,
     OutputResultT,
-    ExceptionT extends Exception,
+    ExceptionT extends Exception & QueryExceptionMarkerInterface,
     CallbackT extends BatchCallback<OutputResultT, ExceptionT>> {
   protected final CallbackT callback;
   protected final Class<ExceptionT> exceptionClass;
@@ -142,7 +145,7 @@ public abstract class ParallelVisitor<
       VisitKeyT,
       OutputKeyT,
       OutputResultT,
-      ExceptionT extends Exception,
+      ExceptionT extends Exception & QueryExceptionMarkerInterface,
       CallbackT extends BatchCallback<OutputResultT, ExceptionT>> {
     ParallelVisitor<InputT, VisitKeyT, OutputKeyT, OutputResultT, ExceptionT, CallbackT> create();
   }
@@ -165,12 +168,6 @@ public abstract class ParallelVisitor<
 
   protected abstract Iterable<OutputResultT> outputKeysToOutputValues(
       Iterable<OutputKeyT> targetKeys) throws ExceptionT, InterruptedException;
-
-  /**
-   * Suitable exception type to use with {@link ParallelVisitor} when no checked exception is
-   * appropriate.
-   */
-  public static final class UnusedException extends RuntimeException {}
 
   /** An object to hold keys to visit and keys ready for processing. */
   protected final class Visit {

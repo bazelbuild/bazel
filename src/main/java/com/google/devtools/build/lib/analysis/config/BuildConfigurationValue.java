@@ -93,7 +93,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   private final OutputDirectories outputDirectories;
 
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
-  private final FragmentClassSet fragmentClassSet;
 
   private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
@@ -156,7 +155,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   public BuildConfigurationValue(
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
-      FragmentClassSet fragmentClassSet,
       BuildOptions buildOptions,
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
@@ -166,7 +164,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     this.fragments =
         fragmentsInterner.intern(
             ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
-    this.fragmentClassSet = fragmentClassSet;
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
     this.options = buildOptions.get(CoreOptions.class);
@@ -241,7 +238,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    * again.
    */
   public BuildConfigurationKey getKey() {
-    return BuildConfigurationKey.withoutPlatformMapping(fragmentClassSet, buildOptions);
+    return BuildConfigurationKey.withoutPlatformMapping(buildOptions);
   }
 
   /** Retrieves the {@link BuildOptionDetails} containing data on this configuration's options. */
@@ -521,11 +518,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   public BlazeDirectories getDirectories() {
     return outputDirectories.getDirectories();
-  }
-
-  /** Which fragments does this configuration contain? */
-  public FragmentClassSet fragmentClasses() {
-    return fragmentClassSet;
   }
 
   /** Returns true if non-functional build stamps are enabled. */

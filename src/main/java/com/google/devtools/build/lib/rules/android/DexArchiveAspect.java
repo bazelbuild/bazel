@@ -69,7 +69,7 @@ import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProv
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -84,7 +84,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
    * Function that returns a {@link Rule}'s {@code incremental_dexing} attribute for use by this
    * aspect. Must be provided when attaching this aspect to a target.
    */
-  @AutoCodec
+  @SerializationConstant
   public static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
       (Rule rule) -> {
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
@@ -98,7 +98,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
    * attaching this aspect to a target. This is intended for implicit attributes like the stub APKs
    * for {@code bazel mobile-install}.
    */
-  @AutoCodec
+  @SerializationConstant
   static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =
       (Rule rule) ->
           new AspectParameters.Builder()

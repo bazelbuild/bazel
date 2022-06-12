@@ -233,13 +233,57 @@ def _split_extension(p):
     dot_distance_from_end = len(b) - last_dot_in_basename
     return (p[:-dot_distance_from_end], p[-dot_distance_from_end:])
 
-def _is_normalized(path):
-    if path == "" or path == ".":
-        return True
-    if paths.normalize(path) != path:
-        return False
+_BASE = 0
+_SEPARATOR = 1
+_DOT = 2
+_DOTDOT = 3
 
-    return not path.startswith("..")
+def _is_normalized(str):
+    """
+    Returns true if the passed path contains uplevel references ".." or single-dot references ".".
+
+    Args:
+        str: The path string to check.
+
+    Returns:
+        True if the path is normalized, False otherwise.
+    """
+    state = _SEPARATOR
+    for c in str.elems():
+        is_separator = False
+        if c == "/":
+            is_separator = True
+
+        if state == _BASE:
+            if is_separator:
+                state = _SEPARATOR
+            else:
+                state = _BASE
+        elif state == _SEPARATOR:
+            if is_separator:
+                state = _SEPARATOR
+            elif c == ".":
+                state = _DOT
+            else:
+                state = _BASE
+        elif state == _DOT:
+            if is_separator:
+                return False
+            elif c == ".":
+                state = _DOTDOT
+            else:
+                state = _BASE
+        elif state == _DOTDOT:
+            if is_separator:
+                return False
+            else:
+                state = _BASE
+
+    if state == _DOT:
+        return False
+    elif state == _DOTDOT:
+        return False
+    return True
 
 def _get_relative(path_a, path_b):
     if paths.is_absolute(path_b):

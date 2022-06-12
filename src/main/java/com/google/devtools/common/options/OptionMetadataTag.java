@@ -45,7 +45,7 @@ public enum OptionMetadataTag {
    * These are flags that should never be set by a user. This tag is used to make sure that options
    * that form the protocol between the client and the server are not logged.
    *
-   * <p>These should be in category {@code OptionDocumentationCategory.UNDOCUMENTED}.
+   * <p>These should be in category {@link OptionDocumentationCategory.UNDOCUMENTED}.
    */
   HIDDEN(3),
 
@@ -53,11 +53,26 @@ public enum OptionMetadataTag {
    * Options which are INTERNAL are not recognized by the parser at all, and so cannot be used as
    * flags.
    *
-   * <p>These should be in category {@code OptionDocumentationCategory.UNDOCUMENTED}.
+   * <p>These should be in category {@link OptionDocumentationCategory.UNDOCUMENTED}.
    */
-  INTERNAL(4);
+  INTERNAL(4),
 
   // reserved TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES(5)
+
+  /**
+   * Options which are EXPLICIT_IN_OUTPUT_PATH are explicitly included in the output path by {@link
+   * OutputDirectories.buildMnemonic} (or indirectly in {@link Fragment.getOutputDirectoryName}) and
+   * thus should not be included in the hash of changed options used to generically disambiguate
+   * output directories of different configurations. (See {@link
+   * FunctionTransitionUtil.computeOutputDirectoryNameFragment}.)
+   *
+   * <p>This tag should only be added to options that can guarantee that any change to that option
+   * corresponds to a change to {@link OutputDirectories.buildMnemonic}. Put mathematically, given
+   * any two BuildOptions instances A and B with respective values for the marked option a and b
+   * (and all other options are the same): {@code a == b iff OutputDirectories.buildMnemonic(A) ==
+   * OutputDirectories.buildMnemonic(B)}
+   */
+  EXPLICIT_IN_OUTPUT_PATH(6);
 
   private final int value;
 

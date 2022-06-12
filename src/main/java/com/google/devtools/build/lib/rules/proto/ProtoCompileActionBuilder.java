@@ -52,11 +52,11 @@ import javax.annotation.Nullable;
 
 /** Constructs actions to run the protocol compiler to generate sources from .proto files. */
 public class ProtoCompileActionBuilder {
+  private static final String DEFAULT_MNEMONIC = "GenProto";
+
   @VisibleForTesting
   public static final String STRICT_DEPS_FLAG_TEMPLATE =
       "--direct_dependencies_violation_msg=" + ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE;
-
-  private static final String MNEMONIC = "GenProto";
 
   private final RuleContext ruleContext;
   private final ProtoInfo protoInfo;
@@ -71,6 +71,7 @@ public class ProtoCompileActionBuilder {
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
   private boolean checkStrictImportPublic;
+  private String mnemonic;
 
   public ProtoCompileActionBuilder allowServices(boolean hasServices) {
     this.hasServices = hasServices;
@@ -84,6 +85,11 @@ public class ProtoCompileActionBuilder {
 
   public ProtoCompileActionBuilder setLangPlugin(FilesToRunProvider langPlugin) {
     this.langPlugin = langPlugin;
+    return this;
+  }
+
+  public ProtoCompileActionBuilder setMnemonic(String mnemonic) {
+    this.mnemonic = mnemonic;
     return this;
   }
 
@@ -122,6 +128,7 @@ public class ProtoCompileActionBuilder {
     this.language = language;
     this.langPrefix = langPrefix;
     this.outputs = outputs;
+    this.mnemonic = DEFAULT_MNEMONIC;
   }
 
   /** Static class to avoid keeping a reference to this builder after build() is called. */
@@ -238,7 +245,7 @@ public class ProtoCompileActionBuilder {
             createProtoCompilerCommandLine().build(),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", language, ruleContext.getLabel())
-        .setMnemonic(MNEMONIC);
+        .setMnemonic(mnemonic);
 
     return result;
   }
@@ -470,8 +477,7 @@ public class ProtoCompileActionBuilder {
                 protoToolchain.getCompilerOptions(),
                 siblingRepositoryLayout),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-        .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())
-        .setMnemonic(MNEMONIC);
+        .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel());
 
     return result;
   }

@@ -102,8 +102,6 @@ public class CcToolchainFeatures {
 
   /** A single flag to be expanded under a set of variables. */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
   public static class Flag implements Expandable {
     private final ImmutableList<StringChunk> chunks;
 
@@ -160,8 +158,6 @@ public class CcToolchainFeatures {
 
     /** Optimization for single-chunk case */
     @Immutable
-    @AutoCodec
-    @VisibleForSerialization
     static class SingleChunkFlag implements Expandable {
       private final StringChunk chunk;
 
@@ -266,8 +262,7 @@ public class CcToolchainFeatures {
 
   /** Used for equality check between a variable and a specific value. */
   @Immutable
-  @AutoCodec
-  public static class VariableWithValue {
+  static class VariableWithValue {
     public final String variable;
     public final String value;
 

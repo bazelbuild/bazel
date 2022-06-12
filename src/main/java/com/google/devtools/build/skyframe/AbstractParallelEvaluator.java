@@ -158,7 +158,8 @@ abstract class AbstractParallelEvaluator {
             () ->
                 new NodeEntryVisitor(
                     quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
-            evaluationVersionBehavior);
+            evaluationVersionBehavior,
+            /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0);
   }
 
   private Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(

@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
@@ -30,25 +28,23 @@ public class ProtoBootstrap implements Bootstrap {
   /** The name of the proto info provider in Starlark. */
   public static final String PROTO_INFO_STARLARK_NAME = "ProtoInfo";
 
+  /** The name of the proto toolchain info provider in Starlark. */
+  public static final String PROTO_TOOLCHAIN_INFO_STARLARK_NAME = "ProtoToolchainInfo";
+
   /** The name of the proto namespace in Starlark. */
   public static final String PROTO_COMMON_NAME = "proto_common";
 
   private final ProtoInfoProviderApi protoInfoApiProvider;
-  private final ProtoToolchainInfoApi.Provider<? extends FilesToRunProviderApi<? extends FileApi>>
-      protoToolchainInfoApi;
   private final Object protoCommon;
   private final StarlarkAspectApi protoRegistryAspect;
   private final ProviderApi protoRegistryProvider;
 
   public ProtoBootstrap(
       ProtoInfoProviderApi protoInfoApiProvider,
-      ProtoToolchainInfoApi.Provider<? extends FilesToRunProviderApi<? extends FileApi>>
-          protoToolchainInfoApi,
       Object protoCommon,
       StarlarkAspectApi protoRegistryAspect,
       ProviderApi protoRegistryProvider) {
     this.protoInfoApiProvider = protoInfoApiProvider;
-    this.protoToolchainInfoApi = protoToolchainInfoApi;
     this.protoCommon = protoCommon;
     this.protoRegistryAspect = protoRegistryAspect;
     this.protoRegistryProvider = protoRegistryProvider;
@@ -57,7 +53,6 @@ public class ProtoBootstrap implements Bootstrap {
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put(PROTO_INFO_STARLARK_NAME, protoInfoApiProvider);
-    builder.put(ProtoToolchainInfoApi.NAME, protoToolchainInfoApi);
     builder.put(PROTO_COMMON_NAME, protoCommon);
     builder.put(
         "ProtoRegistryAspect",

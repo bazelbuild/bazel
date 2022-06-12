@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.RootedPathAndCasing;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -48,9 +49,9 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public abstract class PathCasingLookupValue implements SkyValue {
 
-  @AutoCodec public static final BadPathCasing BAD = new BadPathCasing();
+  @SerializationConstant public static final BadPathCasing BAD = new BadPathCasing();
 
-  @AutoCodec public static final CorrectPathCasing GOOD = new CorrectPathCasing();
+  @SerializationConstant public static final CorrectPathCasing GOOD = new CorrectPathCasing();
 
   /** Singleton {@link PathCasingLookupValue} instance for incorrectly cased paths. */
   public static class BadPathCasing extends PathCasingLookupValue {

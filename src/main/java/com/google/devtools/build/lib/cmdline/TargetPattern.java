@@ -29,7 +29,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
@@ -146,7 +145,7 @@ public abstract class TargetPattern {
    *     excludedSubdirectories} is nonempty and this pattern does not have type {@code
    *     Type.TARGETS_BELOW_DIRECTORY}.
    */
-  public abstract <T, E extends Exception> void eval(
+  public abstract <T, E extends Exception & QueryExceptionMarkerInterface> void eval(
       TargetPatternResolver<T> resolver,
       InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
@@ -162,12 +161,13 @@ public abstract class TargetPattern {
    * ExecutionException}, the cause will be an instance of either {@link TargetParsingException} or
    * the given {@code exceptionClass}.
    */
-  public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
-      TargetPatternResolver<T> resolver,
-      InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback,
-      Class<E> exceptionClass) {
+  public final <T, E extends Exception & QueryExceptionMarkerInterface>
+      ListenableFuture<Void> evalAdaptedForAsync(
+          TargetPatternResolver<T> resolver,
+          InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
+          ImmutableSet<PathFragment> excludedSubdirectories,
+          BatchCallback<T, E> callback,
+          Class<E> exceptionClass) {
     try {
       eval(resolver, ignoredSubdirectories, excludedSubdirectories, callback, exceptionClass);
       return Futures.immediateFuture(null);
@@ -191,7 +191,7 @@ public abstract class TargetPattern {
    * ExecutionException}, the cause will be an instance of either {@link TargetParsingException} or
    * the given {@code exceptionClass}.
    */
-  public <T, E extends Exception> ListenableFuture<Void> evalAsync(
+  public <T, E extends Exception & QueryExceptionMarkerInterface> ListenableFuture<Void> evalAsync(
       TargetPatternResolver<T> resolver,
       InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
@@ -258,7 +258,7 @@ public abstract class TargetPattern {
     }
 
     @Override
-    public <T, E extends Exception> void eval(
+    public <T, E extends Exception & QueryExceptionMarkerInterface> void eval(
         TargetPatternResolver<T> resolver,
         InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -320,7 +320,7 @@ public abstract class TargetPattern {
     }
 
     @Override
-    public <T, E extends Exception> void eval(
+    public <T, E extends Exception & QueryExceptionMarkerInterface> void eval(
         TargetPatternResolver<T> resolver,
         InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -418,7 +418,7 @@ public abstract class TargetPattern {
     }
 
     @Override
-    public <T, E extends Exception> void eval(
+    public <T, E extends Exception & QueryExceptionMarkerInterface> void eval(
         TargetPatternResolver<T> resolver,
         InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -544,7 +544,7 @@ public abstract class TargetPattern {
     }
 
     @Override
-    public <T, E extends Exception> void eval(
+    public <T, E extends Exception & QueryExceptionMarkerInterface> void eval(
         TargetPatternResolver<T> resolver,
         InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
@@ -573,13 +573,14 @@ public abstract class TargetPattern {
     }
 
     @Override
-    public <T, E extends Exception> ListenableFuture<Void> evalAsync(
-        TargetPatternResolver<T> resolver,
-        InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
-        ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback,
-        Class<E> exceptionClass,
-        ListeningExecutorService executor) {
+    public <T, E extends Exception & QueryExceptionMarkerInterface>
+        ListenableFuture<Void> evalAsync(
+            TargetPatternResolver<T> resolver,
+            InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredSubdirectories,
+            ImmutableSet<PathFragment> excludedSubdirectories,
+            BatchCallback<T, E> callback,
+            Class<E> exceptionClass,
+            ListeningExecutorService executor) {
       Preconditions.checkState(
           !excludedSubdirectories.contains(directory.getPackageFragment()),
           "Fully excluded target pattern %s should have already been filtered out (%s)",

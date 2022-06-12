@@ -1170,25 +1170,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isEqualTo(getTargetConfiguration().getBinDirectory(RepositoryName.MAIN));
   }
 
-  // regression test for #3294893
-  @Test
-  public void testNoJavaPathFoundDoesNotThrow() throws Exception {
-    checkError(
-        "third_party/java_src/android/app",
-        "r",
-        "The location of your BUILD file determines the Java package used for Android resource "
-            + "processing. A directory named \"java\" or \"javatests\" will be used as your Java "
-            + "source root and the path of your BUILD file relative to the Java source root will "
-            + "be used as the package for Android resource processing. The Java source root could "
-            + "not be determined for \"third_party/java_src/android/app\". Move your BUILD file "
-            + "under a java or javatests directory, or set the 'custom_package' attribute.",
-        "licenses(['notice'])",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        ")");
-  }
-
   @Test
   public void testWithRenameManifestPackage() throws Exception {
     scratch.file(

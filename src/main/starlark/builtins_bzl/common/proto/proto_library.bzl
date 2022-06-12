@@ -17,9 +17,9 @@ Definition of proto_library rule.
 """
 
 load(":common/proto/proto_semantics.bzl", "semantics")
+load(":common/proto/proto_common.bzl", "proto_common")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
-proto_common = _builtins.toplevel.proto_common
 
 def _check_srcs_package(target_package, srcs):
     """Makes sure the given srcs live in the given package."""
@@ -63,7 +63,7 @@ proto_library = rule(
         "exports": attr.label_list(
             providers = [ProtoInfo],
         ),
-        "strip_import_prefix": attr.string(),
+        "strip_import_prefix": attr.string(default = "DO_NOT_STRIP"),
         "data": attr.label_list(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],

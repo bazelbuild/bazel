@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
@@ -277,8 +279,9 @@ public final class FunctionTransitionUtil {
     // toOptions being null means the transition hasn't changed anything. We avoid preemptively
     // cloning it from fromOptions since options cloning is an expensive operation.
     BuildOptions toOptions = null;
-    // The names and values of options (Starlark + native) that are different after this transition.
-    Set<String> convertedNewValues = new HashSet<>();
+    // The names of options (Starlark + native) that are different after this transition and must
+    //   be added to "affected by Starlark transition"
+    Set<String> convertedAffectedOptions = new HashSet<>();
     // Starlark options that are different after this transition. We collect all of them, then clone
     // the build options once with all cumulative changes. Native option changes, in contrast, are
     // set directly in the BuildOptions instance. The former approach is preferred since it makes
@@ -286,22 +289,22 @@ public final class FunctionTransitionUtil {
     // reasons. While not preferred, direct mutation doesn't require expensive cloning.
     Map<Label, Object> changedStarlarkOptions = new LinkedHashMap<>();
     for (Map.Entry<String, Object> entry : newValues.entrySet()) {
-      String optionName = entry.getKey();
+      String optionKey = entry.getKey();
       Object optionValue = entry.getValue();
 
-      if (!optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+      if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         // The transition changes a Starlark option.
-        Label optionLabel = Label.parseAbsoluteUnchecked(optionName);
+        Label optionLabel = Label.parseAbsoluteUnchecked(optionKey);
         Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
         if ((oldValue == null && optionValue != null)
             || (oldValue != null && optionValue == null)
             || (oldValue != null && !oldValue.equals(optionValue))) {
           changedStarlarkOptions.put(optionLabel, optionValue);
-          convertedNewValues.add(optionLabel.toString());
+          convertedAffectedOptions.add(optionLabel.toString());
         }
       } else {
         // The transition changes a native option.
-        optionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
 
         // Convert NoneType to null.
         if (optionValue instanceof NoneType) {
@@ -363,7 +366,10 @@ public final class FunctionTransitionUtil {
               toOptions = fromOptions.clone();
             }
             field.set(toOptions.get(optionInfo.getOptionClass()), convertedValue);
-            convertedNewValues.add(entry.getKey());
+
+            if (!optionInfo.hasMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH)) {
+              convertedAffectedOptions.add(optionKey);
+            }
           }
 
         } catch (IllegalArgumentException e) {
@@ -392,11 +398,11 @@ public final class FunctionTransitionUtil {
     if (starlarkTransition.isForAnalysisTesting()) {
       // We need to record every time we change a configuration option.
       // see {@link #updateOutputDirectoryNameFragment} for usage.
-      convertedNewValues.add("//command_line_option:evaluating for analysis test");
+      convertedAffectedOptions.add("//command_line_option:evaluating for analysis test");
       toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
     }
 
-    updateAffectedByStarlarkTransition(toOptions.get(CoreOptions.class), convertedNewValues);
+    updateAffectedByStarlarkTransition(toOptions.get(CoreOptions.class), convertedAffectedOptions);
     return toOptions;
   }
 
@@ -501,6 +507,10 @@ public final class FunctionTransitionUtil {
 
     OptionDefinition getDefinition() {
       return definition;
+    }
+
+    boolean hasMetadataTag(OptionMetadataTag tag) {
+      return stream(getDefinition().getOptionMetadataTags()).anyMatch(tag::equals);
     }
   }
 

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -44,11 +45,11 @@ import javax.annotation.Nullable;
  */
 public abstract class PackageLookupValue implements SkyValue {
 
-  @AutoCodec
+  @SerializationConstant
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
       new NoBuildFilePackageLookupValue();
 
-  @AutoCodec
+  @SerializationConstant
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
 
