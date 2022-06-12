@@ -100,7 +100,7 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
     return RepoSpec.builder()
         .setBzlFile(repoSpec.bzlFile())
         .setRuleClassName(repoSpec.ruleClassName())
-        .setAttributes(attrBuilder.build())
+        .setAttributes(attrBuilder.buildOrThrow())
         .build();
   }
 }

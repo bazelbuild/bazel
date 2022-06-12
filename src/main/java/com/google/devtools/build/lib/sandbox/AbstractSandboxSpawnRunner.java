@@ -128,7 +128,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
       FileOutErr outErr = context.getFileOutErr();
       try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
-        context.prefetchInputs();
+        context.prefetchInputsAndWait();
       }
 
       SpawnResult result;

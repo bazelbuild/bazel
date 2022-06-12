@@ -13,12 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
+import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
+import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URL;
@@ -36,10 +46,11 @@ public class UrlRewriterTest {
 
   @Test
   public void byDefaultTheUrlRewriterDoesNothing() throws Exception {
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(""));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(""), null);
 
     List<URL> urls = ImmutableList.of(new URL("http://example.com"));
-    List<URL> amended = munger.amend(urls);
+    ImmutableList<URL> amended =
+        munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     assertThat(amended).isEqualTo(urls);
   }
@@ -47,14 +58,15 @@ public class UrlRewriterTest {
   @Test
   public void shouldBeAbleToBlockParticularHostsRegardlessOfScheme() throws Exception {
     String config = "block example.com";
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> urls =
         ImmutableList.of(
             new URL("http://example.com"),
             new URL("https://example.com"),
             new URL("http://localhost"));
-    List<URL> amended = munger.amend(urls);
+    ImmutableList<URL> amended =
+        munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     assertThat(amended).containsExactly(new URL("http://localhost"));
   }
@@ -62,10 +74,11 @@ public class UrlRewriterTest {
   @Test
   public void shouldAllowAUrlToBeRewritten() throws Exception {
     String config = "rewrite example.com/foo/(.*) mycorp.com/$1/foo";
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
-    List<URL> amended = munger.amend(urls);
+    ImmutableList<URL> amended =
+        munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     assertThat(amended).containsExactly(new URL("https://mycorp.com/bar/foo"));
   }
@@ -75,10 +88,11 @@ public class UrlRewriterTest {
     String config =
         "rewrite example.com/foo/(.*) mycorp.com/$1/somewhere\n"
             + "rewrite example.com/foo/(.*) mycorp.com/$1/elsewhere";
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
-    List<URL> amended = munger.amend(urls);
+    ImmutableList<URL> amended =
+        munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     // There's no guarantee about the ordering of the rewrites
     assertThat(amended).contains(new URL("https://mycorp.com/bar/somewhere"));
@@ -89,14 +103,15 @@ public class UrlRewriterTest {
   public void shouldBlockAllUrlsOtherThanSpecificOnes() throws Exception {
     String config = "" + "block *\n" + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> urls =
         ImmutableList.of(
             new URL("https://foo.com"),
             new URL("https://example.com/foo/bar"),
             new URL("https://subdomain.example.com/qux"));
-    List<URL> amended = munger.amend(urls);
+    ImmutableList<URL> amended =
+        munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     assertThat(amended)
         .containsExactly(
@@ -112,10 +127,11 @@ public class UrlRewriterTest {
             + "# But allow example.com\n"
             + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> urls = ImmutableList.of(new URL("https://foo.com"), new URL("https://example.com"));
-    List<URL> amended = munger.amend(urls);
+    ImmutableList<URL> amended =
+        munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     assertThat(amended).containsExactly(new URL("https://example.com"));
   }
@@ -124,9 +140,12 @@ public class UrlRewriterTest {
   public void allowListAppliesToSubdomainsToo() throws Exception {
     String config = "" + "block *\n" + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
-    List<URL> amended = munger.amend(ImmutableList.of(new URL("https://subdomain.example.com")));
+    ImmutableList<URL> amended =
+        munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
+            .map(url -> url.url())
+            .collect(toImmutableList());
 
     assertThat(amended).containsExactly(new URL("https://subdomain.example.com"));
   }
@@ -135,9 +154,12 @@ public class UrlRewriterTest {
   public void blockListAppliesToSubdomainsToo() throws Exception {
     String config = "block example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
-    List<URL> amended = munger.amend(ImmutableList.of(new URL("https://subdomain.example.com")));
+    ImmutableList<URL> amended =
+        munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
+            .map(url -> url.url())
+            .collect(toImmutableList());
 
     assertThat(amended).isEmpty();
   }
@@ -146,9 +168,12 @@ public class UrlRewriterTest {
   public void emptyLinesAreFine() throws Exception {
     String config = "" + "\n" + "   \n" + "block *\n" + "\t  \n" + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
-    List<URL> amended = munger.amend(ImmutableList.of(new URL("https://subdomain.example.com")));
+    ImmutableList<URL> amended =
+        munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
+            .map(url -> url.url())
+            .collect(toImmutableList());
 
     assertThat(amended).containsExactly(new URL("https://subdomain.example.com"));
   }
@@ -157,11 +182,16 @@ public class UrlRewriterTest {
   public void rewritingUrlsIsAppliedBeforeBlocking() throws Exception {
     String config = "" + "block bad.com\n" + "rewrite bad.com/foo/(.*) mycorp.com/$1";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> amended =
-        munger.amend(
-            ImmutableList.of(new URL("https://www.bad.com"), new URL("https://bad.com/foo/bar")));
+        munger
+            .amend(
+                ImmutableList.of(
+                    new URL("https://www.bad.com"), new URL("https://bad.com/foo/bar")))
+            .stream()
+            .map(url -> url.url())
+            .collect(toImmutableList());
 
     assertThat(amended).containsExactly(new URL("https://mycorp.com/bar"));
   }
@@ -171,11 +201,16 @@ public class UrlRewriterTest {
     String config =
         "" + "block *\n" + "allow mycorp.com\n" + "rewrite bad.com/foo/(.*) mycorp.com/$1";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> amended =
-        munger.amend(
-            ImmutableList.of(new URL("https://www.bad.com"), new URL("https://bad.com/foo/bar")));
+        munger
+            .amend(
+                ImmutableList.of(
+                    new URL("https://www.bad.com"), new URL("https://bad.com/foo/bar")))
+            .stream()
+            .map(url -> url.url())
+            .collect(toImmutableList());
 
     assertThat(amended).containsExactly(new URL("https://mycorp.com/bar"));
   }
@@ -228,14 +263,18 @@ public class UrlRewriterTest {
             + "rewrite bad.com/foo/(.*) http://mycorp.com/$1\n"
             + "rewrite bad.com/bar/(.*) https://othercorp.com/bar/$1\n";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
 
     List<URL> amended =
-        munger.amend(
-            ImmutableList.of(
-                new URL("https://www.bad.com"),
-                new URL("https://bad.com/foo/bar"),
-                new URL("http://bad.com/bar/xyz")));
+        munger
+            .amend(
+                ImmutableList.of(
+                    new URL("https://www.bad.com"),
+                    new URL("https://bad.com/foo/bar"),
+                    new URL("http://bad.com/bar/xyz")))
+            .stream()
+            .map(url -> url.url())
+            .collect(toImmutableList());
 
     assertThat(amended)
         .containsExactly(
@@ -245,19 +284,133 @@ public class UrlRewriterTest {
   @Test
   public void rewritingUrlsWithAuthHeaders() throws Exception {
     String creds = "user:password";
-    String config = "rewrite my.example.com/foo/(.*) " + creds + "@mycorp.com/foo/$1\n";
+    String firstNetrcCreds = "netrc_user_0:netrc_pw_0";
+    String secondNetrcCreds = "netrc_user_1:netrc_pw_1";
+    Credentials netrc =
+        parseNetrc(
+            "machine mycorp.com login netrc_user_0 password netrc_pw_0\n"
+                + "machine myothercorp.com login netrc_user_1 password netrc_pw_1\n"
+                + "machine no-override.com login netrc_user_2 password netrc_pw_2\n");
+    String config =
+        ""
+            + "rewrite my.example.com/foo/(.*) "
+            + creds
+            + "@mycorp.com/foo/$1\n" // this cred should from download config file
+            + "rewrite my.example.com/from_netrc/(.*) mycorp.com/from_netrc/$1\n" // this cred
+            // should come
+            // from netrc
+            + "rewrite"
+            + " my.example.com/from_other_netrc_entry/(.*)"
+            + " myothercorp.com/from_netrc/$1\n" // this cred should come from netrc
+            + "rewrite my.example.com/no_creds/(.*) myopencorp.com/no_creds/$1\n"; // should be
+    // re-written,
+    // but no auth
+    // headers added
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), netrc);
 
-    List<URL> amended = munger.amend(ImmutableList.of(new URL("https://my.example.com/foo/bar")));
+    ImmutableList<UrlRewriter.RewrittenURL> amended =
+        munger.amend(
+            ImmutableList.of(
+                new URL("https://my.example.com/foo/bar"),
+                new URL("https://my.example.com/from_netrc/bar"),
+                new URL("https://my.example.com/from_other_netrc_entry/bar"),
+                new URL("https://my.example.com/no_creds/bar"),
+                new URL("https://should-not-be-overridden.com/")));
     Map<URI, Map<String, String>> updatedAuthHeaders =
         munger.updateAuthHeaders(amended, ImmutableMap.of());
 
     String expectedToken =
         "Basic " + Base64.getEncoder().encodeToString(creds.getBytes(ISO_8859_1));
+    String expectedFirstNetrcToken =
+        "Basic " + Base64.getEncoder().encodeToString(firstNetrcCreds.getBytes(ISO_8859_1));
+    String expectedSecondNetrcToken =
+        "Basic " + Base64.getEncoder().encodeToString(secondNetrcCreds.getBytes(ISO_8859_1));
+    // only three URLs should have auth headers
     assertThat(updatedAuthHeaders)
         .containsExactly(
             new URI("https://user:password@mycorp.com/foo/bar"),
-            ImmutableMap.of("Authorization", expectedToken));
+            ImmutableMap.of("Authorization", expectedToken),
+            new URI("https://mycorp.com/from_netrc/bar"),
+            ImmutableMap.of("Authorization", expectedFirstNetrcToken),
+            new URI("https://myothercorp.com/from_netrc/bar"),
+            ImmutableMap.of("Authorization", expectedSecondNetrcToken));
+    // yet all four urls should be present
+    assertThat(amended)
+        .containsExactly(
+            UrlRewriter.RewrittenURL.create(
+                new URL("https://user:password@mycorp.com/foo/bar"), true),
+            UrlRewriter.RewrittenURL.create(new URL("https://mycorp.com/from_netrc/bar"), true),
+            UrlRewriter.RewrittenURL.create(
+                new URL("https://myothercorp.com/from_netrc/bar"), true),
+            UrlRewriter.RewrittenURL.create(new URL("https://myopencorp.com/no_creds/bar"), true),
+            UrlRewriter.RewrittenURL.create(
+                new URL("https://should-not-be-overridden.com/"), false));
+  }
+
+  @Test
+  public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
+    ImmutableMap<String, String> clientEnv = ImmutableMap.of();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+
+    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_netrcNotExist_shouldIgnore() throws Exception {
+    String home = "/home/foo";
+    ImmutableMap<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+
+    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_netrcExist_shouldUse() throws Exception {
+    Credentials credentials = parseNetrc("machine foo.example.org login foouser password foopass");
+
+    assertThat(credentials).isNotNull();
+    assertRequestMetadata(
+        credentials.getRequestMetadata(URI.create("https://foo.example.org")),
+        "foouser",
+        "foopass");
+  }
+
+  @Test
+  public void testNetrc_netrcExist_cant_parse() throws Exception {
+    String home = "/home/foo";
+    ImmutableMap<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", "mach foo.example.org log foouser password foopass");
+
+    try {
+      UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+      fail();
+    } catch (UrlRewriterParseException e) {
+      assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/home/foo/.netrc", 0, 0));
+    }
+  }
+
+  private static Credentials parseNetrc(String content)
+      throws IOException, UrlRewriterParseException {
+    String home = "/home/foo";
+    ImmutableMap<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", content);
+
+    return UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+  }
+
+  private static void assertRequestMetadata(
+      Map<String, List<String>> requestMetadata, String username, String password) {
+    assertThat(requestMetadata.keySet()).containsExactly("Authorization");
+    assertThat(Iterables.getOnlyElement(requestMetadata.values()))
+        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password, UTF_8));
   }
 }

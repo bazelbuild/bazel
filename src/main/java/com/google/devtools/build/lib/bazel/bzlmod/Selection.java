@@ -210,7 +210,7 @@ final class Selection {
                   ModuleKey.create(
                       depKey.getName(), selectedVersions.get(selectionGroups.get(depKey)))));
     }
-    ImmutableMap<ModuleKey, Module> newDepGraph = newDepGraphBuilder.build();
+    ImmutableMap<ModuleKey, Module> newDepGraph = newDepGraphBuilder.buildOrThrow();
 
     // Further remove unreferenced modules from the graph. We can find out which modules are
     // referenced by collecting deps transitively from the root.
@@ -264,7 +264,7 @@ final class Selection {
         }
         newDepGraph.put(key, module);
       }
-      return newDepGraph.build();
+      return newDepGraph.buildOrThrow();
     }
 
     void visit(ModuleKey key, Module module, @Nullable ModuleKey from)

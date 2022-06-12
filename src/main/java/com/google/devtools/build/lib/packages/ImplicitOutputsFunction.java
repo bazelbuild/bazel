@@ -122,7 +122,7 @@ public abstract class ImplicitOutputsFunction {
 
           builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
         }
-        return builder.build();
+        return builder.buildOrThrow();
       } catch (IllegalArgumentException ex) {
         throw new EvalException(ex);
       }
@@ -156,7 +156,7 @@ public abstract class ImplicitOutputsFunction {
 
         builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
   }
 

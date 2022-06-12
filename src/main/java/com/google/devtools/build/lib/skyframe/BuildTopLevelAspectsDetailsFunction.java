@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -50,7 +49,6 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link SkyFunction} to load top level aspects, build the dependency relation between them based
@@ -73,20 +71,11 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     BuildTopLevelAspectsDetailsKey topLevelAspectsDetailsKey =
         (BuildTopLevelAspectsDetailsKey) skyKey.argument();
 
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
-    boolean allowTopLevelAspectsParametersValues =
-        starlarkSemantics.getBool(
-            BuildLanguageOptions.EXPERIMENTAL_ALLOW_TOP_LEVEL_ASPECTS_PARAMETERS);
-
     ImmutableList<Aspect> topLevelAspects =
         getTopLevelAspects(
             env,
             topLevelAspectsDetailsKey.getTopLevelAspectsClasses(),
-            topLevelAspectsDetailsKey.getTopLevelAspectsParameters(),
-            allowTopLevelAspectsParametersValues);
+            topLevelAspectsDetailsKey.getTopLevelAspectsParameters());
 
     if (topLevelAspects == null) {
       return null; // some aspects are not loaded
@@ -108,7 +97,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
 
   @Nullable
   private static StarlarkDefinedAspect loadStarlarkAspect(
-      Environment env, StarlarkAspectClass aspectClass, boolean allowTopLevelAspectsParameters)
+      Environment env, StarlarkAspectClass aspectClass)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
     StarlarkDefinedAspect starlarkAspect;
     try {
@@ -127,19 +116,6 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
           new TopLevelAspectsDetailsBuildFailedException(
               e.getMessage(), Code.ASPECT_CREATION_FAILED));
     }
-
-    if (!allowTopLevelAspectsParameters && !starlarkAspect.getParamAttributes().isEmpty()) {
-      String msg =
-          String.format(
-              "Cannot instantiate parameterized aspect %s at the top level.",
-              starlarkAspect.getName());
-
-      env.getListener().handle(Event.error(msg));
-      throw new BuildTopLevelAspectsDetailsFunctionException(
-          new TopLevelAspectsDetailsBuildFailedException(
-              msg, Code.PARAMETERIZED_TOP_LEVEL_ASPECT_INVALID));
-    }
-
     return starlarkAspect;
   }
 
@@ -147,22 +123,18 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
   private static ImmutableList<Aspect> getTopLevelAspects(
       Environment env,
       ImmutableList<AspectClass> topLevelAspectsClasses,
-      ImmutableMap<String, String> topLevelAspectsParameters,
-      boolean allowTopLevelAspectsParameters)
+      ImmutableMap<String, String> topLevelAspectsParameters)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
     AspectsListBuilder aspectsList = new AspectsListBuilder();
 
     for (AspectClass aspectClass : topLevelAspectsClasses) {
       if (aspectClass instanceof StarlarkAspectClass) {
-        StarlarkAspect starlarkAspect =
-            loadStarlarkAspect(
-                env, (StarlarkAspectClass) aspectClass, allowTopLevelAspectsParameters);
+        StarlarkAspect starlarkAspect = loadStarlarkAspect(env, (StarlarkAspectClass) aspectClass);
         if (starlarkAspect == null) {
           return null;
         }
         try {
-          starlarkAspect.attachToAspectsList(
-              /*baseAspectName=*/ null, aspectsList, allowTopLevelAspectsParameters);
+          starlarkAspect.attachToAspectsList(/*baseAspectName=*/ null, aspectsList);
         } catch (EvalException e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
@@ -182,13 +154,9 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     }
 
     try {
-      if (allowTopLevelAspectsParameters) {
         // Only use the parameters list if the experimental flag is used.
         aspectsList.validateTopLevelAspectsParameters(topLevelAspectsParameters);
         return aspectsList.buildAspects(topLevelAspectsParameters);
-      } else {
-        return aspectsList.buildAspects(ImmutableMap.of());
-      }
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new BuildTopLevelAspectsDetailsFunctionException(

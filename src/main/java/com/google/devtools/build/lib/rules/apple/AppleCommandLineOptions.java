@@ -54,15 +54,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public boolean mandatoryMinimumVersion;
 
   @Option(
-    name = "experimental_objc_provider_from_linked",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "Whether Apple rules which control linking should propagate objc provider at the top "
-            + "level"
-  )
-  // TODO(b/32411441): This flag should be default-off and then be removed.
+      name = "experimental_objc_provider_from_linked",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
+  // TODO(b/32411441): This flag should be removed.
   public boolean objcProviderFromLinked;
 
   @Option(

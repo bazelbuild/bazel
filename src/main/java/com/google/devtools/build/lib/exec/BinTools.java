@@ -65,7 +65,7 @@ public final class BinTools {
       PathFragment execPath =  PathFragment.create("_bin").getRelative(embeddedPath);
       result.put(embeddedPath, new PathActionInput(path, execPath));
     }
-    actionInputs = result.build();
+    actionInputs = result.buildOrThrow();
   }
 
 

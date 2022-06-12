@@ -87,6 +87,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "If true, constraint settings from @bazel_tools are removed.")
   public boolean usePlatformsRepoForConstraints;
 
+  // Note: This value may contain conflicting duplicate values for the same define.
+  // Use `getNormalizedCommandLineBuildVariables` if you wish for these to be deduplicated
+  // (last-wins).
   @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
@@ -538,7 +541,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "1000",
+      defaultValue = "2000",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -586,6 +589,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "target_environment values.")
   public Label autoCpuEnvironmentGroup;
 
+  @Option(
+      name = "experimental_allow_unresolved_symlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      help =
+          "If enabled, Bazel allows the use of ctx.action.{declare_symlink,symlink}, thus "
+              + "allowing the user to create symlinks (resolved and unresolved)")
+  public boolean allowUnresolvedSymlinks;
+
   /** Values for --experimental_output_paths. */
   public enum OutputPathsMode {
     /** Use the production output path model. */
@@ -600,6 +616,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
      * <p>Follow the above link for latest details on exact scope.
      */
     CONTENT,
+    /**
+     * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
+     * registered to support this feature.
+     *
+     * <p>This works independently of {@code --experimental_path_agnostic_action} ({@link
+     * com.google.devtools.build.lib.exec.ExecutionOptions#pathAgnosticActions}). This flag enables
+     * actions that know how to strip output paths from their command lines, which requires custom
+     * code in the action creation logic. {@code --experimental_path_agnostic_action} is a catch-all
+     * that automatically strips command lines after actions have constructed them. The latter is
+     * suitable for experimentation but not as robust since it's essentially a textual replacement
+     * postprocessor. That may miss subtleties in the command line's structure, isn't particularly
+     * efficient, and isn't safe for actions with special dependencies on their output paths.
+     *
+     * <p>See {@link com.google.devtools.build.lib.actions.PathStripper} for details.
+     */
+    STRIP,
   }
 
   /** Converter for --experimental_output_paths. */
@@ -608,19 +640,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       super(OutputPathsMode.class, "output path mode");
     }
   }
-
-  @Option(
-      name = "experimental_allow_unresolved_symlinks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "If enabled, Bazel allows the use of ctx.action.{declare_symlink,symlink}, thus "
-              + "allowing the user to create symlinks (resolved and unresolved)")
-  public boolean allowUnresolvedSymlinks;
 
   @Option(
       name = "experimental_output_paths",
@@ -891,16 +910,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return host;
   }
 
+  /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.
+  public LinkedHashMap<String, String> getNormalizedCommandLineBuildVariables() {
+    LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : commandLineBuildVariables) {
+      // If the same --define flag is passed multiple times we keep the last value.
+      flagValueByName.put(entry.getKey(), entry.getValue());
+    }
+    return flagValueByName;
+  }
+
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
 
     if (collapseDuplicateDefines) {
-      LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
-      for (Map.Entry<String, String> entry : result.commandLineBuildVariables) {
-        // If the same --define flag is passed multiple times we keep the last value.
-        flagValueByName.put(entry.getKey(), entry.getValue());
-      }
+      LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
 
       // This check is an optimization to avoid creating a new list if the normalization was a
       // no-op.

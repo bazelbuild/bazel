@@ -55,7 +55,7 @@ public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionE
     for (SkyKey depKey : ImmutableSet.copyOf(depKeys)) {
       resultMap.put(depKey, ValueOrUntypedException.ofValueUntyped(evaluationResult.get(depKey)));
     }
-    return resultMap.build();
+    return resultMap.buildOrThrow();
   }
 
   @Override

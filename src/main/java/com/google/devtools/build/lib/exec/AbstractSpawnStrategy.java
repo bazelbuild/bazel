@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -200,7 +203,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           !Strings.isNullOrEmpty(resultMessage)
               ? resultMessage
               : CommandFailureUtils.describeCommandFailure(verboseFailures, cwd, spawn);
-      throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
+      throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/ false);
     }
     return ImmutableList.of(spawnResult);
   }
@@ -234,14 +237,16 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public void prefetchInputs()
-        throws IOException, ForbiddenActionInputException, InterruptedException {
+    public ListenableFuture<Void> prefetchInputs()
+        throws IOException, ForbiddenActionInputException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-        actionExecutionContext
+        return actionExecutionContext
             .getActionInputPrefetcher()
             .prefetchFiles(
                 getInputMapping(PathFragment.EMPTY_FRAGMENT).values(), getMetadataProvider());
       }
+
+      return immediateVoidFuture();
     }
 
     @Override

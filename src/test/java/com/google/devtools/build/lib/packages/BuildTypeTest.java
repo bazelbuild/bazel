@@ -20,13 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
@@ -40,11 +37,8 @@ import org.junit.runners.JUnit4;
 public final class BuildTypeTest {
 
   private final Label currentRule = Label.parseAbsoluteUnchecked("//quux:baz");
-  private final LabelConversionContext labelConversionContext =
-      new LabelConversionContext(
-          currentRule,
-          RepositoryMapping.ALWAYS_FALLBACK,
-          /*convertedLabelsInPackage=*/ new HashMap<>());
+  private final LabelConverter labelConversionContext =
+      new LabelConverter(currentRule, RepositoryMapping.ALWAYS_FALLBACK);
 
   @Test
   public void testKeepsDictOrdering() throws Exception {
@@ -265,28 +259,6 @@ public final class BuildTypeTest {
         .containsExactlyElementsIn(expected);
   }
 
-  @Test
-  public void testLabelWithRemapping() throws Exception {
-    LabelConversionContext context =
-        new LabelConversionContext(
-            currentRule,
-            RepositoryMapping.createAllowingFallback(
-                ImmutableMap.of(
-                    RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"))),
-            /* convertedLabelsInPackage= */ new HashMap<>());
-    Label label = BuildType.LABEL.convert("@orig_repo//foo:bar", null, context);
-    assertThat(label)
-        .isEquivalentAccordingToCompareTo(
-            Label.parseAbsolute("@new_repo//foo:bar", ImmutableMap.of()));
-  }
-
-  @Test
-  public void testLabelConversionContextCaches() throws ConversionException {
-    assertThat(labelConversionContext.getConvertedLabelsInPackage())
-        .doesNotContainKey("//some:label");
-    BuildType.LABEL.convert("//some:label", "doesntmatter", labelConversionContext);
-    assertThat(labelConversionContext.getConvertedLabelsInPackage()).containsKey("//some:label");
-  }
 
   /**
    * Tests basic {@link Selector} functionality.

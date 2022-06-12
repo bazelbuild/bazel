@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.Before;
@@ -209,7 +209,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         DiscoveredModulesPruner.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 

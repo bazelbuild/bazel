@@ -164,7 +164,7 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
         Package pkg = pkgs.get(pkgId);
         result.put(pkgId, TargetPatternResolverUtil.resolvePackageTargets(pkg, policy));
       }
-      return result.build();
+      return result.buildOrThrow();
     } catch (NoSuchThingException e) {
       String message =
           TargetPatternResolverUtil.getParsingErrorMessage(e.getMessage(), originalPattern);

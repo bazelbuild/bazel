@@ -106,6 +106,6 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
     return getDepGraph()
         .get(key)
         .getRepoMappingWithBazelDepsOnly()
-        .withAdditionalMappings(mapping.build());
+        .withAdditionalMappings(mapping.buildOrThrow());
   }
 }

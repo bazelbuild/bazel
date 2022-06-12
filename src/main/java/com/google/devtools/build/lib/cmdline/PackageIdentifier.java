@@ -185,7 +185,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   // that disparity?
   @Override
   public String toString() {
-    return (repository.isMain() ? "" : repository + "//") + pkgName;
+    // Avoid creating a new String object in the common case of the main repository (PathFragment
+    // stores its toString).
+    return repository.isMain() ? pkgName.toString() : (repository + "//" + pkgName);
   }
 
   @Override

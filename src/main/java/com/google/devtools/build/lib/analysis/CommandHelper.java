@@ -112,7 +112,7 @@ public final class CommandHelper {
 
     /** Returns the built {@link CommandHelper}. */
     public CommandHelper build() {
-      return new CommandHelper(ruleContext, toolDependencies.build(), labelMap.build());
+      return new CommandHelper(ruleContext, toolDependencies.build(), labelMap.buildOrThrow());
     }
   }
 
@@ -204,7 +204,7 @@ public final class CommandHelper {
     for (Map.Entry<Label, Collection<Artifact>> entry : tempLabelMap.entrySet()) {
       labelMapBuilder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
     }
-    this.labelMap = labelMapBuilder.build();
+    this.labelMap = labelMapBuilder.buildOrThrow();
   }
 
   public NestedSet<Artifact> getResolvedTools() {

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -87,6 +88,7 @@ public class JavaStarlarkCommon
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -124,7 +126,9 @@ public class JavaStarlarkCommon
               .getImmutableList();
     }
     // checks for private API access
-    if (!enableCompileJarAction || !classpathResources.isEmpty()) {
+    if (!enableCompileJarAction
+        || !classpathResources.isEmpty()
+        || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
     return JavaInfoBuildHelper.getInstance()
@@ -158,6 +162,7 @@ public class JavaStarlarkCommon
             enableAnnotationProcessing,
             enableCompileJarAction,
             javaSemantics,
+            injectingRuleKind,
             thread);
   }
 
@@ -214,9 +219,16 @@ public class JavaStarlarkCommon
 
   @Override
   public JavaInfo mergeJavaProviders(
-      Sequence<?> providers, /* <JavaInfo> expected. */ StarlarkThread thread)
+      Sequence<?> providers, /* <JavaInfo> expected. */
+      Sequence<?> runtimeDeps, /* <JavaInfo> expected. */
+      StarlarkThread thread)
       throws EvalException {
-    return JavaInfo.merge(Sequence.cast(providers, JavaInfo.class, "providers"));
+    if (!runtimeDeps.isEmpty()) {
+      checkPrivateAccess(thread);
+    }
+    return JavaInfo.merge(
+        Sequence.cast(providers, JavaInfo.class, "providers"),
+        Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"));
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.
@@ -297,6 +309,9 @@ public class JavaStarlarkCommon
   @Override
   public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
+    if (target instanceof MergedConfiguredTarget) {
+      target = ((MergedConfiguredTarget) target).getBaseConfiguredTarget();
+    }
     if (target instanceof AbstractConfiguredTarget) {
       return ((AbstractConfiguredTarget) target).getRuleClassString();
     }
@@ -339,8 +354,11 @@ public class JavaStarlarkCommon
       builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
     } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
       builder.addProvider(
-          JavaCompilationArgsProvider.class,
-          javaInfo.getProvider(JavaCompilationArgsProvider.class));
+          JavaCompilationInfoProvider.class,
+          new JavaCompilationInfoProvider.Builder()
+              .setRuntimeClasspath(
+                  javaInfo.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars())
+              .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
       builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());

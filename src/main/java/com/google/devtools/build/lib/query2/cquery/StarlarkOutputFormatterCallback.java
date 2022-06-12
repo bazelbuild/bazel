@@ -109,7 +109,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       for (Map.Entry<Label, Object> e : buildOptions.getStarlarkOptions().entrySet()) {
         result.put(e.getKey().toString(), e.getValue());
       }
-      return result.build();
+      return result.buildOrThrow();
     }
 
     @StarlarkMethod(
@@ -186,7 +186,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     try (Mutability mu = Mutability.create("formatter")) {
       ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
       Starlark.addMethods(env, new CqueryDialectGlobals(), StarlarkSemantics.DEFAULT);
-      Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.build());
+      Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
 
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);

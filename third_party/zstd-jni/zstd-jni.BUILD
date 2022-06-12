@@ -15,6 +15,11 @@ cc_binary(
     }),
     copts = select({
         "@io_bazel//src/conditions:windows": [],
+        "@io_bazel//src/conditions:darwin": [
+            "-std=c99",
+            "-Wno-unused-variable",
+            "-Wno-sometimes-uninitialized",
+        ],
         "//conditions:default": [
             "-std=c99",
             "-Wno-unused-variable",

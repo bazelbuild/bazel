@@ -17,10 +17,11 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
@@ -90,7 +91,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(SyscallCache syscallCache) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "local_repository")
             .put(

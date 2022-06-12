@@ -33,17 +33,18 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -64,17 +65,22 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * The environment of a Blaze query. Not thread-safe.
+ *
+ * <p>This environment is valid only for a single query, called via {@link #evaluateQuery}. Call
+ * only once!
  */
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
   private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
   private final PathFragment relativeWorkingDirectory;
-  private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
+  @Nullable private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
   private final Digraph<Target> graph = new Digraph<>();
@@ -83,6 +89,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected final int loadingPhaseThreads;
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
+
+  private boolean doneQuery;
 
   /**
    * Note that the correct operation of this class critically depends on the Reporter being a
@@ -97,7 +105,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    * @param settings a set of enabled settings
    */
   public BlazeQueryEnvironment(
-      QueryTransitivePackagePreloader queryTransitivePackagePreloader,
+      @Nullable QueryTransitivePackagePreloader queryTransitivePackagePreloader,
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
@@ -108,7 +116,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      String queryIdForDebugging) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
@@ -117,7 +126,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.cachingPackageLocator = cachingPackageLocator;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter, queryIdForDebugging);
   }
 
   @Override
@@ -130,8 +139,9 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpression expr,
       ThreadSafeOutputFormatterCallback<Target> callback)
           throws QueryException, InterruptedException, IOException {
-    resolvedTargetPatterns.clear();
-    QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
+    Preconditions.checkState(!doneQuery, "Can only use environment for one query: %s", expr);
+    doneQuery = true;
+    QueryEvalResult queryEvalResult = evaluateQueryInternal(expr, callback);
     return new DigraphQueryEvalResult<>(
         queryEvalResult.getSuccess(),
         queryEvalResult.isEmpty(),
@@ -271,15 +281,14 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   /**
-   * Checks that the graph rooted at 'targetNode' has been completely built;
-   * fails if not.  Callers of {@link #getTransitiveClosure} must ensure that
-   * {@link #buildTransitiveClosure} has been called before.
+   * Checks that the graph rooted at 'targetNode' has been completely built; fails if not. Callers
+   * of {@link #getTransitiveClosure} must ensure that {@link #buildTransitiveClosure} has been
+   * called before.
    *
-   * <p>It would be inefficient and failure-prone to make getTransitiveClosure
-   * call buildTransitiveClosure directly.  Also, it would cause
-   * nondeterministic behavior of the operators, since the set of packages
-   * loaded (and hence errors reported) would depend on the ordering details of
-   * the query operators' implementations.
+   * <p>It would be inefficient and failure-prone to make getTransitiveClosure call
+   * buildTransitiveClosure directly. Also, it would cause nondeterministic behavior of the
+   * operators, since the set of packages loaded (and hence errors reported) would depend on the
+   * ordering details of the query operators' implementations.
    */
   private void checkBuilt(Target targetNode) {
     Preconditions.checkState(
@@ -289,11 +298,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public void buildTransitiveClosure(QueryExpression caller,
-                                     ThreadSafeMutableSet<Target> targetNodes,
-                                     int maxDepth) throws QueryException, InterruptedException {
+  public void buildTransitiveClosure(
+      QueryExpression caller, ThreadSafeMutableSet<Target> targetNodes, OptionalInt maxDepth)
+      throws QueryException, InterruptedException {
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
-      preloadTransitiveClosure(targetNodes, maxDepth);
+      preloadTransitiveClosure(targetNodes, maxDepth, caller);
     }
     try (SilentCloseable closeable = Profiler.instance().profile("syncWithVisitor")) {
       labelVisitor.syncWithVisitor(
@@ -345,14 +354,22 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new MinDepthUniquifierImpl<>(TargetKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
   }
 
-  private void preloadTransitiveClosure(ThreadSafeMutableSet<Target> targets, int maxDepth)
-      throws InterruptedException {
-    if (maxDepth >= MAX_DEPTH_FULL_SCAN_LIMIT && queryTransitivePackagePreloader != null) {
+  private void preloadTransitiveClosure(
+      ThreadSafeMutableSet<Target> targets, OptionalInt maxDepth, QueryExpression callerForError)
+      throws InterruptedException, QueryException {
+    if (QueryEnvironment.shouldVisit(maxDepth, MAX_DEPTH_FULL_SCAN_LIMIT)
+        && queryTransitivePackagePreloader != null) {
       // Only do the full visitation if "maxDepth" is large enough. Otherwise, the benefits of
       // preloading will be outweighed by the cost of doing more work than necessary.
       Set<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
       queryTransitivePackagePreloader.preloadTransitiveTargets(
-          eventHandler, labels, keepGoing, loadingPhaseThreads);
+          eventHandler,
+          labels,
+          keepGoing,
+          loadingPhaseThreads,
+          // Don't throw an error if in keep-going mode or if the depth was limited: it's possible
+          // that an encountered error was deeper than the depth bound.
+          keepGoing || maxDepth.isPresent() ? null : callerForError);
     }
   }
 
@@ -458,13 +475,16 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
       throws TargetParsingException, InterruptedException {
-    if (!resolvedTargetPatterns.keySet().containsAll(patterns)) {
-      // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
-      // being called from within a SkyFunction.
-      resolvedTargetPatterns.putAll(
-          targetPatternPreloader.preloadTargetPatterns(
-              eventHandler, relativeWorkingDirectory, patterns, keepGoing));
-    }
+    Preconditions.checkState(
+        resolvedTargetPatterns.isEmpty(),
+        "Already resolved patterns: %s %s",
+        patterns,
+        resolvedTargetPatterns);
+    // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
+    // being called from within a SkyFunction.
+    resolvedTargetPatterns.putAll(
+        targetPatternPreloader.preloadTargetPatterns(
+            eventHandler, relativeWorkingDirectory, patterns, keepGoing));
   }
 
   private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels, Set<Target> nodes) {

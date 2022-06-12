@@ -53,14 +53,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ forceLoadLibrary();
 
   @StarlarkMethod(
-      name = "direct_headers",
-      structField = true,
-      doc =
-          "Public header files from this target directly (no transitive headers). "
-              + "These are mostly headers from the 'hdrs' attribute.")
-  Sequence<FileApiT> directHeaders();
-
-  @StarlarkMethod(
       name = "imported_library",
       structField = true,
       doc = "Imported precompiled static libraries (.a files) to be linked into the binary.")

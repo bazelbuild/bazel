@@ -148,6 +148,6 @@ public interface StarlarkConfigApi extends StarlarkValue {
   @StarlarkBuiltin(
       name = "ExecTransitionFactory",
       category = DocCategory.BUILTIN,
-      doc = "<i>experimental</i> an execution transition.")
+      doc = "an execution transition.")
   interface ExecTransitionFactoryApi extends StarlarkValue {}
 }

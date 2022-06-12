@@ -72,9 +72,6 @@ public class Aapt2ResourcePackagingAction {
 
   private static final StdLogger STD_LOGGER = new StdLogger(StdLogger.Level.WARNING);
 
-  private static Aapt2ConfigOptions aaptConfigOptions;
-  private static Options options;
-
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
     @Option(
@@ -358,8 +355,9 @@ public class Aapt2ResourcePackagingAction {
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
-    aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
-    options = optionsParser.getOptions(Options.class);
+
+    Aapt2ConfigOptions aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
+    Options options = optionsParser.getOptions(Options.class);
 
     Preconditions.checkArgument(
         options.packageId == -1 || (options.packageId >= 2 && options.packageId <= 255),

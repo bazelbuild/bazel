@@ -228,7 +228,7 @@ public class NinjaParserStep {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return new NinjaRule(nameInterner.intern(name), variablesBuilder.build());
+    return new NinjaRule(nameInterner.intern(name), variablesBuilder.buildOrThrow());
   }
 
   /** Parses Ninja pool at the current lexer position. */
@@ -256,7 +256,7 @@ public class NinjaParserStep {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return new NinjaPool(nameInterner.intern(name), variablesBuilder.build());
+    return new NinjaPool(nameInterner.intern(name), variablesBuilder.buildOrThrow());
   }
 
   private enum NinjaTargetParsingPart {

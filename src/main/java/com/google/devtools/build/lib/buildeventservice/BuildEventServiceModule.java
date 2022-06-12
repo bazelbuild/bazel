@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -478,7 +479,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                   },
                   executor));
 
-      try (AutoProfiler p = GoogleAutoProfilerUtils.logged("waiting for BES close")) {
+      try (AutoProfiler p =
+          GoogleAutoProfilerUtils.logged(
+              "waiting for BES close for invocation " + this.invocationId)) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (ExecutionException e) {
@@ -533,19 +536,31 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             final ListenableFuture<Void> enclosingFuture =
                 Futures.nonCancellationPropagating(closeFuture);
 
-            closeFutureWithTimeout =
+            ListenableFuture<Void> timeoutFuture =
                 Futures.withTimeout(
                     enclosingFuture,
                     bepTransport.getTimeout().toMillis(),
                     TimeUnit.MILLISECONDS,
                     timeoutExecutor);
-            closeFutureWithTimeout.addListener(
-                timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+            timeoutFuture.addListener(timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+
+            // Cancellation is not propagated to the `closeFuture` for the reasons above. But in
+            // order to cancel the returned future by our explicit mechanism elsewhere in this
+            // class, we need to delegate the `cancel` to `closeFuture` so that cancellation
+            // from Futures.withTimeout is ignored and cancellation from our mechanism is properly
+            // handled.
+            closeFutureWithTimeout =
+                new SimpleForwardingListenableFuture<>(timeoutFuture) {
+                  @Override
+                  public boolean cancel(boolean mayInterruptIfRunning) {
+                    return closeFuture.cancel(mayInterruptIfRunning);
+                  }
+                };
           }
           builder.put(bepTransport, closeFutureWithTimeout);
         });
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private void closeBepTransports() throws AbruptExitException {

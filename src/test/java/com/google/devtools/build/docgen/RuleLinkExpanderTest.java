@@ -29,13 +29,14 @@ public class RuleLinkExpanderTest {
   private RuleLinkExpander singlePageExpander;
 
   @Before public void setUp() {
-    Map<String, String> index = ImmutableMap.<String, String>builder()
-        .put("cc_library", "c-cpp")
-        .put("cc_binary", "c-cpp")
-        .put("java_binary", "java")
-        .put("Fileset", "fileset")
-        .put("proto_library", "protocol-buffer")
-        .build();
+    Map<String, String> index =
+        ImmutableMap.<String, String>builder()
+            .put("cc_library", "c-cpp")
+            .put("cc_binary", "c-cpp")
+            .put("java_binary", "java")
+            .put("Fileset", "fileset")
+            .put("proto_library", "protocol-buffer")
+            .buildOrThrow();
     multiPageExpander = new RuleLinkExpander("product-name", index, false);
     singlePageExpander = new RuleLinkExpander("product-name", index, true);
   }

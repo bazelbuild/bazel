@@ -55,6 +55,9 @@ public interface MutableActionGraph extends ActionGraph {
   void registerAction(ActionAnalysisMetadata action)
       throws ActionConflictException, InterruptedException;
 
+  /** Returns the size of the action graph. */
+  int getSize();
+
   /**
    * This exception is thrown when a conflict between actions is detected. It contains information
    * about the artifact for which the conflict is found, and data about the two conflicting actions

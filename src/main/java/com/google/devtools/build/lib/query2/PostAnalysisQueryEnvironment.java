@@ -81,6 +81,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -149,7 +150,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException, IOException {
     beforeEvaluateQuery();
-    return super.evaluateQuery(expr, callback);
+    return evaluateQueryInternal(expr, callback);
   }
 
   private void beforeEvaluateQuery() throws QueryException {
@@ -516,7 +517,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   @Override
   public void buildTransitiveClosure(
-      QueryExpression caller, ThreadSafeMutableSet<T> targetNodes, int maxDepth) {
+      QueryExpression caller, ThreadSafeMutableSet<T> targetNodes, OptionalInt maxDepth) {
     // TODO(bazel-team): implement this. Just needed for error-checking.
   }
 
@@ -599,7 +600,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
               targetAndConfiguration.getLabel(), targetAndConfiguration.getConfiguration());
         }
       }
-      nonNulls = nonNullsBuilder.build();
+      nonNulls = nonNullsBuilder.buildOrThrow();
       nonNullConfigs =
           ImmutableSortedSet.copyOf(
               Comparator.comparing(BuildConfigurationValue::checksum), nonNulls.values());

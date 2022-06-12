@@ -22,7 +22,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDetail;
-import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
@@ -34,6 +33,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllS
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToCombinedDisk;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
+import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -142,6 +142,7 @@ import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -164,6 +165,7 @@ public class RemoteExecutionService {
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
   private final Set<String> reportedErrors = new HashSet<>();
+  private final Phaser backgroundTaskPhaser = new Phaser(1);
 
   private final Scheduler scheduler;
 
@@ -982,7 +984,8 @@ public class RemoteExecutionService {
           localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
     }
 
-    return new ActionResultMetadata(files.build(), symlinks.build(), directories.build());
+    return new ActionResultMetadata(
+        files.buildOrThrow(), symlinks.buildOrThrow(), directories.buildOrThrow());
   }
 
   /**
@@ -1162,13 +1165,18 @@ public class RemoteExecutionService {
             .subscribe(
                 new SingleObserver<ActionResult>() {
                   @Override
-                  public void onSubscribe(@NonNull Disposable d) {}
+                  public void onSubscribe(@NonNull Disposable d) {
+                    backgroundTaskPhaser.register();
+                  }
 
                   @Override
-                  public void onSuccess(@NonNull ActionResult actionResult) {}
+                  public void onSuccess(@NonNull ActionResult actionResult) {
+                    backgroundTaskPhaser.arriveAndDeregister();
+                  }
 
                   @Override
                   public void onError(@NonNull Throwable e) {
+                    backgroundTaskPhaser.arriveAndDeregister();
                     reportUploadError(e);
                   }
                 });
@@ -1302,7 +1310,7 @@ public class RemoteExecutionService {
       remoteCache.release();
 
       try {
-        remoteCache.awaitTermination();
+        backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
       } catch (InterruptedException e) {
         buildInterrupted.set(true);
         remoteCache.shutdownNow();

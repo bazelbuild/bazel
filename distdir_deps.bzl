@@ -25,11 +25,11 @@ DIST_DEPS = {
     #
     ########################################
     "platforms": {
-        "archive": "platforms-0.0.4.tar.gz",
-        "sha256": "079945598e4b6cc075846f7fd6a9d0857c33a7afc0de868c2ccb96405225135d",
+        "archive": "platforms-0.0.5.tar.gz",
+        "sha256": "379113459b0feaf6bfbb584a91874c065078aa673222846ac765f86661c27407",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.5/platforms-0.0.5.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.5/platforms-0.0.5.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -99,15 +99,15 @@ DIST_DEPS = {
     #
     #################################################
     "com_google_protobuf": {
-        "archive": "v3.13.0.tar.gz",
-        "sha256": "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
-        "strip_prefix": "protobuf-3.13.0",
+        "archive": "v3.19.2.tar.gz",
+        "sha256": "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
+        "strip_prefix": "protobuf-3.19.2",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
         ],
         "patch_args": ["-p1"],
-        "patches": ["//third_party/protobuf:3.13.0.patch"],
+        "patches": ["//third_party/protobuf:3.19.2.patch"],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
@@ -136,6 +136,7 @@ DIST_DEPS = {
         "patch_args": ["-p1"],
         "patches": [
             "//third_party/grpc:grpc_1.41.0.patch",
+            "//third_party/grpc:grpc_1.41.0.win_arm64.patch",
         ],
         "used_in": [
             "additional_distfiles",
@@ -346,6 +347,186 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
+    "remotejdk11_linux": {
+        "aliases": [
+            "remotejdk11_linux_for_testing",
+            "openjdk11_linux_archive",
+            "openjdk_linux_vanilla",
+        ],
+        "archive": "zulu11.52.13-ca-jdk11.0.13-linux_x64.tar.gz",
+        "sha256": "77a126669b26b3a89e0117b0f28cddfcd24fcd7699b2c1d35f921487148b9a9f",
+        "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-linux_x64",
+        "urls": [
+            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-linux_x64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk11_linux_aarch64": {
+        "aliases": [
+            "remotejdk11_linux_aarch64_for_testing",
+            "openjdk_linux_aarch64_vanilla",
+        ],
+        "archive": "zulu11.52.13-ca-jdk11.0.13-linux_aarch64.tar.gz",
+        "sha256": "6be187379c26506a4b804b4f734c17e554aebe4204bde58a10b429054cc9cf9f",
+        "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-linux_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/zulu-embedded/bin/zulu11.52.13-ca-jdk11.0.13-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu-embedded/bin/zulu11.52.13-ca-jdk11.0.13-linux_aarch64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk11_linux_ppc64le": {
+        "aliases": [
+            "remotejdk11_linux_ppc64le_for_testing",
+            "openjdk_linux_ppc64le_vanilla",
+        ],
+        "sha256": "82f14cda71cff99c878bf8400598a87235adb6c81b0337f7077c27e5cac1190c",
+        "strip_prefix": "jdk-11.0.13+8",
+        "urls": [
+            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
+            "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk11_linux_s390x": {
+        "aliases": [
+            "remotejdk11_linux_s390x_for_testing",
+            "openjdk_linux_s390x_vanilla",
+        ],
+        "sha256": "9d280d86fdf6a7d9e5cbf54dc37f1d6d09dfe676ff5c684802fdfa3932eee63e",
+        "strip_prefix": "jdk-11.0.13+8",
+        "urls": [
+            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
+            "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk11_macos": {
+        "aliases": [
+            "remotejdk11_macos_for_testing",
+            "openjdk_macos_x86_64_vanilla",
+            "openjdk11_darwin_archive",
+        ],
+        "archive": "zulu11.52.13-ca-jdk11.0.13-macosx_x64.tar.gz",
+        "sha256": "e27a11a6e970ba6f597ecc957c0cdb502ff8990c243a6abd9df1e3413a0a3e44",
+        "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-macosx_x64",
+        "urls": [
+            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_x64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk11_macos_aarch64": {
+        "aliases": [
+            "openjdk_macos_aarch64_vanilla",
+            "remotejdk11_macos_aarch64_for_testing",
+            "openjdk11_darwin_aarch64_archive",
+        ],
+        "archive": "zulu11.52.13-ca-jdk11.0.13-macosx_aarch64.tar.gz",
+        "sha256": "eb8d593a61a9461a554e7bb1d67bca0f94242273f1d01a13f58c20c269b35fe5",
+        "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-macosx_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_aarch64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk11_win": {
+        "aliases": [
+            "remotejdk11_win_for_testing",
+            "openjdk11_windows_archive",
+            "openjdk_win_vanilla",
+        ],
+        "archive": "zulu11.52.13-ca-jdk11.0.13-win_x64.zip",
+        "sha256": "49289cc181504a01c946d5a66a5c904f8e6d912a2226dd82db62eb37e6c0a9d9",
+        "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-win_x64",
+        "urls": [
+            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-win_x64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk17_win_arm64": {
+        "aliases": [
+            "remotejdk17_win_arm64_for_testing",
+            "openjdk17_windows_arm64_archive",
+            "openjdk_win_arm64_vanilla",
+        ],
+        "archive": "zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+        "sha256": "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
+        "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-win_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk11_win_arm64": {
+        "aliases": [
+            "remotejdk11_win_arm64_for_testing",
+            "openjdk11_windows_arm64_archive",
+        ],
+        "archive": "microsoft-jdk-11.0.13.8.1-windows-aarch64.zip",
+        "sha256": "b8a28e6e767d90acf793ea6f5bed0bb595ba0ba5ebdf8b99f395266161e53ec2",
+        "strip_prefix": "jdk-11.0.13+8",
+        "urls": [
+            "https://mirror.bazel.build/aka.ms/download-jdk/microsoft-jdk-11.0.13.8.1-windows-aarch64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk17_linux": {
+        "aliases": [
+            "remotejdk17_linux_for_testing",
+            "openjdk17_linux_archive",
+        ],
+        "sha256": "73d5c4bae20325ca41b606f7eae64669db3aac638c5b3ead4a975055846ad6de",
+        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-linux_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk17_macos": {
+        "aliases": [
+            "remotejdk17_macos_for_testing",
+            "openjdk17_darwin_archive",
+        ],
+        "sha256": "89d04b2d99b05dcb25114178e65f6a1c5ca742e125cab0a63d87e7e42f3fcb80",
+        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-macosx_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk17_macos_aarch64": {
+        "aliases": [
+            "remotejdk17_macos_aarch64_for_testing",
+            "openjdk17_darwin_aarch64_archive",
+        ],
+        "sha256": "54247dde248ffbcd3c048675504b1c503b81daf2dc0d64a79e353c48d383c977",
+        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-macosx_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk17_win": {
+        "aliases": [
+            "remotejdk17_win_for_testing",
+            "openjdk17_windows_archive",
+        ],
+        "sha256": "e965aa0ea7a0661a3446cf8f10ee00684b851f883b803315289f26b4aa907fdb",
+        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-win_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
+        ],
+        "used_in": [],
+    },
 }
 
 # Add aliased names
@@ -365,6 +546,8 @@ _create_index()
 def _gen_workspace_stanza_impl(ctx):
     if ctx.attr.template and (ctx.attr.preamble or ctx.attr.postamble):
         fail("Can not use template with either preamble or postamble")
+    if ctx.attr.use_maybe and ctx.attr.repo_clause:
+        fail("Can not use use_maybe with repo_clause")
 
     if ctx.attr.use_maybe:
         repo_clause = """
@@ -376,6 +559,8 @@ maybe(
     urls = {urls},
 )
 """
+    elif ctx.attr.repo_clause:
+        repo_clause = ctx.attr.repo_clause
     else:
         repo_clause = """
 http_archive(
@@ -397,7 +582,6 @@ http_archive(
 
         repo_stanzas["{%s}" % repo] = repo_clause.format(
             repo = repo,
-            archive = info["archive"],
             sha256 = str(info["sha256"]),
             strip_prefix = strip_prefix,
             urls = info["urls"],
@@ -433,6 +617,7 @@ gen_workspace_stanza = rule(
             mandatory = False,
         ),
         "use_maybe": attr.bool(doc = "Use maybe() invocation instead of http_archive."),
+        "repo_clause": attr.string(doc = "Use a custom clause for each repository."),
     },
     doc = "Use specifications from DIST_DEPS to generate WORKSPACE http_archive stanzas or to" +
           "drop them into a template.",

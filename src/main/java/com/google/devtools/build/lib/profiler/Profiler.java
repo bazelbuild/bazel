@@ -49,6 +49,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
@@ -637,6 +638,16 @@ public final class Profiler {
     logEventAtTime(clock.nanoTime(), type, description);
   }
 
+  private SilentCloseable reallyProfile(ProfilerTask type, String description) {
+    // ProfilerInfo.allTasksById is supposed to be an id -> Task map, but it is in fact a List,
+    // which means that we cannot drop tasks to which we had already assigned ids. Therefore,
+    // non-leaf tasks must not have a minimum duration. However, we don't quite consistently
+    // enforce this, and Blaze only works because we happen not to add child tasks to those parent
+    // tasks that have a minimum duration.
+    TaskData taskData = new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description);
+    return () -> completeTask(taskData);
+  }
+
   /**
    * Records the beginning of a task as specified, and returns a {@link SilentCloseable} instance
    * that ends the task. This lets the system do the work of ending the task, with the compiler
@@ -657,19 +668,18 @@ public final class Profiler {
    * @param description task description. May be stored until the end of the build.
    */
   public SilentCloseable profile(ProfilerTask type, String description) {
-    // ProfilerInfo.allTasksById is supposed to be an id -> Task map, but it is in fact a List,
-    // which means that we cannot drop tasks to which we had already assigned ids. Therefore,
-    // non-leaf tasks must not have a minimum duration. However, we don't quite consistently
-    // enforce this, and Blaze only works because we happen not to add child tasks to those parent
-    // tasks that have a minimum duration.
     Preconditions.checkNotNull(description);
-    if (isActive() && isProfiling(type)) {
-      TaskData taskData =
-          new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description);
-      return () -> completeTask(taskData);
-    } else {
-      return NOP;
-    }
+    return (isActive() && isProfiling(type)) ? reallyProfile(type, description) : NOP;
+  }
+
+  /**
+   * Version of {@link #profile(ProfilerTask, String)} that avoids creating string unless actually
+   * profiling.
+   */
+  public SilentCloseable profile(ProfilerTask type, Supplier<String> description) {
+    return (isActive() && isProfiling(type))
+        ? reallyProfile(type, Preconditions.checkNotNull(description.get()))
+        : NOP;
   }
 
   /**

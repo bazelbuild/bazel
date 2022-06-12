@@ -50,6 +50,7 @@ public abstract class TagClass implements StarlarkValue {
     for (int i = 0; i < attributes.size(); i++) {
       attributeIndicesBuilder.put(attributes.get(i).getPublicName(), i);
     }
-    return new AutoValue_TagClass(attributes, doc, location, attributeIndicesBuilder.build());
+    return new AutoValue_TagClass(
+        attributes, doc, location, attributeIndicesBuilder.buildOrThrow());
   }
 }

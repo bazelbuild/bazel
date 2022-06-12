@@ -34,6 +34,7 @@ load(
     ":utils.bzl",
     "patch",
     "read_netrc",
+    "read_user_netrc",
     "update_attrs",
     "use_netrc",
     "workspace_and_buildfile",
@@ -77,21 +78,9 @@ def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "HOME" in ctx.os.environ and not ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"])
-        if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "USERPROFILE" in ctx.os.environ and ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
-        if ctx.path(netrcfile).exists:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    return {}
+    else:
+        netrc = read_user_netrc(ctx)
+    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""

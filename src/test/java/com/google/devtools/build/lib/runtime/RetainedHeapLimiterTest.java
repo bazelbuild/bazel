@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.runtime.MemoryPressureHandler.Event;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.After;
@@ -123,17 +122,17 @@ public final class RetainedHeapLimiterTest {
     assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
   }
 
-  private static Event percentUsedAfterForcedGc(int percentUsed) {
+  private static MemoryPressureEvent percentUsedAfterForcedGc(int percentUsed) {
     return percentUsedAfterGc(/*wasManualGc=*/ true, percentUsed);
   }
 
-  private static Event percentUsedAfterOtherGc(int percentUsed) {
+  private static MemoryPressureEvent percentUsedAfterOtherGc(int percentUsed) {
     return percentUsedAfterGc(/*wasManualGc=*/ false, percentUsed);
   }
 
-  private static Event percentUsedAfterGc(boolean wasManualGc, int percentUsed) {
+  private static MemoryPressureEvent percentUsedAfterGc(boolean wasManualGc, int percentUsed) {
     checkArgument(percentUsed >= 0 && percentUsed <= 100, percentUsed);
-    return Event.newBuilder()
+    return MemoryPressureEvent.newBuilder()
         .setWasManualGc(wasManualGc)
         .setTenuredSpaceUsedBytes(percentUsed)
         .setTenuredSpaceMaxBytes(100L)

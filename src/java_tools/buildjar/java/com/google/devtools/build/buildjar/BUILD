@@ -52,6 +52,14 @@ java_library(
         ["javac/*.java"],
         exclude = JAVAC_OPTIONS_SRCS + JAVAC_TEST_SRCS,
     ),
+    javacopts = [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    ],
     deps = [
         ":invalid_command_line_exception",
         ":javac_options",
@@ -60,7 +68,6 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -212,6 +219,11 @@ bootstrap_java_binary(
 java_test(
     name = "BootClassPathCachingFileManagerTest",
     srcs = ["javac/BootClassPathCachingFileManagerTest.java"],
+    javacopts = [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    ],
     deps = [
         ":javac",
         "//third_party:guava",

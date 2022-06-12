@@ -44,33 +44,49 @@ def _check_if_target_under_path(value, pattern):
 def _linking_suffix_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    target_under_test = analysistest.target_under_test(env)
-    actions = analysistest.target_actions(env)
+    if ctx.attr.is_linux:
+        target_under_test = analysistest.target_under_test(env)
+        actions = analysistest.target_actions(env)
 
-    args = actions[2].content.split("-Wl,-no-whole-archive")
-    asserts.true(env, "a_suffix" in args[-2].split("\n")[-2], "liba_suffix.a should be the last user library linked")
+        args = actions[2].content.split("\n")
+        user_libs = []
+        for arg in args:
+            if arg.endswith(".o"):
+                user_libs.append(arg)
+        asserts.true(env, user_libs[-1].endswith("a_suffix.pic.o"), "liba_suffix.pic.o should be the last user library linked")
 
     return analysistest.end(env)
 
-linking_suffix_test = analysistest.make(_linking_suffix_test_impl)
+linking_suffix_test = analysistest.make(
+    _linking_suffix_test_impl,
+    attrs = {
+        "is_linux": attr.bool(),
+    },
+)
 
 def _additional_inputs_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    target_under_test = analysistest.target_under_test(env)
-    actions = analysistest.target_actions(env)
+    if ctx.attr.is_linux:
+        target_under_test = analysistest.target_under_test(env)
+        actions = analysistest.target_actions(env)
 
-    found = False
-    for arg in actions[3].argv:
-        if arg.find("-Wl,--script=") != -1:
-            asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
-            found = True
-            break
-    asserts.true(env, found, "Should have seen option --script=")
+        found = False
+        for arg in actions[3].argv:
+            if arg.find("-Wl,--script=") != -1:
+                asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
+                found = True
+                break
+        asserts.true(env, found, "Should have seen option --script=")
 
     return analysistest.end(env)
 
-additional_inputs_test = analysistest.make(_additional_inputs_test_impl)
+additional_inputs_test = analysistest.make(
+    _additional_inputs_test_impl,
+    attrs = {
+        "is_linux": attr.bool(),
+    },
+)
 
 def _build_failure_test_impl(ctx):
     env = analysistest.begin(ctx)

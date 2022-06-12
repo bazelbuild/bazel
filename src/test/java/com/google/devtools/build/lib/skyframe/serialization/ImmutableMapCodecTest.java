@@ -57,7 +57,7 @@ public class ImmutableMapCodecTest {
             ImmutableSortedMap.of(),
             ImmutableSortedMap.of("A", "//foo:A"),
             ImmutableSortedMap.of("B", "//foo:B"),
-            ImmutableSortedMap.reverseOrder().put("a", "b").put("c", "d").build())
+            ImmutableSortedMap.reverseOrder().put("a", "b").put("c", "d").buildOrThrow())
         // Check for order.
         .setVerificationFunction(
             (VerificationFunction<ImmutableMap<?, ?>>)
@@ -75,7 +75,7 @@ public class ImmutableMapCodecTest {
             ImmutableSortedMap.orderedBy(HELLO_FIRST_COMPARATOR)
                 .put("a", "b")
                 .put("hello", "there")
-                .build());
+                .buildOrThrow());
 
     assertThat(deserialized).containsExactly("hello", "there", "a", "b");
     assertThat(deserialized.comparator()).isSameInstanceAs(HELLO_FIRST_COMPARATOR);
@@ -93,7 +93,7 @@ public class ImmutableMapCodecTest {
                     ImmutableSortedMap.<String, String>orderedBy(comparator)
                         .put("a", "b")
                         .put("c", "d")
-                        .build()));
+                        .buildOrThrow()));
     assertThat(thrown)
         .hasMessageThat()
         .startsWith("No default codec available for " + comparator.getClass().getCanonicalName());

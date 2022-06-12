@@ -151,7 +151,7 @@ public final class BazelStarlarkEnvironment {
     for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
       ext.updateNative(env);
     }
-    return env.build();
+    return env.buildOrThrow();
   }
 
   /** Produces everything in the "native" object for WORKSPACE-loaded bzl files. */
@@ -190,7 +190,7 @@ public final class BazelStarlarkEnvironment {
     for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
       ext.update(env);
     }
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private static ImmutableMap<String, Object> createWorkspaceBzlEnv(

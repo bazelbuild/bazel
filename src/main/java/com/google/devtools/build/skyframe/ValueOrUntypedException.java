@@ -98,6 +98,11 @@ public abstract class ValueOrUntypedException {
     public Exception getException() {
       return null;
     }
+
+    @Override
+    public String toString() {
+      return "ValueOrUntypedExceptionValueImpl:" + value;
+    }
   }
 
   private static final class ValueOrUntypedExceptionExnImpl extends ValueOrUntypedException {

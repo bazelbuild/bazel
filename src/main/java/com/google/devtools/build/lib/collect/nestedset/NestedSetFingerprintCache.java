@@ -19,7 +19,6 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import java.util.HashSet;
@@ -45,10 +44,6 @@ public class NestedSetFingerprintCache {
   public <T> void addNestedSetToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet)
       throws CommandLineExpansionException, InterruptedException {
-    if (mapFn instanceof CommandLineItem.CapturingMapFn) {
-      addNestedSetToFingerprintSlow(mapFn, fingerprint, nestedSet);
-      return;
-    }
     // Only top-level nested sets can be empty, so we can bail here
     if (nestedSet.isEmpty()) {
       fingerprint.addInt(EMPTY_SET_DIGEST);
@@ -58,14 +53,6 @@ public class NestedSetFingerprintCache {
     fingerprint.addInt(nestedSet.getOrder().ordinal());
     Object children = nestedSet.getChildren();
     addToFingerprint(mapFn, fingerprint, digestMap, children);
-  }
-
-  private <T> void addNestedSetToFingerprintSlow(
-      MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet)
-      throws CommandLineExpansionException, InterruptedException {
-    for (T object : nestedSet.toList()) {
-      addToFingerprint(mapFn, fingerprint, object);
-    }
   }
 
   public void clear() {

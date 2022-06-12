@@ -340,6 +340,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
 
     repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
     darwin = cpu_value.startswith("darwin")
+    bsd = cpu_value == "freebsd" or cpu_value == "openbsd"
 
     cc = find_cc(repository_ctx, overriden_tools)
     is_clang = _is_clang(repository_ctx, cc)
@@ -400,7 +401,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         False,
     ), ":")
 
-    bazel_linkopts = "-lstdc++:-lm"
+    use_libcpp = darwin or bsd
+    bazel_linkopts = "-lc++:-lm" if use_libcpp else "-lstdc++:-lm"
     bazel_linklibs = ""
     if repository_ctx.flag_enabled("incompatible_linkopts_to_linklibs"):
         bazel_linkopts, bazel_linklibs = bazel_linklibs, bazel_linkopts
@@ -532,7 +534,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     # We need to undef it as some distributions now have it enabled by default.
                     "-U_FORTIFY_SOURCE",
                     "-fstack-protector",
-                    # All warnings are enabled. Maybe enable -Werror as well?
+                    # All warnings are enabled.
                     "-Wall",
                     # Enable a few more warnings that aren't part of -Wall.
                 ] + ((

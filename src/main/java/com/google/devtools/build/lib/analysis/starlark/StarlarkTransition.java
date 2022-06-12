@@ -296,7 +296,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         aliasToActualBuilder.put(setting, rule.getLabel());
       }
     }
-    ImmutableMap<Label, Label> aliasToActual = aliasToActualBuilder.build();
+    ImmutableMap<Label, Label> aliasToActual = aliasToActualBuilder.buildOrThrow();
 
     // Verify changed settings were changed to something reasonable for their type and filter out
     // default values.
@@ -378,7 +378,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         cleanedOptionMap.put(entry.getKey(), options);
       }
     }
-    return cleanedOptionMap.build();
+    return cleanedOptionMap.buildOrThrow();
   }
 
   /*

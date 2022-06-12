@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -103,8 +104,8 @@ import org.mockito.Mockito;
 @RunWith(Parameterized.class)
 @SuppressWarnings("FutureReturnValueIgnored")
 public class HttpCacheClientTest {
-
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("File Contents");
 
   private RemoteActionExecutionContext remoteActionExecutionContext;
@@ -314,7 +315,7 @@ public class HttpCacheClientTest {
   }
 
   @Test
-  public void testUploadAtMostOnce() throws Exception {
+  public void testUpload() throws Exception {
     ServerChannel server = null;
     try {
       ConcurrentHashMap<String, byte[]> cacheContents = new ConcurrentHashMap<>();
@@ -332,15 +333,6 @@ public class HttpCacheClientTest {
       String cacheKey = "/cas/" + digest.getHash();
       assertThat(cacheContents).containsKey(cacheKey);
       assertThat(cacheContents.get(cacheKey)).isEqualTo(data.toByteArray());
-
-      // Clear the remote cache contents
-      cacheContents.clear();
-
-      blobStore.uploadBlob(remoteActionExecutionContext, digest, data).get();
-
-      // Nothing should have been uploaded again.
-      assertThat(cacheContents).isEmpty();
-
     } finally {
       testServer.stop(server);
     }

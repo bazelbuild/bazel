@@ -26,17 +26,25 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
  * A dirtiness checker that:
  *
+ * <p>Dirties {@link RepositoryDirectoryValue}s, if either:
+ *
  * <ul>
- *   <li>Only dirties {@link RepositoryDirectoryValue}s, if they were produced in a {@code
- *       --nofetch} build, so that they are re-created on subsequent {@code --fetch} builds. The
- *       alternative solution would be to reify the value of the flag as a Skyframe value.
- *   <li>Dirties repositories, if their managed directories were changed or do not exist.
+ *   <li>they were produced in a {@code --nofetch} build, so that they are re-created on subsequent
+ *       {@code --fetch} builds. The alternative solution would be to reify the value of the flag as
+ *       a Skyframe value.
+ *   <li>any of their managed directories do not exist. This dirtying allows the user to regenerate
+ *       managed directory contents if they become corrupt, although it is unknown if this is useful
+ *       in practice. (A more correct option here would be to build support for managed directories
+ *       into FilesystemValueChecker, much like {@link
+ *       com.google.devtools.build.lib.skyframe.FilesystemValueChecker#getDirtyActionValues}, so
+ *       that changes to the contents of a managed directory would automatically invalidate the
+ *       generating {@link RepositoryDirectoryValue}.) Changes in which directories are managed are
+ *       handled in {@link ManagedDirectoriesKnowledge#workspaceHeaderReloaded}.
  * </ul>
  */
 @VisibleForTesting
@@ -73,13 +81,8 @@ public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecke
       return DirtyResult.dirty(skyValue);
     }
 
-    if (!Objects.equals(
-        managedDirectoriesKnowledge.getManagedDirectories(repositoryName),
-        repositoryValue.getManagedDirectories())) {
-      return DirtyResult.dirty(skyValue);
-    }
-
-    if (!managedDirectoriesExist(workspaceRoot, repositoryValue.getManagedDirectories())) {
+    if (!managedDirectoriesExist(
+        workspaceRoot, managedDirectoriesKnowledge.getManagedDirectories(repositoryName))) {
       return DirtyResult.dirty(skyValue);
     }
     return DirtyResult.notDirty(skyValue);

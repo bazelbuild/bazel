@@ -79,13 +79,8 @@ public final class CcCompilationHelper {
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
-  private static void configureFdoBuildVariables(
-      Map<String, String> variablesBuilder,
-      FeatureConfiguration featureConfiguration,
-      FdoContext fdoContext,
-      String fdoInstrument,
-      String csFdoInstrument,
-      CppConfiguration cppConfiguration) {
+  private void configureFdoBuildVariables(
+      Map<String, String> variablesBuilder, String fdoInstrument, String csFdoInstrument) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
@@ -107,24 +102,24 @@ public final class CcCompilationHelper {
           fdoContext.getPrefetchHintsArtifact().getExecPathString());
     }
 
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
-          fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
-    }
+    if (shouldPassPropellerProfiles()) {
+      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+        variablesBuilder.put(
+            CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
+            fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
+      }
 
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
-          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+        variablesBuilder.put(
+            CompileBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
+            fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      }
     }
 
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
-      if (!getAuxiliaryFdoInputs(fdoContext).isEmpty()) {
+      if (!getAuxiliaryFdoInputs().isEmpty()) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
@@ -142,20 +137,37 @@ public final class CcCompilationHelper {
     }
   }
 
+  /** Returns whether Propeller profiles should be passed to a compile action. */
+  private boolean shouldPassPropellerProfiles() {
+    if (ccToolchain.isToolConfiguration()) {
+      // Propeller doesn't make much sense for host builds.
+      return false;
+    }
+
+    if (fdoContext.getPropellerOptimizeInputFile() == null) {
+      // No Propeller profiles to pass.
+      return false;
+    }
+    // Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
+    return !featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
+        || featureConfiguration.isEnabled(
+            CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS);
+  }
+
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private static NestedSet<Artifact> getAuxiliaryFdoInputs(FdoContext fdoContext) {
+  private NestedSet<Artifact> getAuxiliaryFdoInputs() {
     NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
       auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
     }
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
-    }
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    if (shouldPassPropellerProfiles()) {
+      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
+      }
+      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+      }
     }
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // If --fdo_optimize was not specified, we don't have any additional inputs.
@@ -279,7 +291,7 @@ public final class CcCompilationHelper {
   private String stripIncludePrefix = null;
   private String includePrefix = null;
 
-  // This context is built out of deps and implementation_deps.
+  // This context is built out of interface deps and implementation deps.
   private CcCompilationContext ccCompilationContext;
 
   private final RuleErrorConsumer ruleErrorConsumer;
@@ -849,7 +861,7 @@ public final class CcCompilationHelper {
     outputGroupsBuilder.putAll(
         CcCommon.createSaveFeatureStateArtifacts(
             cppConfiguration, featureConfiguration, ruleContext));
-    return outputGroupsBuilder.build();
+    return outputGroupsBuilder.buildOrThrow();
   }
 
   private static NestedSet<Artifact> collectLibraryHiddenTopLevelArtifacts(
@@ -1229,7 +1241,7 @@ public final class CcCompilationHelper {
     ImmutableList.Builder<CppModuleMap> builder = ImmutableList.<CppModuleMap>builder();
     // TODO(bazel-team): Here we use the implementationDeps to build the dependents of this rule's
     // module map. This is technically incorrect for the following reasons:
-    //  - Clang will not issue a layering_check warning if headers from implementation_deps are
+    //  - Clang will not issue a layering_check warning if headers from implementation deps are
     //    included from headers of this library.
     //  - If we were to ever build with modules, Clang might store this dependency inside the .pcm
     // It should be evaluated whether this is ok.  If this turned into a problem at some
@@ -1340,7 +1352,7 @@ public final class CcCompilationHelper {
       builder.put(source, outputName);
     }
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**
@@ -1360,7 +1372,7 @@ public final class CcCompilationHelper {
     builder.putAll(
         calculateOutputNameMap(
             getSourceArtifactsByType(sources, CppSource.Type.CLIF_INPUT_PROTO), prefixDir));
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private NestedSet<Artifact> getSourceArtifactsByType(
@@ -1530,7 +1542,7 @@ public final class CcCompilationHelper {
       CppSource source,
       String outputName,
       CppCompileActionBuilder builder,
-      Iterable<ArtifactCategory> outputCategories,
+      ImmutableList<ArtifactCategory> outputCategories,
       boolean usePic) {
     if (usePic) {
       builder = new CppCompileActionBuilder(builder).setPicMode(true);
@@ -1629,7 +1641,7 @@ public final class CcCompilationHelper {
     if (needsFdoBuildVariables && fdoContext.hasArtifacts(cppConfiguration)) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
-      builder.addMandatoryInputs(getAuxiliaryFdoInputs(fdoContext));
+      builder.addMandatoryInputs(getAuxiliaryFdoInputs());
     }
     CcToolchainVariables parent = needsFdoBuildVariables ? prebuiltParentWithFdo : prebuiltParent;
     // We use the prebuilt parent variables if and only if the passed in cppModuleMap is the
@@ -1650,11 +1662,8 @@ public final class CcCompilationHelper {
       if (needsFdoBuildVariables) {
         configureFdoBuildVariables(
             genericAdditionalBuildVariables,
-            featureConfiguration,
-            fdoContext,
             cppConfiguration.getFdoInstrument(),
-            cppConfiguration.getCSFdoInstrument(),
-            cppConfiguration);
+            cppConfiguration.getCSFdoInstrument());
       }
       buildVariables =
           CcToolchainVariables.builder(
@@ -1719,15 +1728,13 @@ public final class CcCompilationHelper {
    * initialized.
    */
   private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) {
-    CppCompileActionBuilder builder =
-        new CppCompileActionBuilder(
-            actionConstructionContext, grepIncludes, ccToolchain, configuration);
-    builder.setSourceFile(sourceArtifact);
-    builder.setCcCompilationContext(ccCompilationContext);
-    builder.setCoptsFilter(coptsFilter);
-    builder.setFeatureConfiguration(featureConfiguration);
-    builder.addExecutionInfo(executionInfo);
-    return builder;
+    return new CppCompileActionBuilder(
+            actionConstructionContext, grepIncludes, ccToolchain, configuration)
+        .setSourceFile(sourceArtifact)
+        .setCcCompilationContext(ccCompilationContext)
+        .setCoptsFilter(coptsFilter)
+        .setFeatureConfiguration(featureConfiguration)
+        .addExecutionInfo(executionInfo);
   }
 
   private void createModuleCodegenAction(
@@ -1751,7 +1758,7 @@ public final class CcCompilationHelper {
 
     String gcnoFileName =
         CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
+            ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
     // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
     Artifact gcnoFile =
         isCodeCoverageEnabled
@@ -1804,7 +1811,7 @@ public final class CcCompilationHelper {
       throws RuleErrorException {
     String outputNameBase =
         CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
+            ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
 
     builder
         .setOutputs(
@@ -1880,12 +1887,11 @@ public final class CcCompilationHelper {
     // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
     if (generatePicAction) {
       String picOutputBase =
-          CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, outputName);
+          CppHelper.getArtifactNameForCategory(ccToolchain, ArtifactCategory.PIC_FILE, outputName);
       CppCompileActionBuilder picBuilder = copyAsPicBuilder(builder, picOutputBase, outputCategory);
       String gcnoFileName =
           CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
+              ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
       Artifact gcnoFile =
           enableCoverage
               ? CppHelper.getCompileOutputArtifact(
@@ -1946,14 +1952,13 @@ public final class CcCompilationHelper {
           CppHelper.getCompileOutputArtifact(
               actionConstructionContext,
               label,
-              CppHelper.getArtifactNameForCategory(
-                  ruleErrorConsumer, ccToolchain, outputCategory, outputName),
+              CppHelper.getArtifactNameForCategory(ccToolchain, outputCategory, outputName),
               configuration);
       builder.setOutputs(
           actionConstructionContext, ruleErrorConsumer, label, outputCategory, outputName);
       String gcnoFileName =
           CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
+              ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
@@ -2030,8 +2035,7 @@ public final class CcCompilationHelper {
 
   String getOutputNameBaseWith(String base, boolean usePic) throws RuleErrorException {
     return usePic
-        ? CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, base)
+        ? CppHelper.getArtifactNameForCategory(ccToolchain, ArtifactCategory.PIC_FILE, base)
         : base;
   }
 

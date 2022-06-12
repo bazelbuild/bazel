@@ -202,8 +202,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         output =
             factory
                 .create(RuleTransitionData.create(target.getAssociatedRule()))
-                .getClass()
-                .getSimpleName()
+                .getName()
                 .concat(" -> ");
       }
     }

@@ -859,18 +859,19 @@ public final class CppConfiguration extends Fragment
     return cppOptions.objcGenerateDotdFiles;
   }
 
+  // TODO(plf): Change in separate CL where Starlark cc_library.implementation_deps is renamed.
   @StarlarkMethod(
       name = "experimental_cc_implementation_deps",
       documented = false,
       useStarlarkThread = true)
-  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
+  public boolean experimentalCcInterfaceDepsForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalCcImplementationDeps();
+    return experimentalCcInterfaceDeps();
   }
 
-  public boolean experimentalCcImplementationDeps() {
-    return cppOptions.experimentalCcImplementationDeps;
+  public boolean experimentalCcInterfaceDeps() {
+    return cppOptions.experimentalCcInterfaceDeps;
   }
 
   public boolean getExperimentalCppCompileResourcesEstimation() {

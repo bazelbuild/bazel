@@ -508,7 +508,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
         }
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
-            "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
+            "$T unsafe_$L = ($T) $T.unsafe().get$L(input, $L_offset)",
             sanitizeTypeParameter(parameter.asType(), env),
             parameter.getSimpleName(),
             sanitizeTypeParameter(parameter.asType(), env),
@@ -676,7 +676,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
           TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
       constructor.beginControlFlow("try");
       constructor.addStatement(
-          "this.$L_offset = $T.getInstance().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
+          "this.$L_offset = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
           param.getSimpleName(),
           UnsafeProvider.class,
           ClassName.get(field.get().declaringClassType),

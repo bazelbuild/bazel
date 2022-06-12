@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -146,10 +146,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         BazelModuleContext moduleContext =
             BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
         builder.defaultValue(
-            defaultValue,
-            new BuildType.LabelConversionContext(
-                moduleContext.label(), moduleContext.repoMapping(), new HashMap<>()),
-            DEFAULT_ARG);
+            defaultValue, LabelConverter.forModuleContext(moduleContext), DEFAULT_ARG);
       }
     }
 
@@ -268,10 +265,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
         aspect.attachToAspectsList(
             /** baseAspectName= */
-            null,
-            builder.getAspectsListBuilder(),
-            /** allowAspectsParameters= */
-            true);
+            null, builder.getAspectsListBuilder());
       }
     }
 
@@ -370,10 +364,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   private static final Map<Type<?>, String> whyNotConfigurable =
       ImmutableMap.<Type<?>, String>builder()
-          .put(BuildType.LICENSE,
+          .put(
+              BuildType.LICENSE,
               "loading phase license checking logic assumes non-configurable values")
           .put(BuildType.OUTPUT, "output paths are part of the static graph structure")
-          .build();
+          .buildOrThrow();
 
   /**
    * If the given attribute type is non-configurable, returns the reason why. Otherwise, returns
@@ -758,6 +753,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         b.put(key, value);
       }
     }
-    return b.build();
+    return b.buildOrThrow();
   }
 }

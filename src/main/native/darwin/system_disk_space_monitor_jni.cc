@@ -15,8 +15,8 @@
 #include <notify.h>
 #include <notify_keys.h>
 
+#include "src/main/cpp/util/logging.h"
 #include "src/main/native/darwin/util.h"
-#include "src/main/native/macros.h"
 #include "src/main/native/unix_jni.h"
 
 // Not defined by Apple headers, but definitely sent out with macOS 12.
@@ -32,30 +32,29 @@ void portable_start_disk_space_monitoring() {
   dispatch_once(&once_token, ^{
     dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
     notify_handler_t lowHandler = (^(int token) {
-      log_if_possible("disk space low anomaly");
+      BAZEL_LOG(USER) << "disk space low anomaly";
       disk_space_callback(DiskSpaceLevelLow);
     });
     notify_handler_t veryLowHandler = (^(int token) {
-      log_if_possible("disk space very low anomaly");
+      BAZEL_LOG(USER) << "disk space very low anomaly";
       disk_space_callback(DiskSpaceLevelVeryLow);
     });
     int notifyToken;
     int status = notify_register_dispatch(kNotifyVFSLowDiskSpace,
                                           &notifyToken,
                                           queue, lowHandler);
-    CHECK(status == NOTIFY_STATUS_OK);
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
     status = notify_register_dispatch(kNotifyVFSVeryLowDiskSpace,
                                           &notifyToken,
                                           queue, veryLowHandler);
-    CHECK(status == NOTIFY_STATUS_OK);
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
     // These are registered solely so we can test the system from end-to-end.
     status = notify_register_dispatch(
         "com.google.bazel.test.diskspace.low", &notifyToken, queue, lowHandler);
-    CHECK(status == NOTIFY_STATUS_OK);
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
     status = notify_register_dispatch("com.google.bazel.test.diskspace.verylow",
                                       &notifyToken, queue, veryLowHandler);
-    CHECK(status == NOTIFY_STATUS_OK);
-    log_if_possible("Disk space monitoring registered");
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
   });
 }
 

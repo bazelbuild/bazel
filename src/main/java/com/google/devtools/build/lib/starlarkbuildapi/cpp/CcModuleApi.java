@@ -1236,6 +1236,18 @@ public interface CcModuleApi<
             named = true,
             documented = false,
             defaultValue = "unbound"),
+        @Param(
+            name = "linked_dll_name_suffix",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "unbound"),
+        @Param(
+            name = "win_def_file",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -1253,6 +1265,8 @@ public interface CcModuleApi<
       Object grepIncludes,
       Object variablesExtension,
       Object stamp,
+      Object linkedDllNameSuffix,
+      Object winDefFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 

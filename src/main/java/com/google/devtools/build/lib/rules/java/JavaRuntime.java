@@ -111,7 +111,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
 
     ToolchainInfo toolchainInfo =
         new ToolchainInfo(
-            ImmutableMap.<String, Object>builder().put("java_runtime", javaRuntime).build());
+            ImmutableMap.<String, Object>builder().put("java_runtime", javaRuntime).buildOrThrow());
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)

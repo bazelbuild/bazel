@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import io.reactivex.rxjava3.core.Flowable;
@@ -68,6 +69,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private final Set<Path> omittedFiles = Sets.newConcurrentHashSet();
   private final Set<Path> omittedTreeRoots = Sets.newConcurrentHashSet();
+  private final SyscallCache syscallCache;
 
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
@@ -76,7 +78,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       RemoteCache remoteCache,
       String remoteServerInstanceName,
       String buildRequestId,
-      String commandId) {
+      String commandId,
+      SyscallCache syscallCache) {
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -85,6 +88,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.commandId = commandId;
     this.remoteServerInstanceName = remoteServerInstanceName;
     this.scheduler = Schedulers.from(executor);
+    this.syscallCache = syscallCache;
   }
 
   public void omitFile(Path file) {
@@ -151,7 +155,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       }
     }
 
-    DigestUtil digestUtil = new DigestUtil(file.getFileSystem().getDigestFunction());
+    DigestUtil digestUtil = new DigestUtil(syscallCache, file.getFileSystem().getDigestFunction());
     Digest digest = digestUtil.compute(file);
     return new PathMetadata(file, digest, /* directory= */ false, isRemoteFile(file));
   }

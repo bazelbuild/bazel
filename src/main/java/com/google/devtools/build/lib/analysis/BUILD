@@ -1823,6 +1823,15 @@ java_library(
 )
 
 java_library(
+    name = "config/toolchain_type_requirement",
+    srcs = ["config/ToolchainTypeRequirement.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "config/transition_factories",
     srcs = ["config/TransitionFactories.java"],
     deps = [

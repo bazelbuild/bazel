@@ -45,6 +45,7 @@ public class PlatformBaseRule implements RuleDefinition{
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .removeAttribute("deps")
         .removeAttribute("data")
+        .removeAttribute(":action_listener")
         .build();
   }
 

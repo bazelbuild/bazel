@@ -92,7 +92,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        CcToolchainConfigInfo.fromToolchainForTestingOnly(toolchainBuilder.buildPartial()),
         PathFragment.EMPTY_FRAGMENT);
   }
 
@@ -1709,44 +1709,6 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
                         "}")
                     .getFeatureConfiguration(ImmutableSet.of("a", "b")));
     assertThat(e).hasMessageThat().contains("a b");
-  }
-
-  @Test
-  public void testErrorForNoMatchingArtifactNamePatternCategory() {
-    EvalException e =
-        assertThrows(
-            EvalException.class,
-            () ->
-                CcToolchainTestHelper.buildFeatures(
-                    "artifact_name_pattern {",
-                    "category_name: 'NONEXISTENT_CATEGORY'",
-                    "prefix: 'foo'",
-                    "extension: 'bar'}"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Artifact category NONEXISTENT_CATEGORY not recognized");
-  }
-
-  @Test
-  public void testErrorForNoMatchingArtifactPatternForCategory() throws Exception {
-    CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "artifact_name_pattern {",
-            "category_name: 'static_library'",
-            "prefix: 'foo'",
-            "extension: '.a'}");
-    EvalException e =
-        assertThrows(
-            EvalException.class,
-            () ->
-                toolchainFeatures.getArtifactNameForCategory(
-                    ArtifactCategory.DYNAMIC_LIBRARY, "output_name"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            String.format(
-                CcToolchainFeatures.MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE,
-                ArtifactCategory.DYNAMIC_LIBRARY.toString().toLowerCase()));
   }
 
   @Test

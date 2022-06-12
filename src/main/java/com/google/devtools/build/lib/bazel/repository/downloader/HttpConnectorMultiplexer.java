@@ -116,7 +116,7 @@ final class HttpConnectorMultiplexer {
                   new ImmutableMap.Builder<String, String>()
                       .putAll(headerFunction.apply(newUrl))
                       .putAll(extraHeaders)
-                      .build());
+                      .buildOrThrow());
         },
         type);
   }

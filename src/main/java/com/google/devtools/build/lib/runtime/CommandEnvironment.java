@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.Any;
@@ -98,6 +99,7 @@ public class CommandEnvironment {
   private final PathPackageLocator packageLocator;
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
+  private final SyscallCache syscallCache;
   private final Duration waitTime;
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
@@ -159,6 +161,7 @@ public class CommandEnvironment {
       Thread commandThread,
       Command command,
       OptionsParsingResult options,
+      SyscallCache syscallCache,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
@@ -173,6 +176,7 @@ public class CommandEnvironment {
     this.command = command;
     this.options = options;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
+    this.syscallCache = syscallCache;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -788,10 +792,15 @@ public class CommandEnvironment {
     synchronized (fileCacheLock) {
       if (fileCache == null) {
         fileCache =
-            new SingleBuildFileCache(getExecRoot().getPathString(), getRuntime().getFileSystem());
+            new SingleBuildFileCache(
+                getExecRoot().getPathString(), getRuntime().getFileSystem(), syscallCache);
       }
       return fileCache;
     }
+  }
+
+  public SyscallCache getSyscallCache() {
+    return syscallCache;
   }
 
   /**

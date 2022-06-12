@@ -216,19 +216,36 @@ def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descripto
         public_import_protos,
     )
 
+def _get_import_path(proto_source):
+    return proto_source.import_path()
+
 def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
     """Writes descriptor set."""
     if proto_info.direct_sources == []:
         ctx.actions.write(descriptor_set, "")
         return
 
-    dependencies_descriptor_sets = depset(transitive = [dep.transitive_descriptor_sets for dep in deps])
-
-    args = []
+    args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
-        args.append("--include_source_info")
-    args.append((descriptor_set, "--descriptor_set_out=%s"))
+        args.add("--include_source_info")
+    args.add(descriptor_set, format = "--descriptor_set_out=%s")
 
+    strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
+    strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
+    if strict_deps:
+        strict_importable_sources = proto_info.strict_importable_sources()
+        if strict_importable_sources:
+            args.add_joined("--direct_dependencies", strict_importable_sources, map_each = _get_import_path, join_with = ":")
+            # Example: `--direct_dependencies a.proto:b.proto`
+
+        else:
+            # The proto compiler requires an empty list to turn on strict deps checking
+            args.add("--direct_dependencies=")
+
+        # Set `-direct_dependencies_violation_msg=`
+        args.add(ctx.label, format = semantics.STRICT_DEPS_FLAG_TEMPLATE)
+
+    strict_public_imports_mode = ctx.fragments.proto.strict_public_imports()
     proto_common.create_proto_compile_action(
         ctx,
         proto_info,
@@ -236,8 +253,8 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         mnemonic = "GenProtoDescriptorSet",
         progress_message = "Generating Descriptor Set proto_library %{label}",
         outputs = [descriptor_set],
-        additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
+        strict_imports = strict_public_imports_mode != "OFF" and strict_public_imports_mode != "DEFAULT",
     )
 
 proto_library = rule(

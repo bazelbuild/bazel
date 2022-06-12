@@ -19,7 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -204,7 +205,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(SyscallCache syscallCache) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "new_local_repository")
             .put(ResolvedHashesFunction.ORIGINAL_ATTRIBUTES, orig)

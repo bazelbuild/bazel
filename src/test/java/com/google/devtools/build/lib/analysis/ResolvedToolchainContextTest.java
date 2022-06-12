@@ -54,8 +54,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -107,8 +106,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -150,8 +148,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -210,8 +207,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContextImpl.builder()
-            .setKey(toolchainContextKey)
+        UnloadedToolchainContextImpl.builder(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(variableToolchainType))

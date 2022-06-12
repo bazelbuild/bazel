@@ -94,7 +94,7 @@ public class ManagedDirectoriesKnowledgeImpl implements ManagedDirectoriesKnowle
     for (Map.Entry<RepositoryName, Set<PathFragment>> entry : reposMap.entrySet()) {
       reposMapBuilder.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
     }
-    repoToDirMap = reposMapBuilder.build();
+    repoToDirMap = reposMapBuilder.buildOrThrow();
   }
 
   /** Interface allows {@link BazelRepositoryModule} to react to managed directories refreshes. */

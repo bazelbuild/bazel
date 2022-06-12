@@ -385,3 +385,25 @@ def use_netrc(netrc, urls, patterns):
             }
 
     return auth
+
+def read_user_netrc(ctx):
+    """Read user's default netrc file.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility function.
+
+    Returns:
+      dict mapping a machine names to a dict with the information provided about them.
+    """
+    if ctx.os.name.startswith("windows"):
+        home_dir = ctx.os.environ.get("USERPROFILE", "")
+    else:
+        home_dir = ctx.os.environ.get("HOME", "")
+
+    if not home_dir:
+        return {}
+
+    netrcfile = "{}/.netrc".format(home_dir)
+    if not ctx.path(netrcfile).exists:
+        return {}
+    return read_netrc(ctx, netrcfile)

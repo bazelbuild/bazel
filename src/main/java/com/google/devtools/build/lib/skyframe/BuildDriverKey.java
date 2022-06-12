@@ -26,11 +26,15 @@ import java.util.Objects;
 public class BuildDriverKey implements SkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
+  private final boolean strictActionConflictCheck;
 
   public BuildDriverKey(
-      ActionLookupKey actionLookupKey, TopLevelArtifactContext topLevelArtifactContext) {
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
+    this.strictActionConflictCheck = strictActionConflictCheck;
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -39,6 +43,10 @@ public class BuildDriverKey implements SkyKey {
 
   public ActionLookupKey getActionLookupKey() {
     return actionLookupKey;
+  }
+
+  public boolean strictActionConflictCheck() {
+    return strictActionConflictCheck;
   }
 
   @Override

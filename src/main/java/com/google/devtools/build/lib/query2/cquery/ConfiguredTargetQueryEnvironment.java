@@ -344,17 +344,18 @@ public class ConfiguredTargetQueryEnvironment
    *
    * @param pattern the original pattern that {@code targets} were parsed from. Used for error
    *     message.
-   * @param targets the set of {@link ConfiguredTarget}s whose labels represent the targets being
-   *     requested.
+   * @param targetsFuture the set of {@link ConfiguredTarget}s whose labels represent the targets
+   *     being requested.
    * @param configPrefix the configuration to request {@code targets} in. This can be the
    *     configuration's checksum, any prefix of its checksum, or the special identifiers "host",
    *     "target", or "null".
    * @param callback the callback to receive the results of this method.
    * @return {@link QueryTaskCallable} that returns the correctly configured targets.
    */
-  QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
+  @SuppressWarnings("unchecked")
+  <T> QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
       String pattern,
-      ThreadSafeMutableSet<KeyedConfiguredTarget> targets,
+      QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture,
       String configPrefix,
       Callback<KeyedConfiguredTarget> callback) {
     // There's no technical reason other callers beside ConfigFunction can't call this. But they'd
@@ -362,6 +363,8 @@ public class ConfiguredTargetQueryEnvironment
     // remove that line: the counter-priority is making error messages as clear, precise, and
     // actionable as possible.
     return () -> {
+      ThreadSafeMutableSet<KeyedConfiguredTarget> targets =
+          (ThreadSafeMutableSet<KeyedConfiguredTarget>) targetsFuture.getIfSuccessful();
       List<KeyedConfiguredTarget> transformedResult = new ArrayList<>();
       boolean userFriendlyConfigName = true;
       for (KeyedConfiguredTarget target : targets) {

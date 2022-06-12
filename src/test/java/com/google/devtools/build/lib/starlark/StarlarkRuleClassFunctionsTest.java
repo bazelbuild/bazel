@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -68,6 +70,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Structure;
@@ -1684,12 +1687,144 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void declaredProvidersWithInit() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_init(x, y = 'abc'):", //
+        "    return {'x': x, 'y': y}",
+        "data, _new_data = provider(init = _data_init)",
+        "d1 = data(x = 1)  # normal provider constructor",
+        "d1_x = d1.x",
+        "d1_y = d1.y",
+        "d2 = data(1, 'def')  # normal provider constructor invoked with positional arguments",
+        "d2_x = d2.x",
+        "d2_y = d2.y",
+        "d3 = _new_data(x = 2, y = 'xyz')  # raw constructor",
+        "d3_x = d3.x",
+        "d3_y = d3.y");
+
+    assertThat(ev.lookup("d1_x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("d1_y")).isEqualTo("abc");
+    assertThat(ev.lookup("d2_x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("d2_y")).isEqualTo("def");
+    assertThat(ev.lookup("d3_x")).isEqualTo(StarlarkInt.of(2));
+    assertThat(ev.lookup("d3_y")).isEqualTo("xyz");
+    StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
+    StarlarkCallable rawConstructor = (StarlarkCallable) ev.lookup("_new_data");
+    assertThat(rawConstructor).isNotInstanceOf(Provider.class);
+    assertThat(dataConstructor.getInit().getName()).isEqualTo("_data_init");
+
+    StructImpl data1 = (StructImpl) ev.lookup("d1");
+    StructImpl data2 = (StructImpl) ev.lookup("d2");
+    StructImpl data3 = (StructImpl) ev.lookup("d3");
+    assertThat(data1.getProvider()).isEqualTo(dataConstructor);
+    assertThat(data2.getProvider()).isEqualTo(dataConstructor);
+    assertThat(data3.getProvider()).isEqualTo(dataConstructor);
+    assertThat(dataConstructor.isExported()).isTrue();
+    assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
+    assertThat(dataConstructor.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "data"));
+  }
+
+  @Test
+  public void declaredProvidersWithFailingInit_rawConstructorSucceeds() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_failing_init(x):", //
+        "    fail('_data_failing_init fails')",
+        "data, _new_data = provider(init = _data_failing_init)");
+
+    StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
+
+    evalAndExport(ev, "d = _new_data(x = 1)  # raw constructor");
+    StructImpl data = (StructImpl) ev.lookup("d");
+    assertThat(data.getProvider()).isEqualTo(dataConstructor);
+  }
+
+  @Test
+  public void declaredProvidersWithFailingInit_normalConstructorFails() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_failing_init(x):", //
+        "    fail('_data_failing_init fails')",
+        "data, _new_data = provider(init = _data_failing_init)");
+
+    ev.checkEvalErrorContains("_data_failing_init fails", "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
+  public void declaredProvidersWithInitReturningInvalidType_normalConstructorFails()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_invalid_init(x):", //
+        "    return 'INVALID'",
+        "data, _new_data = provider(init = _data_invalid_init)");
+
+    ev.checkEvalErrorContains(
+        "got string for 'return value of provider init()', want dict",
+        "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
+  public void declaredProvidersWithInitReturningInvalidDict_normalConstructorFails()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_invalid_init(x):", //
+        "    return {('x', 'x', 'x'): x}",
+        "data, _new_data = provider(init = _data_invalid_init)");
+
+    ev.checkEvalErrorContains(
+        "got dict<tuple, int> for 'return value of provider init()'",
+        "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
+  public void declaredProvidersWithInitReturningUnexpectedFields_normalConstructorFails()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_unexpected_fields_init(x):", //
+        "    return {'x': x, 'y': x * 2}",
+        "data, _new_data = provider(fields = ['x'], init = _data_unexpected_fields_init)");
+
+    ev.checkEvalErrorContains(
+        "got unexpected field 'y' in call to instantiate provider data",
+        "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
   public void declaredProvidersConcatSuccess() throws Exception {
     evalAndExport(
         ev,
         "data = provider()",
         "dx = data(x = 1)",
         "dy = data(y = 'abc')",
+        "dxy = dx + dy",
+        "x = dxy.x",
+        "y = dxy.y");
+    assertThat(ev.lookup("x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("y")).isEqualTo("abc");
+    StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
+    StructImpl dx = (StructImpl) ev.lookup("dx");
+    assertThat(dx.getProvider()).isEqualTo(dataConstructor);
+    StructImpl dy = (StructImpl) ev.lookup("dy");
+    assertThat(dy.getProvider()).isEqualTo(dataConstructor);
+  }
+
+  @Test
+  public void declaredProvidersWithInitConcatSuccess() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_init(x):",
+        "    return {'x': x}",
+        "data, _new_data = provider(init = _data_init)",
+        "dx = data(x = 1)  # normal constructor",
+        "dy = _new_data(y = 'abc')  # raw constructor",
         "dxy = dx + dy",
         "x = dxy.x",
         "y = dxy.y");
@@ -2098,7 +2233,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.setFailFast(false);
     evalAndExport(ev, "p = provider(fields = ['x', 'y'])", "p1 = p(x = 1, y = 2, z = 3)");
     MoreAsserts.assertContainsEvent(
-        ev.getEventCollector(), "unexpected keyword z in call to instantiate provider p");
+        ev.getEventCollector(), "got unexpected field 'z' in call to instantiate provider p");
   }
 
   @Test
@@ -2109,7 +2244,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "p = provider(fields = [])", //
         "p1 = p(x = 1, y = 2, z = 3)");
     MoreAsserts.assertContainsEvent(
-        ev.getEventCollector(), "unexpected keywords x, y, z in call to instantiate provider p");
+        ev.getEventCollector(),
+        "got unexpected fields 'x', 'y', 'z' in call to instantiate provider p");
   }
 
   @Test
@@ -2202,13 +2338,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getRequiredToolchains()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").requiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(plum.getExecGroups().get("group")).hasToolchainType("//test:my_toolchain_type");
+    assertThat(plum.getExecGroups().get("group"))
+        .toolchainType("//test:my_toolchain_type")
+        .isMandatory();
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").execCompatibleWith())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+    assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test
@@ -2255,12 +2392,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
-    assertThat(group.requiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
-    assertThat(group.execCompatibleWith())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(group).hasToolchainType("//test:my_toolchain_type");
+    assertThat(group).toolchainType("//test:my_toolchain_type").isMandatory();
+    assertThat(group).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(group).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test

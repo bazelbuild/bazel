@@ -234,7 +234,7 @@ public class IjarTests {
                 .put("LocalAndAnonymous$InnerClass", "LocalAndAnonymous")
                 .put("LocalAndAnonymous$NestedClass", "LocalAndAnonymous")
                 .put("LocalAndAnonymous$PrivateInnerClass", "LocalAndAnonymous")
-                .build());
+                .buildOrThrow());
     assertThat(innerClasses(ijar.get("LocalAndAnonymous.class")))
         .containsExactly(
             "LocalAndAnonymous$InnerClass", "LocalAndAnonymous",

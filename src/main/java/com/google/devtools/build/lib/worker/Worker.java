@@ -62,8 +62,8 @@ public abstract class Worker {
     return workerKey.getWorkerFilesCombinedHash();
   }
 
-  SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
-    return workerKey.getWorkerFilesWithHashes();
+  SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests() {
+    return workerKey.getWorkerFilesWithDigests();
   }
 
   /** Returns true if this worker is sandboxed. */

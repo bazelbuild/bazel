@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -68,6 +69,7 @@ import javax.annotation.Nullable;
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
+  private final SyscallCache syscallCache;
 
   static final class MissingArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
@@ -92,9 +94,12 @@ class ArtifactFunction implements SkyFunction {
   }
 
   public ArtifactFunction(
-      Supplier<Boolean> mkdirForTreeArtifacts, MetadataConsumerForMetrics sourceArtifactsSeen) {
+      Supplier<Boolean> mkdirForTreeArtifacts,
+      MetadataConsumerForMetrics sourceArtifactsSeen,
+      SyscallCache syscallCache) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
+    this.syscallCache = syscallCache;
   }
 
   @Override
@@ -274,7 +279,7 @@ class ArtifactFunction implements SkyFunction {
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       FileArtifactValue metadata;
       try {
-        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue);
+        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue, syscallCache);
       } catch (IOException e) {
         throw new ArtifactFunctionException(
             SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
@@ -510,6 +515,7 @@ class ArtifactFunction implements SkyFunction {
       ActionTemplateExpansionValue.ActionTemplateExpansionKey key =
           ActionTemplateExpansionValue.key(
               artifact.getArtifactOwner(), artifact.getGeneratingActionKey().getActionIndex());
+      // This call may throw an ActionExecutionFunction that bubbles up.
       ActionTemplateExpansionValue value = (ActionTemplateExpansionValue) env.getValue(key);
       return value == null ? null : new ActionTemplateExpansion(value);
     }

@@ -392,7 +392,8 @@ public class ActionCacheChecker {
       }
     }
 
-    return new CachedOutputMetadata(remoteFileMetadata.build(), mergedTreeMetadata.build());
+    return new CachedOutputMetadata(
+        remoteFileMetadata.buildOrThrow(), mergedTreeMetadata.buildOrThrow());
   }
 
   /**

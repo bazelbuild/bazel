@@ -192,7 +192,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   private void defineTestMethods() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, this);
-    for (Map.Entry<String, Object> entry : env.build().entrySet()) {
+    for (Map.Entry<String, Object> entry : env.buildOrThrow().entrySet()) {
       ev.update(entry.getKey(), entry.getValue());
     }
   }

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -494,6 +495,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
+    addAppleBinaryStarlarkRule(scratch);
     addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
@@ -896,9 +898,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//lib1:lib1")
         .setList("defines", "C=bar", "D")
         .write();
-    createBinaryTargetWriter("//bin:bin")
-        .setList("deps", "//lib2:lib2")
-        .write();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//lib2:lib2'],",
+        ")");
 
     assertThat(compileAction("//lib1:lib1", "a.o").getArguments())
         .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
@@ -1650,15 +1658,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
     useConfiguration("--cpu=ios_i386");
+    addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(
         "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "cc_library(",
         "    name = 'cc_lib',",
         "    srcs = ['a.cc'],",
         ")",
         "",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'objc_bin',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -1869,8 +1879,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider dependerProvider = providerForTarget("//x:bar");
-    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.HEADER)))
-        .containsExactly("bar.h", "bar.inc");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
 
@@ -2400,5 +2408,40 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CppCompileAction compileA = (CppCompileAction) compileAction("//bin:lib", "lib1.o");
     assertThat(compileA.compileCommandLine.getCopts())
         .containsAtLeast("bin/lib1.m", "bin/lib2.m", "bin/data.data", "bin/header.h");
+  }
+
+  @Test
+  public void testEnableCoveragePropagatesSupportFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "objc_library(",
+        "    name = 'lib',",
+        ")");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+
+    CcToolchainProvider ccToolchainProvider =
+        getConfiguredTarget("//a:toolchain").get(CcToolchainProvider.PROVIDER);
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isNotEmpty();
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList())
+        .containsExactlyElementsIn(ccToolchainProvider.getCoverageFiles().toList());
+  }
+
+  @Test
+  public void testDisableCoverageDoesNotPropagateSupportFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "objc_library(",
+        "    name = 'lib',",
+        ")");
+
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isEmpty();
   }
 }

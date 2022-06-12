@@ -198,6 +198,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + " set in the crosstool are still applied.")
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
+  /** @deprecated delete when we are sure it's not used anywhere. */
+  @Deprecated
   @Option(
       name = "incompatible_disable_native_apple_binary_rule",
       defaultValue = "false",
@@ -206,8 +208,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         OptionEffectTag.EAGERNESS_TO_EXIT,
       },
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If enabled, direct usage of the native apple_binary rule is disabled. Please use the"
-              + " Starlark rule from https://github.com/bazelbuild/rules_apple instead.")
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
 }

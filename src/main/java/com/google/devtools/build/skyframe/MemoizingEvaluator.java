@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -177,23 +176,21 @@ public interface MemoizingEvaluator {
   }
 
   /**
-   * Write the graph to the output stream. Not necessarily thread-safe. Use only for debugging
-   * purposes.
+   * Writes a brief summary about the graph to the given output stream.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
   @ThreadHostile
-  void dump(boolean summarize, PrintStream out);
+  void dumpSummary(PrintStream out);
 
-  /** A supplier for creating instances of a particular evaluator implementation. */
-  interface EvaluatorSupplier {
-    MemoizingEvaluator create(
-        ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
-        Differencer differencer,
-        EvaluationProgressReceiver progressReceiver,
-        GraphInconsistencyReceiver graphInconsistencyReceiver,
-        EventFilter eventFilter,
-        EmittedEventState emittedEventState,
-        boolean keepEdges);
-  }
+  /**
+   * Writes a detailed summary of the graph to the given output stream, omitting keys that do not
+   * match the given filter.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpDetailed(PrintStream out, Predicate<SkyKey> filter);
 
   /**
    * Keeps track of already-emitted events. Users of the graph should instantiate an

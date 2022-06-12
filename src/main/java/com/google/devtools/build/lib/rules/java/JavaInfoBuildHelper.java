@@ -257,6 +257,7 @@ final class JavaInfoBuildHelper {
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       JavaSemantics javaSemantics,
+      Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -282,6 +283,10 @@ final class JavaInfoBuildHelper {
                             starlarkRuleContext.getRuleContext(), toolchainProvider))
                     .addAll(tokenize(javacOpts))
                     .build());
+
+    if (injectingRuleKind != Starlark.NONE) {
+      helper.setInjectingRuleKind((String) injectingRuleKind);
+    }
 
     streamProviders(runtimeDeps, JavaCompilationArgsProvider.class).forEach(helper::addRuntimeDep);
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);

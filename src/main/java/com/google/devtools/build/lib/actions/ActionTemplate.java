@@ -55,19 +55,6 @@ import javax.annotation.Nullable;
  * </ol>
  */
 public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata {
-
-  /** An exception signalling that the template expansion failed during execution phase */
-  class ActionTemplateExpansionException extends Exception {
-
-    public ActionTemplateExpansionException(String cause) {
-      super(cause);
-    }
-
-    public ActionTemplateExpansionException(Throwable cause) {
-      super(cause);
-    }
-  }
-
   /**
    * Given a set of input TreeFileArtifacts resolved at execution time, returns a list of expanded
    * actions to be executed.
@@ -84,7 +71,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    */
   ImmutableList<T> generateActionsForInputArtifacts(
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
-      throws ActionTemplateExpansionException;
+      throws ActionExecutionException;
 
   /** Returns the input TreeArtifact. */
   SpecialArtifact getInputTreeArtifact();

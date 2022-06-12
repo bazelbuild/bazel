@@ -21,7 +21,6 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.CommandLineItem.CapturingMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.function.Consumer;
@@ -140,12 +139,6 @@ public class NestedSetFingerprintCacheTest {
     for (int i = 0; i < 2; ++i) {
       cache.addNestedSetToFingerprint(
           (s, args) -> args.accept(s + "_mapped"), new Fingerprint(), nestedSet);
-    }
-
-    // Make sure a CapturingMapFn doesn't get denied
-    for (int i = 0; i < 2; ++i) {
-      cache.addNestedSetToFingerprint(
-          (CapturingMapFn<String>) (s, args) -> args.accept(s + 1), new Fingerprint(), nestedSet);
     }
 
     // Make sure a ParametrizedMapFn doesn't get denied until it exceeds its instance count

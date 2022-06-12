@@ -146,6 +146,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -161,6 +162,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -173,7 +175,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -304,7 +306,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
     pkgFactory = pkgFactoryBuilder.build(ruleClassProvider, fileSystem);
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
-    skyframeExecutor =
+    SequencedSkyframeExecutor.Builder builder =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
@@ -312,8 +314,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setManagedDirectoriesKnowledge(getManagedDirectoriesKnowledge())
-            .build();
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE);
+    ManagedDirectoriesKnowledge managedDirectoriesKnowledge = getManagedDirectoriesKnowledge();
+    if (managedDirectoriesKnowledge != null) {
+      builder.setRepositoryHelpersHolder(
+          SkyframeExecutorRepositoryHelpersHolder.create(
+              managedDirectoriesKnowledge,
+              new RepositoryDirectoryDirtinessChecker(
+                  directories.getWorkspace(), managedDirectoriesKnowledge)));
+    }
+    skyframeExecutor = builder.build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, pkgFactory, directories);
     }
@@ -821,6 +831,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected ActionGraph getActionGraph() {
     return skyframeExecutor.getActionGraph(reporter);
+  }
+
+  /** Returns all arguments used by the action. */
+  protected final ImmutableList<String> allArgsForAction(SpawnAction action) throws Exception {
+    ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
+    List<CommandLineAndParamFileInfo> commandLines = action.getCommandLines().getCommandLines();
+    for (CommandLineAndParamFileInfo pair : commandLines.subList(1, commandLines.size())) {
+      args.addAll(pair.commandLine.arguments());
+    }
+    return args.build();
   }
 
   /** Locates the first parameter file used by the action and returns its command line. */
@@ -2492,7 +2512,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null,
           DiscoveredModulesPruner.DEFAULT,
-          UnixGlob.DEFAULT_SYSCALLS,
+          SyscallCache.NO_CACHE,
           ThreadStateReceiver.NULL_INSTANCE);
     }
   }

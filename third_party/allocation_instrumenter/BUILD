@@ -11,6 +11,6 @@ filegroup(
 
 distrib_java_import(
     name = "allocation_instrumenter",
-    jars = ["java-allocation-instrumenter-3.3.0.jar"],
     enable_distributions = ["debian"],
+    jars = ["java-allocation-instrumenter-3.3.0.jar"],
 )

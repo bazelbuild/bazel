@@ -87,7 +87,7 @@ final class Lexer {
           .put('^', TokenKind.CARET_EQUALS)
           .put('&', TokenKind.AMPERSAND_EQUALS)
           .put('|', TokenKind.PIPE_EQUALS)
-          .build();
+          .buildOrThrow();
 
   // Constructs a lexer which tokenizes the parser input.
   // Errors are appended to errors.

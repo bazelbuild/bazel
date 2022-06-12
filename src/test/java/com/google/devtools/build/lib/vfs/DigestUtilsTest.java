@@ -74,9 +74,13 @@ public final class DigestUtilsTest {
     FileSystemUtils.writeContentAsLatin1(myFile2, "b".repeat(fileSize2));
 
     TestThread thread1 =
-        new TestThread(() -> DigestUtils.getDigestWithManualFallback(myFile1, fileSize1));
+        new TestThread(
+            () ->
+                DigestUtils.getDigestWithManualFallback(myFile1, fileSize1, SyscallCache.NO_CACHE));
     TestThread thread2 =
-        new TestThread(() -> DigestUtils.getDigestWithManualFallback(myFile2, fileSize2));
+        new TestThread(
+            () ->
+                DigestUtils.getDigestWithManualFallback(myFile2, fileSize2, SyscallCache.NO_CACHE));
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.
@@ -116,11 +120,14 @@ public final class DigestUtilsTest {
     Path file = tracingFileSystem.getPath("/file.txt");
     FileSystemUtils.writeContentAsLatin1(file, "some contents");
 
-    byte[] digest1 = DigestUtils.getDigestWithManualFallback(file, file.getFileSize());
+    byte[] digest1 =
+        DigestUtils.getDigestWithManualFallback(file, file.getFileSize(), SyscallCache.NO_CACHE);
     assertThat(getFastDigestCounter.get()).isEqualTo(1);
     assertThat(getDigestCounter.get()).isEqualTo(1);
 
-    assertThat(DigestUtils.getDigestWithManualFallback(file, file.getFileSize()))
+    assertThat(
+            DigestUtils.getDigestWithManualFallback(
+                file, file.getFileSize(), SyscallCache.NO_CACHE))
         .isEqualTo(digest1);
     assertThat(getFastDigestCounter.get()).isEqualTo(2);
     assertThat(getDigestCounter.get()).isEqualTo(1); // Cached.

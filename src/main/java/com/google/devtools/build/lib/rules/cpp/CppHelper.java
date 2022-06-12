@@ -176,7 +176,7 @@ public class CppHelper {
       }
     }
 
-    Expander expander = ruleContext.getExpander(builder.build()).withDataExecLocations();
+    Expander expander = ruleContext.getExpander(builder.buildOrThrow()).withDataExecLocations();
     for (String value : values) {
       expander.tokenizeAndExpandMakeVars(result, attrName, value);
     }
@@ -202,6 +202,10 @@ public class CppHelper {
       if (llvmCov == null) {
         llvmCov = "";
       }
+      String llvmProfdata = toolchain.getToolPathStringOrNull(Tool.LLVM_PROFDATA);
+      if (llvmProfdata == null) {
+        llvmProfdata = "";
+      }
       String gcov = toolchain.getToolPathStringOrNull(Tool.GCOV);
       if (gcov == null) {
         gcov = "";
@@ -210,6 +214,7 @@ public class CppHelper {
           NestedSetBuilder.<Pair<String, String>>stableOrder()
               .add(Pair.of("COVERAGE_GCOV_PATH", gcov))
               .add(Pair.of("LLVM_COV", llvmCov))
+              .add(Pair.of("LLVM_PROFDATA", llvmProfdata))
               .add(Pair.of("GENERATE_LLVM_LCOV", cppConfiguration.generateLlvmLCov() ? "1" : "0"));
       if (cppConfiguration.getFdoInstrument() != null) {
         coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
@@ -482,7 +487,6 @@ public class CppHelper {
       name =
           name.replaceName(
               getArtifactNameForCategory(
-                  ruleContext,
                   ccToolchain,
                   linkType.getLinkerOutput(),
                   name.getBaseName()
@@ -677,7 +681,7 @@ public class CppHelper {
             .setExecutable(
                 PathFragment.create(
                     featureConfiguration.getToolPathForAction(CppActionNames.STRIP)))
-            .setExecutionInfo(executionInfoBuilder.build())
+            .setExecutionInfo(executionInfoBuilder.buildOrThrow())
             .setProgressMessage("Stripping %s for %s", output.prettyPrint(), ruleContext.getLabel())
             .setMnemonic("CcStrip")
             .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
@@ -761,21 +765,14 @@ public class CppHelper {
   }
 
   public static String getArtifactNameForCategory(
-      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory category,
       String outputName)
       throws RuleErrorException {
-    try {
-      return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
-    } catch (EvalException e) {
-      ruleErrorConsumer.throwWithRuleError(e);
-      throw new IllegalStateException("Should not be reached");
-    }
+    return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
   }
 
   static String getDotdFileName(
-      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory outputCategory,
       String outputName)
@@ -784,10 +781,9 @@ public class CppHelper {
         outputCategory == ArtifactCategory.OBJECT_FILE
                 || outputCategory == ArtifactCategory.PROCESSED_HEADER
             ? outputName
-            : getArtifactNameForCategory(ruleErrorConsumer, toolchain, outputCategory, outputName);
+            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
 
-    return getArtifactNameForCategory(
-        ruleErrorConsumer, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+    return getArtifactNameForCategory(toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
   }
 
   /**

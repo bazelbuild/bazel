@@ -13,16 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import com.google.common.hash.HashCode;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
@@ -164,18 +167,18 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
               "%s %s (id %d) can no longer be used, because its files have changed on disk:",
               key.getMnemonic(), key.getWorkerTypeName(), worker.getWorkerId()));
       TreeSet<PathFragment> files = new TreeSet<>();
-      files.addAll(key.getWorkerFilesWithHashes().keySet());
-      files.addAll(worker.getWorkerFilesWithHashes().keySet());
+      files.addAll(key.getWorkerFilesWithDigests().keySet());
+      files.addAll(worker.getWorkerFilesWithDigests().keySet());
       for (PathFragment file : files) {
-        HashCode oldHash = worker.getWorkerFilesWithHashes().get(file);
-        HashCode newHash = key.getWorkerFilesWithHashes().get(file);
-        if (!oldHash.equals(newHash)) {
+        byte[] oldDigest = worker.getWorkerFilesWithDigests().get(file);
+        byte[] newDigest = key.getWorkerFilesWithDigests().get(file);
+        if (!Arrays.equals(oldDigest, newDigest)) {
           msg.append("\n")
               .append(file.getPathString())
               .append(": ")
-              .append(oldHash != null ? oldHash : "<none>")
+              .append(hexStringForDebugging(oldDigest))
               .append(" -> ")
-              .append(newHash != null ? newHash : "<none>");
+              .append(hexStringForDebugging(newDigest));
         }
       }
 
@@ -183,6 +186,10 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     }
 
     return !filesChanged;
+  }
+
+  private static String hexStringForDebugging(@Nullable byte[] bytes) {
+    return bytes != null ? BaseEncoding.base16().encode(bytes).toLowerCase(Locale.ROOT) : "<none>";
   }
 
   @Override

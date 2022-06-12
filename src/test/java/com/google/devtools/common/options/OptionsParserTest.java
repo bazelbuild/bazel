@@ -466,12 +466,14 @@ public final class OptionsParserTest {
     assertThat(foo2).isEqualTo(foo1);
     assertThat(foo2.toString()).isEqualTo(foo1.toString());
 
-    Map<String, Object> expectedMap = new ImmutableMap.Builder<String, Object>().
-        put("bing", Collections.emptyList()).
-        put("bar", 42).
-        put("nodoc", "").
-        put("bang", Collections.emptyList()).
-        put("foo", "defaultFoo").build();
+    Map<String, Object> expectedMap =
+        new ImmutableMap.Builder<String, Object>()
+            .put("bing", Collections.emptyList())
+            .put("bar", 42)
+            .put("nodoc", "")
+            .put("bang", Collections.emptyList())
+            .put("foo", "defaultFoo")
+            .buildOrThrow();
 
     assertThat(foo1.asMap()).isEqualTo(expectedMap);
     assertThat(foo2.asMap()).isEqualTo(expectedMap);

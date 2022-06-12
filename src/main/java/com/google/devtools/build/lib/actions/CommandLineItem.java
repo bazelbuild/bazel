@@ -57,15 +57,6 @@ public interface CommandLineItem {
     public abstract int maxInstancesAllowed();
   }
 
-  /**
-   * Use this map function when your map function needs to capture per-rule information.
-   *
-   * <p>Use of this class prevents sharing sub-computations over shared NestedSets, since the map
-   * function is per-target. This will make your action key computations become O(N^2). Please avoid
-   * if possible.
-   */
-  interface CapturingMapFn<T> extends MapFn<T> {}
-
   /** Expands the object into the command line as a string. */
   String expandToCommandLine();
 

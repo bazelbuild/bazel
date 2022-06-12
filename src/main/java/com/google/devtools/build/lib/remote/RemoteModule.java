@@ -260,7 +260,7 @@ public final class RemoteModule extends BlazeModule {
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
-    DigestUtil digestUtil = new DigestUtil(hashFn);
+    DigestUtil digestUtil = new DigestUtil(env.getSyscallCache(), hashFn);
 
     boolean verboseFailures = false;
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
@@ -532,25 +532,10 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            remoteOptions.remoteInstanceName,
-            cacheChannel.retain(),
-            callCredentialsProvider,
-            remoteOptions.remoteTimeout.getSeconds(),
-            retrier,
-            remoteOptions.maximumOpenFiles);
-
-    cacheChannel.release();
     RemoteCacheClient cacheClient =
         new GrpcCacheClient(
-            cacheChannel.retain(),
-            callCredentialsProvider,
-            remoteOptions,
-            retrier,
-            digestUtil,
-            uploader.retain());
-    uploader.release();
+            cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
+    cacheChannel.release();
 
     if (enableRemoteExecution) {
       if (enableDiskCache) {

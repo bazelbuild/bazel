@@ -113,7 +113,7 @@ final class Parser {
           .put(TokenKind.PIPE_EQUALS, TokenKind.PIPE)
           .put(TokenKind.GREATER_GREATER_EQUALS, TokenKind.GREATER_GREATER)
           .put(TokenKind.LESS_LESS_EQUALS, TokenKind.LESS_LESS)
-          .build();
+          .buildOrThrow();
 
   /**
    * Highest precedence goes last. Based on:

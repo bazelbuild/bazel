@@ -51,7 +51,7 @@ filegroup(
     # See https://github.com/bazelbuild/bazel/issues/5508
     srcs = select({
         "@bazel_tools//src/conditions:windows": ["tw.exe"],
-        "//conditions:default": ["tw"],
+        "//conditions:default": ["dummy.sh"],
     }),
 )
 
@@ -62,6 +62,6 @@ filegroup(
     # On other platforms this binary is a no-op.
     srcs = select({
         "@bazel_tools//src/conditions:windows": ["xml.exe"],
-        "//conditions:default": ["xml"],
+        "//conditions:default": ["dummy.sh"],
     }),
 )

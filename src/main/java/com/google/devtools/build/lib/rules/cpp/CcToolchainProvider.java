@@ -361,7 +361,7 @@ public final class CcToolchainProvider extends NativeInfo
       result.put("ABI", getAbi());
     }
 
-    globalMakeEnvBuilder.putAll(result.build());
+    globalMakeEnvBuilder.putAll(result.buildOrThrow());
   }
 
   /**
@@ -461,6 +461,12 @@ public final class CcToolchainProvider extends NativeInfo
   /** Returns the files necessary for compilation. */
   public NestedSet<Artifact> getCompilerFiles() {
     return compilerFiles;
+  }
+
+  @Override
+  public Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getCompilerFiles());
   }
 
   /**
@@ -651,6 +657,14 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public PathFragment getRuntimeSysroot() {
     return runtimeSysroot;
+  }
+
+  @Override
+  @Nullable
+  public String getRuntimeSysrootForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    PathFragment runtimeSysroot = getRuntimeSysroot();
+    return runtimeSysroot != null ? runtimeSysroot.getPathString() : null;
   }
 
   /**

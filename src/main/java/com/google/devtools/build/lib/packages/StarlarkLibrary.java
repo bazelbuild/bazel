@@ -70,7 +70,7 @@ public final class StarlarkLibrary {
     Starlark.addMethods(env, new CommonLibrary());
     env.put("json", Json.INSTANCE);
     env.put("proto", Proto.INSTANCE);
-    return env.build();
+    return env.buildOrThrow();
   }
 
   /** Proto defines the "proto" Starlark module of utilities for protocol message processing. */
@@ -332,8 +332,9 @@ public final class StarlarkLibrary {
               doc =
                   "A dict that maps configuration conditions to values. Each key is a "
                       + "<a href=\"$BE_ROOT/../skylark/lib/Label.html\">Label</a> or a label string"
-                      + " that identifies a config_setting, constraint_setting, or constraint_value"
-                      + " instance."),
+                      + " that identifies a config_setting or constraint_value instance. See the"
+                      + " <a href=\"$BE_ROOT/../skylark/macros.html#label-resolution-in-macros\">"
+                      + "documentation on macros</a> for when to use a Label instead of a string."),
           @Param(
               name = "no_match_error",
               defaultValue = "''",
@@ -356,7 +357,7 @@ public final class StarlarkLibrary {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, new BuildLibrary());
     env.putAll(COMMON);
-    return env.build();
+    return env.buildOrThrow();
   }
 
   @DocumentMethods

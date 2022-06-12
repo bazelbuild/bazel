@@ -111,7 +111,7 @@ public final class FunctionTransitionUtil {
             applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
         splitBuildOptions.put(entry.getKey(), transitionedOptions);
       }
-      return splitBuildOptions.build();
+      return splitBuildOptions.buildOrThrow();
 
     } catch (ValidationException ex) {
       handler.handle(Event.error(starlarkTransition.getLocation(), ex.getMessage()));
@@ -148,7 +148,7 @@ public final class FunctionTransitionUtil {
         ? ImmutableMap.<String, Object>builder()
             .putAll(originalOutput)
             .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
-            .build()
+            .buildOrThrow()
         : originalOutput;
   }
 
@@ -179,7 +179,7 @@ public final class FunctionTransitionUtil {
       }
     }
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**
@@ -467,7 +467,7 @@ public final class FunctionTransitionUtil {
    * Extend the global build config affectedByStarlarkTransition, by adding any new option names
    * from changedOptions
    */
-  private static void updateAffectedByStarlarkTransition(
+  public static void updateAffectedByStarlarkTransition(
       CoreOptions buildConfigOptions, Set<String> changedOptions) {
     if (changedOptions.isEmpty()) {
       return;

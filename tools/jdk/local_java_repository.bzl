@@ -123,8 +123,8 @@ def _local_java_repository_impl(repository_ctx):
     java_home = repository_ctx.attr.java_home
     java_home_path = repository_ctx.path(java_home)
     if not java_home_path.exists:
-        fail('The path indicated by the "java_home" attribute "%s" (absolute: "%s") ' +
-             "does not exist." % (java_home, str(java_home_path)))
+        fail(('The path indicated by the "java_home" attribute "%s" (absolute: "%s") ' +
+              "does not exist.") % (java_home, str(java_home_path)))
 
     repository_ctx.file(
         "WORKSPACE",
@@ -132,7 +132,7 @@ def _local_java_repository_impl(repository_ctx):
         "workspace(name = \"{name}\")\n".format(name = repository_ctx.name),
     )
 
-    extension = ".exe" if repository_ctx.os.name.lower().find("windows") != -1 else ""
+    extension = ".exe" if repository_ctx.os.name.find("windows") != -1 else ""
     java_bin = java_home_path.get_child("bin").get_child("java" + extension)
 
     if not java_bin.exists:

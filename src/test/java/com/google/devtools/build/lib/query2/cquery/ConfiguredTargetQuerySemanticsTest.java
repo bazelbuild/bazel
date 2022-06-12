@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
@@ -470,6 +471,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(e)
         .hasMessageThat()
         .contains("config()'s second argument must identify a unique configuration");
+  }
+
+  @Test
+  public void testConfig_exprArgumentFailure() throws Exception {
+    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+
+    EvalThrowsResult evalThrowsResult =
+        evalThrows(
+            "config(filter(\"??not-a-valid-regex\", //test:foo.java), null)",
+            /*unconditionallyThrows=*/ true);
+    assertThat(evalThrowsResult.getMessage())
+        .startsWith("illegal 'filter' pattern regexp '??not-a-valid-regex'");
+    assertThat(evalThrowsResult.getFailureDetail().hasQuery()).isTrue();
+    assertThat(evalThrowsResult.getFailureDetail().getQuery().getCode())
+        .isEqualTo(Code.SYNTAX_ERROR);
   }
 
   @Test

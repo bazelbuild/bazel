@@ -274,12 +274,12 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
             "x",
             "x",
             // error:
-            getErrorNonExistingTarget("srcs", "cc_library", "//x:x", "//x:a.java"),
+            getErrorNonExistingTarget("srcs", "java_library", "//x:x", "//x:a.cc"),
             // build file:
             "# blank line",
-            "cc_library(name = 'x',",
-            "           srcs = ['a.java'])");
-    assertThat(e.getLocation().toString()).isEqualTo("/workspace/x/BUILD:2:11");
+            "java_library(name = 'x',",
+            "           srcs = ['a.cc'])");
+    assertThat(e.getLocation().toString()).isEqualTo("/workspace/x/BUILD:2:13");
   }
 
   @Test

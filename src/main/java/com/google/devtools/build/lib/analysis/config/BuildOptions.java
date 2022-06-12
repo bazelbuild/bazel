@@ -201,7 +201,8 @@ public final class BuildOptions implements Cloneable {
         fragmentOptionsMap.entrySet()) {
       nativeOptionsBuilder.put(entry.getKey(), entry.getValue().clone());
     }
-    return new BuildOptions(nativeOptionsBuilder.build(), ImmutableMap.copyOf(starlarkOptionsMap));
+    return new BuildOptions(
+        nativeOptionsBuilder.buildOrThrow(), ImmutableMap.copyOf(starlarkOptionsMap));
   }
 
   @Override

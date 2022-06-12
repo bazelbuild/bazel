@@ -24,7 +24,6 @@
 
 #include <string>
 
-#include "src/main/native/macros.h"
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
@@ -86,8 +85,6 @@ int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctime;
     case STAT_MTIME:
       return statbuf.st_mtime;
-    default:
-      CHECK(false);
   }
 }
 
@@ -99,8 +96,6 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctimespec.tv_nsec;
     case STAT_MTIME:
       return statbuf.st_mtimespec.tv_nsec;
-    default:
-      CHECK(false);
   }
 }
 

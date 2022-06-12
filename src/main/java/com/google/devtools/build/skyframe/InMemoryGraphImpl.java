@@ -111,9 +111,15 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
+
     @Override
     protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
       return new EdgelessInMemoryNodeEntry();
+    }
+
+    @Override
+    public boolean storesReverseDeps() {
+      return false;
     }
   }
 }

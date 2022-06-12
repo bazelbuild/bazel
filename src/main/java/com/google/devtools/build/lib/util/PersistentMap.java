@@ -410,7 +410,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @throws IOException
    */
   private synchronized DataOutputStream createMapFile(Path mapFile) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(mapFile.getParentDirectory());
+    mapFile.getParentDirectory().createDirectoryAndParents();
     DataOutputStream out =
         new DataOutputStream(new BufferedOutputStream(mapFile.getOutputStream()));
     out.writeLong(MAGIC);

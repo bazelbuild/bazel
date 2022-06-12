@@ -15,10 +15,8 @@
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
-load("@_builtins//:common/cc/cc_binary.bzl", "cc_binary")
+load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
 load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
-load("@_builtins//:common/java/java_library_macro.bzl", "java_library")
-load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "cc_shared_library", "cc_shared_library_permissions")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
@@ -27,6 +25,7 @@ load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
+load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -34,20 +33,28 @@ exported_toplevels = {
     # "original value".
     "_builtins_dummy": "overridden value",
 }
+
+# A list of Starlarkified native rules.
+#
+# * leading `+` means the Starlark rule is used by default, but can be overridden
+#   on the Bazel command line
+# * no leading symbol means the Starlark rule is used and can't be overridden
+# * leading `-` means the Starlark rule exists, but is not used by default
 exported_rules = {
     "+cc_import": cc_import,
-    "+java_library": java_library,
-    "+java_plugin": java_plugin,
     "-java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
     "+proto_library": proto_library,
-    "+apple_static_library": apple_static_library,
+    "apple_static_library": apple_static_library,
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
-    "-cc_binary": cc_binary,
+    "+cc_binary": cc_binary,
     "-cc_test": cc_test,
+    "-cc_library": cc_library,
 }
+
+# A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
     "create_proto_compile_action": proto_common.create_proto_compile_action,

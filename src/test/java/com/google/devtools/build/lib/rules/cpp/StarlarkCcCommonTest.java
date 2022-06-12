@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
@@ -71,6 +70,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -4366,7 +4366,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e)
         .hasMessageThat()
         .contains("Field 'category_name' is not of 'java.lang.String' type.");
@@ -4388,7 +4390,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Field 'extension' is not of 'java.lang.String' type.");
   }
 
@@ -4408,7 +4412,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Field 'prefix' is not of 'java.lang.String' type.");
   }
 
@@ -4425,7 +4431,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e)
         .hasMessageThat()
         .contains("The 'category_name' field of artifact_name_pattern must be a nonempty string.");
@@ -4441,9 +4449,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo artifactNamePatternStruct =
         (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
-    ArtifactNamePattern artifactNamePattern =
-        CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct);
-    assertThat(artifactNamePattern).isNotNull();
+    AtomicBoolean called = new AtomicBoolean(false);
+    CcModule.artifactNamePatternFromStarlark(
+        artifactNamePatternStruct, (c, p, ext) -> called.set(true));
+    assertThat(called.get()).isTrue();
   }
 
   @Test
@@ -4456,9 +4465,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo artifactNamePatternStruct =
         (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
-    ArtifactNamePattern artifactNamePattern =
-        CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct);
-    assertThat(artifactNamePattern).isNotNull();
+    AtomicBoolean called = new AtomicBoolean(false);
+    CcModule.artifactNamePatternFromStarlark(
+        artifactNamePatternStruct, (c, p, ext) -> called.set(true));
+    assertThat(called.get()).isTrue();
   }
 
   @Test
@@ -4474,7 +4484,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Artifact category unknown not recognized");
   }
 
@@ -4494,7 +4506,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Unrecognized file extension 'a'");
   }
 
@@ -6731,35 +6745,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("object.pic.o");
   }
 
-  @Test
-  public void testObjectFilesInCreateLibraryWithoutStaticLibrary() throws Exception {
-    setUpCcLinkingContextTest(true);
-    scratch.file(
-        "b/BUILD",
-        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
-        "crule(name='import_objects_no_lib',",
-        "   objects = ['object.o'],",
-        ")");
-
-    checkError(
-        "//b:import_objects_no_lib", "If you pass 'objects' you must also pass a 'static_library'");
-  }
-
-  @Test
-  public void testObjectFilesInCreateLibraryWithoutPicStaticLibrary() throws Exception {
-    setUpCcLinkingContextTest(true);
-    scratch.file(
-        "b/BUILD",
-        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
-        "crule(name='import_objects_no_pic_lib',",
-        "   pic_objects = ['object.pic.o'],",
-        ")");
-
-    checkError(
-        "//b:import_objects_no_pic_lib",
-        "If you pass 'pic_objects' you must also pass a 'pic_static_library'");
-  }
-
   private void setupDebugPackageProviderTest(String fission) throws Exception {
     getAnalysisMock()
         .ccSupport()
@@ -8004,4 +7989,55 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
+  @Test
+  public void testCcToolchainRuntimeSysrootNotAccessibleFromOutsideBuiltins() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain.runtime_sysroot()",
+        "  return [DefaultInfo()]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'_cc_toolchain': attr.label(default=Label('//foo:alias'))},",
+        "  fragments = ['cpp'],",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testCcToolchainCompileFilesNotAccessibleFromOutsideBuiltins() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain.compiler_files()",
+        "  return [DefaultInfo()]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'_cc_toolchain': attr.label(default=Label('//foo:alias'))},",
+        "  fragments = ['cpp'],",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
 }

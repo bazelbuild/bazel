@@ -269,9 +269,9 @@ public class Chunker {
   /** Builder class for the Chunker */
   public static class Builder {
     private int chunkSize = getDefaultChunkSize();
-    private long size;
+    protected long size;
     private boolean compressed;
-    private Supplier<InputStream> inputStream;
+    protected Supplier<InputStream> inputStream;
 
     public Builder setInput(byte[] data) {
       checkState(inputStream == null);

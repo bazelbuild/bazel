@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
@@ -39,8 +40,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RemoteCacheClientFactory}. */
 @RunWith(JUnit4.class)
 public class RemoteCacheClientFactoryTest {
-
-  private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+  private final DigestUtil digestUtil =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   private RemoteOptions remoteOptions;
   private final AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);

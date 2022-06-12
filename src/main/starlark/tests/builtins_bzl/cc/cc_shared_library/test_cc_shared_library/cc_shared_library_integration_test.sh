@@ -15,6 +15,11 @@
 # limitations under the License.
 
 set -euo pipefail
+
+if [[ "$1" = "non_linux" ]]; then
+  exit 0
+fi
+
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source ${CURRENT_DIR}/testenv.sh
 

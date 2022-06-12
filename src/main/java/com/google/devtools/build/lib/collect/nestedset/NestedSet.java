@@ -500,16 +500,19 @@ public final class NestedSet<E> {
               : ((Object[]) children).length;
     }
 
-    // Read size from end of memo.
-    int size = 0;
-    for (int i = memo.length - 1; ; i--) {
-      size = (size << 7) | (memo[i] & 0x7f);
-      if (size < 0) {
-        throw new IllegalStateException(
-            "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
-      }
-      if ((memo[i] & 0x80) != 0) {
-        return size;
+    // Make sure we have a full view of memo from a possible concurrent lockedExpand call.
+    synchronized (this) {
+      // Read size from end of memo.
+      int size = 0;
+      for (int i = memo.length - 1; ; i--) {
+        size = (size << 7) | (memo[i] & 0x7f);
+        if (size < 0) {
+          throw new IllegalStateException(
+              "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
+        }
+        if ((memo[i] & 0x80) != 0) {
+          return size;
+        }
       }
     }
   }
@@ -682,6 +685,16 @@ public final class NestedSet<E> {
   private int walk(
       CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children, int pos) {
     for (Object child : children) {
+      if (pos < 0) {
+        // TODO(b/176077765): remove when diagnosed.
+        throw new IllegalStateException(
+            "Negative position "
+                + pos
+                + " with memo length "
+                + memo.length
+                + " and child length "
+                + children.length);
+      }
       if ((pos >> 3) >= memo.length) {
         memo = Arrays.copyOf(memo, memo.length * 2);
       }

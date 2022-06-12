@@ -39,30 +39,6 @@ FILES = [
 ) for s in FILES]
 
 proto_library(
-    name = "analysis_proto",
-    srcs = ["analysis.proto"],
-    deps = [":build_proto"],
-)
-
-py_proto_library(
-    name = "analysis_py_proto",
-    srcs = ["analysis.proto"],
-    default_runtime = "//third_party/protobuf:protobuf_python",
-    protoc = "//third_party/protobuf:protoc",
-    deps = [":build_pb_py"],
-)
-
-java_proto_library(
-    name = "analysis_java_proto",
-    deps = [":analysis_proto"],
-)
-
-java_library_srcs(
-    name = "analysis_java_proto_srcs",
-    deps = [":analysis_java_proto"],
-)
-
-proto_library(
     name = "analysis_v2_proto",
     srcs = ["analysis_v2.proto"],
     deps = [":build_proto"],
@@ -306,7 +282,6 @@ filegroup(
 filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
-        ":analysis_java_proto_srcs",
         ":analysis_v2_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",

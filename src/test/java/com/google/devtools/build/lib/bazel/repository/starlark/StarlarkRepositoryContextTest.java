@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.File;
 import java.io.IOException;
@@ -168,7 +169,8 @@ public final class StarlarkRepositoryContextTest {
             1.0,
             /*processWrapper=*/ null,
             starlarkSemantics,
-            repoRemoteExecutor);
+            repoRemoteExecutor,
+            SyscallCache.NO_CACHE);
   }
 
   protected void setUpContextForRule(String name) throws Exception {

@@ -20,6 +20,8 @@ CROSS_PLATFORM_WINDOWS_TESTS = [
 
 # Tests that are broken out from the SkyframeTests target into separate targets.
 EXCLUDED_FROM_SKYFRAME_TESTS = [
+    "LocalDiffAwarenessTest.java",
+    "LocalDiffAwarenessIntegrationTest.java",
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
 ] + CROSS_PLATFORM_WINDOWS_TESTS
 
@@ -105,6 +107,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -121,6 +124,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/spawn_action_template",
@@ -151,6 +155,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
@@ -169,9 +174,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/exec:single_build_file_cache",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache:QueryTransitivePackagePreloader",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/managed_directories_knowledge_impl",
@@ -182,6 +188,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_metadata_handler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_conflict_finder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_nested_set_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
@@ -217,6 +224,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_artifact_conflict_finder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_repository_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:metadata_consumer_for_metrics",
@@ -238,6 +246,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
@@ -249,6 +258,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_traversal_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
@@ -275,7 +285,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:action_cache_java_proto",
-        "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing",
@@ -325,6 +335,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -339,6 +350,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -372,6 +384,60 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "LocalDiffAwarenessTest",
+    srcs = ["LocalDiffAwarenessTest.java"],
+    # There are two issues with this test on Windows:
+    #   (1) [easy] The assertion in #modifiedPathIsntUnderWatchRoot needs to be
+    #       rewritten to handle Windows-style absolute paths.
+    #   (2) [hard] Watch events seem to be non-deterministically missing or
+    #       spurious. Maybe there was a bug in PR 11334?
+    # If you want to try to fix these, first put a statement like
+    # `localDiffOptions.windowsWatchFS = true;` in #initializeSettings. That
+    # flag is off by default, due to the instability of the --watchfs feature on
+    # Windows.
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
+        "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "LocalDiffAwarenessIntegrationTest",
+    srcs = ["LocalDiffAwarenessIntegrationTest.java"],
+    # TODO(pcloudy): Even with --experimental_windows_watchfs, there's an extra
+    #  getValues() on the second build in
+    #  externalSymlink_doesNotTriggerFullGraphTraversal with Windows, and
+    #  non-deterministic failure to detect changes (watchfs bug?).
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
         "//third_party:junit4",

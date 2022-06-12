@@ -28,15 +28,13 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaPlugin;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit test for {@link JavaPlugin} */
+/** Unit tests for java_plugin rule. */
 @RunWith(JUnit4.class)
 public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
 
@@ -114,20 +112,6 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
                     .toList()))
         .containsExactlyElementsIn(
             Artifact.toRootRelativePaths(getInputs(javacAction, getProcessorpath(javacAction))));
-  }
-
-  @Test
-  public void testNeverlinkIsPopulated() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-java_plugin");
-    useConfiguration("--noincompatible_require_javaplugininfo_in_javacommon");
-    scratch.file(
-        "java/com/google/test/BUILD",
-        "java_plugin(name = 'processor',",
-        "    neverlink = 1,",
-        "    srcs = ['BugChecker.java'])");
-    ConfiguredTarget processorTarget = getConfiguredTarget("//java/com/google/test:processor");
-    JavaInfo javaInfo = (JavaInfo) processorTarget.get(JavaInfo.PROVIDER.getKey());
-    assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
   @Test

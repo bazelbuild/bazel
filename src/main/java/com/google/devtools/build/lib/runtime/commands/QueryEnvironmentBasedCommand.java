@@ -260,7 +260,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     return env.getRuntime()
         .getQueryEnvironmentFactory()
         .create(
-            env.getPackageManager().transitiveLoader(),
+            env.getSkyframeExecutor().getQueryTransitivePackagePreloader(),
             env.getSkyframeExecutor(),
             targetProviderForQueryEnvironment,
             env.getPackageManager(),
@@ -277,7 +277,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
             /*blockUniverseEvaluationErrors=*/ false,
-            useGraphlessQuery);
+            useGraphlessQuery,
+            env.getCommandId().toString());
   }
 
   private static BlazeCommandResult reportAndCreateInterruptResult(

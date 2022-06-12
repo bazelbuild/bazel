@@ -310,7 +310,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
     for (Map.Entry<String, NestedSet<Artifact>> entry : getNativeLibs().entrySet()) {
       builder.put(entry.getKey(), Depset.of(Artifact.TYPE, entry.getValue()));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /** Provider class for {@link AndroidIdeInfoProvider} objects. */
@@ -360,7 +360,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           ImmutableList.copyOf(
               Sequence.cast(idlGeneratedJavaFiles, Artifact.class, "idl_generated_java_files")),
           ImmutableList.copyOf(Sequence.cast(apksUnderTest, Artifact.class, "apks_under_test")),
-          builder.build(),
+          builder.buildOrThrow(),
           fromNoneable(resourceApk, Artifact.class));
     }
   }

@@ -80,7 +80,7 @@ all_link_actions = [
 ]
 
 def _use_msvc_toolchain(ctx):
-    return ctx.attr.cpu == "x64_windows" and (ctx.attr.compiler == "msvc-cl" or ctx.attr.compiler == "clang-cl")
+    return ctx.attr.cpu in ["x64_windows", "arm64_windows"] and (ctx.attr.compiler == "msvc-cl" or ctx.attr.compiler == "clang-cl")
 
 def _impl(ctx):
     if _use_msvc_toolchain(ctx):
@@ -786,7 +786,7 @@ def _impl(ctx):
             name = "treat_warnings_as_errors",
             flag_sets = [
                 flag_set(
-                    actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                    actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile] + all_link_actions,
                     flag_groups = [flag_group(flags = ["/WX"])],
                 ),
             ],
@@ -1271,6 +1271,20 @@ def _impl(ctx):
                 provides = ["profile"],
             )
 
+            treat_warnings_as_errors_feature = feature(
+                name = "treat_warnings_as_errors",
+                flag_sets = [
+                    flag_set(
+                        actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                        flag_groups = [flag_group(flags = ["-Werror"])],
+                    ),
+                    flag_set(
+                        actions = all_link_actions,
+                        flag_groups = [flag_group(flags = ["-Wl,-fatal-warnings"])],
+                    ),
+                ],
+            )
+
             user_compile_flags_feature = feature(
                 name = "user_compile_flags",
                 enabled = True,
@@ -1311,6 +1325,7 @@ def _impl(ctx):
                 dbg_feature,
                 opt_feature,
                 user_compile_flags_feature,
+                treat_warnings_as_errors_feature,
                 sysroot_feature,
             ]
 

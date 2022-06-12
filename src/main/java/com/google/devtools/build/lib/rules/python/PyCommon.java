@@ -640,7 +640,7 @@ public final class PyCommon {
       return false;
     }
     // Only warn in the host config.
-    if (!ruleContext.getConfiguration().isHostConfiguration()) {
+    if (!ruleContext.getConfiguration().isToolConfiguration()) {
       return false;
     }
 

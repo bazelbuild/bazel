@@ -235,7 +235,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
                 walkableGraph.getValue(
                     ToolchainContextKey.key()
                         .configurationKey(configurationKey)
-                        .requiredToolchainTypeLabels(execGroup.requiredToolchains())
+                        .toolchainTypes(execGroup.toolchainTypes())
                         .execConstraintLabels(execGroup.execCompatibleWith())
                         .debugTarget(debugTarget)
                         .build());

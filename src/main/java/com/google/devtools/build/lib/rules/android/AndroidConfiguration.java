@@ -966,6 +966,17 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " This will make the build nondeterministic.")
     public boolean includeProguardLocationReferences;
 
+    @Option(
+        name = "incompatible_android_platforms_transition_updated_affected",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "If set to true, the AndroidPlatformsTransition will also update `affected by Starlark"
+                + " transition` with changed options to avoid potential action conflicts.")
+    public boolean androidPlatformsTransitionsUpdateAffected;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -974,6 +985,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.sdk = sdk;
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
       host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+      host.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
 
       host.desugarJava8 = desugarJava8;
       host.desugarJava8Libs = desugarJava8Libs;

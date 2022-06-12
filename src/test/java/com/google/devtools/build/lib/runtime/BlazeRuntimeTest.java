@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -103,6 +104,7 @@ public class BlazeRuntimeTest {
             commandThread,
             VersionCommand.class.getAnnotation(Command.class),
             options,
+            SyscallCache.NO_CACHE,
             ImmutableList.of(),
             0L,
             0L,
@@ -151,6 +153,7 @@ public class BlazeRuntimeTest {
             Thread.currentThread(),
             VersionCommand.class.getAnnotation(Command.class),
             OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build(),
+            SyscallCache.NO_CACHE,
             ImmutableList.of(),
             0L,
             0L,

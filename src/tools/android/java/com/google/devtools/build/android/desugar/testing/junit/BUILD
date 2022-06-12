@@ -44,13 +44,6 @@ genrule(
     """,
 )
 
-config_setting(
-    name = "jdk11-config",
-    constraint_values = [
-        "@rules_java//java/constraints:jdk11",
-    ],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

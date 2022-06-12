@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -141,10 +141,8 @@ public class DynamicExecutionModule extends BlazeModule {
     registerSpawnStrategies(
         registryBuilder,
         options,
-        env.getReporter(),
-        options.cpuLimited
-            ? (int) execOptions.localCpuResources
-            : env.getOptions().getOptions(BuildRequestOptions.class).jobs);
+        (int) execOptions.localCpuResources,
+        env.getOptions().getOptions(BuildRequestOptions.class).jobs);
   }
 
   // CommandEnvironment is difficult to access in tests, so use this method for testing.
@@ -152,8 +150,8 @@ public class DynamicExecutionModule extends BlazeModule {
   final void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder,
       DynamicExecutionOptions options,
-      Reporter reporter,
-      int numCpus)
+      int numCpus,
+      int jobs)
       throws AbruptExitException {
     if (!options.internalSpawnScheduler) {
       return;
@@ -167,6 +165,7 @@ public class DynamicExecutionModule extends BlazeModule {
             this::getPostProcessingSpawnForLocalExecution,
             firstBuild,
             numCpus,
+            jobs,
             this::canIgnoreFailure);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
     registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
@@ -234,14 +233,24 @@ public class DynamicExecutionModule extends BlazeModule {
    *     though this branch failed already.
    */
   protected boolean canIgnoreFailure(
-      Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal) {
+      Spawn spawn,
+      ActionExecutionContext context,
+      int exitCode,
+      String errorMessage,
+      FileOutErr outErr,
+      boolean isLocal) {
     return false;
   }
 
   @FunctionalInterface
   interface IgnoreFailureCheck {
     boolean canIgnoreFailure(
-        Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal);
+        Spawn spawn,
+        ActionExecutionContext context,
+        int exitCode,
+        String errorMessage,
+        FileOutErr outErr,
+        boolean isLocal);
   }
 
   @Subscribe

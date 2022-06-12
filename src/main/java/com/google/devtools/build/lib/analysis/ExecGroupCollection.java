@@ -241,7 +241,7 @@ public abstract class ExecGroupCollection {
         execProperties.put(execGroup, property, execProperty.getValue());
       }
     }
-    return execProperties.build();
+    return execProperties.buildOrThrow();
   }
 
   /** An error for when the user tries to access a non-existent exec group. */

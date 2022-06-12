@@ -21,12 +21,10 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionEvalStarlarkThreadContext;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
@@ -44,9 +42,8 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleFactory;
-import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -62,11 +59,8 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.eval.Tuple;
-import net.starlark.java.syntax.Location;
 
 /**
  * The Starlark module containing the definition of {@code repository_rule} function to define a
@@ -136,7 +130,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
               + " the implementation function of a module extension to instantiate and return a"
               + " repository rule.")
   private static final class RepositoryRuleFunction
-      implements StarlarkCallable, StarlarkExportable, BzlmodRepoRuleCreator {
+      implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private final RuleClass.Builder builder;
     private final StarlarkCallable implementation;
     private Label extensionLabel;
@@ -193,26 +187,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       if (!isExported()) {
         throw new EvalException("attempting to instantiate a non-exported repository rule");
       }
-      Object nameValue = kwargs.getOrDefault("name", Starlark.NONE);
-      if (!(nameValue instanceof String)) {
-        throw Starlark.errorf(
-            "expected string for attribute 'name', got '%s'", Starlark.type(nameValue));
-      }
-      String name = (String) nameValue;
-      String prefixedName = extensionEvalContext.getRepoPrefix() + name;
-      extensionEvalContext.createRepo(
-          name,
-          this,
-          Maps.transformEntries(kwargs, (k, v) -> k.equals("name") ? prefixedName : v),
-          thread.getSemantics(),
-          thread.getCallerLocation());
+      extensionEvalContext.createRepo(thread, kwargs, getRuleClass());
       return Starlark.NONE;
     }
 
-    private Object createRuleLegacy(StarlarkThread thread, Dict<String, Object> kwargs)
-        throws EvalException, InterruptedException {
-      BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
-      String ruleClassName;
+    private String getRuleClassName() {
       // If the function ever got exported (the common case), we take the name
       // it was exported to. Only in the not intended case of calling an unexported
       // repository function through an exported macro, we fall back, for lack of
@@ -220,22 +199,25 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       // TODO(b/111199163): we probably should disallow the use of non-exported
       // repository rules anyway.
       if (isExported()) {
-        ruleClassName = exportedName;
+        return exportedName;
       } else {
         // repository_rules should be subject to the same "exported" requirement
         // as package rules, but sadly we forgot to add the necessary check and
         // now many projects create and instantiate repository_rules without an
         // intervening export; see b/111199163. An incompatible flag is required.
-        if (false) {
-          throw new EvalException("attempt to instantiate a non-exported repository rule");
-        }
 
         // The historical workaround was a fragile hack to introspect on the call
         // expression syntax, f() or x.f(), to find the name f, but we no longer
         // have access to the call expression, so now we just create an ugly
         // name from the function. See github.com/bazelbuild/bazel/issues/10441
-        ruleClassName = "unexported_" + implementation.getName();
+        return "unexported_" + implementation.getName();
       }
+    }
+
+    private Object createRuleLegacy(StarlarkThread thread, Dict<String, Object> kwargs)
+        throws EvalException, InterruptedException {
+      BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
+      String ruleClassName = getRuleClassName();
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         PackageContext context = PackageFactory.getContext(thread);
@@ -260,20 +242,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public Rule createAndAddRule(
-        Package.Builder packageBuilder,
-        StarlarkSemantics semantics,
-        Map<String, Object> kwargs,
-        EventHandler handler)
-        throws InterruptedException, InvalidRuleException, NameConflictException {
-      RuleClass ruleClass = builder.build(exportedName, exportedName);
-      BuildLangTypedAttributeValuesMap attributeValues =
-          new BuildLangTypedAttributeValuesMap(kwargs);
-      ImmutableList.Builder<CallStackEntry> callStack = ImmutableList.builder();
-      // TODO(pcloudy): Optimize the callstack
-      callStack.add(new CallStackEntry("RepositoryRuleFunction.createRule", Location.BUILTIN));
-      return RuleFactory.createAndAddRule(
-          packageBuilder, ruleClass, attributeValues, handler, semantics, callStack.build());
+    public RuleClass getRuleClass() {
+      String name = getRuleClassName();
+      return builder.build(name, name);
     }
   }
 

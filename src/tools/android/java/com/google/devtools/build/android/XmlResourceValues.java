@@ -112,7 +112,7 @@ public class XmlResourceValues {
       }
     }
     return PluralXmlResourceValue.createWithAttributesAndValues(
-        ImmutableMap.copyOf(parseTagAttributes(start)), values.build());
+        ImmutableMap.copyOf(parseTagAttributes(start)), values.buildOrThrow());
   }
 
   static XmlResourceValue parseStyle(XMLEventReader eventReader, StartElement start)

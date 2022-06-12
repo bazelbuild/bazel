@@ -44,9 +44,10 @@ def _check_srcs_extensions(ctx, allowed_src_files, rule_name):
 
 def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
     debug_context = cc_common.create_debug_context(compilation_outputs)
-    debug_contexts = [debug_context]
+    debug_contexts = []
     for dep_cc_info in dep_cc_infos:
         debug_contexts.append(dep_cc_info.debug_context())
+    debug_contexts.append(debug_context)
 
     return cc_common.merge_debug_context(debug_contexts)
 
@@ -146,6 +147,51 @@ def _build_output_groups_for_emitting_compile_providers(
 
     return output_groups_builder
 
+def _dll_hash_suffix(ctx, feature_configuration):
+    return cc_internal.dll_hash_suffix(ctx = ctx, feature_configuration = feature_configuration)
+
+def _gen_empty_def_file(ctx):
+    trivial_def_file = ctx.actions.declare_file(ctx.label.name + ".gen.empty.def")
+    ctx.actions.write(trivial_def_file, "", False)
+    return trivial_def_file
+
+def _get_windows_def_file_for_linking(ctx, custom_def_file, generated_def_file, feature_configuration):
+    # 1. If a custom DEF file is specified in win_def_file attribute, use it.
+    # 2. If a generated DEF file is available and should be used, use it.
+    # 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
+    if custom_def_file != None:
+        return custom_def_file
+    elif generated_def_file != None and _should_generate_def_file(ctx, feature_configuration) == True:
+        return generated_def_file
+    else:
+        return _gen_empty_def_file(ctx)
+
+def _should_generate_def_file(ctx, feature_configuration):
+    windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "windows_export_all_symbols")
+    no_windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_windows_export_all_symbols")
+    return windows_export_all_symbols_enabled and (not no_windows_export_all_symbols_enabled) and (ctx.attr.win_def_file == None)
+
+def _generate_def_file(ctx, def_parser, object_files, dll_name):
+    def_file = ctx.actions.declare_file(ctx.label.name + ".gen.def")
+    args = ctx.actions.args()
+    args.add(def_file)
+    args.add(dll_name)
+    argv = ctx.actions.args()
+    argv.use_param_file("@%s", use_always = True)
+    argv.set_param_file_format("shell")
+    for object_file in object_files:
+        argv.add(object_file.path)
+
+    ctx.actions.run(
+        mnemonic = "DefParser",
+        executable = def_parser,
+        arguments = [args, argv],
+        inputs = object_files,
+        outputs = [def_file],
+        use_default_shell_env = True,
+    )
+    return def_file
+
 CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
 C_SOURCE = [".c"]
 OBJC_SOURCE = [".m"]
@@ -162,13 +208,13 @@ CC_AND_OBJC.extend(CLIF_OUTPUT_PROTO)
 
 CC_HEADER = [".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H", ".tcc"]
 ASSESMBLER_WITH_C_PREPROCESSOR = [".S"]
-ASSEMBLER = [".s"]
+ASSEMBLER = [".s", ".asm"]
 ARCHIVE = [".a", ".lib"]
 PIC_ARCHIVE = [".pic.a"]
 ALWAYSLINK_LIBRARY = [".lo"]
 ALWAYSLINK_PIC_LIBRARY = [".pic.lo"]
 SHARED_LIBRARY = [".so", ".dylib", ".dll"]
-OBJECT_FILE = [".o"]
+OBJECT_FILE = [".o", ".obj"]
 PIC_OBJECT_FILE = [".pic.o"]
 
 extensions = struct(
@@ -213,7 +259,8 @@ def _collect_library_hidden_top_level_artifacts(
     if hasattr(ctx.attr, "deps"):
         for dep in ctx.attr.deps:
             if OutputGroupInfo in dep:
-                artifacts_to_force_builder.append(dep[OutputGroupInfo]["_hidden_top_level_INTERNAL_"])
+                if "_hidden_top_level_INTERNAL_" in dep[OutputGroupInfo]:
+                    artifacts_to_force_builder.append(dep[OutputGroupInfo]["_hidden_top_level_INTERNAL_"])
 
     return depset(transitive = artifacts_to_force_builder)
 
@@ -330,21 +377,21 @@ def _is_shared_library_extension_valid(shared_library_name):
         shared_library_name.endswith(".dylib")):
         return True
 
-    # Validate against the regex "^.+\.so(\.\d\w*)+$" for versioned .so files
-    parts = shared_library_name.split(".")
-    if len(parts) == 1:
-        return False
-    extension = parts[1]
-    if extension != "so":
-        return False
-    version_parts = parts[2:]
-    for part in version_parts:
-        if not part[0].isdigit():
-            return False
-        for c in part[1:].elems():
-            if not (c.isalnum() or c == "_"):
-                return False
-    return True
+    # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+    # must match VERSIONED_SHARED_LIBRARY.
+    for ext in (".so.", ".dylib."):
+        name, _, version = shared_library_name.rpartition(ext)
+        if name and version:
+            version_parts = version.split(".")
+            for part in version_parts:
+                if not part[0].isdigit():
+                    return False
+                for c in part[1:].elems():
+                    if not (c.isalnum() or c == "_"):
+                        return False
+            return True
+
+    return False
 
 def _get_providers(deps, provider):
     providers = []
@@ -376,6 +423,18 @@ def _should_create_per_object_debug_info(feature_configuration, cpp_configuratio
                feature_name = "per_object_debug_info",
            )
 
+def _libraries_from_linking_context(linking_context):
+    libraries = []
+    for linker_input in linking_context.linker_inputs.to_list():
+        libraries.extend(linker_input.libraries)
+    return depset(libraries, order = "topological")
+
+def _additional_inputs_from_linking_context(linking_context):
+    inputs = []
+    for linker_input in linking_context.linker_inputs.to_list():
+        inputs.extend(linker_input.additional_inputs)
+    return depset(inputs, order = "topological")
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -398,4 +457,9 @@ cc_helper = struct(
     get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
     should_create_per_object_debug_info = _should_create_per_object_debug_info,
     check_srcs_extensions = _check_srcs_extensions,
+    libraries_from_linking_context = _libraries_from_linking_context,
+    additional_inputs_from_linking_context = _additional_inputs_from_linking_context,
+    dll_hash_suffix = _dll_hash_suffix,
+    get_windows_def_file_for_linking = _get_windows_def_file_for_linking,
+    generate_def_file = _generate_def_file,
 )

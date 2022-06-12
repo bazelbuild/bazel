@@ -85,7 +85,7 @@ public final class NinjaTarget {
     public NinjaTarget build() throws GenericParsingException {
       Preconditions.checkNotNull(ruleName);
       String internedName = nameInterner.intern(ruleName);
-      ImmutableSortedMap<String, String> variables = variablesBuilder.build();
+      ImmutableSortedMap<String, String> variables = variablesBuilder.buildOrThrow();
 
       ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> ruleVariables;
       if (internedName.equals("phony")) {
@@ -131,7 +131,7 @@ public final class NinjaTarget {
       targetVariables.forEach(
           (key, value) -> variablesBuilder.put(key, ImmutableList.of(Pair.of(0L, value))));
       NinjaScope scopeWithVariables =
-          targetScope.createScopeFromExpandedValues(variablesBuilder.build());
+          targetScope.createScopeFromExpandedValues(variablesBuilder.buildOrThrow());
 
       ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> builder =
           ImmutableSortedMap.naturalOrder();
@@ -171,7 +171,7 @@ public final class NinjaTarget {
                 targetOffset, entry.getValue(), INPUTS_OUTPUTS_VARIABLES, interner);
         builder.put(type, reducedValue);
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
   }
 
@@ -330,9 +330,9 @@ public final class NinjaTarget {
     String expandedCommand =
         ruleVariables
             .get(NinjaRuleVariable.COMMAND)
-            .expandValue(fullExpansionVariablesBuilder.build());
+            .expandValue(fullExpansionVariablesBuilder.buildOrThrow());
     builder.put(NinjaRuleVariable.COMMAND, expandedCommand);
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private ImmutableSortedMap<String, String> computeInputOutputVariables() {
@@ -348,7 +348,7 @@ public final class NinjaTarget {
     builder.put("in", inNewline.replace('\n', ' '));
     builder.put("in_newline", inNewline);
     builder.put("out", out);
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private static String prettyPrintPaths(String startDelimiter, Collection<PathFragment> paths) {

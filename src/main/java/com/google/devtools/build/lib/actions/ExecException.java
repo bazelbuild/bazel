@@ -65,13 +65,9 @@ public abstract class ExecException extends Exception {
     this.catastrophe = false;
   }
 
-  public ExecException(String message, Throwable cause, boolean catastrophe) {
-    super(message + ": " + cause.getMessage(), cause);
-    this.catastrophe = catastrophe;
-  }
-
   public ExecException(String message, Throwable cause) {
-    this(message, cause, false);
+    super(message + ": " + cause.getMessage(), cause);
+    this.catastrophe = false;
   }
 
   /** Catastrophic exceptions should stop the build, even if --keep_going. */

@@ -96,7 +96,7 @@ public final class NioBufferRefConverter extends ClassVisitor {
             MethodKey.create(typeSpecificNioBuffer, baseMethod.name(), baseMethod.descriptor()));
       }
     }
-    return methodMappings.build();
+    return methodMappings.buildOrThrow();
   }
 
   private static class NioBufferMethodVisitor extends MethodVisitor {

@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -136,7 +135,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    * @param digest the digest of the file.
    * @param file the file to upload.
    */
-  public final ListenableFuture<Void> uploadFile(
+  public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -161,7 +160,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    * @param digest the digest of the file.
    * @param data the BLOB to upload.
    */
-  public final ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -174,48 +173,6 @@ public class RemoteCache extends AbstractReferenceCounted {
                 () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()));
 
     return RxFutures.toListenableFuture(upload);
-  }
-
-  public static void waitForBulkTransfer(
-      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
-      throws BulkTransferException, InterruptedException {
-    BulkTransferException bulkTransferException = null;
-    InterruptedException interruptedException = null;
-    boolean interrupted = Thread.currentThread().isInterrupted();
-    for (ListenableFuture<?> transfer : transfers) {
-      try {
-        if (interruptedException == null) {
-          // Wait for all transfers to finish.
-          getFromFuture(transfer, cancelRemainingOnInterrupt);
-        } else {
-          transfer.cancel(true);
-        }
-      } catch (IOException e) {
-        if (bulkTransferException == null) {
-          bulkTransferException = new BulkTransferException();
-        }
-        bulkTransferException.add(e);
-      } catch (InterruptedException e) {
-        interrupted = Thread.interrupted() || interrupted;
-        interruptedException = e;
-        if (!cancelRemainingOnInterrupt) {
-          // leave the rest of the transfers alone
-          break;
-        }
-      }
-    }
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
-    if (interruptedException != null) {
-      if (bulkTransferException != null) {
-        interruptedException.addSuppressed(bulkTransferException);
-      }
-      throw interruptedException;
-    }
-    if (bulkTransferException != null) {
-      throw bulkTransferException;
-    }
   }
 
   /**

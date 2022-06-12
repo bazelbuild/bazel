@@ -27,6 +27,7 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -73,19 +74,20 @@ public class CompatDexBuilder {
     }
   }
 
-  private String input;
-  private String output;
-  private int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
-  private boolean noLocals;
-
   public static void main(String[] args)
-      throws IOException, InterruptedException, ExecutionException {
-    new CompatDexBuilder().run(args);
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
+    CompatDexBuilder compatDexBuilder = new CompatDexBuilder();
+    compatDexBuilder.processRequest(args);
   }
 
   @SuppressWarnings("JdkObsolete")
-  private void run(String[] args) throws IOException, InterruptedException, ExecutionException {
+  private void processRequest(String[] args)
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
     List<String> flags = new ArrayList<>();
+    String input = null;
+    String output = null;
+    int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
+    boolean noLocals = false;
 
     for (String arg : args) {
       if (arg.startsWith("@")) {
@@ -127,19 +129,16 @@ public class CompatDexBuilder {
           noLocals = true;
           break;
         default:
-          System.err.println("Unsupported option: " + flag);
-          System.exit(1);
+          throw new OptionsParsingException("Unsupported option: " + flag);
       }
     }
 
     if (input == null) {
-      System.err.println("No input jar specified");
-      System.exit(1);
+      throw new OptionsParsingException("No input jar specified");
     }
 
     if (output == null) {
-      System.err.println("No output jar specified");
-      System.exit(1);
+      throw new OptionsParsingException("No output jar specified");
     }
 
     ExecutorService executor = Executors.newWorkStealingPool(numberOfThreads);
@@ -149,6 +148,8 @@ public class CompatDexBuilder {
       List<ZipEntry> toDex = new ArrayList<>();
 
       try (ZipFile zipFile = new ZipFile(input, UTF_8)) {
+        final CompilationMode compilationMode =
+            noLocals ? CompilationMode.RELEASE : CompilationMode.DEBUG;
         final Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
           ZipEntry entry = entries.nextElement();
@@ -163,7 +164,8 @@ public class CompatDexBuilder {
 
         List<Future<DexConsumer>> futures = new ArrayList<>(toDex.size());
         for (ZipEntry classEntry : toDex) {
-          futures.add(executor.submit(() -> dexEntry(zipFile, classEntry, executor)));
+          futures.add(
+              executor.submit(() -> dexEntry(zipFile, classEntry, compilationMode, executor)));
         }
         for (int i = 0; i < futures.size(); i++) {
           ZipEntry entry = toDex.get(i);
@@ -176,13 +178,14 @@ public class CompatDexBuilder {
     }
   }
 
-  private DexConsumer dexEntry(ZipFile zipFile, ZipEntry classEntry, ExecutorService executor)
+  private DexConsumer dexEntry(
+      ZipFile zipFile, ZipEntry classEntry, CompilationMode mode, ExecutorService executor)
       throws IOException, CompilationFailedException {
     DexConsumer consumer = new DexConsumer();
     D8Command.Builder builder = D8Command.builder();
     builder
         .setProgramConsumer(consumer)
-        .setMode(noLocals ? CompilationMode.RELEASE : CompilationMode.DEBUG)
+        .setMode(mode)
         .setMinApiLevel(13) // H_MR2.
         .setDisableDesugaring(true)
         .setIntermediate(true);

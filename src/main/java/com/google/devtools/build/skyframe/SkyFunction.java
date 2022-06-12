@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -178,22 +177,6 @@ public interface SkyFunction {
             Class<E4> exceptionClass4)
             throws E1, E2, E3, E4, InterruptedException;
 
-    @Nullable
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        SkyValue getValueOrThrow(
-            SkyKey depKey,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws E1, E2, E3, E4, E5, InterruptedException;
-
     /**
      * Requests {@code depKeys} "in parallel", independent of each others' values. These keys may be
      * thought of as a "dependency group" -- they are requested together by this value.
@@ -248,12 +231,6 @@ public interface SkyFunction {
     Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
 
     /**
-     * Similar to getValues, but instead of returning a {@code Map<SkyKey, SkyValue>}, returns a
-     * {@code List<SkyValue>} in the order of the input {@code Iterable<SkyKey>}. b/172462551
-     */
-    List<SkyValue> getOrderedValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
-
-    /**
      * Similar to {@link #getValues} but allows the caller to specify a set of types that are proper
      * subtypes of Exception (see {@link SkyFunctionException} for more details) to find out whether
      * any of the dependencies' evaluations resulted in exceptions of those types. The returned
@@ -283,84 +260,23 @@ public interface SkyFunction {
             Class<E2> exceptionClass2)
             throws InterruptedException;
 
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-        Map<SkyKey, ValueOrException3<E1, E2, E3>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-        Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4)
-            throws InterruptedException;
-
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws InterruptedException;
+    /**
+     * Simailar to {@link #getValues}, but returns a {@link SkyframeLookupResult}, which contains
+     * the values of {@code depKeys}. Use in preference to all other getting methods (except for
+     * getOrderedValuesAndExceptions), since this method creates less garbage and allows the calling
+     * {@code SkyFunction} to declare exceptions on a per-SkyKey basis.
+     */
+    SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+        throws InterruptedException;
 
     /**
-     * Similar to getValuesOrThrow, but instead of returning a {@code Map<SkyKey,
-     * ValueOrException>}, returns a {@code List<SkyValue>} in the order of the input {@code
-     * Iterable<SkyKey>}.
+     * Similar to {@link #getValues}, but returns a {@link SkyframeIterableResult}, which contains
+     * the values in the same order as {@code depKeys}. Use in preference to all other getting
+     * methods, since this method creates less garbage and allows the calling {@code SkyFunction} to
+     * declare exceptions on a per-SkyKey basis.
      */
-    <E extends Exception> List<ValueOrException<E>> getOrderedValuesOrThrow(
-        Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception>
-        List<ValueOrException2<E1, E2>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-        List<ValueOrException3<E1, E2, E3>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-        List<ValueOrException4<E1, E2, E3, E4>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4)
-            throws InterruptedException;
-
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        List<ValueOrException5<E1, E2, E3, E4, E5>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws InterruptedException;
+    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+        throws InterruptedException;
 
     /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
@@ -371,6 +287,10 @@ public interface SkyFunction {
      *   <li>getValues(ks).get(k) == {@code null} for some ks and k such that ks.contains(k)
      *   <li>getValuesOrThrow(ks, c).get(k).get() == {@code null} for some ks and k such that
      *       ks.contains(k)
+     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
+     *       getOrderedValuesAndExceptions(ks) for some ks
+     *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
+     *       getValuesAndExceptions(ks) for some ks
      * </ul>
      *
      * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
@@ -526,9 +446,6 @@ public interface SkyFunction {
      * use the {@code stateSupplier}. It's important that Skyframe do this because {@link Restart}
      * indicates that work should be redone, and so it'd be wrong to reuse work from the previous
      * {@link #compute} call.
-     *
-     * <p>TODO(b/209701268): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
-     * sort of optimization.
      */
     <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier);
   }

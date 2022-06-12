@@ -505,8 +505,6 @@ public interface JavaSemantics {
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 
-  void checkDependencyRuleKinds(RuleContext ruleContext);
-
   /** Sets the progress message on the lint build action. */
   void setLintProgressMessage(SpawnAction.Builder spawnAction);
 }

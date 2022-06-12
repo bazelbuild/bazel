@@ -635,6 +635,13 @@ public final class CcLinkingHelper {
     }
   }
 
+  /** Returns whether Propeller profiles should be passed to the linking step. */
+  private boolean shouldPassPropellerProfiles() {
+    return !ccToolchain.isToolConfiguration()
+        && fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null;
+  }
+
   private CppLinkAction registerActionForStaticLibrary(
       LinkTargetType linkTargetTypeUsedForNaming,
       CcCompilationOutputs ccOutputs,
@@ -642,7 +649,7 @@ public final class CcLinkingHelper {
       String libraryIdentifier)
       throws RuleErrorException, InterruptedException {
     Artifact linkedArtifact = getLinkedArtifact(linkTargetTypeUsedForNaming);
-    CppLinkAction action =
+    CppLinkActionBuilder builder =
         newLinkActionBuilder(linkedArtifact, linkTargetTypeUsedForNaming)
             .addObjectFiles(ccOutputs.getObjectFiles(usePic))
             .addLtoCompilationContext(ccOutputs.getLtoCompilationContext())
@@ -650,8 +657,11 @@ public final class CcLinkingHelper {
             .setLinkingMode(LinkingMode.STATIC)
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(libraryIdentifier)
-            .addVariablesExtensions(variablesExtensions)
-            .build();
+            .addVariablesExtensions(variablesExtensions);
+    if (shouldPassPropellerProfiles()) {
+      builder.addNonCodeInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    }
+    CppLinkAction action = builder.build();
     actionConstructionContext.registerAction(action);
     return action;
   }
@@ -751,10 +761,15 @@ public final class CcLinkingHelper {
               linkingMode != LinkingMode.DYNAMIC,
               dynamicLinkType.isDynamicLibrary(),
               featureConfiguration);
+      ImmutableList<CcLinkingContext.Linkstamp> linkstamps =
+          ccLinkingContext.getLinkstamps().toList();
+      if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
+        linkstamps = ImmutableList.of();
+      }
       dynamicLinkActionBuilder.addLinkParams(
           libraries,
           ccLinkingContext.getFlattenedUserLinkFlags(),
-          ccLinkingContext.getLinkstamps().toList(),
+          linkstamps,
           ccLinkingContext.getNonCodeInputs().toList(),
           ruleErrorConsumer);
     }
@@ -784,6 +799,11 @@ public final class CcLinkingHelper {
       }
 
       dynamicLinkActionBuilder.setLtoIndexing(false);
+    }
+
+    if (shouldPassPropellerProfiles()) {
+      dynamicLinkActionBuilder.addNonCodeInput(
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
 
     if (dynamicLinkActionBuilder.getAllLtoBackendArtifacts() != null) {
@@ -844,11 +864,6 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      this.additionalLinkerInputsBuilder.add(
-          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-    }
     String mnemonic =
         (linkType.equals(LinkTargetType.OBJCPP_EXECUTABLE)
                 || linkType.equals(LinkTargetType.OBJC_EXECUTABLE))
@@ -900,7 +915,7 @@ public final class CcLinkingHelper {
     if (linkTargetType.picness() == Picness.PIC) {
       maybePicName =
           CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
+              ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
     }
 
     String linkedName = maybePicName;
@@ -909,7 +924,7 @@ public final class CcLinkingHelper {
     }
     linkedName =
         CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
+            ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
 
     PathFragment artifactFragment = PathFragment.create(linkedName);
     ArtifactRoot artifactRoot = configuration.getBinDirectory(label.getRepository());

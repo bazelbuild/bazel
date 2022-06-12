@@ -68,16 +68,15 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -272,14 +271,25 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   }
 
   @Override
-  public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {
+  public Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+      throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
       builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
     }
-    return builder.build();
+    if (init == Starlark.NONE) {
+      return builder.build();
+    } else {
+      if (init instanceof StarlarkCallable) {
+        builder.setInit((StarlarkCallable) init);
+      } else {
+        throw Starlark.errorf("got %s for init, want callable value", Starlark.type(init));
+      }
+      StarlarkProvider provider = builder.build();
+      return Tuple.of(provider, provider.createRawConstructor());
+    }
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -558,17 +568,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   private static ImmutableList<Label> parseLabels(
       Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
-    BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    LabelConversionContext context =
-        new LabelConversionContext(
-            moduleContext.label(),
-            moduleContext.repoMapping(),
-            bazelStarlarkContext.getConvertedLabelsInPackage());
+    LabelConverter converter = LabelConverter.forThread(thread);
     for (String input : inputs) {
       try {
-        Label label = context.convert(input);
+        Label label = converter.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf(
@@ -1044,6 +1047,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
     ImmutableSet<Label> constraints =
         ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
-    return ExecGroup.create(toolchainTypes, constraints);
+    return ExecGroup.builder()
+        .requiredToolchains(toolchainTypes)
+        .execCompatibleWith(constraints)
+        .copyFrom(null)
+        .build();
   }
 }

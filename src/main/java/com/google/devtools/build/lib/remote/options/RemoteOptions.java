@@ -630,7 +630,7 @@ public final class RemoteOptions extends OptionsBase {
       for (Property property : platform.getPropertiesList()) {
         builder.put(property.getName(), property.getValue());
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     return ImmutableSortedMap.of();

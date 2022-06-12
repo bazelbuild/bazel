@@ -21,6 +21,9 @@ licenses(["notice"])  # Apache 2.0
 # The toolchain type used to distinguish cc toolchains.
 toolchain_type(name = "toolchain_type")
 
+# The toolchain_type used for cc test runners.
+toolchain_type(name = "test_runner_toolchain_type")
+
 # It is frequently necessary to constrain platforms based on the cc compiler type.
 constraint_setting(name = "cc_compiler")
 

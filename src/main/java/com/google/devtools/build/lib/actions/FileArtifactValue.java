@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -189,8 +190,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   @SerializationConstant
   public static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
 
-  public static FileArtifactValue createForSourceArtifact(Artifact artifact, FileValue fileValue)
-      throws IOException {
+  public static FileArtifactValue createForSourceArtifact(
+      Artifact artifact, FileValue fileValue, SyscallCache syscallCache) throws IOException {
     // Artifacts with known generating actions should obtain the derived artifact's SkyValue
     // from the generating action, instead.
     Preconditions.checkState(!artifact.hasKnownGeneratingAction());
@@ -201,7 +202,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         isFile,
         isFile ? fileValue.getSize() : 0,
         isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
-        isFile ? fileValue.getDigest() : null);
+        isFile ? fileValue.getDigest() : null,
+        syscallCache);
   }
 
   public static FileArtifactValue createFromInjectedDigest(
@@ -219,16 +221,27 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     // Caution: there's a race condition between stating the file and computing the digest. We need
     // to stat first, since we're using the stat to detect changes. We follow symlinks here to be
     // consistent with getDigest.
-    return createFromStat(path, path.stat(Symlinks.FOLLOW));
+    return createFromStat(path, path.stat(Symlinks.FOLLOW), SyscallCache.NO_CACHE);
   }
 
-  public static FileArtifactValue createFromStat(Path path, FileStatus stat) throws IOException {
+  public static FileArtifactValue createFromStat(
+      Path path, FileStatus stat, SyscallCache syscallCache) throws IOException {
     return create(
-        path, stat.isFile(), stat.getSize(), FileContentsProxy.create(stat), /*digest=*/ null);
+        path,
+        stat.isFile(),
+        stat.getSize(),
+        FileContentsProxy.create(stat),
+        /*digest=*/ null,
+        syscallCache);
   }
 
   private static FileArtifactValue create(
-      Path path, boolean isFile, long size, FileContentsProxy proxy, @Nullable byte[] digest)
+      Path path,
+      boolean isFile,
+      long size,
+      FileContentsProxy proxy,
+      @Nullable byte[] digest,
+      SyscallCache syscallCache)
       throws IOException {
     if (!isFile) {
       // In this case, we need to store the mtime because the action cache uses mtime for
@@ -237,7 +250,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
-      digest = DigestUtils.getDigestWithManualFallback(path, size);
+      digest = DigestUtils.getDigestWithManualFallback(path, size, syscallCache);
     }
     Preconditions.checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size);
@@ -275,9 +288,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * Create a FileArtifactValue using the {@link Path} and size. FileArtifactValue#create will
    * handle getting the digest using the Path and size values.
    */
-  public static FileArtifactValue createForNormalFileUsingPath(Path path, long size)
-      throws IOException {
-    return create(path, /*isFile=*/ true, size, /*proxy=*/ null, /*digest=*/ null);
+  public static FileArtifactValue createForNormalFileUsingPath(
+      Path path, long size, SyscallCache syscallCache) throws IOException {
+    return create(path, /*isFile=*/ true, size, /*proxy=*/ null, /*digest=*/ null, syscallCache);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {

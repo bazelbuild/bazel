@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -1079,17 +1080,22 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
     Label constraint = Label.parseAbsoluteUnchecked("//constraint");
 
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
-            "cherry", ExecGroup.create(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+            "cherry",
+            ExecGroup.builder()
+                .requiredToolchains(ImmutableSet.of(toolchain))
+                .execCompatibleWith(ImmutableSet.of(constraint))
+                .copyFrom(null)
+                .build()));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry").requiredToolchains())
-        .containsExactly(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry").execCompatibleWith())
-        .containsExactly(constraint);
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasToolchainType(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry")).toolchainType(toolchain).isMandatory();
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
   }
 
   @Test

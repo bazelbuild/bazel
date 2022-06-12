@@ -67,7 +67,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
               K key = (K) keys[i];
               builder.put(key, i);
             }
-            this.indexMap = builder.build();
+            this.indexMap = builder.buildOrThrow();
           }
         }
       }

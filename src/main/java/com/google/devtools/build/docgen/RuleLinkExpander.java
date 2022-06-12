@@ -45,7 +45,7 @@ public class RuleLinkExpander {
           .put("exports_files", FUNCTIONS_PAGE)
           .put("glob", FUNCTIONS_PAGE)
           .put("select", FUNCTIONS_PAGE)
-          .build();
+          .buildOrThrow();
 
   private final String productName;
   private final Map<String, String> ruleIndex = new HashMap<>();

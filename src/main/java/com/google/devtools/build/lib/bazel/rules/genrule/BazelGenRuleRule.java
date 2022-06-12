@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 
@@ -41,7 +41,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .setOutputToGenfiles()
         .add(
             attr("$genrule_setup", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.

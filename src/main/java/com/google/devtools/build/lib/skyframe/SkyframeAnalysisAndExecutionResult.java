@@ -28,7 +28,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisResult {
   private final DetailedExitCode representativeExecutionExitCode;
 
-  SkyframeAnalysisAndExecutionResult(
+  private SkyframeAnalysisAndExecutionResult(
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
@@ -69,6 +69,42 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
         getWalkableGraph(),
         getAspects(),
         getPackageRoots(),
+        representativeExecutionExitCode);
+  }
+
+  public static SkyframeAnalysisAndExecutionResult success(
+      ImmutableList<ConfiguredTarget> configuredTargets,
+      WalkableGraph walkableGraph,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      PackageRoots packageRoots) {
+    return new SkyframeAnalysisAndExecutionResult(
+        /*hasLoadingError=*/ false,
+        /*hasAnalysisError=*/ false,
+        /*hasActionConflicts=*/ false,
+        configuredTargets,
+        walkableGraph,
+        aspects,
+        packageRoots,
+        /*representativeExecutionExitCode=*/ null);
+  }
+
+  public static SkyframeAnalysisAndExecutionResult withErrors(
+      boolean hasLoadingError,
+      boolean hasAnalysisError,
+      boolean hasActionConflicts,
+      ImmutableList<ConfiguredTarget> configuredTargets,
+      WalkableGraph walkableGraph,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      PackageRoots packageRoots,
+      DetailedExitCode representativeExecutionExitCode) {
+    return new SkyframeAnalysisAndExecutionResult(
+        hasLoadingError,
+        hasAnalysisError,
+        hasActionConflicts,
+        configuredTargets,
+        walkableGraph,
+        aspects,
+        packageRoots,
         representativeExecutionExitCode);
   }
 }

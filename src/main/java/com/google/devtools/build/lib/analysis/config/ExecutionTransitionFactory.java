@@ -129,6 +129,8 @@ public class ExecutionTransitionFactory
       coreOptions.isExec = true;
       coreOptions.platformSuffix =
           String.format("exec-%X", executionPlatform.getCanonicalForm().hashCode());
+      // Disable extra actions
+      coreOptions.actionListeners = null;
 
       // Then set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);

@@ -74,4 +74,6 @@ public interface CppSemantics extends StarlarkValue {
       ImmutableSet<String> unsupportedFeatures);
 
   boolean createEmptyArchive();
+
+  boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext);
 }

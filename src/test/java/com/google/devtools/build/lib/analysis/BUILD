@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
@@ -26,10 +27,12 @@ java_library(
         include = ["**/*.java"],
         exclude = [
             "AbstractConfiguredTargetTest.java",
+            "AbstractRunfilesSupportTest.java",
             "AnalysisUtilsTest.java",
             "CachingTest.java",
             "ConfiguredTargetTransitivePackagesTest.java",
             "GeneratorConflictTest.java",
+            "JDKJavaLauncherRunfilesSupportTest.java",
             "PackageGroupBuildViewTest.java",
             "RuleConfiguredTargetTest.java",
             "SourceManifestActionTest.java",
@@ -160,6 +163,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -191,6 +195,20 @@ java_test(
     runtime_deps = [
         ":AnalysisTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
+)
+
+java_library(
+    name = "AbstractRunfilesSupportTest",
+    srcs = ["AbstractRunfilesSupportTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
@@ -349,6 +367,16 @@ java_test(
     ],
 )
 
+java_test(
+    name = "JDKJavaLauncherRunfilesSupportTest",
+    srcs = ["JDKJavaLauncherRunfilesSupportTest.java"],
+    runtime_deps = ["//src/test/java/com/google/devtools/build/lib/view/util"],
+    deps = [
+        ":AbstractRunfilesSupportTest",
+        "//third_party:junit4",
+    ],
+)
+
 test_suite(
     name = "AllAnalysisTests",
     tests = [
@@ -359,6 +387,7 @@ test_suite(
         ":CachingTest",
         ":ConfiguredTargetTransitivePackagesTest",
         ":GeneratorConflictTest",
+        ":JDKJavaLauncherRunfilesSupportTest",
         ":PackageGroupBuildViewTest",
         ":RuleConfiguredTargetTest",
         ":SourceManifestActionTest",

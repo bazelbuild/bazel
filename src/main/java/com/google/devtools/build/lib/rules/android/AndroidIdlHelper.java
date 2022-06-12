@@ -272,7 +272,7 @@ public class AndroidIdlHelper {
       Artifact output = ruleContext.getGenfilesArtifact(javaOutputPath.getPathString());
       outputJavaSources.put(idl, output);
     }
-    return outputJavaSources.build();
+    return outputJavaSources.buildOrThrow();
   }
 
   /**

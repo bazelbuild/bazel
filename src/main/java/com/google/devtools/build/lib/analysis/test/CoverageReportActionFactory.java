@@ -58,7 +58,8 @@ public interface CoverageReportActionFactory {
                 actionKeyContext,
                 ImmutableList.of(lcovWriteAction, coverageReportAction),
                 CoverageReportValue.COVERAGE_REPORT_KEY);
-      } catch (MutableActionGraph.ActionConflictException e) {
+      } catch (MutableActionGraph.ActionConflictException
+          | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
     }

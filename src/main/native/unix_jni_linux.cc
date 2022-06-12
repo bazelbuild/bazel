@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +20,6 @@
 
 #include <string>
 
-#include "src/main/native/macros.h"
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
@@ -57,8 +55,6 @@ int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctim.tv_sec;
     case STAT_MTIME:
       return statbuf.st_mtim.tv_sec;
-    default:
-      CHECK(false);
   }
   return 0;
 }
@@ -71,8 +67,6 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
       return statbuf.st_ctim.tv_nsec;
     case STAT_MTIME:
       return statbuf.st_mtim.tv_nsec;
-    default:
-      CHECK(false);
   }
   return 0;
 }
@@ -133,8 +127,22 @@ void portable_start_memory_pressure_monitoring() {
   // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
 }
 
+MemoryPressureLevel portable_memory_pressure() {
+  // Currently not implemented.
+  return MemoryPressureLevelNormal;
+}
+
 void portable_start_disk_space_monitoring() {
   // Currently not implemented.
+}
+
+void portable_start_cpu_speed_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_cpu_speed() {
+  // Currently not implemented.
+  return -1;
 }
 
 }  // namespace blaze_jni

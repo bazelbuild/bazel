@@ -151,14 +151,6 @@ public final class IntermediateArtifacts implements StarlarkValue {
   }
 
   /**
-   * The artifact which is the fully-linked static library comprised of statically linking compiled
-   * sources and dependencies together.
-   */
-  public Artifact strippedSingleArchitectureLibrary(String childCpu) {
-    return appendExtension("-" + childCpu + "-fl.a");
-  }
-
-  /**
    * The artifact which is the binary (or library) which is comprised of one or more .a files linked
    * together. It also contains full debug symbol information, compared to the artifact returned by
    * {@link #strippedSingleArchitectureBinary}. This artifact will serve as input for the symbol

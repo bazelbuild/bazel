@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -125,12 +126,12 @@ final class FileSystemValueCheckerInferringAncestors {
       @Nullable TimestampGranularityMonitor tsgm,
       Map<SkyKey, SkyValue> graphValues,
       Map<SkyKey, SkyValue> graphDoneValues,
-      Iterable<SkyKey> modifiedKeys,
+      Iterable<FileStateKey> modifiedKeys,
       int nThreads)
       throws InterruptedException, AbruptExitException {
     Map<RootedPath, NodeVisitState> nodeStates = new HashMap<>();
-    for (SkyKey key : modifiedKeys) {
-      RootedPath top = ((FileStateValue.Key) key).argument();
+    for (FileStateKey fileStateKey : modifiedKeys) {
+      RootedPath top = fileStateKey.argument();
       // Start with false since the reported diff does not mean we are adding a child.
       boolean lastCreated = false;
       for (RootedPath path = top; path != null; path = path.getParentDirectory()) {
@@ -241,7 +242,7 @@ final class FileSystemValueCheckerInferringAncestors {
       @Nullable Set<String> maybeDeletedChildren,
       NodeVisitState parentState)
       throws StatFailedException {
-    FileStateValue.Key key = FileStateValue.key(path);
+    FileStateKey key = FileStateValue.key(path);
     @Nullable FileStateValue fsv = (FileStateValue) graphValues.get(key);
     if (fsv == null) {
       visitUnknownEntry(key, isInferredDirectory, parentState);
@@ -281,7 +282,7 @@ final class FileSystemValueCheckerInferringAncestors {
   }
 
   private void visitUnknownEntry(
-      FileStateValue.Key key, boolean isInferredDirectory, NodeVisitState parentState)
+      FileStateKey key, boolean isInferredDirectory, NodeVisitState parentState)
       throws StatFailedException {
     RootedPath path = key.argument();
     // Run stats on unknown files in order to preserve the parent listing if present unless we

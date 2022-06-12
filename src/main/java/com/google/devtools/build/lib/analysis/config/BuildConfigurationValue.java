@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -49,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -83,9 +83,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
-
-  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
-      BlazeInterners.newWeakInterner();
 
   /** Global state necessary to build a BuildConfiguration. */
   public interface GlobalStateProvider {
@@ -195,7 +192,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         fragments.put(fragmentClass, fragment);
       }
     }
-    return fragments.build();
+    return fragments.buildOrThrow();
   }
 
   // Package-visible for serialization purposes.
@@ -236,11 +233,8 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
     // and ImmutableMap.Builder does not support that.
-    Map<String, String> commandLineDefinesBuilder = new TreeMap<>();
-    for (Map.Entry<String, String> define : options.commandLineBuildVariables) {
-      commandLineDefinesBuilder.put(define.getKey(), define.getValue());
-    }
-    commandLineBuildVariables = ImmutableMap.copyOf(commandLineDefinesBuilder);
+    commandLineBuildVariables =
+        ImmutableMap.copyOf(options.getNormalizedCommandLineBuildVariables());
 
     this.actionEnv = actionEnvironment;
     this.testEnv = setupTestEnvironment();
@@ -295,7 +289,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         builder.put(module.name(), fragmentClass);
       }
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**
@@ -710,7 +704,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public List<Label> getActionListeners() {
-    return options.actionListeners;
+    return options.actionListeners == null ? ImmutableList.of() : options.actionListeners;
   }
 
   /**
@@ -809,7 +803,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
     modifyExecutionInfo(mutableCopy, mnemonic);
-    return executionInfoInterner.intern(ImmutableSortedMap.copyOf(mutableCopy));
+    return ImmutableSortedMap.copyOf(mutableCopy);
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
@@ -867,6 +861,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
                 .setPlatformName(getCpu())
                 .putAllMakeVariable(getMakeEnvironment())
                 .setCpu(getCpu())
+                .setIsTool(isToolConfiguration())
                 .build());
     return new BuildConfigurationEvent(eventId, builder.build());
   }

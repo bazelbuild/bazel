@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemTest;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import org.junit.Test;
 
 /** Test for {@link com.google.devtools.build.lib.unix.UnixFileSystem#getFastDigest}. */
@@ -41,7 +42,9 @@ public class UnixDigestHashAttributeNameTest extends FileSystemTest {
     // Instead of actually trying to access this file, a call to getxattr() should be made. We
     // intercept this call and return a fake extended attribute value, thereby causing the checksum
     // computation to be skipped entirely.
-    assertThat(DigestUtils.getDigestWithManualFallback(absolutize("myfile"), 123))
+    assertThat(
+            DigestUtils.getDigestWithManualFallback(
+                absolutize("myfile"), 123, SyscallCache.NO_CACHE))
         .isEqualTo(FAKE_DIGEST);
   }
 

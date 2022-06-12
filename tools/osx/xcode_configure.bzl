@@ -271,7 +271,7 @@ def _impl(repository_ctx):
       repository_ctx: The repository context.
     """
 
-    os_name = repository_ctx.os.name.lower()
+    os_name = repository_ctx.os.name
     build_contents = "package(default_visibility = ['//visibility:public'])\n\n"
     if (os_name.startswith("mac os")):
         build_contents += _darwin_build_file(repository_ctx)

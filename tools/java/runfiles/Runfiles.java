@@ -227,7 +227,21 @@ public abstract class Runfiles {
 
     @Override
     public String rlocationChecked(String path) {
-      return runfiles.get(path);
+      String exactMatch = runfiles.get(path);
+      if (exactMatch != null) {
+        return exactMatch;
+      }
+      // If path references a runfile that lies under a directory that itself is a runfile, then
+      // only the directory is listed in the manifest. Look up all prefixes of path in the manifest
+      // and append the relative path from the prefix if there is a match.
+      int prefixEnd = path.length();
+      while ((prefixEnd = path.lastIndexOf('/', prefixEnd - 1)) != -1) {
+        String prefixMatch = runfiles.get(path.substring(0, prefixEnd));
+        if (prefixMatch != null) {
+          return prefixMatch + '/' + path.substring(prefixEnd + 1);
+        }
+      }
+      return null;
     }
 
     @Override

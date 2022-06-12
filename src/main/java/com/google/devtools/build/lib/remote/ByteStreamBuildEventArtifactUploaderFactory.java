@@ -63,7 +63,8 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
             remoteCache.retain(),
             remoteServerInstanceName,
             buildRequestId,
-            commandId);
+            commandId,
+            env.getSyscallCache());
     return uploader;
   }
 

@@ -65,12 +65,12 @@ public class CppCompileActionBuilder {
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
   private UUID actionClassId = GUID;
-  private CppConfiguration cppConfiguration;
+  private final CppConfiguration cppConfiguration;
   private final ArrayList<Artifact> additionalIncludeScanningRoots;
   private Boolean shouldScanIncludes;
   private Map<String, String> executionInfo = new LinkedHashMap<>();
   private CppSemantics cppSemantics;
-  private CcToolchainProvider ccToolchain;
+  private final CcToolchainProvider ccToolchain;
   @Nullable private final Artifact grepIncludes;
   private ActionEnvironment env;
   private final boolean codeCoverageEnabled;
@@ -141,6 +141,24 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
+    Preconditions.checkState(
+        this.sourceFile == null,
+        "New source file %s trying to overwrite old source file %s",
+        sourceFile,
+        this.sourceFile);
+    return setSourceFileUnchecked(sourceFile);
+  }
+
+  public CppCompileActionBuilder setSourceFile(Artifact.TreeFileArtifact sourceFile) {
+    Preconditions.checkState(
+        !(this.sourceFile instanceof Artifact.TreeFileArtifact),
+        "New source file %s trying to overwrite old source file %s also a tree file artifact",
+        sourceFile,
+        this.sourceFile);
+    return setSourceFileUnchecked(sourceFile);
+  }
+
+  private CppCompileActionBuilder setSourceFileUnchecked(Artifact sourceFile) {
     this.sourceFile = sourceFile;
     return this;
   }
@@ -209,22 +227,11 @@ public class CppCompileActionBuilder {
    */
   CppCompileAction buildOrThrowRuleError(RuleErrorConsumer ruleErrorConsumer)
       throws RuleErrorException {
-    List<String> errorMessages = new ArrayList<>();
-    CppCompileAction result =
-        buildAndVerify((String errorMessage) -> errorMessages.add(errorMessage));
-
-    if (!errorMessages.isEmpty()) {
-      RuleErrorException exception = null;
-      try {
-        exception = ruleErrorConsumer.throwWithRuleError(errorMessages.get(0));
-      } catch (RuleErrorException e) {
-        exception = e;
-      }
-      errorMessages.stream().skip(1L).forEach(ruleErrorConsumer::ruleError);
-      throw exception;
+    try {
+      return buildAndVerify();
+    } catch (UnconfiguredActionConfigException e) {
+      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
     }
-
-    return result;
   }
 
   /**
@@ -237,31 +244,38 @@ public class CppCompileActionBuilder {
    * calling some setters to modify the generated action).
    */
   public CppCompileAction buildOrThrowIllegalStateException() {
-    return buildAndVerify(
-        (String errorMessage) -> {
-          throw new IllegalStateException(errorMessage);
-        });
+    try {
+      return buildAndVerify();
+    } catch (UnconfiguredActionConfigException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  static final class UnconfiguredActionConfigException extends Exception {
+    private UnconfiguredActionConfigException(String actionName) {
+      super(String.format("Expected action_config for '%s' to be configured", actionName));
+    }
   }
 
   /**
    * Builds the Action as configured and performs some validations on the action. Uses given {@link
    * Consumer} to collect validation errors.
    */
-  public CppCompileAction buildAndVerify(Consumer<String> errorCollector) {
+  public CppCompileAction buildAndVerify() throws UnconfiguredActionConfigException {
     // This must be set either to false or true by CppSemantics, otherwise someone forgot to call
     // finalizeCompileActionBuilder on this builder.
     Preconditions.checkNotNull(shouldScanIncludes);
     Preconditions.checkNotNull(featureConfiguration);
     boolean useHeaderModules = useHeaderModules();
 
-    if (featureConfiguration.actionIsConfigured(getActionName())) {
+    String actionName = getActionName();
+    if (featureConfiguration.actionIsConfigured(actionName)) {
       for (String executionRequirement :
-          featureConfiguration.getToolRequirementsForAction(getActionName())) {
+          featureConfiguration.getToolRequirementsForAction(actionName)) {
         executionInfo.put(executionRequirement, "");
       }
     } else {
-      errorCollector.accept(
-          String.format("Expected action_config for '%s' to be configured", getActionName()));
+      throw new UnconfiguredActionConfigException(actionName);
     }
 
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
@@ -270,7 +284,7 @@ public class CppCompileActionBuilder {
     configuration.modifyExecutionInfo(
         executionInfo,
         CppCompileAction.actionNameToMnemonic(
-            getActionName(), featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic()));
+            actionName, featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic()));
 
     // Copying the collections is needed to make the builder reusable.
     CppCompileAction action;
@@ -301,7 +315,7 @@ public class CppCompileActionBuilder {
             ImmutableList.copyOf(additionalIncludeScanningRoots),
             actionClassId,
             ImmutableMap.copyOf(executionInfo),
-            getActionName(),
+            actionName,
             cppSemantics,
             builtinIncludeDirectories,
             grepIncludes,
@@ -369,6 +383,11 @@ public class CppCompileActionBuilder {
    * FeatureConfiguration}. By default the action name is decided from the source filetype.
    */
   public CppCompileActionBuilder setActionName(String actionName) {
+    Preconditions.checkState(
+        this.actionName == null,
+        "New actionName %s trying to overwrite old name %s",
+        actionName,
+        this.actionName);
     this.actionName = actionName;
     return this;
   }
@@ -463,12 +482,10 @@ public class CppCompileActionBuilder {
         CppHelper.getCompileOutputArtifact(
             actionConstructionContext,
             label,
-            CppHelper.getArtifactNameForCategory(
-                ruleErrorConsumer, ccToolchain, outputCategory, outputName),
+            CppHelper.getArtifactNameForCategory(ccToolchain, outputCategory, outputName),
             configuration);
     if (dotdFilesEnabled() && useDotdFile(sourceFile)) {
-      String dotdFileName =
-          CppHelper.getDotdFileName(ruleErrorConsumer, ccToolchain, outputCategory, outputName);
+      String dotdFileName = CppHelper.getDotdFileName(ccToolchain, outputCategory, outputName);
       dotdFile =
           CppHelper.getCompileOutputArtifact(
               actionConstructionContext, label, dotdFileName, configuration);

@@ -25,8 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException3;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -38,21 +37,12 @@ public class ToolchainTypeLookupUtil {
   public static ImmutableMap<Label, ToolchainTypeInfo> resolveToolchainTypes(
       Environment env, Iterable<ConfiguredTargetKey> toolchainTypeKeys)
       throws InterruptedException, InvalidToolchainTypeException {
-    Map<
-            SkyKey,
-            ValueOrException3<
-                ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>>
-        values =
-            env.getValuesOrThrow(
-                toolchainTypeKeys,
-                ConfiguredValueCreationException.class,
-                NoSuchThingException.class,
-                ActionConflictException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(toolchainTypeKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<Label, ToolchainTypeInfo> results = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : toolchainTypeKeys) {
       Label originalLabel = key.getLabel();
-      ToolchainTypeInfo toolchainTypeInfo = findToolchainTypeInfo(key, values.get(key));
+      ToolchainTypeInfo toolchainTypeInfo = findToolchainTypeInfo(key, values);
       if (!valuesMissing && toolchainTypeInfo != null) {
         // These are only different if the toolchain type was aliased.
         results.put(originalLabel, toolchainTypeInfo);
@@ -68,14 +58,15 @@ public class ToolchainTypeLookupUtil {
 
   @Nullable
   private static ToolchainTypeInfo findToolchainTypeInfo(
-      ConfiguredTargetKey key,
-      ValueOrException3<
-              ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>
-          valueOrException)
-      throws InvalidToolchainTypeException {
+      ConfiguredTargetKey key, SkyframeIterableResult values) throws InvalidToolchainTypeException {
 
     try {
-      ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
+      ConfiguredTargetValue ctv =
+          (ConfiguredTargetValue)
+              values.nextOrThrow(
+                  ConfiguredValueCreationException.class,
+                  NoSuchThingException.class,
+                  ActionConflictException.class);
       if (ctv == null) {
         return null;
       }

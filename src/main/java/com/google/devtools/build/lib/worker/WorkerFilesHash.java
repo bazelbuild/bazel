@@ -39,12 +39,13 @@ import java.util.TreeMap;
  */
 class WorkerFilesHash {
 
-  static HashCode getCombinedHash(SortedMap<PathFragment, HashCode> workerFilesMap) {
+  static HashCode getCombinedHash(SortedMap<PathFragment, byte[]> workerFilesMap) {
     Hasher hasher = Hashing.sha256().newHasher();
-    for (Map.Entry<PathFragment, HashCode> workerFile : workerFilesMap.entrySet()) {
-      hasher.putString(workerFile.getKey().getPathString(), Charset.defaultCharset());
-      hasher.putBytes(workerFile.getValue().asBytes());
-    }
+    workerFilesMap.forEach(
+        (execPath, digest) -> {
+          hasher.putString(execPath.getPathString(), Charset.defaultCharset());
+          hasher.putBytes(digest);
+        });
     return hasher.hash();
   }
 
@@ -52,17 +53,15 @@ class WorkerFilesHash {
    * Return a map that contains the execroot relative path and hash of each tool and runfiles
    * artifact of the given spawn.
    */
-  static SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes(
+  static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
       Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
       throws IOException {
-    TreeMap<PathFragment, HashCode> workerFilesMap = new TreeMap<>();
+    TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
         ActionInputHelper.expandArtifacts(spawn.getToolFiles(), artifactExpander);
     for (ActionInput tool : tools) {
-      workerFilesMap.put(
-          tool.getExecPath(),
-          HashCode.fromBytes(actionInputFileCache.getMetadata(tool).getDigest()));
+      workerFilesMap.put(tool.getExecPath(), actionInputFileCache.getMetadata(tool).getDigest());
     }
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
@@ -74,9 +73,7 @@ class WorkerFilesHash {
         if (localArtifact != null) {
           FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
           if (metadata.getType().isFile()) {
-            workerFilesMap.put(
-                root.getRelative(mapping.getKey()),
-                HashCode.fromBytes(metadata.getDigest()));
+            workerFilesMap.put(root.getRelative(mapping.getKey()), metadata.getDigest());
           }
         }
       }

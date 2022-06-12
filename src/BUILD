@@ -147,7 +147,10 @@ filegroup(
         "//src/conditions:darwin_arm64": [
             "@openjdk_macos_aarch64//file",
         ],
-        "//src/conditions:windows": [
+        "//src/conditions:windows_arm64": [
+            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
+        ],
+        "//src/conditions:windows_x86_64": [
             "@openjdk_win//file",
         ],
         "//src/conditions:linux_aarch64": [
@@ -169,7 +172,10 @@ filegroup(
         "//src/conditions:darwin_arm64": [
             "@openjdk_macos_aarch64_minimal//file",
         ],
-        "//src/conditions:windows": [
+        "//src/conditions:windows_arm64": [
+            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
+        ],
+        "//src/conditions:windows_x86_64": [
             "@openjdk_win_minimal//file",
         ],
         "//src/conditions:linux_aarch64": [
@@ -647,18 +653,12 @@ filegroup(
         "@openjdk11_darwin_archive//:WORKSPACE",
         "@openjdk11_linux_archive//:WORKSPACE",
         "@openjdk11_windows_archive//:WORKSPACE",
-        "@openjdk15_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk15_darwin_archive//:WORKSPACE",
-        "@openjdk15_linux_archive//:WORKSPACE",
-        "@openjdk15_windows_archive//:WORKSPACE",
-        "@openjdk16_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk16_darwin_archive//:WORKSPACE",
-        "@openjdk16_linux_archive//:WORKSPACE",
-        "@openjdk16_windows_archive//:WORKSPACE",
+        "@openjdk11_windows_arm64_archive//:WORKSPACE",
         "@openjdk17_darwin_aarch64_archive//:WORKSPACE",
         "@openjdk17_darwin_archive//:WORKSPACE",
         "@openjdk17_linux_archive//:WORKSPACE",
         "@openjdk17_windows_archive//:WORKSPACE",
+        "@openjdk17_windows_arm64_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_aarch64_minimal//file",
@@ -679,18 +679,12 @@ filegroup(
         "@remotejdk11_linux_s390x_for_testing//:WORKSPACE",
         "@remotejdk11_macos_aarch64_for_testing//:WORKSPACE",
         "@remotejdk11_macos_for_testing//:WORKSPACE",
+        "@remotejdk11_win_arm64_for_testing//:WORKSPACE",
         "@remotejdk11_win_for_testing//:WORKSPACE",
-        "@remotejdk15_linux_for_testing//:WORKSPACE",
-        "@remotejdk15_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk15_macos_for_testing//:WORKSPACE",
-        "@remotejdk15_win_for_testing//:WORKSPACE",
-        "@remotejdk16_linux_for_testing//:WORKSPACE",
-        "@remotejdk16_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk16_macos_for_testing//:WORKSPACE",
-        "@remotejdk16_win_for_testing//:WORKSPACE",
         "@remotejdk17_linux_for_testing//:WORKSPACE",
         "@remotejdk17_macos_aarch64_for_testing//:WORKSPACE",
         "@remotejdk17_macos_for_testing//:WORKSPACE",
+        "@remotejdk17_win_arm64_for_testing//:WORKSPACE",
         "@remotejdk17_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",

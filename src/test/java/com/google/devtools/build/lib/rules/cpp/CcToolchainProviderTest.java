@@ -437,6 +437,177 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLlvmCoverageToolsDefined() throws Exception {
+    CcToolchainConfig.Builder ccToolchainConfigBuilder =
+        CcToolchainConfig.builder()
+            .withToolPaths(
+                Pair.of("gcc", "path-to-gcc-tool"),
+                Pair.of("gcov-tool", "path-to-gcov-tool"),
+                Pair.of("ar", "ar"),
+                Pair.of("cpp", "cpp"),
+                Pair.of("ld", "ld"),
+                Pair.of("llvm-cov", "path-to-llvm-cov"),
+                Pair.of("llvm-profdata", "path-to-llvm-profdata"),
+                Pair.of("nm", "nm"),
+                Pair.of("objdump", "objdump"),
+                Pair.of("strip", "strip"));
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    toolchain_identifier = 'banana',",
+        "    toolchain_config = ':k8-compiler_config',",
+        ")",
+        ccToolchainConfigBuilder.build().getCcToolchainConfigRule(),
+        "cc_library(",
+        "    name = 'lib',",
+        "    toolchains = [':a'],",
+        ")");
+    analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, ccToolchainConfigBuilder);
+    mockToolsConfig.create(
+        "a/cc_toolchain_config.bzl",
+        ResourceLoader.readFromResources(
+            "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
+    useConfiguration(
+        "--cpu=k8", "--host_cpu=k8", "--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    String llvmCov = null;
+    String llvmProfdata = null;
+    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
+      if (pair.getFirst().equals("LLVM_COV")) {
+        llvmCov = pair.getSecond();
+      }
+      if (pair.getFirst().equals("LLVM_PROFDATA")) {
+        llvmProfdata = pair.getSecond();
+      }
+    }
+    assertThat(llvmCov).isNotNull();
+    assertThat(llvmCov).isNotEmpty();
+    assertThat(llvmProfdata).isNotNull();
+    assertThat(llvmProfdata).isNotEmpty();
+  }
+
+  @Test
+  public void testLlvmCoverageToolsNotDefined() throws Exception {
+    CcToolchainConfig.Builder ccToolchainConfigBuilder =
+        CcToolchainConfig.builder()
+            .withToolPaths(
+                Pair.of("gcc", "path-to-gcc-tool"),
+                Pair.of("gcov-tool", "path-to-gcov-tool"),
+                Pair.of("ar", "ar"),
+                Pair.of("cpp", "cpp"),
+                // No paths for llvm-cov, llvm-profdata
+                Pair.of("ld", "ld"),
+                Pair.of("nm", "nm"),
+                Pair.of("objdump", "objdump"),
+                Pair.of("strip", "strip"));
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    toolchain_identifier = 'banana',",
+        "    toolchain_config = ':k8-compiler_config',",
+        ")",
+        ccToolchainConfigBuilder.build().getCcToolchainConfigRule(),
+        "cc_library(",
+        "    name = 'lib',",
+        "    toolchains = [':a'],",
+        ")");
+    analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, ccToolchainConfigBuilder);
+    mockToolsConfig.create(
+        "a/cc_toolchain_config.bzl",
+        ResourceLoader.readFromResources(
+            "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
+    useConfiguration(
+        "--cpu=k8", "--host_cpu=k8", "--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    String llvmCov = null;
+    String llvmProfdata = null;
+    for (Pair<String, String> pair : instrumentedFilesInfo.getCoverageEnvironment().toList()) {
+      if (pair.getFirst().equals("LLVM_COV")) {
+        llvmCov = pair.getSecond();
+      }
+      if (pair.getFirst().equals("LLVM_PROFDATA")) {
+        llvmProfdata = pair.getSecond();
+      }
+    }
+
+    assertThat(llvmCov).isNotNull();
+    assertThat(llvmCov).isEmpty();
+    assertThat(llvmProfdata).isNotNull();
+    assertThat(llvmProfdata).isEmpty();
+  }
+
+  @Test
+  public void testEnableCoveragePropagatesSupportFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "cc_library(",
+        "    name = 'lib',",
+        ")");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+
+    CcToolchainProvider ccToolchainProvider =
+        getConfiguredTarget("//a:toolchain").get(CcToolchainProvider.PROVIDER);
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isNotEmpty();
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList())
+        .containsExactlyElementsIn(ccToolchainProvider.getCoverageFiles().toList());
+  }
+
+  @Test
+  public void testDisableCoverageDoesNotPropagateSupportFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "cc_library(",
+        "    name = 'lib',",
+        ")");
+
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isEmpty();
+  }
+
+  @Test
   public void testUnsupportedSysrootErrorMessage() throws Exception {
     scratch.file(
         "a/BUILD",

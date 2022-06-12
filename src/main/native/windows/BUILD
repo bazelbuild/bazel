@@ -59,6 +59,7 @@ cc_binary(
         "jni-util.h",
         "processes-jni.cc",
         "sleep_prevention_jni.cc",
+        "system_cpu_speed_monitor_jni.cc",
         "system_disk_space_monitor_jni.cc",
         "system_load_advisory_monitor_jni.cc",
         "system_memory_pressure_jni.cc",

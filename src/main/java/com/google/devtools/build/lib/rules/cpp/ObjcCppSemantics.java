@@ -126,4 +126,9 @@ public class ObjcCppSemantics implements CppSemantics {
   public boolean createEmptyArchive() {
     return false;
   }
+
+  @Override
+  public boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext) {
+    return false;
+  }
 }

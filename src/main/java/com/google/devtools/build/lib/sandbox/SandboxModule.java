@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -126,6 +125,10 @@ public final class SandboxModule extends BlazeModule {
               env.getRuntime().getProductName(),
               Fingerprint.getHexDigest(env.getOutputBase().toString()));
       FileSystem fileSystem = env.getRuntime().getFileSystem();
+      if (OS.getCurrent() == OS.DARWIN) {
+        // Don't resolve symlinks on macOS: See https://github.com/bazelbuild/bazel/issues/13766
+        return fileSystem.getPath(options.sandboxBase).getRelative(dirName);
+      }
       Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
       return resolvedSandboxBase.getRelative(dirName);
     }
@@ -449,6 +452,7 @@ public final class SandboxModule extends BlazeModule {
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
         // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+        env.getSyscallCache(),
         RunfilesTreeUpdater.INSTANCE);
   }
 

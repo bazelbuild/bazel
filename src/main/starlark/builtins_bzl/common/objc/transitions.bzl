@@ -72,34 +72,44 @@ def _ios_cpu_from_cpu(cpu):
         return cpu[len(IOS_CPU_PREFIX):]
     return DEFAULT_IOS_CPU
 
-def _apple_crosstool_transition_impl(settings, attr):
-    platform_type = str(settings["//command_line_option:apple_platform_type"])
-    cpu = _cpu_string(platform_type, settings)
-    if cpu == settings["//command_line_option:cpu"] and settings["//command_line_option:crosstool_top"] == settings["//command_line_option:apple_crosstool_top"]:
-        return {}  # No changes necessary.
+def _output_dictionary(settings, cpu, platform_type, platforms):
     return {
         "//command_line_option:apple configuration distinguisher": "applebin_" + platform_type,
-        "//command_line_option:apple_platform_type": settings["//command_line_option:apple_platform_type"],
-        "//command_line_option:apple_split_cpu": settings["//command_line_option:apple_split_cpu"],
         "//command_line_option:compiler": settings["//command_line_option:apple_compiler"],
         "//command_line_option:cpu": cpu,
         "//command_line_option:crosstool_top": (
             settings["//command_line_option:apple_crosstool_top"]
         ),
-        "//command_line_option:platforms": [],
+        "//command_line_option:platforms": platforms,
         "//command_line_option:fission": [],
         "//command_line_option:grte_top": settings["//command_line_option:apple_grte_top"],
-        "//command_line_option:ios_minimum_os": settings["//command_line_option:ios_minimum_os"],
-        "//command_line_option:macos_minimum_os": settings["//command_line_option:macos_minimum_os"],
-        "//command_line_option:tvos_minimum_os": settings["//command_line_option:tvos_minimum_os"],
-        "//command_line_option:watchos_minimum_os": settings["//command_line_option:watchos_minimum_os"],
     }
+
+def _apple_crosstool_transition_impl(settings, attr):
+    platform_type = str(settings["//command_line_option:apple_platform_type"])
+    cpu = _cpu_string(platform_type, settings)
+    if settings["//command_line_option:incompatible_enable_apple_toolchain_resolution"]:
+        platforms = (
+            settings["//command_line_option:apple_platforms"] or
+            settings["//command_line_option:platforms"]
+        )
+        return _output_dictionary(settings, cpu, platform_type, platforms)
+    crosstools_are_equal = (
+        settings["//command_line_option:crosstool_top"] ==
+        settings["//command_line_option:apple_crosstool_top"]
+    )
+    if cpu == settings["//command_line_option:cpu"] and crosstools_are_equal:
+        # No changes necessary.
+        return {}
+
+    # Ensure platforms aren't set so that platform mapping can take place.
+    return _output_dictionary(settings, cpu, platform_type, [])
 
 _apple_rule_base_transition_inputs = [
     "//command_line_option:apple configuration distinguisher",
     "//command_line_option:apple_compiler",
-    "//command_line_option:compiler",
     "//command_line_option:apple_platform_type",
+    "//command_line_option:apple_platforms",
     "//command_line_option:apple_crosstool_top",
     "//command_line_option:crosstool_top",
     "//command_line_option:apple_split_cpu",
@@ -110,28 +120,19 @@ _apple_rule_base_transition_inputs = [
     "//command_line_option:tvos_cpus",
     "//command_line_option:watchos_cpus",
     "//command_line_option:catalyst_cpus",
-    "//command_line_option:ios_minimum_os",
-    "//command_line_option:macos_minimum_os",
-    "//command_line_option:tvos_minimum_os",
-    "//command_line_option:watchos_minimum_os",
     "//command_line_option:platforms",
     "//command_line_option:fission",
     "//command_line_option:grte_top",
+    "//command_line_option:incompatible_enable_apple_toolchain_resolution",
 ]
 _apple_rule_base_transition_outputs = [
     "//command_line_option:apple configuration distinguisher",
-    "//command_line_option:apple_platform_type",
-    "//command_line_option:apple_split_cpu",
     "//command_line_option:compiler",
     "//command_line_option:cpu",
     "//command_line_option:crosstool_top",
     "//command_line_option:platforms",
     "//command_line_option:fission",
     "//command_line_option:grte_top",
-    "//command_line_option:ios_minimum_os",
-    "//command_line_option:macos_minimum_os",
-    "//command_line_option:tvos_minimum_os",
-    "//command_line_option:watchos_minimum_os",
 ]
 
 apple_crosstool_transition = transition(

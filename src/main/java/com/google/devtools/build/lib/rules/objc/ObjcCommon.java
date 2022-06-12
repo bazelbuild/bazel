@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
@@ -113,8 +112,6 @@ public final class ObjcCommon implements StarlarkValue {
     private Iterable<CcCompilationContext> directCCompilationContexts = ImmutableList.of();
     private Iterable<CcLinkingContext> ccLinkingContexts = ImmutableList.of();
     private Iterable<CcLinkingContext> ccLinkStampContexts = ImmutableList.of();
-    private Iterable<CcCompilationContext> ccCompilationContextsForDirectFields =
-        ImmutableList.of();
 
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from the
@@ -178,17 +175,9 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
-    Builder addCcCompilationContextsForDirectFields(Iterable<CcInfo> ccInfos) {
-      this.ccCompilationContextsForDirectFields =
-          Iterables.concat(
-              this.ccCompilationContextsForDirectFields, getCcCompilationContexts(ccInfos));
-      return this;
-    }
-
     Builder addDeps(List<? extends TransitiveInfoCollection> deps) {
       ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
-      ImmutableList.Builder<CcInfo> ccInfosForDirectFields = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkStampContexts = ImmutableList.builder();
 
@@ -196,8 +185,6 @@ public final class ObjcCommon implements StarlarkValue {
         if (dep.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
           addAnyProviders(objcProviders, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
         } else {
-          // This is the way we inject cc_library attributes into direct fields.
-          addAnyProviders(ccInfosForDirectFields, dep, CcInfo.PROVIDER);
           // We only use CcInfo's linking info if there is no ObjcProvider.  This is required so
           // that objc_library archives do not get treated as if they are from cc targets.
           addAnyContexts(ccLinkingContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
@@ -209,7 +196,6 @@ public final class ObjcCommon implements StarlarkValue {
       }
       addObjcProviders(objcProviders.build());
       addCcCompilationContexts(ccInfos.build());
-      addCcCompilationContextsForDirectFields(ccInfosForDirectFields.build());
       this.ccLinkingContexts = Iterables.concat(this.ccLinkingContexts, ccLinkingContexts.build());
       this.ccLinkStampContexts =
           Iterables.concat(this.ccLinkStampContexts, ccLinkStampContexts.build());
@@ -304,10 +290,6 @@ public final class ObjcCommon implements StarlarkValue {
           // CcCompilationHelper.getStlCcCompilationContext(), but probably shouldn't.
           .addCcCompilationContexts(ccCompilationContexts);
 
-      for (CcCompilationContext headerProvider : ccCompilationContextsForDirectFields) {
-        objcProvider.addAllDirect(HEADER, headerProvider.getDeclaredIncludeSrcs().toList());
-      }
-
       for (CcLinkingContext linkProvider : ccLinkingContexts) {
         ImmutableList<String> linkOpts = linkProvider.getFlattenedUserLinkFlags();
         addLinkoptsToObjcProvider(linkOpts, objcProvider);
@@ -333,9 +315,7 @@ public final class ObjcCommon implements StarlarkValue {
         objcProvider
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
             .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())
-            .addAll(SDK_DYLIB, attributes.sdkDylibs())
-            .addAllDirect(HEADER, attributes.hdrs().toList())
-            .addAllDirect(HEADER, attributes.textualHdrs().toList());
+            .addAll(SDK_DYLIB, attributes.sdkDylibs());
         objcCompilationContextBuilder
             .addPublicHeaders(filterFileset(attributes.hdrs().toList()))
             .addPublicTextualHeaders(filterFileset(attributes.textualHdrs().toList()))
@@ -355,8 +335,7 @@ public final class ObjcCommon implements StarlarkValue {
         objcProvider
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources)
-            .addAllDirect(SOURCE, allSources)
-            .addAllDirect(HEADER, filterFileset(artifacts.getAdditionalHdrs().toList()));
+            .addAllDirect(SOURCE, allSources);
         objcCompilationContextBuilder.addPublicHeaders(
             filterFileset(artifacts.getAdditionalHdrs().toList()));
         objcCompilationContextBuilder.addPrivateHeaders(artifacts.getPrivateHdrs());

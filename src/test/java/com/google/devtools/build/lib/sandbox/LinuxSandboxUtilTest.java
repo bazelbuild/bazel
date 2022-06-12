@@ -126,7 +126,7 @@ public final class LinuxSandboxUtilTest {
             .put(bindMountTarget1, bindMountSource1)
             .put(bindMountTarget2, bindMountSource2)
             .put(bindMountSameSourceAndTarget, bindMountSameSourceAndTarget)
-            .build();
+            .buildOrThrow();
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()

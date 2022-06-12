@@ -39,7 +39,7 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
     ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
     builder.put("android/crosstool", Label.parseAbsoluteUnchecked(prefix + "default_crosstool"));
     builder.put("android_ndk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private static final ImmutableList<String> calculateToolchainsToRegister(Rule rule) {

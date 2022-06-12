@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOrderEvent;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -263,14 +264,14 @@ public final class SyncCommand implements BlazeCommand {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(SyscallCache syscallCache) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "bind")
             .put(
                 ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>of("name", name, "actual", actual))
             .put(ResolvedHashesFunction.NATIVE, nativeCommand)
-            .build();
+            .buildOrThrow();
       }
     };
   }
@@ -295,7 +296,7 @@ public final class SyncCommand implements BlazeCommand {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(SyscallCache syscallCache) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, ruleName)
             .put(

@@ -174,7 +174,22 @@ class _ManifestBased(object):
     self._runfiles = _ManifestBased._LoadRunfiles(path)
 
   def RlocationChecked(self, path):
-    return self._runfiles.get(path)
+    """Returns the runtime path of a runfile."""
+    exact_match = self._runfiles.get(path)
+    if exact_match:
+      return exact_match
+    # If path references a runfile that lies under a directory that itself is a
+    # runfile, then only the directory is listed in the manifest. Look up all
+    # prefixes of path in the manifest and append the relative path from the
+    # prefix to the looked up path.
+    prefix_end = len(path)
+    while True:
+      prefix_end = path.rfind("/", 0, prefix_end - 1)
+      if prefix_end == -1:
+        return None
+      prefix_match = self._runfiles.get(path[0:prefix_end])
+      if prefix_match:
+        return prefix_match + "/" + path[prefix_end + 1:]
 
   @staticmethod
   def _LoadRunfiles(path):

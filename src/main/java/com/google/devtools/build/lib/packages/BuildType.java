@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.packages.Type.ListType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -142,8 +140,7 @@ public final class BuildType {
    * <p>The caller is responsible for casting the returned value appropriately.
    */
   public static <T> Object selectableConvert(
-      Type<T> type, Object x, Object what, LabelConversionContext context)
-      throws ConversionException {
+      Type<T> type, Object x, Object what, LabelConverter context) throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
       return new SelectorList<>(
           ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
@@ -152,53 +149,6 @@ public final class BuildType {
           type);
     } else {
       return type.convert(x, what, context);
-    }
-  }
-
-  /** Context in which to evaluate a label with repository remappings */
-  public static class LabelConversionContext {
-    private final Label label;
-    private final RepositoryMapping repositoryMapping;
-    private final HashMap<String, Label> convertedLabelsInPackage;
-
-    public LabelConversionContext(
-        Label label,
-        RepositoryMapping repositoryMapping,
-        HashMap<String, Label> convertedLabelsInPackage) {
-      this.label = label;
-      this.repositoryMapping = repositoryMapping;
-      this.convertedLabelsInPackage = convertedLabelsInPackage;
-    }
-
-    Label getLabel() {
-      return label;
-    }
-
-    /** Returns the Label corresponding to the input, using the current conversion context. */
-    public Label convert(String input) throws LabelSyntaxException {
-      // Optimization: First check the package-local map, avoiding Label validation, Label
-      // construction, and global Interner lookup. This approach tends to be very profitable
-      // overall, since it's common for the targets in a single package to have duplicate
-      // label-strings across all their attribute values.
-      Label converted = convertedLabelsInPackage.get(input);
-      if (converted == null) {
-        converted = label.getRelativeWithRemapping(input, repositoryMapping);
-        convertedLabelsInPackage.put(input, converted);
-      }
-      return converted;
-    }
-
-    RepositoryMapping getRepositoryMapping() {
-      return repositoryMapping;
-    }
-
-    HashMap<String, Label> getConvertedLabelsInPackage() {
-      return convertedLabelsInPackage;
-    }
-
-    @Override
-    public String toString() {
-      return label.toString();
     }
   }
 
@@ -253,9 +203,9 @@ public final class BuildType {
           // TODO(b/110308446): remove instances of context being a Label
         } else if (context instanceof Label) {
           return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());
-        } else if (context instanceof LabelConversionContext) {
-          LabelConversionContext labelConversionContext = (LabelConversionContext) context;
-          return labelConversionContext.convert(str);
+        } else if (context instanceof LabelConverter) {
+          LabelConverter labelConverter = (LabelConverter) context;
+          return labelConverter.convert(str);
         } else {
           throw new ConversionException("invalid context '" + context + "' in " + what);
         }
@@ -441,16 +391,13 @@ public final class BuildType {
       }
       try {
         // Enforce value is relative to the context.
-        Label currentRule;
-        RepositoryMapping repositoryMapping;
-        if (context instanceof LabelConversionContext) {
-          currentRule = ((LabelConversionContext) context).getLabel();
-          repositoryMapping = ((LabelConversionContext) context).getRepositoryMapping();
-        } else {
+        if (!(context instanceof LabelConverter)) {
           throw new ConversionException("invalid context '" + context + "' in " + what);
         }
-        Label result = currentRule.getRelativeWithRemapping(value, repositoryMapping);
-        if (!result.getPackageIdentifier().equals(currentRule.getPackageIdentifier())) {
+
+        LabelConverter converter = (LabelConverter) context;
+        Label result = converter.convert(value);
+        if (!result.getPackageIdentifier().equals(converter.getBase().getPackageIdentifier())) {
           throw new ConversionException("label '" + value + "' is not in the current package");
         }
         return result;
@@ -474,7 +421,7 @@ public final class BuildType {
 
     @VisibleForTesting
     SelectorList(
-        List<Object> x, Object what, @Nullable LabelConversionContext context, Type<T> originalType)
+        List<Object> x, Object what, @Nullable LabelConverter context, Type<T> originalType)
         throws ConversionException {
       if (x.size() > 1 && originalType.concat(ImmutableList.of()) == null) {
         throw new ConversionException(
@@ -588,10 +535,7 @@ public final class BuildType {
 
     /** Creates a new Selector using the default error message when no conditions match. */
     Selector(
-        ImmutableMap<?, ?> x,
-        Object what,
-        @Nullable LabelConversionContext context,
-        Type<T> originalType)
+        ImmutableMap<?, ?> x, Object what, @Nullable LabelConverter context, Type<T> originalType)
         throws ConversionException {
       this(x, what, context, originalType, "");
     }
@@ -600,7 +544,7 @@ public final class BuildType {
     Selector(
         ImmutableMap<?, ?> x,
         Object what,
-        @Nullable LabelConversionContext context,
+        @Nullable LabelConverter context,
         Type<T> originalType,
         String noMatchError)
         throws ConversionException {

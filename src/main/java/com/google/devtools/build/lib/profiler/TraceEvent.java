@@ -128,7 +128,7 @@ public abstract class TraceEvent {
     }
     reader.endObject();
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private static ImmutableList<Object> parseArray(JsonReader reader) throws IOException {

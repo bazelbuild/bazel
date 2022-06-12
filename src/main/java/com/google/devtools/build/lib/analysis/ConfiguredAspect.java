@@ -216,19 +216,25 @@ public final class ConfiguredAspect implements ProviderCollection {
           throw new IllegalStateException(
               "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(new OutputGroupInfo(outputGroups.build()));
+        addDeclaredProvider(new OutputGroupInfo(outputGroups.buildOrThrow()));
       }
 
       addProvider(
           createExtraActionProvider(/*actionsWithoutExtraAction=*/ ImmutableSet.of(), ruleContext));
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-      GeneratingActions generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              analysisEnvironment.getActionKeyContext(),
-              analysisEnvironment.getRegisteredActions(),
-              ruleContext.getOwner(),
-              /*outputFiles=*/ null);
+      GeneratingActions generatingActions;
+      try {
+        generatingActions =
+            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                analysisEnvironment.getActionKeyContext(),
+                analysisEnvironment.getRegisteredActions(),
+                ruleContext.getOwner(),
+                /*outputFiles=*/ null);
+      } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+        ruleContext.ruleError(e.getMessage());
+        return null;
+      }
 
       maybeAddRequiredConfigFragmentsProvider();
 

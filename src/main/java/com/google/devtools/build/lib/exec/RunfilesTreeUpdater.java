@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -66,7 +67,8 @@ public class RunfilesTreeUpdater {
       BinTools binTools,
       ImmutableMap<String, String> env,
       OutErr outErr,
-      boolean enableRunfiles)
+      boolean enableRunfiles,
+      SyscallCache syscallCache)
       throws IOException, ExecException, InterruptedException {
     Path runfilesDirPath = execRoot.getRelative(runfilesDir);
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
@@ -82,8 +84,9 @@ public class RunfilesTreeUpdater {
       // an up-to-date check.
       if (!outputManifest.isSymbolicLink()
           && Arrays.equals(
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest),
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(inputManifest))) {
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest, syscallCache),
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(
+                  inputManifest, syscallCache))) {
         return;
       }
     } catch (IOException e) {
@@ -131,7 +134,8 @@ public class RunfilesTreeUpdater {
       RunfilesSupplier runfilesSupplier,
       BinTools binTools,
       ImmutableMap<String, String> env,
-      OutErr outErr)
+      OutErr outErr,
+      SyscallCache syscallCache)
       throws ExecException, IOException, InterruptedException {
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
         runfilesSupplier.getMappings().entrySet()) {
@@ -154,7 +158,8 @@ public class RunfilesTreeUpdater {
               binTools,
               env,
               outErr,
-              runfilesSupplier.isRunfileLinksEnabled(runfilesDir));
+              runfilesSupplier.isRunfileLinksEnabled(runfilesDir),
+              syscallCache);
         }
       } finally {
         decrementRefcnt(runfilesDir);

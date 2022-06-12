@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -25,7 +23,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** The collection of gen jars from the transitive closure. */
 @Immutable
@@ -77,10 +78,15 @@ public final class JavaGenJarsProvider
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
       NestedSet<Artifact> processorClasspath,
-      NestedSet<String> processorClassNames) {
+      NestedSet<String> processorClassNames)
+      throws EvalException {
     // Existing Jars would be a problem b/c we can't remove them from transitiveXxx sets
-    checkState(this.genClassJar == null, "Existing genClassJar: %s", this.genClassJar);
-    checkState(this.genSourceJar == null, "Existing genSrcJar: %s", this.genSourceJar);
+    if (this.genClassJar != null && !Objects.equals(this.genClassJar, genClassJar)) {
+      throw Starlark.errorf("Existing genClassJar: %s", this.genClassJar);
+    }
+    if (this.genSourceJar != null && !Objects.equals(this.genSourceJar, genSourceJar)) {
+      throw Starlark.errorf("Existing genSrcJar: %s", this.genClassJar);
+    }
     return new JavaGenJarsProvider(
         usesAnnotationProcessing,
         genClassJar,

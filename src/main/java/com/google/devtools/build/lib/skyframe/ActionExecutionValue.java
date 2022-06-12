@@ -123,6 +123,16 @@ public final class ActionExecutionValue implements SkyValue {
         artifactData, treeArtifactData, outputSymlinks, /*discoveredModules=*/ null);
   }
 
+  @VisibleForTesting
+  public static ActionExecutionValue createForTesting(
+      ImmutableMap<Artifact, FileArtifactValue> artifactData,
+      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
+      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      NestedSet<Artifact> discoveredModules) {
+    return new ActionExecutionValue(
+        artifactData, treeArtifactData, outputSymlinks, discoveredModules);
+  }
+
   /**
    * Retrieves a {@link FileArtifactValue} for a regular (non-tree) derived artifact.
    *
@@ -247,7 +257,7 @@ public final class ActionExecutionValue implements SkyValue {
               action);
       result.put(newArtifact, transform.apply(newArtifact, entry.getValue()));
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /** Transforms the children of a {@link TreeArtifactValue} so that owners are consistent. */

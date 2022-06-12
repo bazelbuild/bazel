@@ -29,32 +29,28 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   private final SkyframePackageLoader packageLoader;
-  private final QueryTransitivePackagePreloader transitiveLoader;
-  private final AtomicReference<UnixGlob.FilesystemCalls> syscalls;
-  private final AtomicReference<PathPackageLocator> pkgLocator;
-  private final AtomicInteger numPackagesLoaded;
+  private final SyscallCache syscallCache;
+  private final Supplier<PathPackageLocator> pkgLocator;
+  private final AtomicInteger numPackagesSuccessfullyLoaded;
 
   public SkyframePackageManager(
       SkyframePackageLoader packageLoader,
-      QueryTransitivePackagePreloader transitiveLoader,
-      AtomicReference<UnixGlob.FilesystemCalls> syscalls,
-      AtomicReference<PathPackageLocator> pkgLocator,
-      AtomicInteger numPackagesLoaded) {
+      SyscallCache syscallCache,
+      Supplier<PathPackageLocator> pkgLocator,
+      AtomicInteger numPackagesSuccessfullyLoaded) {
     this.packageLoader = packageLoader;
-    this.transitiveLoader = transitiveLoader;
     this.pkgLocator = pkgLocator;
-    this.syscalls = syscalls;
-    this.numPackagesLoaded = numPackagesLoaded;
+    this.syscallCache = syscallCache;
+    this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
   }
 
   @ThreadSafe
@@ -73,8 +69,8 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
 
   @Override
   public PackageManagerStatistics getAndClearStatistics() {
-    int packagesLoaded = numPackagesLoaded.getAndSet(0);
-    return () -> packagesLoaded;
+    int packagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded.getAndSet(0);
+    return () -> packagesSuccessfullyLoaded;
   }
 
   @Override
@@ -99,7 +95,7 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     // TODO(bazel-team): Use a PackageLookupValue here [skyframe-loading]
     // TODO(bazel-team): The implementation in PackageCache also checks for duplicate packages, see
     // BuildFileCache#getBuildFile [skyframe-loading]
-    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscalls);
+    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscallCache);
   }
 
   @Override
@@ -119,8 +115,4 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     return pkgLocator.get();
   }
 
-  @Override
-  public QueryTransitivePackagePreloader transitiveLoader() {
-    return transitiveLoader;
-  }
 }

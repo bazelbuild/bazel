@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,13 +68,14 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.ErrorInfoSubject;
@@ -165,10 +167,11 @@ public class FileFunctionTest {
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
-                    FileStateValue.FILE_STATE,
+                    FileStateKey.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<>(),
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        Suppliers.ofInstance(
+                            new TimestampGranularityMonitor(BlazeClock.instance())),
+                        SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(
                     FileSymlinkCycleUniquenessFunction.NAME,
@@ -850,7 +853,7 @@ public class FileFunctionTest {
 
   private static Set<RootedPath> filesSeen(MemoizingEvaluator graph) {
     return graph.getValues().keySet().stream()
-        .filter(SkyFunctionName.functionIs(FileStateValue.FILE_STATE))
+        .filter(SkyFunctionName.functionIs(FileStateKey.FILE_STATE))
         .map(SkyKey::argument)
         .map(RootedPath.class::cast)
         .collect(toImmutableSet());
@@ -1028,7 +1031,7 @@ public class FileFunctionTest {
             .put(
                 rootedPath("e/some/descendant"),
                 ImmutableList.of(rootedPath("e"), rootedPath("c"), rootedPath("d")))
-            .build();
+            .buildOrThrow();
     Map<RootedPath, ImmutableList<RootedPath>> startToPathToCycleMap =
         ImmutableMap.<RootedPath, ImmutableList<RootedPath>>builder()
             .put(rootedPath("a"), ImmutableList.of(rootedPath("a"), rootedPath("b")))
@@ -1040,7 +1043,7 @@ public class FileFunctionTest {
             .put(rootedPath("b/some/descendant"), ImmutableList.of(rootedPath("b")))
             .put(rootedPath("d/some/descendant"), ImmutableList.of())
             .put(rootedPath("e/some/descendant"), ImmutableList.of())
-            .build();
+            .buildOrThrow();
     ImmutableList<SkyKey> keys;
     if (ancestorCycle && startInCycle) {
       keys = ImmutableList.of(skyKey("d/some/descendant"), skyKey("e/some/descendant"));

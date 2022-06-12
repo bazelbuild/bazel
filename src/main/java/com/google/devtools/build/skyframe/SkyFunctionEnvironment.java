@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -87,6 +86,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * map.
    */
   @Nullable private final Map<SkyKey, ValueWithMetadata> bubbleErrorInfo;
+
+  private boolean encounteredErrorDuringBubbling = false;
 
   /**
    * The values previously declared as dependencies.
@@ -612,6 +613,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         errorMightHaveBeenFound = true;
         childErrorInfos.add(errorInfo);
         if (bubbleErrorInfo != null) {
+          encounteredErrorDuringBubbling = true;
           // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
           // fancy after this. SkyFunctions executed during error bubbling are supposed to
           // (quickly) rethrow errors or return a value/null (but there's currently no way to
@@ -660,6 +662,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         errorMightHaveBeenFound = true;
         childErrorInfos.add(errorInfo);
         if (bubbleErrorInfo != null) {
+          encounteredErrorDuringBubbling = true;
           // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
           // fancy after this. SkyFunctions executed during error bubbling are supposed to
           // (quickly) rethrow errors or return a value/null (but there's currently no way to
@@ -804,8 +807,12 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
               .getErrorInfoToUse(skyKey, value != null, childErrorInfos);
       // TODO(b/166268889, b/172223413): remove when fixed.
       if (errorInfo != null && errorInfo.getException() instanceof IOException) {
-        logger.atInfo().withCause(errorInfo.getException()).log(
-            "Synthetic errorInfo for %s", skyKey);
+        String skyFunctionName = skyKey.functionName().getName();
+        if (!skyFunctionName.startsWith("FILE")
+            && !skyFunctionName.startsWith("DIRECTORY_LISTING")) {
+          logger.atInfo().withCause(errorInfo.getException()).log(
+              "Synthetic errorInfo for %s", skyKey);
+        }
       }
     }
 
@@ -922,7 +929,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         skyKey);
     Preconditions.checkNotNull(version, skyKey);
     Preconditions.checkState(
-        version.atMost(evaluatorContext.getGraphVersion()),
+        !evaluatorContext.getGraphVersion().lowerThan(version),
         "Invalid injected version (%s > %s) for %s",
         version,
         evaluatorContext.getGraphVersion(),
@@ -969,6 +976,10 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Override
   public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
     return (T) evaluatorContext.stateCache().get(skyKey, k -> stateSupplier.get());
+  }
+
+  boolean encounteredErrorDuringBubbling() {
+    return encounteredErrorDuringBubbling;
   }
 
   /** Thrown during environment construction if previously requested deps are no longer done. */

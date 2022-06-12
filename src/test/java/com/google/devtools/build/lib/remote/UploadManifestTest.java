@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import org.junit.Before;
@@ -43,7 +44,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link UploadManifest}. */
 @RunWith(JUnit4.class)
 public class UploadManifestTest {
-  private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+  private final DigestUtil digestUtil =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   private Path execRoot;
   private RemotePathResolver remotePathResolver;

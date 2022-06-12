@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -131,7 +132,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(0))
@@ -169,7 +171,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater=*/ null,
             new WorkerOptions(),
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(anyInt()))
@@ -213,7 +216,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     Semaphore secondResponseRequested = new Semaphore(0);
@@ -271,7 +275,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(anyInt())).thenThrow(new InterruptedException());
@@ -316,7 +321,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             workerOptions,
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
     // This worker key just so happens to be multiplex and require sandboxing.
     WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs, true);
     Path logFile = fs.getPath("/worker.log");
@@ -356,7 +362,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getLogFile()).thenReturn(logFile);
@@ -408,7 +415,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
 
     String psOutput = "    PID  \t  RSS\n   1  3216 \t\n  \t 2 \t 4096 \t";
     InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
@@ -439,7 +447,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
             eventBus,
-            runtime);
+            runtime,
+            SyscallCache.NO_CACHE);
 
     String psOutput = "PID  RSS  \n 1  3216";
     InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));

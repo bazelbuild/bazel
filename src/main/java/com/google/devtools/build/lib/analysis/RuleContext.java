@@ -844,7 +844,7 @@ public final class RuleContext extends TargetContext
       result.put(entry.getKey(), Preconditions.checkNotNull(labelToDep.get(entry.getValue())));
     }
 
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /**

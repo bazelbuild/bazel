@@ -309,7 +309,7 @@ public class InfoCommand implements BlazeCommand {
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   public static List<String> getHardwiredInfoItemNames(String productName) {

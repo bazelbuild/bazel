@@ -180,7 +180,7 @@ public class IndexRegistry implements Registry {
         .setUrls(urls.build())
         .setIntegrity(sourceJson.get().integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
-        .setRemotePatches(remotePatches.build())
+        .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
         .build();
   }

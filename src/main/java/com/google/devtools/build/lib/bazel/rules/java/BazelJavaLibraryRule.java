@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
@@ -36,6 +37,8 @@ import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 
 /**
  * Common attributes for Java rules.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaLibraryRule implements RuleDefinition {
   @Override
@@ -166,7 +169,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("java_library")
         .ancestors(JavaRule.class, ProguardLibraryRule.class)
-        .factoryClass(BazelJavaLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

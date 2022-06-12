@@ -112,19 +112,6 @@ public class FilesystemValueChecker {
    * Returns a {@link Differencer.DiffWithDelta} containing keys that are dirty according to the
    * passed-in {@code dirtinessChecker}.
    */
-  public ImmutableBatchDirtyResult getNewAndOldValues(
-      Map<SkyKey, SkyValue> valuesMap,
-      Collection<SkyKey> keys,
-      SkyValueDirtinessChecker dirtinessChecker)
-      throws InterruptedException {
-    return getDirtyValues(new MapBackedValueFetcher(valuesMap), keys,
-        dirtinessChecker, /*checkMissingValues=*/true);
-  }
-
-  /**
-   * Returns a {@link Differencer.DiffWithDelta} containing keys that are dirty according to the
-   * passed-in {@code dirtinessChecker}.
-   */
   public Differencer.DiffWithDelta getNewAndOldValues(
       WalkableGraph walkableGraph,
       Collection<SkyKey> keys,
@@ -646,11 +633,6 @@ public class FilesystemValueChecker {
     @Override
     public Collection<SkyKey> changedKeysWithoutNewValues() {
       return dirtyKeysWithoutNewValues;
-    }
-
-    @Override
-    public Map<SkyKey, Delta> changedKeysWithNewAndOldValues() {
-      return dirtyKeysWithNewAndOldValues;
     }
 
     @Override

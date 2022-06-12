@@ -24,6 +24,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -317,8 +318,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_backend=inprocess",
         "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
         "--bes_timeout=5s");
+    ImmutableSet<BuildEventTransport> bepTransports = besModule.getBepTransports();
+    assertThat(bepTransports).hasSize(1);
     afterBuildCommand();
     assertContainsError("The Build Event Protocol upload timed out");
+    for (BuildEventTransport bepTransport : bepTransports) {
+      assertThat(bepTransport.close().isDone()).isTrue();
+    }
   }
 
   @Test

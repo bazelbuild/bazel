@@ -24,25 +24,19 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleFactory;
-import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -53,7 +47,6 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -154,45 +147,37 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
   private BzlmodRepoRuleValue createRuleFromSpec(
       RepoSpec repoSpec, StarlarkSemantics starlarkSemantics, Environment env)
       throws BzlmodRepoRuleFunctionException, InterruptedException {
+    RuleClass ruleClass;
     if (repoSpec.isNativeRepoRule()) {
-      return createNativeRepoRule(repoSpec, starlarkSemantics, env);
+      if (!ruleClassProvider.getRuleClassMap().containsKey(repoSpec.ruleClassName())) {
+        InvalidRuleException e =
+            new InvalidRuleException(
+                "Unrecognized native repository rule: " + repoSpec.getRuleClass());
+        throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
+      }
+      ruleClass = ruleClassProvider.getRuleClassMap().get(repoSpec.ruleClassName());
+    } else {
+      ImmutableMap<String, Module> loadedModules = loadBzlModules(env, repoSpec.bzlFile().get());
+      if (env.valuesMissing()) {
+        return null;
+      }
+      ruleClass = getStarlarkRuleClass(repoSpec, loadedModules);
     }
-    return createStarlarkRepoRule(repoSpec, starlarkSemantics, env);
-  }
-
-  private BzlmodRepoRuleValue createNativeRepoRule(
-      RepoSpec repoSpec, StarlarkSemantics semantics, Environment env)
-      throws InterruptedException, BzlmodRepoRuleFunctionException {
-    if (!ruleClassProvider.getRuleClassMap().containsKey(repoSpec.ruleClassName())) {
-      InvalidRuleException e =
-          new InvalidRuleException(
-              "Unrecognized native repository rule: " + repoSpec.getRuleClass());
-      throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
-    }
-    RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(repoSpec.ruleClassName());
-    BuildLangTypedAttributeValuesMap attributeValues =
-        new BuildLangTypedAttributeValuesMap(repoSpec.attributes());
-    ImmutableList.Builder<CallStackEntry> callStack = ImmutableList.builder();
-    callStack.add(new CallStackEntry("BzlmodRepoRuleFunction.getNativeRepoRule", Location.BUILTIN));
-    // TODO(bazel-team): Don't use the {@link Rule} class for repository rule.
-    // Currently, the repository rule is represented with the {@link Rule} class that's designed
-    // for build rules. Therefore, we have to create a package instance for it, which doesn't make
-    // sense. We should migrate away from this implementation so that we don't refer to any build
-    // rule specific things in repository rule.
-    Rule rule;
-    Package.Builder pkg = createExternalPackageBuilder(semantics);
     try {
-      rule =
-          RuleFactory.createAndAddRule(
-              pkg, ruleClass, attributeValues, env.getListener(), semantics, callStack.build());
-      return new BzlmodRepoRuleValue(pkg.build(), rule.getName());
+      Rule rule =
+          BzlmodRepoRuleCreator.createRule(
+              packageFactory,
+              directories,
+              starlarkSemantics,
+              env.getListener(),
+              "BzlmodRepoRuleFunction.createRule",
+              ruleClass,
+              repoSpec.attributes());
+      return new BzlmodRepoRuleValue(rule.getPackage(), rule.getName());
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
-    } catch (NameConflictException e) {
-      // This literally cannot happen -- we just created the package!
-      throw new IllegalStateException(e);
     }
   }
 
@@ -231,63 +216,17 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     }
   }
 
-  private BzlmodRepoRuleValue createStarlarkRepoRule(
-      RepoSpec repoSpec, StarlarkSemantics semantics, Environment env)
-      throws InterruptedException, BzlmodRepoRuleFunctionException {
-
-    ImmutableMap<String, Module> loadedModules = loadBzlModules(env, repoSpec.bzlFile().get());
-
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    BzlmodRepoRuleCreator repoRuleCreator = getRepoRuleCreator(repoSpec, loadedModules);
-
-    // TODO(bazel-team): Don't use the {@link Rule} class for repository rule.
-    // Currently, the repository rule is represented with the {@link Rule} class that's designed
-    // for build rules. Therefore, we have to create a package instance for it, which doesn't make
-    // sense. We should migrate away from this implementation so that we don't refer to any build
-    // rule specific things in repository rule.
-    Rule rule;
-    Package.Builder pkg = createExternalPackageBuilder(semantics);
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    try {
-      rule = repoRuleCreator.createAndAddRule(pkg, semantics, repoSpec.attributes(), eventHandler);
-      return new BzlmodRepoRuleValue(pkg.build(), rule.getName());
-    } catch (InvalidRuleException e) {
-      throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
-    } catch (NoSuchPackageException e) {
-      throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
-    } catch (NameConflictException e) {
-      // This literally cannot happen -- we just created the package!
-      throw new IllegalStateException(e);
-    }
-  }
-
-  private BzlmodRepoRuleCreator getRepoRuleCreator(
+  private RuleClass getStarlarkRuleClass(
       RepoSpec repoSpec, ImmutableMap<String, Module> loadedModules)
       throws BzlmodRepoRuleFunctionException {
     Object object = loadedModules.get(repoSpec.bzlFile().get()).getGlobal(repoSpec.ruleClassName());
-    if (object instanceof BzlmodRepoRuleCreator) {
-      return (BzlmodRepoRuleCreator) object;
+    if (object instanceof RuleFunction) {
+      return ((RuleFunction) object).getRuleClass();
     } else {
       InvalidRuleException e =
           new InvalidRuleException("Invalid repository rule: " + repoSpec.getRuleClass());
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }
-  }
-
-  /**
-   * Create the external package builder, which is only for the convenience of creating repository
-   * rules.
-   */
-  private Package.Builder createExternalPackageBuilder(StarlarkSemantics semantics) {
-    RootedPath bzlmodFile =
-        RootedPath.toRootedPath(
-            Root.fromPath(directories.getWorkspace()), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
-
-    return packageFactory.newExternalPackageBuilder(
-        bzlmodFile, ruleClassProvider.getRunfilesPrefix(), semantics);
   }
 
   private static final class BzlmodRepoRuleFunctionException extends SkyFunctionException {

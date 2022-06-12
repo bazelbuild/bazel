@@ -277,7 +277,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           pkgEntry);
       packageMapBuilder.put(pkg.getPackage().getPackageIdentifier(), pkg.getPackage());
     }
-    ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.build();
+    ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.buildOrThrow();
     ImmutableMap.Builder<Label, Target> validTargetsMapBuilder = ImmutableMap.builder();
     for (Label label : validTargets.build().toList()) {
       try {
@@ -287,7 +287,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         throw new IllegalStateException(e);
       }
     }
-    return Pair.of(packageMap, validTargetsMapBuilder.build());
+    return Pair.of(packageMap, validTargetsMapBuilder.buildOrThrow());
   }
 
   @Nullable
@@ -362,8 +362,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
-              /*transitivePackageLoader=*/ null,
-              /* graphFactory= */ null,
+              /*queryTransitivePackagePreloader=*/ null,
+              /*graphFactory=*/ null,
               packageProvider,
               packageProvider,
               preloader,
@@ -382,7 +382,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*extraFunctions=*/ ImmutableList.of(),
               /*packagePath=*/ null,
               /*blockUniverseEvaluationErrors=*/ false,
-              /*useGraphlessQuery=*/ graphlessQuery);
+              /*useGraphlessQuery=*/ graphlessQuery,
+              "genquery for " + ruleContext.getLabel());
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =

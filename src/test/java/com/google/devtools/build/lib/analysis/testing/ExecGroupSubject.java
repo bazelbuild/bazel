@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertAbout;
 
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
+import com.google.common.truth.MapSubject;
 import com.google.common.truth.StringSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,17 +47,26 @@ public class ExecGroupSubject extends Subject {
     this.actual = subject;
   }
 
-  public IterableSubject requiredToolchains() {
-    return check("requiredToolchainTypes()")
-        .that(actual.requiredToolchains().stream().collect(Collectors.toList()));
+  public MapSubject toolchainTypes() {
+    return check("toolchainTypes()").that(actual.toolchainTypesMap());
   }
 
-  public void hasRequiredToolchain(String toolchainTypeLabel) {
-    hasRequiredToolchain(Label.parseAbsoluteUnchecked(toolchainTypeLabel));
+  public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {
+    return toolchainType(Label.parseAbsoluteUnchecked(toolchainTypeLabel));
   }
 
-  public void hasRequiredToolchain(Label toolchainType) {
-    requiredToolchains().contains(toolchainType);
+  public ToolchainTypeRequirementSubject toolchainType(Label toolchainType) {
+    return check("toolchainType(%s)", toolchainType)
+        .about(ToolchainTypeRequirementSubject.toolchainTypeRequirements())
+        .that(actual.toolchainType(toolchainType));
+  }
+
+  public void hasToolchainType(String toolchainTypeLabel) {
+    toolchainType(toolchainTypeLabel).isNotNull();
+  }
+
+  public void hasToolchainType(Label toolchainType) {
+    toolchainType(toolchainType).isNotNull();
   }
 
   public IterableSubject execCompatibleWith() {

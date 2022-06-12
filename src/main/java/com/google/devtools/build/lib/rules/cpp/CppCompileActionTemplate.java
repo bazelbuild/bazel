@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -34,12 +34,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import java.util.ArrayList;
-import java.util.List;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 
 /** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
 public final class CppCompileActionTemplate extends ActionKeyCacher
@@ -49,7 +48,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private final SpecialArtifact outputTreeArtifact;
   private final SpecialArtifact dotdTreeArtifact;
   private final CcToolchainProvider toolchain;
-  private final Iterable<ArtifactCategory> categories;
+  private final ImmutableList<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> allInputs;
@@ -74,7 +73,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       SpecialArtifact dotdTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
-      Iterable<ArtifactCategory> categories,
+      ImmutableList<ArtifactCategory> categories,
       ActionOwner actionOwner) {
     this.cppCompileActionBuilder = cppCompileActionBuilder;
     this.sourceTreeArtifact = sourceTreeArtifact;
@@ -93,11 +92,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
-      throws ActionTemplateExpansionException {
+      throws ActionExecutionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
     ImmutableList.Builder<TreeFileArtifact> sourcesBuilder = ImmutableList.builder();
-    NestedSetBuilder<Artifact> privateHeadersBuilder = NestedSetBuilder.<Artifact>stableOrder();
+    NestedSetBuilder<Artifact> privateHeadersBuilder = NestedSetBuilder.stableOrder();
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
       boolean isHeader = CppFileTypes.CPP_HEADER.matches(inputTreeFileArtifact.getExecPath());
       boolean isTextualInclude =
@@ -114,35 +113,32 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       if (isSource || (isHeader && shouldCompileHeaders() && !isTextualInclude)) {
         sourcesBuilder.add(inputTreeFileArtifact);
       } else if (!isHeader) {
-        throw new ActionTemplateExpansionException(
+        String message =
             String.format(
                 "Artifact '%s' expanded from the directory artifact '%s' is neither header "
                     + "nor source file.",
-                inputTreeFileArtifact.getExecPathString(), sourceTreeArtifact.getExecPathString()));
+                inputTreeFileArtifact.getExecPathString(), sourceTreeArtifact.getExecPathString());
+        throw new ActionExecutionException(
+            message, this, /*catastrophe=*/ false, makeDetailedExitCode(message));
       }
     }
     ImmutableList<TreeFileArtifact> sources = sourcesBuilder.build();
     NestedSet<Artifact> privateHeaders = privateHeadersBuilder.build();
 
     for (TreeFileArtifact inputTreeFileArtifact : sources) {
-      try {
-        String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
-        TreeFileArtifact outputTreeFileArtifact =
+      String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
+      TreeFileArtifact outputTreeFileArtifact =
+          TreeFileArtifact.createTemplateExpansionOutput(
+              outputTreeArtifact, outputName, artifactOwner);
+      TreeFileArtifact dotdFileArtifact = null;
+      if (dotdTreeArtifact != null && cppCompileActionBuilder.useDotdFile(inputTreeFileArtifact)) {
+        dotdFileArtifact =
             TreeFileArtifact.createTemplateExpansionOutput(
-                outputTreeArtifact, outputName, artifactOwner);
-        TreeFileArtifact dotdFileArtifact = null;
-        if (dotdTreeArtifact != null
-            && cppCompileActionBuilder.useDotdFile(inputTreeFileArtifact)) {
-          dotdFileArtifact =
-              TreeFileArtifact.createTemplateExpansionOutput(
-                  dotdTreeArtifact, outputName + ".d", artifactOwner);
-        }
-        expandedActions.add(
-            createAction(
-                inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));
-      } catch (EvalException e) {
-        throw new ActionTemplateExpansionException(e);
+                dotdTreeArtifact, outputName + ".d", artifactOwner);
       }
+      expandedActions.add(
+          createAction(
+              inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));
     }
 
     return expandedActions.build();
@@ -187,15 +183,16 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   private CppCompileAction createAction(
-      Artifact sourceTreeFileArtifact,
-      Artifact outputTreeFileArtifact,
+      TreeFileArtifact sourceTreeFileArtifact,
+      TreeFileArtifact outputTreeFileArtifact,
       @Nullable Artifact dotdFileArtifact,
       NestedSet<Artifact> privateHeaders)
-      throws ActionTemplateExpansionException {
-    CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
-    builder.setAdditionalPrunableHeaders(privateHeaders);
-    builder.setSourceFile(sourceTreeFileArtifact);
-    builder.setOutputs(outputTreeFileArtifact, dotdFileArtifact);
+      throws ActionExecutionException {
+    CppCompileActionBuilder builder =
+        new CppCompileActionBuilder(cppCompileActionBuilder)
+            .setAdditionalPrunableHeaders(privateHeaders)
+            .setSourceFile(sourceTreeFileArtifact)
+            .setOutputs(outputTreeFileArtifact, dotdFileArtifact);
 
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(cppCompileActionBuilder.getVariables());
@@ -213,24 +210,26 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
     builder.setVariables(buildVariables.build());
 
-    List<String> errors = new ArrayList<>();
-    CppCompileAction result =
-        builder.buildAndVerify((String errorMessage) -> errors.add(errorMessage));
-    if (!errors.isEmpty()) {
-      throw new ActionTemplateExpansionException(Joiner.on(".\n").join(errors));
+    try {
+      return builder.buildAndVerify();
+    } catch (CppCompileActionBuilder.UnconfiguredActionConfigException e) {
+      throw throwActionExecutionException(e);
     }
-
-    return result;
   }
 
-  private String outputTreeFileArtifactName(TreeFileArtifact inputTreeFileArtifact)
-      throws EvalException {
+  private String outputTreeFileArtifactName(TreeFileArtifact inputTreeFileArtifact) {
     String outputName = FileSystemUtils.removeExtension(
         inputTreeFileArtifact.getParentRelativePath().getPathString());
     for (ArtifactCategory category : categories) {
       outputName = toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
     }
     return outputName;
+  }
+
+  private ActionExecutionException throwActionExecutionException(Exception cause)
+      throws ActionExecutionException {
+    throw new ActionExecutionException(
+        cause, this, /*catastrophe=*/ false, makeDetailedExitCode(cause.getMessage()));
   }
 
   @Override
@@ -254,7 +253,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public final String getMnemonic() {
+  public String getMnemonic() {
     return "CppCompileActionTemplate";
   }
 
@@ -326,5 +325,17 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   @Override
   public String toString() {
     return prettyPrint();
+  }
+
+  private static DetailedExitCode makeDetailedExitCode(String message) {
+    return DetailedExitCode.of(
+        FailureDetails.FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExecution(
+                FailureDetails.Execution.newBuilder()
+                    .setCode(
+                        FailureDetails.Execution.Code
+                            .PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE))
+            .build());
   }
 }

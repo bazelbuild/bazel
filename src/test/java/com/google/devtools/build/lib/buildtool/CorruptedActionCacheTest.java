@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,8 +46,10 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     outputBase.getChild("action_cache_temp").renameTo(outputBase.getChild("action_cache"));
 
     // now corrupt filename index datafile by truncating it
-    for (Path path : UnixGlob.forPath(outputBase.getChild("action_cache"))
-        .addPattern("filename*.blaze").globInterruptible()) {
+    for (Path path :
+        new UnixGlob.Builder(outputBase.getChild("action_cache"), SyscallCache.NO_CACHE)
+            .addPattern("filename*.blaze")
+            .globInterruptible()) {
       path.getOutputStream().close();
     }
 

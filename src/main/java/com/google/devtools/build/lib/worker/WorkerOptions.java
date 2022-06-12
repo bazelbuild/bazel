@@ -48,7 +48,7 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
       name = "experimental_worker_allow_json_protocol",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help =
@@ -186,6 +186,14 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, Bazel may send cancellation requests to workers that support them.")
   public boolean workerCancellation;
+
+  @Option(
+      name = "experimental_worker_as_resource",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, workers are acquired as resources from ResourceManager.")
+  public boolean workerAsResource;
 
   @Option(
       name = "experimental_worker_multiplex_sandboxing",

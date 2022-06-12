@@ -81,6 +81,7 @@ public class LabelBuildSettings {
     return builder
         .removeAttribute("licenses")
         .removeAttribute("distribs")
+        .removeAttribute(":action_listener")
         .add(attr(":alias", LABEL).value(ACTUAL))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()

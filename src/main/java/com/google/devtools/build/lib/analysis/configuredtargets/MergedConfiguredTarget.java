@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -272,8 +271,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
   }
 
-  @VisibleForTesting
-  public ConfiguredTarget getBaseConfiguredTargetForTesting() {
+  public ConfiguredTarget getBaseConfiguredTarget() {
     return base;
   }
 }

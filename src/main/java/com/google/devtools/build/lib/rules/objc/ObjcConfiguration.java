@@ -63,7 +63,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
   private final boolean avoidHardcodedCompilationFlags;
-  private final boolean disableNativeAppleBinaryRule;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -86,7 +85,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
-    this.disableNativeAppleBinaryRule = objcOptions.incompatibleDisableNativeAppleBinaryRule;
   }
 
   /**
@@ -214,10 +212,5 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
-  }
-
-  /** Returns true iff the native {@code apple_binary} rule should be disabled. */
-  public boolean disableNativeAppleBinaryRule() {
-    return disableNativeAppleBinaryRule;
   }
 }

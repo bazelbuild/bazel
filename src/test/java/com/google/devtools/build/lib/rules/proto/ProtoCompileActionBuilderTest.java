@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.registerActions;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -25,19 +24,16 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -160,10 +156,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
         Exports.DO_NOT_USE,
         Services.ALLOW);
 
-    CommandLine cmdLine =
-        paramFileCommandLineForAction(
-            (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
-    assertThat(cmdLine.arguments())
+    ImmutableList<String> cmdLine =
+        allArgsForAction((SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
+    assertThat(cmdLine)
         .containsExactly(
             "--java_out=param1,param2:foo.srcjar",
             "--PLUGIN_pluginName_out=param3,param4:bar.srcjar",
@@ -195,10 +190,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
         Exports.DO_NOT_USE,
         Services.ALLOW);
 
-    CommandLine cmdLine =
-        paramFileCommandLineForAction(
-            (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
-    assertThat(cmdLine.arguments()).containsExactly("out/source_file.proto");
+    ImmutableList<String> cmdLine =
+        allArgsForAction((SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
+    assertThat(cmdLine).containsExactly("out/source_file.proto");
   }
 
   @Test
@@ -227,17 +221,13 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
         Exports.DO_NOT_USE,
         Services.ALLOW);
 
-    CommandLine cmdLine =
-        paramFileCommandLineForAction(
-            (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
-    assertThat(cmdLine.arguments())
+    ImmutableList<String> cmdLine =
+        allArgsForAction((SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
+    assertThat(cmdLine)
         .containsExactly(
             "--java_out=param1,param2:foo.srcjar",
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
-            "--direct_dependencies",
-            "import1.proto",
-            String.format(ProtoCompileActionBuilder.STRICT_DEPS_FLAG_TEMPLATE, "//foo:bar"),
             "source_file.proto")
         .inOrder();
   }
@@ -251,8 +241,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
-    useConfiguration(
-        "--strict_proto_deps=OFF", "--experimental_java_proto_add_allowed_public_imports");
+    useConfiguration("--strict_proto_deps=OFF");
 
     RuleContext ruleContext =
         getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);
@@ -270,16 +259,13 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
         Exports.USE,
         Services.ALLOW);
 
-    CommandLine cmdLine =
-        paramFileCommandLineForAction(
-            (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
-    assertThat(cmdLine.arguments())
+    ImmutableList<String> cmdLine =
+        allArgsForAction((SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
+    assertThat(cmdLine)
         .containsExactly(
             "--java_out=param1,param2:foo.srcjar",
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
-            "--allowed_public_imports",
-            "export1.proto",
             "source_file.proto")
         .inOrder();
   }
@@ -303,10 +289,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
         Exports.DO_NOT_USE,
         Services.DISALLOW);
 
-    CommandLine cmdLine =
-        paramFileCommandLineForAction(
-            (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
-    assertThat(cmdLine.arguments()).containsAtLeast("--disallow_services", "--foo", "--bar");
+    ImmutableList<String> cmdLine =
+        allArgsForAction((SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
+    assertThat(cmdLine).containsAtLeast("--disallow_services", "--foo", "--bar");
   }
 
   private static class InterceptOnDemandString extends OnDemandString implements StarlarkValue {
@@ -345,12 +330,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
         Exports.DO_NOT_USE,
         Services.ALLOW);
 
-    CommandLine cmdLine =
-        paramFileCommandLineForAction(
-            (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
     assertThat(outReplacement.hasBeenCalled).isFalse();
 
-    cmdLine.arguments();
+    allArgsForAction((SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
     assertThat(outReplacement.hasBeenCalled).isTrue();
   }
 
@@ -404,29 +386,28 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testProtoCommandLineArgv() throws Exception {
+  public void testProtoCommandLineArgv_noImportable() throws Exception {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ null))
-        .containsExactly("-Ifoo.proto=out/foo.proto");
+        .contains("-Ifoo.proto=out/foo.proto");
+  }
 
-    assertThat(
-            protoArgv(
-                /* transitiveSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
-                /* importableProtoSources */ ImmutableList.of()))
-        .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
-
+  @Test
+  public void testProtoCommandLineArgv_singleImportable() throws Exception {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()))))
-        .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto");
+        .contains("-Ifoo.proto=out/foo.proto");
+  }
 
+  @Test
+  public void testProtoCommandLineArgv_doubleImportable() throws Exception {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
@@ -434,8 +415,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()),
                     protoSource(derivedArtifact("bar.proto"), derivedRoot.getExecPath()))))
-        .containsExactly(
-            "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto");
+        .contains("-Ifoo.proto=out/foo.proto");
   }
 
   /**
@@ -453,7 +433,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         artifact("@bla//foo:bar", "external/bla/foo/bar.proto"),
                         PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of()))
-        .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies=");
+        .contains("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
   @Test
@@ -465,8 +445,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                     protoSource(protoSource, PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(protoSource, PathFragment.create("external/bla")))))
-        .containsExactly(
-            "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto");
+        .contains("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
   private Artifact artifact(String ownerLabel, String path) {
@@ -487,20 +466,29 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
     return derivedArtifact;
   }
 
-  private static Iterable<String> protoArgv(
+  private ImmutableList<String> protoArgv(
       Iterable<ProtoSource> transitiveSources,
       @Nullable Iterable<ProtoSource> importableProtoSources)
       throws Exception {
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    NestedSet<ProtoSource> importableProtoSourceSet =
-        importableProtoSources != null
-            ? NestedSetBuilder.wrap(STABLE_ORDER, importableProtoSources)
-            : null;
-    ProtoCompileActionBuilder.addIncludeMapArguments(
-        commandLine,
-        importableProtoSourceSet,
-        NestedSetBuilder.wrap(STABLE_ORDER, transitiveSources));
-    return commandLine.build().arguments();
+    RuleContext ruleContext =
+        getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);
+    registerActions(
+        ruleContext,
+        ImmutableList.of(),
+        protoInfo(
+            /* directProtoSources */ ImmutableList.of(),
+            /* transitiveProtoSources */ ImmutableList.copyOf(transitiveSources),
+            /* publicImportProtoSources */ ImmutableList.of(),
+            /* strictImportableSources */ importableProtoSources == null
+                ? ImmutableList.of()
+                : ImmutableList.copyOf(importableProtoSources)),
+        ImmutableList.of(out),
+        "dontcare",
+        Exports.DO_NOT_USE,
+        Services.DISALLOW);
+
+    return allArgsForAction(
+        (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
   }
 
   @Test

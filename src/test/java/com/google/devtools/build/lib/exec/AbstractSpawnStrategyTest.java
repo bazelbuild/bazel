@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.Duration;
@@ -466,7 +467,8 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
-        .thenReturn(new SpawnLogContext(execRoot, messageOutput, remoteOptions));
+        .thenReturn(
+            new SpawnLogContext(execRoot, messageOutput, remoteOptions, SyscallCache.NO_CACHE));
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(
             FutureSpawn.immediate(

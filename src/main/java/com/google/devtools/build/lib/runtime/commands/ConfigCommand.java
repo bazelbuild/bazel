@@ -557,7 +557,11 @@ public class ConfigCommand implements BlazeCommand {
 
     // --define:
     for (Map.Entry<String, String> entry :
-        config.getOptions().get(CoreOptions.class).commandLineBuildVariables) {
+        config
+            .getOptions()
+            .get(CoreOptions.class)
+            .getNormalizedCommandLineBuildVariables()
+            .entrySet()) {
       ans.put("--define:" + entry.getKey(), Verify.verifyNotNull(entry.getValue()));
     }
     return ans.buildOrThrow();

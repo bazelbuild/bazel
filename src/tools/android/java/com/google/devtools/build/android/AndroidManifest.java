@@ -82,7 +82,7 @@ public class AndroidManifest {
 
       return new AndroidManifest(packageName, minSdk.isEmpty() ? "1" : minSdk);
     } catch (IOException | XMLStreamException e) {
-      throw new ManifestProcessingException(e);
+      throw new AndroidManifestProcessor.ManifestProcessingException(e);
     }
   }
 

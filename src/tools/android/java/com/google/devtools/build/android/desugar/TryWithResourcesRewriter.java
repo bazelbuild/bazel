@@ -99,7 +99,7 @@ public class TryWithResourcesRewriter extends ClassVisitor {
           .put("()V", "(Ljava/lang/Throwable;)V")
           .put("(Ljava/io/PrintStream;)V", "(Ljava/lang/Throwable;Ljava/io/PrintStream;)V")
           .put("(Ljava/io/PrintWriter;)V", "(Ljava/lang/Throwable;Ljava/io/PrintWriter;)V")
-          .build();
+          .buildOrThrow();
 
   static final String CLOSE_RESOURCE_METHOD_NAME = "$closeResource";
   static final String CLOSE_RESOURCE_METHOD_DESC =

@@ -19,11 +19,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -40,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -67,7 +67,7 @@ public final class AspectDefinition {
   private final RequiredProviders requiredProviders;
   private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
-  private final ImmutableSet<Label> requiredToolchains;
+  private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean useToolchainTransition;
 
   /**
@@ -103,7 +103,7 @@ public final class AspectDefinition {
       RequiredProviders requiredProviders,
       RequiredProviders requiredProvidersForAspects,
       ImmutableMap<String, Attribute> attributes,
-      ImmutableSet<Label> requiredToolchains,
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean useToolchainTransition,
       @Nullable ImmutableSet<String> restrictToAttributes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
@@ -117,7 +117,7 @@ public final class AspectDefinition {
     this.requiredProvidersForAspects = requiredProvidersForAspects;
 
     this.attributes = attributes;
-    this.requiredToolchains = requiredToolchains;
+    this.toolchainTypes = toolchainTypes;
     this.useToolchainTransition = useToolchainTransition;
     this.restrictToAttributes = restrictToAttributes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
@@ -141,8 +141,8 @@ public final class AspectDefinition {
   }
 
   /** Returns the required toolchains declared by this aspect. */
-  public ImmutableSet<Label> getRequiredToolchains() {
-    return requiredToolchains;
+  public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {
+    return toolchainTypes;
   }
 
   public boolean useToolchainTransition() {
@@ -281,7 +281,7 @@ public final class AspectDefinition {
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
     private boolean applyToGeneratingRules = false;
-    private final List<Label> requiredToolchains = new ArrayList<>();
+    private final List<ToolchainTypeRequirement> toolchainTypes = new ArrayList<>();
     private boolean useToolchainTransition = false;
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
 
@@ -587,15 +587,23 @@ public final class AspectDefinition {
     }
 
     /** Adds the given toolchains as requirements for this aspect. */
-    public Builder addRequiredToolchains(Label... toolchainLabels) {
-      Iterables.addAll(this.requiredToolchains, Lists.newArrayList(toolchainLabels));
+    public Builder addToolchainType(ToolchainTypeRequirement... toolchainTypes) {
+      return this.addToolchainType(ImmutableList.copyOf(toolchainTypes));
+    }
+
+    /** Adds the given toolchains as requirements for this aspect. */
+    public Builder addToolchainType(List<ToolchainTypeRequirement> toolchainTypes) {
+      this.toolchainTypes.addAll(toolchainTypes);
       return this;
     }
 
     /** Adds the given toolchains as requirements for this aspect. */
+    // TODO(katre): Remove this once all callers use addToolchainType.
     public Builder addRequiredToolchains(List<Label> requiredToolchains) {
-      this.requiredToolchains.addAll(requiredToolchains);
-      return this;
+      return addToolchainType(
+          requiredToolchains.stream()
+              .map(label -> ToolchainTypeRequirement.create(label))
+              .collect(Collectors.toList()));
     }
 
     public Builder useToolchainTransition(boolean useToolchainTransition) {
@@ -622,7 +630,7 @@ public final class AspectDefinition {
           requiredProviders,
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
-          ImmutableSet.copyOf(requiredToolchains),
+          ImmutableSet.copyOf(toolchainTypes),
           useToolchainTransition,
           propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
           configurationFragmentPolicy.build(),

@@ -81,7 +81,9 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(cause).isInstanceOf(LoadingFailedCause.class);
     assertThat(cause.getLabel()).isEqualTo(topLevel);
     assertThat(((LoadingFailedCause) cause).getMessage())
-        .isEqualTo("Target '//foo:foo' contains an error and its package is in error");
+        .isEqualTo(
+            "Target '//foo:foo' contains an error and its package is in error: //foo:foo: missing"
+                + " value for mandatory attribute 'outs' in 'genrule' rule");
   }
 
   @Test

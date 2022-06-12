@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -33,6 +36,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.SortedMap;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /**
@@ -146,7 +150,31 @@ public interface SpawnRunner {
      * again. I suppose we could require implementations to memoize getInputMapping (but not compute
      * it eagerly), and that may change in the future.
      */
-    void prefetchInputs() throws IOException, InterruptedException, ForbiddenActionInputException;
+    ListenableFuture<Void> prefetchInputs() throws IOException, ForbiddenActionInputException;
+
+    /**
+     * Prefetches the Spawns input files to the local machine and wait to finish.
+     *
+     * @see #prefetchInputs()
+     */
+    default void prefetchInputsAndWait()
+        throws IOException, InterruptedException, ForbiddenActionInputException {
+      ListenableFuture<Void> future = prefetchInputs();
+      try {
+        future.get();
+      } catch (ExecutionException e) {
+        Throwable cause = e.getCause();
+        if (cause != null) {
+          throwIfInstanceOf(cause, IOException.class);
+          throwIfInstanceOf(cause, ForbiddenActionInputException.class);
+          throwIfInstanceOf(cause, RuntimeException.class);
+        }
+        throw new IOException(e);
+      } catch (InterruptedException e) {
+        future.cancel(/*mayInterruptIfRunning=*/ true);
+        throw e;
+      }
+    }
 
     /**
      * The input file metadata cache for this specific spawn, which can be used to efficiently

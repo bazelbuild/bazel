@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -62,6 +63,7 @@ public final class GlobFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws GlobFunctionException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
+    Globber.Operation globberOperation = glob.globberOperation();
 
     RepositoryName repositoryName = glob.getPackageId().getRepository();
     IgnoredPackagePrefixesValue ignoredPackagePrefixes =
@@ -82,19 +84,32 @@ public final class GlobFunction implements SkyFunction {
     // Note that the glob's package is assumed to exist which implies that the package's BUILD file
     // exists which implies that the package's directory exists.
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
+      PathFragment subDirFragment =
+          glob.getPackageId().getPackageFragment().getRelative(globSubdir);
+
       PackageLookupValue globSubdirPkgLookupValue =
           (PackageLookupValue)
               env.getValue(
-                  PackageLookupValue.key(
-                      PackageIdentifier.create(
-                          repositoryName,
-                          glob.getPackageId().getPackageFragment().getRelative(globSubdir))));
+                  PackageLookupValue.key(PackageIdentifier.create(repositoryName, subDirFragment)));
       if (globSubdirPkgLookupValue == null) {
         return null;
       }
+
       if (globSubdirPkgLookupValue.packageExists()) {
         // We crossed the package boundary, that is, pkg/subdir contains a BUILD file and thus
-        // defines another package, so glob expansion should not descend into that subdir.
+        // defines another package, so glob expansion should not descend into
+        // that subdir.
+        //
+        // For SUBPACKAGES, we encounter this when the pattern is a recursive ** and we are a
+        // terminal package for that pattern. In that case we should include the subDirFragment
+        // PathFragment (relative to the glob's package) in the GlobValue.getMatches,
+        // otherwise for file/dir matching return EMPTY;
+        if (globberOperation == Globber.Operation.SUBPACKAGES) {
+          return new GlobValue(
+              NestedSetBuilder.<PathFragment>stableOrder()
+                  .add(subDirFragment.relativeTo(glob.getPackageId().getPackageFragment()))
+                  .build());
+        }
         return GlobValue.EMPTY;
       } else if (globSubdirPkgLookupValue
           instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
@@ -121,7 +136,6 @@ public final class GlobFunction implements SkyFunction {
 
     boolean globMatchesBareFile = patternTail == null;
 
-
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
     if (alwaysUseDirListing || containsGlobs(patternHead)) {
       // Pattern contains globs, so a directory listing is required.
@@ -139,7 +153,8 @@ public final class GlobFunction implements SkyFunction {
         // "**" also matches an empty segment, so try the case where it is not present.
         if (globMatchesBareFile) {
           // Recursive globs aren't supposed to match the package's directory.
-          if (!glob.excludeDirs() && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
+          if (globberOperation == Globber.Operation.FILES_AND_DIRS
+              && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
             matches.add(globSubdir);
           }
         } else {
@@ -152,7 +167,7 @@ public final class GlobFunction implements SkyFunction {
                   glob.getPackageRoot(),
                   globSubdir,
                   patternTail,
-                  glob.excludeDirs());
+                  globberOperation);
           Map<SkyKey, SkyValue> listingAndRecursiveGlobMap =
               env.getValues(
                   ImmutableList.of(keyForRecursiveGlobInCurrentDirectory, directoryListingKey));
@@ -213,7 +228,7 @@ public final class GlobFunction implements SkyFunction {
           if (keyToRequest != null) {
             subdirMap.put(keyToRequest, dirent);
           }
-        } else if (globMatchesBareFile) {
+        } else if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
           sortedResultMap.put(dirent, glob.getSubdir().getRelative(fileName));
         }
       }
@@ -270,7 +285,7 @@ public final class GlobFunction implements SkyFunction {
             if (keyToRequest != null) {
               symlinkSubdirMap.put(keyToRequest, dirent);
             }
-          } else if (globMatchesBareFile) {
+          } else if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
             sortedResultMap.put(dirent, glob.getSubdir().getRelative(fileName));
           }
         } else {
@@ -312,7 +327,7 @@ public final class GlobFunction implements SkyFunction {
               addToMatches(fileMatches, matches);
             }
           }
-        } else if (globMatchesBareFile) {
+        } else if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
           matches.add(glob.getSubdir().getRelative(fileName));
         }
       }
@@ -350,9 +365,10 @@ public final class GlobFunction implements SkyFunction {
   private static void addToMatches(Object toAdd, NestedSetBuilder<PathFragment> matches) {
     if (toAdd instanceof PathFragment) {
       matches.add((PathFragment) toAdd);
-    } else {
+    } else if (toAdd instanceof NestedSet) {
       matches.addTransitive((NestedSet<PathFragment>) toAdd);
     }
+    // else Not actually a valid type and ignore.
   }
 
   /**
@@ -369,17 +385,19 @@ public final class GlobFunction implements SkyFunction {
   private static SkyKey getSkyKeyForSubdir(
       String fileName, GlobDescriptor glob, String subdirPattern) {
     if (subdirPattern == null) {
-      if (glob.excludeDirs()) {
+      if (glob.globberOperation() == Globber.Operation.FILES) {
         return null;
-      } else {
-        return PackageLookupValue.key(
-            PackageIdentifier.create(
-                glob.getPackageId().getRepository(),
-                glob.getPackageId()
-                    .getPackageFragment()
-                    .getRelative(glob.getSubdir())
-                    .getRelative(fileName)));
       }
+
+      // For FILES_AND_DIRS and SUBPACKAGES we want to maybe inspect a
+      // PackageLookupValue for it.
+      return PackageLookupValue.key(
+          PackageIdentifier.create(
+              glob.getPackageId().getRepository(),
+              glob.getPackageId()
+                  .getPackageFragment()
+                  .getRelative(glob.getSubdir())
+                  .getRelative(fileName)));
     } else {
       // There is some more pattern to match. Get the glob for the subdirectory. Note that this
       // directory may also match directly in the case of a pattern that starts with "**", but that
@@ -389,43 +407,60 @@ public final class GlobFunction implements SkyFunction {
           glob.getPackageRoot(),
           glob.getSubdir().getRelative(fileName),
           subdirPattern,
-          glob.excludeDirs());
+          glob.globberOperation());
     }
   }
 
   /**
-   * Returns matches coming from the directory {@code fileName} if appropriate, either an individual
-   * file or a nested set of files.
+   * Returns an Object indicating a match was found for the given fileName in the given
+   * valueRequested. The Object will be one of:
    *
-   * <p>{@code valueRequested} must be the SkyValue whose key was returned by
-   * {@link #getSkyKeyForSubdir} for these parameters.
+   * <ul>
+   *   <li>{@code null} if no matches for the given parameters exists
+   *   <li>{@code NestedSet<PathFragment>} if a match exists, either because we are looking for
+   *       files/directories or the SkyValue is a package and we're globbing for {@link
+   *       Globber.Operation.SUBPACKAGES}
+   * </ul>
+   *
+   * <p>{@code valueRequested} must be the SkyValue whose key was returned by {@link
+   * #getSkyKeyForSubdir} for these parameters.
    */
   @Nullable
   private static Object getSubdirMatchesFromSkyValue(
-      String fileName,
-      GlobDescriptor glob,
-      SkyValue valueRequested) {
+      String fileName, GlobDescriptor glob, SkyValue valueRequested) {
     if (valueRequested instanceof GlobValue) {
       return ((GlobValue) valueRequested).getMatches();
-    } else {
-      Preconditions.checkState(
-          valueRequested instanceof PackageLookupValue,
-          "%s is not a GlobValue or PackageLookupValue (%s %s)",
-          valueRequested,
-          fileName,
-          glob);
-      PackageLookupValue packageLookupValue = (PackageLookupValue) valueRequested;
-      if (packageLookupValue.packageExists()) {
-        // This is a separate package, so ignore it.
-        return null;
-      } else if (packageLookupValue
-          instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
-        // This is a separate repository, so ignore it.
-        return null;
-      } else {
-        return glob.getSubdir().getRelative(fileName);
-      }
     }
+
+    Preconditions.checkState(
+        valueRequested instanceof PackageLookupValue,
+        "%s is not a GlobValue or PackageLookupValue (%s %s)",
+        valueRequested,
+        fileName,
+        glob);
+
+    PackageLookupValue packageLookupValue = (PackageLookupValue) valueRequested;
+    if (packageLookupValue
+        instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
+      // This is a separate repository, so ignore it.
+      return null;
+    }
+
+    boolean isSubpackagesOp = glob.globberOperation() == Globber.Operation.SUBPACKAGES;
+    boolean pkgExists = packageLookupValue.packageExists();
+
+    if (!isSubpackagesOp && pkgExists) {
+      // We're in our repo and fileName is a package. Since we're not doing SUBPACKAGES listing, we
+      // do not want to add it to the results.
+      return null;
+    } else if (isSubpackagesOp && !pkgExists) {
+      // We're in our repo and the package exists. Since we're doing SUBPACKAGES listing, we do
+      // want to add fileName to the results.
+      return null;
+    }
+
+    // The  fileName should be added to the results of the glob.
+    return glob.getSubdir().getRelative(fileName);
   }
 
   /**

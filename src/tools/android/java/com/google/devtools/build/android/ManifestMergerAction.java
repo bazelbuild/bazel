@@ -214,7 +214,7 @@ public class ManifestMergerAction {
       mergedManifest =
           manifestProcessor.mergeManifest(
               manifest,
-              mergeeManifests.build(),
+              mergeeManifests.buildOrThrow(),
               options.mergeType,
               options.manifestValues,
               options.customPackage,

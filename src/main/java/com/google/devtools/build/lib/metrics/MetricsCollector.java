@@ -127,7 +127,7 @@ class MetricsCollector {
     targetMetrics
         .setTargetsConfigured(targetsConfigured.total())
         .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
-    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesLoaded());
+    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
   }
 

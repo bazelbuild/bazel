@@ -81,8 +81,16 @@ public final class ProguardHelper {
       this.config = config;
     }
 
+    public static ProguardOutput createEmpty(Artifact outputJar) {
+      return new ProguardOutput(outputJar, null, null, null, null, null, null);
+    }
+
     public Artifact getOutputJar() {
       return outputJar;
+    }
+
+    public boolean hasMapping() {
+      return mapping != null;
     }
 
     @Nullable

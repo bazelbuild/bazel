@@ -13,10 +13,9 @@
 # limitations under the License.
 
 """Semantics for Bazel cc rules"""
-load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
 
-def _create_cc_launcher_info(cc_info, cc_compilation_outputs):
-    return None
+def _should_create_empty_archive():
+    return False
 
 def _validate_deps(ctx):
     pass
@@ -27,14 +26,14 @@ def _validate_attributes(ctx):
 def _determine_headers_checking_mode(ctx):
     return "strict"
 
-def _get_cc_shared_library_info(dep):
-    return dep[CcSharedLibraryInfo]
-
 def _get_semantics():
     return _builtins.internal.bazel_cc_internal.semantics
 
+def _get_stl():
+    return attr.label()
+
 def _get_repo():
-    return ""
+    return "bazel_tools"
 
 def _additional_fragments():
     return []
@@ -48,6 +47,16 @@ def _get_licenses_attr():
 
 def _get_loose_mode_in_hdrs_check_allowed_attr():
     return {}
+
+def _get_def_parser():
+    return attr.label(
+        default = _builtins.internal.cc_internal.def_parser_computed_default(),
+        allow_single_file = True,
+        cfg = "exec",
+    )
+
+def _get_grep_includes():
+    return attr.label()
 
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
@@ -65,12 +74,14 @@ semantics = struct(
     validate_deps = _validate_deps,
     validate_attributes = _validate_attributes,
     determine_headers_checking_mode = _determine_headers_checking_mode,
-    get_cc_shared_library_info = _get_cc_shared_library_info,
-    create_cc_launcher_info = _create_cc_launcher_info,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     additional_fragments = _additional_fragments,
     get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,
     get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
+    get_def_parser = _get_def_parser,
+    get_stl = _get_stl,
+    should_create_empty_archive = _should_create_empty_archive,
+    get_grep_includes = _get_grep_includes,
 )

@@ -591,7 +591,8 @@ public final class CcCommon implements StarlarkValue {
     }
 
     // tokenize defines and substitute make variables
-    for (String define : ruleContext.getExpander().withExecLocations(builder.build()).list(attr)) {
+    for (String define :
+        ruleContext.getExpander().withExecLocations(builder.buildOrThrow()).list(attr)) {
       List<String> tokens = new ArrayList<>();
       try {
         ShellUtils.tokenize(tokens, define);
@@ -1060,6 +1061,10 @@ public final class CcCommon implements StarlarkValue {
         if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
         }
+        // Support implicit enabling of FSAFDO for AFDO unless it has been disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.FSAFDO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_FSAFDO);
+        }
       }
       if (branchFdoProvider.isAutoXBinaryFdo()) {
         allFeatures.add(CppRuleClasses.XBINARYFDO);
@@ -1225,7 +1230,7 @@ public final class CcCommon implements StarlarkValue {
               .add(requestedFeaturesFile)
               .build());
     }
-    return outputGroupsBuilder.build();
+    return outputGroupsBuilder.buildOrThrow();
   }
 
   public static boolean isOldStarlarkApiWhiteListed(

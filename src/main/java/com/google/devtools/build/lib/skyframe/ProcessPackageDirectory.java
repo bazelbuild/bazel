@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -138,26 +138,23 @@ public final class ProcessPackageDirectory {
 
     SkyKey pkgLookupKey = PackageLookupValue.key(packageId);
     SkyKey dirListingKey = DirectoryListingValue.key(rootedPath);
-    List<ValueOrException2<NoSuchPackageException, IOException>> pkgLookupAndDirectoryListingDeps =
-        env.getOrderedValuesOrThrow(
-            ImmutableList.of(pkgLookupKey, dirListingKey),
-            NoSuchPackageException.class,
-            IOException.class);
+    SkyframeIterableResult pkgLookupAndDirectoryListingDeps =
+        env.getOrderedValuesAndExceptions(ImmutableList.of(pkgLookupKey, dirListingKey));
     PackageLookupValue pkgLookupValue;
     try {
-      pkgLookupValue = (PackageLookupValue) pkgLookupAndDirectoryListingDeps.get(0).get();
+      pkgLookupValue =
+          (PackageLookupValue)
+              pkgLookupAndDirectoryListingDeps.nextOrThrow(
+                  NoSuchPackageException.class, InconsistentFilesystemException.class);
     } catch (NoSuchPackageException e) {
       return reportErrorAndReturn("Failed to load package", e, rootRelativePath, env.getListener());
     } catch (InconsistentFilesystemException e) {
       throw new ProcessPackageDirectorySkyFunctionException(rootedPath, e);
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
     }
     DirectoryListingValue dirListingValue;
     try {
       dirListingValue =
-          (DirectoryListingValue)
-              pkgLookupAndDirectoryListingDeps.get(1).getOrThrow(IOException.class);
+          (DirectoryListingValue) pkgLookupAndDirectoryListingDeps.nextOrThrow(IOException.class);
     } catch (FileSymlinkException e) {
       // DirectoryListingFunction only throws FileSymlinkCycleException when FileFunction throws it,
       // but FileFunction was evaluated for rootedPath above, and didn't throw there. It shouldn't

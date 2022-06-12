@@ -1,3 +1,264 @@
+## Release 6.0.0-pre.20220208.2 (2022-02-17)
+
+```
+Baseline: de3c14da9eba34bed39f4cb34446037813420ae3
+
+Cherry picks:
+
+   + a6bfab095ff11cc9d37e45994c2dd85be626710f:
+     Automated rollback of commit
+     64ac2a81f73ba7b085d0de65f12230814f4151c8.
+```
+
+Important changes:
+
+  - Tests that fail to create or complete their
+    `TestAttemptContinuation` by
+    throwing an `ExecException` will report an `INCOMPLETE` status.
+    Previously, Bazel
+    would fail to report any status for the test attempt.
+
+This release contains contributions from many people at Google, as well as divanorama, Fabian Meumertzheim, Keith Smiley, Marek uppa, Niyas Sait, Thi Doan, Yesudeep Mangalapilly.
+
+## Release 6.0.0-pre.20220201.3 (2022-02-11)
+
+```
+Baseline: c7652d875869ec063addd146a2746c1378c73236
+
+Cherry picks:
+
+   + 1c0cf8ee505edee539ebb1ce84a78da8e6064d0a:
+     Undelete BigIntegerCodec deleted in
+     https://github.com/bazelbuild/bazel/commit/16753d6ab16c22ed8cfd42
+     47e05c695223b67616. Belatedly realized needed for Starlark
+     bigint serialization.
+   + 382b187d4df664e555608c895716172d96e092c5:
+     Automated rollback of commit
+     9998c6361d3d7c22184ea07e363f38e88a345701.
+   + 45ce5459f3a8f0a32ec71c13c22500ba87aaa8c2:
+     Rollback
+     https://github.com/bazelbuild/bazel/commit/8174262bf946e31df86476
+     014c6f231f46ca0882
+```
+
+This release contains contributions from many people at Google, as well as Denys Kurylenko, Keith Smiley.
+
+## Release 6.0.0-pre.20220127.1 (2022-02-02)
+
+```
+Baseline: c17f1b7f9b93bf034046d0973bf2b7e9a64815bf
+```
+
+This release contains contributions from many people at Google, as well as Bohdan Vanieiev, Keith Smiley, Zhongpeng Lin.
+
+## Release 6.0.0-pre.20220123.2 (2022-01-28)
+
+```
+Baseline: e2abe2b519fe86b213d822c1fadd7a51d6d3a3f6
+```
+
+Incompatible changes:
+
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+
+Important changes:
+
+  - provider() has a new parameter: init, a callback for performing
+    pre-processing and validation of field values. Iff this parameter
+    is set,
+    provider() returns a tuple of 2 elements: the usual provider
+    symbol (which,
+    when called, invokes init) and a raw constructor (which bypasses
+    init).
+
+This release contains contributions from many people at Google, as well as Chad Miller, Christopher Sauer, dmaclach, floriographygoth, jheaff1, juanchoviedo, Keith Smiley, Oscar Bonilla, Paul Tarjan, Ulrik Falklof, Zhongpeng Lin.
+
+## Release 6.0.0-pre.20220112.2 (2022-01-19)
+
+```
+Baseline: 10fb5ee47d22a6dbd7732e43bfa8ae8fdaf3fb48
+
+Cherry picks:
+
+   + fd646928d63dee15e37d20b3a504d887f44208e3:
+     Automated rollback of commit
+     ceece65abd46833fe277a43fded9ee9f387bab14.
+```
+
+Incompatible changes:
+
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since the path would refer to a
+    netrc file inside the external repository by absolute path.
+    Migration should be straightforward.
+  - genrule switched to use exec transition instead of host. This can
+    break targets with hardcoded output paths. To avoid using
+    hardcoded paths use make variables, see
+    https://docs.bazel.build/versions/4.2.2/be/make-variables.html#pre
+    defined_label_variables
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since...
+
+Important changes:
+
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+  - The Build Event Protocol now contains file digests and sizes
+    along with the file name and URI.
+  - Refactor system suspend event handling.
+  - alias() can now select() directly on constraint_value()
+  - Allow \a \b \f \v escape sequences in Starlark.
+  - Match remote and local xcode version by most granular version.
+  - Adds `--experimental_worker_multiplex_sandboxing` flag that
+    controls whether to sandbox multiplex workers that support it.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Eagle, Alex Scott, Andrew Katson, Benedek Thaler, Benjamin Lee, Benjamin Peterson, Bradley Burns, Brandon Jacklyn, Brentley Jones, Chris Fredrickson, crydell-ericsson, Dan Fleming, Danny Wolf, Dimi Shahbaz, Ed Schouten, Fabian Meumertzheim, Fredrik Medley, Greg Estren, Greg, hvadehra, Jiawen Chen, Keith Smiley, Ken Micklas, Kevin Lin, lihu, Noa Resare, Patrick Balestra, Pras Velagapudi, Rahul Butani, Simon Bjorklen, Stiopa Koltsov, Tetsuo Kiso, Ulf Adams, Ulrik Falklof, William Muir, Xavier Bonaventura, Xdng Yng, Yannic Bonenberger.
+
+## Release 5.0.0 (2022-01-19)
+
+```
+Baseline: 8d66a4171baddcbe1569972f019e54130111202c
+
+Cherry picks:
+
+   + becd1494481b96d2bc08055d3d9d4d7968d9702e:
+     Remote: Cache merkle trees
+   + d7628e1b566be353fe7172241ac8f15d5f8e7ff5:
+     Update DEFAULT_IOS_CPU for M1 arm64 simulator support
+   + 80c56ff7b603fcfff02a5f97829a2a5935f360a0:
+     Compile Apple tools as fat binaries if possible
+   + 3c09f3438a966b49a7c1726022c898b390b3a6e5:
+     Add protobuf as a well known module
+   + 3a5b3606a6f5433467a5b49f0188c41411684bf5:
+     Remote: Merge target-level exec_properties with
+     --remote_default_exec_properties
+   + 917e15ea408e1d3d25574edbb466b39cfbcb61fe:
+     Add -no_uuid for hermetic macOS toolchain setup
+   + f5cf8b076bc913dbe021104d5f6837fb4a6cd8b3:
+     Remote: Fixes an issue when --experimental_remote_cache_async
+     encounter flaky tests.
+   + 77a002cce050e861fcc87c89acf7768aa5c97124:
+     Remove DigestUtils.getDigestInExclusiveMode() now that SsdModule
+     has …
+   + 557a7e71eeb5396f2c87c909ddc025fde2678780:
+     Fixes for the Starlark transition hash computation (#14251)
+   + 34c71465f84fa780217926db2e8e5ca3d6d4568c:
+     Do location expansion in copts of objc_library
+   + 50274a9f714616d4735a560db7f617e53fb8d01b:
+     [5.x] Remote: Add support for compression on gRPC cache (#14277)
+   + 61bf2e5b5181cbe34a2f0d584053570943881804:
+     Automated rollback of commit
+     34c71465f84fa780217926db2e8e5ca3d6d4568c.
+   + 79888fe7369479c398bafe064daa19a7ae30f710:
+     Silence a zstd-jni GCC warning.
+   + 063b5c9c2c09b4794010b9a169b44890ffc79ec4:
+     Remote: Limit max number of gRPC connections by
+     --remote_max_connections.
+   + fd727ec96d861573dcbad3249d727a94eff84789:
+     Do location expansion in copts of objc_library
+   + 23d096931be9b7247eafa750999dd7feadde14c1:
+     Fix _is_shared_library_extension_valid
+   + 5cf1d6e1f78bc860fcd0e2e86eff6fe43ab4a5a2:
+     Remove merging of java_outputs in JavaPluginInfo.
+   + cea5f4f499aa832cf90c68898671869ce79d63f2:
+     Cherrypick Bzlmod documentation (#14301)
+   + 227e49e28e5122cddd6c4cb70686ff7bde3617ea:
+     Format work requests according to ndjson spec
+   + ae0a6c98d4f94abedbedb2d51c27de5febd7df67:
+     Enable user_link_flags_feature for macosx cc_toolchain_config
+   + 8c2c78cdc66cc9d5eb2cd59823c659892c1643a7:
+     Remote: Use Action's salt field to differentiate cache across
+     workspaces.
+   + f94898915268be5670fb1e93a16c03e9b14d2a58:
+     [5.x] Remote: Fix "file not found" error when remote cache is
+     changed from enabled to disabled.  (#14321)
+   + 3069ac4e33dcca6f3d1abf55940cdd764d03bdbf:
+     Delete marker file before fetching an external repository
+   + c05c6261cdb2cacb7c9881c255c0ada435ab5182:
+     Remote: Fix file counting in merkletree.DirectoryTreeBuilder
+   + d84f7998ef8f15e27376a0c8f25b320145c4ba9e:
+     Fix remote spawn tests for remote_merkle_tree_cache=true
+   + 59e16e944200555da377799aa0d9e8d0674d2e27:
+     Show skipped tests as a warning
+   + 76b3c242831f8e88835e3002a831a185a41fcc52:
+     Build xcode-locator as a universal binary
+   + aa52f2ddf9bab1ebd18e5431124061e813bfcd80:
+     Exit collect_coverage.sh early if LCOV_MERGER is not set.
+   + 4256d46327bad8638df91be1a5d4ef83b12b74c7:
+     Automated rollback of commit
+     d84f7998ef8f15e27376a0c8f25b320145c4ba9e.
+   + dce24350befd08216b3910ae343670015444ff81:
+     [apple] fix issues compiling C in objc_library for watchos/armv7k
+   + bfc24139d93f8643686d91596ba347df2e01966a:
+     5.x: Remote: Ignore blobs referenced in BEP if the generating
+     action cannot be cached remotely. (#14389)
+   + 5aef53a8884038f3c9f06e6dddb9372196253378:
+     Remote: Don't blocking-get when acquiring gRPC connections.
+     (#14420)
+   + 005361c895da334beb873901e93aff06d180256e:
+     Disable IncludeValidation for ObjC in bazel
+   + d703b7b4f09fb3c389f99e52bac1f23930280b56:
+     Update java_tools v11.6
+   + 90965b072eb4a6dec8ff5b8abde3726732d37bdc:
+     Stop remote blob upload if upload is complete. (#14467)
+   + dc59d9e8f7937f2e317c042e8da8f97ba6b1237e:
+     [5.x] Make remote BES uploader better (#14472)
+   + 2edab739e1f61fe8813230b03396ca46f0790089:
+     Avoid too verbose warnings in terminal when cache issues
+   + 1160485192b5e6d95bcd426b55cc9a35fc6b8614:
+     Rename --project_id to --bes_instance_name
+   + c63d9ecbe5fcb5716a0be21d8fc781d7aa5bbc30:
+     Automated rollback of commit
+     bfdfa6ebfd21b388f1c91f512291c848e1a92a96.
+   + b341802700484d11c775bf02d80f43ba3f33b218:
+     [apple] support watchos_arm64 in toolchain
+   + 43bcf80a3dfdc5ac89c1e4d615d6f29a495855fb:
+     Disable implicitly collecting baseline coverage for toolchain
+     targets.
+   + 302971e1b3d803069ac949c0085c0d2a3916c8ab:
+     Automated rollback of commit
+     7d09b4a15985052670244c277e4357557b4d0039.
+   + 62002024ca7012ffe0f4fc74ac20b5471513c8c8:
+     Bzlmod: Starlarkify default attr values for TypeCheckedTags
+   + 38117d491cbc4a5686e0bdb1e58f8946d96aed58:
+     Fix build after rc4 cherrypicks (#14581)
+```
+
+This release contains contributions from many people at Google, as well as amberdixon, Benjamin Peterson, Brentley Jones, Dan Fleming, Danny Wolf, Fabian Meumertzheim, Keith Smiley, Noa Resare, Oliver Eikemeier, Philipp Schrader, Xùdōng Yáng, Yannic.
+
+## Release 6.0.0-pre.20220105.5 (2022-01-14)
+
+```
+Baseline: 60dedb723131e2eb0070fc19bb218e0019351917
+```
+
+Important changes:
+
+  - Adds `--experimental_worker_multiplex_sandboxing` flag that
+    controls whether to sandbox multiplex workers that support it.
+
+This release contains contributions from many people at Google, as well as Alex Scott, Benjamin Peterson, Fabian Meumertzheim, Patrick Balestra, Pras Velagapudi, Ulrik Falklof, Yannic Bonenberger.
+
+## Release 6.0.0-pre.20211220.1 (2022-01-11)
+
+```
+Baseline: 7f55cb768ae22352ac6599086e7cf6525a9565a5
+```
+
+Important changes:
+
+  - Match remote and local xcode version by most granular version.
+
+This release contains contributions from many people at Google, as well as Kevin Lin, lihu.
+
 ## Release 6.0.0-pre.20211215.3 (2021-12-21)
 
 ```

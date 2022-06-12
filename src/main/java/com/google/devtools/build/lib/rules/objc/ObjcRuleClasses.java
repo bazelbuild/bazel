@@ -143,7 +143,7 @@ public class ObjcRuleClasses {
             AppleConfiguration.appleTargetPlatformEnv(
                 targetPlatform, xcodeConfigInfo.getSdkVersionForPlatform(targetPlatform)))
         .putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfigInfo.getXcodeVersion()))
-        .build();
+        .buildOrThrow();
   }
 
   /** Creates a new spawn action builder that requires a darwin architecture to run. */

@@ -128,7 +128,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         mnemonic,
         /* executeUnconditionally */ false,
         /* extraActionInfoSupplier */ null,
-        /* resultConsumer */ null);
+        /* resultConsumer */ null,
+        /* stripOutputPaths */ false);
 
     this.allStarlarkActionInputs = inputs;
     this.unusedInputsList = unusedInputsList;
@@ -324,7 +325,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         actionExecutionContext.getArtifactExpander(),
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
         /*envResolved=*/ true,
-        actionExecutionContext.getTopLevelFilesets());
+        actionExecutionContext.getTopLevelFilesets(),
+        /*reportOutputs=*/ true);
   }
 
   @Override
@@ -385,7 +387,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
                 .put(
                     ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
                     unusedInputsList.get().getExecPathString())
-                .build();
+                .buildOrThrow();
       }
       return new StarlarkAction(
           owner,

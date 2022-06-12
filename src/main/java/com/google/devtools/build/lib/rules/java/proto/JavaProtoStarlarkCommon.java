@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Expor
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaProtoCommonApi;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** A class that exposes Java common methods for proto compilation. */
@@ -57,7 +59,7 @@ public class JavaProtoStarlarkCommon
           protoInfo,
           ImmutableList.of(sourceJar),
           "Generating JavaLite proto_library %{label}",
-          Exports.DO_NOT_USE,
+          Exports.USE,
           Services.ALLOW);
     } catch (RuleErrorException e) {
       throw new EvalException(e);
@@ -70,15 +72,26 @@ public class JavaProtoStarlarkCommon
   }
 
   @Override
+  @Nullable
   public JavaInfo getRuntimeToolchainProvider(
       StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
     TransitiveInfoCollection runtime =
         getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr).runtime();
+    if (runtime == null) {
+      return null;
+    }
     return JavaInfo.Builder.create()
         .addProvider(
             JavaCompilationArgsProvider.class,
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
         .build();
+  }
+
+  @Override
+  @Nullable
+  public TransitiveInfoCollectionApi getRuntime(
+      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
+    return getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr).runtime();
   }
 
   private static ProtoLangToolchainProvider getProtoToolchainProvider(

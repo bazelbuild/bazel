@@ -92,11 +92,17 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   /** Bazel does not currently support any dex postprocessing. */
   @Override
+  public boolean postprocessClassesRewritesMap(RuleContext ruleContext) {
+    return false;
+  }
+
+  @Override
   public AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
       Artifact classesDexZip,
-      ProguardOutput proguardOutput)
+      ProguardOutput proguardOutput,
+      Artifact proguardMapOutput)
       throws InterruptedException {
     return AndroidBinary.DexPostprocessingOutput.create(classesDexZip, proguardOutput.getMapping());
   }

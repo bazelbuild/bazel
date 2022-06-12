@@ -228,6 +228,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testMacroHasGeneratorAttributes() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_binary");
     scratch.file(
         "test/starlark/extension.bzl",
         "def _impl(ctx):",
@@ -266,10 +267,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(nativeMacro.getAttr("generator_function")).isEqualTo("native_macro");
     assertThat(nativeMacro.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:5:18");
 
+    // Starlark version of cc_binary is created by a wrapper macro.
     Rule ccTarget = getRuleForTarget("cc_target");
-    assertThat(ccTarget.getAttr("generator_name")).isEqualTo("");
-    assertThat(ccTarget.getAttr("generator_function")).isEqualTo("");
-    assertThat(ccTarget.getAttr("generator_location")).isEqualTo("");
+    assertThat(ccTarget.getAttr("generator_name")).isEqualTo("cc_target");
+    assertThat(ccTarget.getAttr("generator_function")).isEqualTo("cc_binary");
+    assertThat(ccTarget.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:6:10");
   }
 
   @Test

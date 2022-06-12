@@ -45,20 +45,18 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
   @Test
   public void testWarningsAreReplayedEvenWithAnalysisCaching() throws Exception {
     AnalysisMock.get().pySupport().setup(mockToolsConfig);
-    write("y/BUILD",
-        "py_library(name='y', srcs=[':c'])",
-        "genrule(name='c', outs=['c.out'], cmd=':')");
+    write(
+        "y/BUILD",
+        "genrule(name='y', outs=['y.out'], cmd='touch $@', deprecation='generate a warning')");
     addOptions("--nobuild");
 
     buildTarget("//y");
-    events.assertContainsWarning("in srcs attribute of py_library rule //y:y: rule '//y:c' " +
-        "does not produce any Python source files");
+    events.assertContainsWarning("target '//y:y' is deprecated");
 
     events.clear();
 
     buildTarget("//y");
-    events.assertContainsWarning("in srcs attribute of py_library rule //y:y: rule '//y:c' " +
-        "does not produce any Python source files");
+    events.assertContainsWarning("target '//y:y' is deprecated");
   }
 
   @Test
@@ -127,38 +125,6 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
             + "target '//fruit:banana__hdrs__' does not exist");
   }
 
-  // Regression test for bug #1332987, "--experimental_deps_ok switch doesn't
-  // propagate transitively".
-  @Test
-  public void testExperimentalDepsOkInheritedByHostConfiguration() throws Exception {
-    write("x/BUILD",
-          "genrule(name='x', outs=['x.out'], tools=[':y'], cmd=':')",
-          "genrule(name='y', srcs=['//experimental/x'], outs=['y.out'], cmd=':')");
-    write("experimental/x/BUILD",
-          "exports_files(['x'])");
-    addOptions("--nobuild", "--experimental_deps_ok");
-
-    buildTarget("//x"); // no error, just a warning.
-    events.assertContainsWarning("non-experimental target '//x:y' depends "
-                        + "on experimental target '//experimental/x:x' "
-                        + "(ignored due to --experimental_deps_ok; do not submit)");
-  }
-
-  /**
-   * Regression Test for bug 3071861. Checks that the {@code --define} command
-   * line option is also applied to the host configuration.
-   */
-  @Test
-  public void testHostDefine() throws Exception {
-    write("x/BUILD",
-        "vardef('CMD', 'false');",
-        "genrule(name='foo', outs=['foo.out'], tools=[':bar'], cmd='touch $@ && ' + varref('CMD'))",
-        "genrule(name='bar', outs=['bar.out'], cmd='touch $@ && ' + varref('CMD'))");
-
-    addOptions("--define=CMD=true");
-    buildTarget("//x:foo");
-  }
-
   @Test
   public void testBuildAllAndParsingError() throws Exception {
     write("pkg/BUILD",
@@ -200,15 +166,17 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
 
   @Test
   public void testDiscardAnalysisCacheWithError() throws Exception {
-    write("x/BUILD",
-          "genrule(name='x', outs=['x.out'], srcs=['//experimental/x'], cmd=':')");
-    write("experimental/x/BUILD", "exports_files(['x'])");
+    write(
+        "x/BUILD",
+        "cc_library(name='x', deps=[':z__hdrs__'])",
+        "genrule(name='z', outs=['z.out'], cmd=':')");
     write("y/BUILD", "sh_library(name='y')");
     addOptions("--discard_analysis_cache", "--keep_going");
     EventCollector collector = new EventCollector(EventKind.STDERR);
     events.addHandler(collector);
     assertThrows(BuildFailedException.class, () -> buildTarget("//x:x", "//y:y"));
-    events.assertContainsError("depends on experimental target");
+    events.assertContainsError(
+        "in deps attribute of cc_library rule //x:x: target '//x:z__hdrs__' does not exist");
     MoreAsserts.assertContainsEvent(collector, "Target //y:y up-to-date", EventKind.STDERR);
   }
 

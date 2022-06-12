@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
@@ -450,6 +451,7 @@ public class IncrementalLoadingTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))
+              .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);

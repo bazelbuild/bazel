@@ -64,14 +64,14 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
     createDepsMap(
         ruleContext, graphProvider.getWorkingDirectory(), depsMapBuilder, symlinksMapBuilder);
 
-    ImmutableSortedMap<PathFragment, Artifact> depsMap = depsMapBuilder.build();
+    ImmutableSortedMap<PathFragment, Artifact> depsMap = depsMapBuilder.buildOrThrow();
 
     NinjaGraphArtifactsHelper artifactsHelper =
         new NinjaGraphArtifactsHelper(
             ruleContext,
             graphProvider.getOutputRoot(),
             graphProvider.getWorkingDirectory(),
-            symlinksMapBuilder.build(),
+            symlinksMapBuilder.buildOrThrow(),
             graphProvider.getOutputRootSymlinks());
     if (ruleContext.hasErrors()) {
       return null;

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -752,7 +753,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         assertThrows(NoSuchPackageException.class, () -> loadPackage("pkg"));
     assertThat(ex)
         .hasMessageThat()
-        .contains("error globbing [globs/**]: " + dir + " (Permission denied)");
+        .contains("error globbing [globs/**] op=FILES: " + dir + " (Permission denied)");
   }
 
   @Test
@@ -1147,10 +1148,12 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                 "third_variable = glob(['c'], exclude_directories = 0)"));
     List<String> globs = new ArrayList<>();
     List<String> globsWithDirs = new ArrayList<>();
+    List<String> subpackages = new ArrayList<>();
     PackageFactory.checkBuildSyntax(
-        file, globs, globsWithDirs, new HashMap<>(), /*eventHandler=*/ null);
+        file, globs, globsWithDirs, subpackages, new HashMap<>(), /*eventHandler=*/ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
+    assertThat(subpackages).isEmpty();
   }
 
   // Tests of BUILD file dialect checks:
@@ -1260,11 +1263,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                   return null;
                 }
               },
-              null,
+              SyscallCache.NO_CACHE,
               executorService,
               -1,
               ThreadStateReceiver.NULL_INSTANCE);
-      assertThat(globCache.globUnsorted(include, exclude, false, true))
+      assertThat(globCache.globUnsorted(include, exclude, Globber.Operation.FILES_AND_DIRS, true))
           .containsExactlyElementsIn(expected);
     } finally {
       executorService.shutdownNow();

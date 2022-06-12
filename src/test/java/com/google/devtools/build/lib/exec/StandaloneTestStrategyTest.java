@@ -70,7 +70,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.Options;
@@ -154,7 +154,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult=*/ null,
           DiscoveredModulesPruner.DEFAULT,
-          UnixGlob.DEFAULT_SYSCALLS,
+          SyscallCache.NO_CACHE,
           ThreadStateReceiver.NULL_INSTANCE);
       this.actionContextRegistry = actionContextRegistry;
     }

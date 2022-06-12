@@ -515,7 +515,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
     }
-    return directoryListingValues.build();
+    return directoryListingValues.buildOrThrow();
   }
 
   @Override

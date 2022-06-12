@@ -99,7 +99,7 @@ public class CppRuleClasses {
               FileTypeSet.of(
                   CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
           .withSourceAttributes("srcs", "hdrs")
-          .withDependencyAttributes("implementation_deps", "deps", "data");
+          .withDependencyAttributes("interface_deps", "deps", "data");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
@@ -278,6 +278,12 @@ public class CppRuleClasses {
   /** A string constant for enabling split functions for FDO implicitly. */
   public static final String ENABLE_FDO_SPLIT_FUNCTIONS = "enable_fdo_split_functions";
 
+  /** A string constant for the fsafdo feature. */
+  public static final String FSAFDO = "fsafdo";
+
+  /** A string constant for enabling fsafdo for AutoFDO implicitly. */
+  public static final String ENABLE_FSAFDO = "enable_fsafdo";
+
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
    * with ThinLTO.
@@ -380,6 +386,15 @@ public class CppRuleClasses {
   /** A string constant for the propeller optimize feature. */
   public static final String PROPELLER_OPTIMIZE = "propeller_optimize";
 
+  /**
+   * A string constant for the propeller_optimize_thinlto_compile_actions feature.
+   *
+   * <p>TODO(b/182804945): Remove after making sure that the rollout of the new Propeller profile
+   * passing logic didn't break anything.
+   */
+  public static final String PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS =
+      "propeller_optimize_thinlto_compile_actions";
+
   /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
 
@@ -448,6 +463,9 @@ public class CppRuleClasses {
    * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
    */
   public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
+
+  /** Tag used to opt in into interface_deps behavior. */
+  public static final String INTERFACE_DEPS_TAG = "__INTERFACE_DEPS__";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {

@@ -59,7 +59,7 @@ abstract class AndroidLintTool implements StarlarkValue {
     ImmutableList<String> options =
         ruleContext
             .getExpander()
-            .withExecLocations(locations.build())
+            .withExecLocations(locations.buildOrThrow())
             .tokenized("android_lint_opts");
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(

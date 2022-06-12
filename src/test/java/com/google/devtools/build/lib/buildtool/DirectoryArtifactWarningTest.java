@@ -26,11 +26,12 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
 
   @Test
   public void testOutputArtifactDirectoryWarning() throws Exception {
-    write("x/BUILD",
-          "genrule(name = 'x',",
-          "        outs = ['dir'],",
-          "        cmd = '/bin/mkdir $(location dir)',",
-          "        srcs = [])");
+    write(
+        "x/BUILD",
+        "genrule(name = 'x',",
+        "        outs = ['dir'],",
+        "        cmd = 'mkdir $(location dir)',",
+        "        srcs = [])");
 
     buildTarget("//x");
 
@@ -40,11 +41,12 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
 
   @Test
   public void testInputArtifactDirectoryWarning() throws Exception {
-    write("x/BUILD",
-          "genrule(name = 'x',",
-          "        outs = ['out'],",
-          "        cmd = '/bin/touch $(location out)',",
-          "        srcs = ['dir'])");
+    write(
+        "x/BUILD",
+        "genrule(name = 'x',",
+        "        outs = ['out'],",
+        "        cmd = 'touch $(location out)',",
+        "        srcs = ['dir'])");
     write("x/dir/empty");
 
     buildTarget("//x");
