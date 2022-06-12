@@ -1053,11 +1053,6 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         throw new IllegalStateException(e);
       }
     }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   /** No-op action that does not generate the action outputs. */

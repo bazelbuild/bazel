@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -136,6 +137,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             new StarlarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
       } else if (defaultValue instanceof StarlarkLateBoundDefault) {
         builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
+      } else if (defaultValue instanceof NativeComputedDefaultApi) {
+        // TODO(b/200065655#comment3): This hack exists until default_copts and default_hdrs_check
+        //  in package() is replaced by proper package defaults. We don't check the particular
+        //  instance to avoid adding a dependency to the C++ package.
+        builder.value((NativeComputedDefaultApi) defaultValue);
       } else {
         BazelModuleContext moduleContext =
             BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
@@ -420,11 +426,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringAttribute(
-      String defaultValue,
-      String doc,
-      Boolean mandatory,
-      Sequence<?> values,
-      StarlarkThread thread)
+      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string");
     return createAttrDescriptor(
@@ -497,11 +499,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory,
-      Boolean allowEmpty,
-      Sequence<?> defaultValue,
-      String doc,
-      StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list");
     return createAttrDescriptor(

@@ -353,7 +353,9 @@ public class LexerTest {
 
   @Test
   public void testStringEscapes() throws Exception {
-    check("'a\\tb\\nc\\rd'", "STRING(a\tb\nc\rd) NEWLINE EOF"); // \t \r \n
+    check(
+        "'a\\tb\\nc\\rd\\fe\\vf\\ag\\bh'",
+        "STRING(a\tb\nc\rd\fe\u000bf\u0007g\bh) NEWLINE EOF"); // \t \r \n \f \v \a \b
     checkErrors(
         "'x\\hx'", //
         "STRING(x\\hx) NEWLINE EOF",

@@ -59,7 +59,7 @@ ExitCode PythonBinaryLauncher::Launch() {
   // In case the given binary path is a shortened Windows 8dot3 path, we need to
   // convert it back to its long path form before using it to find the python
   // file.
-  wstring full_binary_path = GetWindowsLongPath(args[0]);
+  wstring full_binary_path = GetWindowsLongPath(executable_file_);
   if (use_zip_file == L"1") {
     python_file = GetBinaryPathWithoutExtension(full_binary_path) + L".zip";
   } else {

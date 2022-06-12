@@ -246,8 +246,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
 
     AspectKey key = Iterables.getOnlyElement(analysisResult.getAspectsMap().keySet());
-    AspectValue aspectValue =
-        (AspectValue) skyframeExecutor.getEvaluatorForTesting().getExistingValue(key);
+    AspectValue aspectValue = (AspectValue) skyframeExecutor.getEvaluator().getExistingValue(key);
     AspectDefinition aspectDefinition = aspectValue.getAspect().getDefinition();
     assertThat(
             aspectDefinition
@@ -7214,6 +7213,1261 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertContainsEvent(
         "//test:defs.bzl%aspect_a: invalid value in 'p' attribute: has to be one of 'p_v1' or"
             + " 'p_v2' instead of ''");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_noNeedForAllowedValues() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default='val') },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:defs.bzl%aspect_a"),
+            ImmutableMap.of("p", "p_v"),
+            "//test:main_target");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p = p_v",
+            "aspect_a on target //test:dep_target_1, p = p_v",
+            "aspect_a on target //test:dep_target_2, p = p_v");
+  }
+
+  /**
+   * Aspect parameter has to require set of values only if the aspect is used in a rule attribute.
+   */
+  @Test
+  public void testAttrAspectParameterMissingRequiredValues() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.string(default = 'c') }",
+        ")",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "r1 = rule(_rule_impl, attrs={'dep': attr.label(aspects = [my_aspect])})");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'r1')", "r1(name = 'main_target')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update("//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:main_target"));
+    }
+    assertContainsEvent(
+        "Aspect //test:defs.bzl%my_aspect: Aspect parameter attribute 'param' must use the 'values'"
+            + " restriction.");
+  }
+
+  /**
+   * Aspect parameter has to require set of values only if the aspect is used in a rule attribute.
+   */
+  @Test
+  public void testAttrRequiredAspectParameterMissingRequiredValues() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "required_aspect = aspect(_impl,",
+        "   attrs = { 'p1' : attr.string(default = 'b') }",
+        ")",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'p2' : attr.string(default = 'c', values = ['c']) },",
+        "   requires = [required_aspect],",
+        ")",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "r1 = rule(_rule_impl, attrs={'dep': attr.label(aspects = [my_aspect])})");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'r1')", "r1(name = 'main_target')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update("//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:main_target"));
+    }
+    assertContainsEvent(
+        "Aspect //test:defs.bzl%required_aspect: Aspect parameter attribute 'p1' must use the"
+            + " 'values' restriction.");
+  }
+
+  @Test
+  public void integerAspectParameter_mandatoryAttrNotCoveredByRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type int.");
+  }
+
+  @Test
+  public void integerAspectParameter_mandatoryAttrWithWrongTypeInRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
+        "              'my_attr': attr.string() },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type int.");
+  }
+
+  @Test
+  public void integerAspectParameter_attrWithoutDefaultNotCoveredByRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.int(values = [1, 2]) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type int.");
+  }
+
+  @Test
+  public void integerAspectParameter_attrWithoutDefaultWrongTypeInRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.int(values = [1, 2]) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
+        "              'my_attr': attr.string() },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type int.");
+  }
+
+  @Test
+  public void integerAspectParameter_missingValuesRestriction() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.int() },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
+        "              'my_attr' : attr.int() },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered: Aspect parameter attribute 'my_attr' must use"
+            + " the 'values' restriction.");
+  }
+
+  @Test
+  public void integerAspectParameter_invalidDefault() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.int(default = 2, values = [0, 1]) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect parameter attribute 'my_attr' has a bad default value: has to be one of '0' or '1'"
+            + " instead of '2'");
+  }
+
+  @Test
+  public void aspectIntegerParameter_withDefaultValue() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  result = ['my_aspect on target {}, my_attr = {}'.",
+        "                                    format(target.label, ctx.attr.my_attr)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.my_aspect_result",
+        "  return struct(my_aspect_result = result)",
+        "",
+        "def _rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
+        "  pass",
+        "",
+        "MyAspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },",
+        ")",
+        "",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]) }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'main_target',",
+        "        dep = ':dep_target',",
+        ")",
+        "my_rule(name = 'dep_target')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    assertThat(Starlark.toIterable(ruleResult))
+        .containsExactly("my_aspect on target //test:dep_target, my_attr = 1");
+  }
+
+  @Test
+  public void aspectIntegerParameter_valueOverwrittenByRuleDefault() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  result = ['my_aspect on target {}, my_attr = {}'.",
+        "                                    format(target.label, ctx.attr.my_attr)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.my_aspect_result",
+        "  return struct(my_aspect_result = result)",
+        "",
+        "def _rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
+        "  pass",
+        "",
+        "MyAspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },",
+        ")",
+        "",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
+        "              'my_attr': attr.int(default = 2) }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'main_target',",
+        "        dep = ':dep_target',",
+        ")",
+        "my_rule(name = 'dep_target')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    assertThat(Starlark.toIterable(ruleResult))
+        .containsExactly("my_aspect on target //test:dep_target, my_attr = 2");
+  }
+
+  @Test
+  public void aspectIntegerParameter_valueOverwrittenByTargetValue() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  result = ['my_aspect on target {}, my_attr = {}'.",
+        "                                    format(target.label, ctx.attr.my_attr)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.my_aspect_result",
+        "  return struct(my_aspect_result = result)",
+        "",
+        "def _rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
+        "  pass",
+        "",
+        "MyAspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },",
+        ")",
+        "",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
+        "              'my_attr': attr.int(default = 2) }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'main_target',",
+        "        dep = ':dep_target',",
+        "        my_attr = 3,",
+        ")",
+        "my_rule(name = 'dep_target')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    assertThat(Starlark.toIterable(ruleResult))
+        .containsExactly("my_aspect on target //test:dep_target, my_attr = 3");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithParameters_invalidIntegerParameterValue() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.int(values = [1, 2]) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult =
+          update(
+              ImmutableList.of("//test:defs.bzl%aspect_a"),
+              ImmutableMap.of("p", "3"),
+              "//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("//test:defs.bzl%aspect_a"),
+                  ImmutableMap.of("p", "3"),
+                  "//test:main_target"));
+    }
+    assertContainsEvent(
+        "//test:defs.bzl%aspect_a: invalid value in 'p' attribute: has to be one of '1' or"
+            + " '2' instead of '3'");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithIntegerParameter() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.int(values = [1, 2, 3]) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:defs.bzl%aspect_a"),
+            ImmutableMap.of("p", "2"),
+            "//test:main_target");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p = 2",
+            "aspect_a on target //test:dep_target_1, p = 2",
+            "aspect_a on target //test:dep_target_2, p = 2");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithIntegerParameter_useDefaultValue() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.int(default = 1, values = [1, 2, 3]) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p = 1",
+            "aspect_a on target //test:dep_target_1, p = 1",
+            "aspect_a on target //test:dep_target_2, p = 1");
+  }
+
+  @Test
+  public void booleanAspectParameter_mandatoryAttrNotCoveredByRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type boolean.");
+  }
+
+  @Test
+  public void booleanAspectParameter_mandatoryAttrWithWrongTypeInRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
+        "              'my_attr': attr.string() },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type boolean.");
+  }
+
+  @Test
+  public void booleanAspectParameter_attrWithoutDefaultNotCoveredByRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.bool() },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type boolean.");
+  }
+
+  @Test
+  public void booleanAspectParameter_attrWithoutDefaultWrongTypeInRule() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.bool() },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
+        "              'my_attr': attr.string() },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update(ImmutableList.of(), "//test:main"));
+    }
+
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+            + "'my_attr' with type boolean.");
+  }
+
+  @Test
+  public void aspectBooleanParameter_withDefaultValue() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  result = ['my_aspect on target {}, my_attr = {}'.",
+        "                                    format(target.label, ctx.attr.my_attr)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.my_aspect_result",
+        "  return struct(my_aspect_result = result)",
+        "",
+        "def _rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
+        "  pass",
+        "",
+        "MyAspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    attrs = { 'my_attr' : attr.bool(default = True) },",
+        ")",
+        "",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]) }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'main_target',",
+        "        dep = ':dep_target',",
+        ")",
+        "my_rule(name = 'dep_target')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    assertThat(Starlark.toIterable(ruleResult))
+        .containsExactly("my_aspect on target //test:dep_target, my_attr = True");
+  }
+
+  @Test
+  public void aspectBooleanParameter_valueOverwrittenByRuleDefault() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  result = ['my_aspect on target {}, my_attr = {}'.",
+        "                                    format(target.label, ctx.attr.my_attr)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.my_aspect_result",
+        "  return struct(my_aspect_result = result)",
+        "",
+        "def _rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
+        "  pass",
+        "",
+        "MyAspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    attrs = { 'my_attr' : attr.bool(default = True) },",
+        ")",
+        "",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
+        "              'my_attr': attr.bool(default = False) }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'main_target',",
+        "        dep = ':dep_target',",
+        ")",
+        "my_rule(name = 'dep_target')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    assertThat(Starlark.toIterable(ruleResult))
+        .containsExactly("my_aspect on target //test:dep_target, my_attr = False");
+  }
+
+  @Test
+  public void aspectBooleanParameter_valueOverwrittenByTargetValue() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  result = ['my_aspect on target {}, my_attr = {}'.",
+        "                                    format(target.label, ctx.attr.my_attr)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.my_aspect_result",
+        "  return struct(my_aspect_result = result)",
+        "",
+        "def _rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
+        "  pass",
+        "",
+        "MyAspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    attrs = { 'my_attr' : attr.bool(default = True) },",
+        ")",
+        "",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
+        "              'my_attr': attr.bool(default = True) }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'main_target',",
+        "        dep = ':dep_target',",
+        "        my_attr = False,",
+        ")",
+        "my_rule(name = 'dep_target')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    assertThat(Starlark.toIterable(ruleResult))
+        .containsExactly("my_aspect on target //test:dep_target, my_attr = False");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithBooleanParameter() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.bool() },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:defs.bzl%aspect_a"),
+            ImmutableMap.of("p", "y"),
+            "//test:main_target");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p = True",
+            "aspect_a on target //test:dep_target_1, p = True",
+            "aspect_a on target //test:dep_target_2, p = True");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithBooleanParameter_useDefaultValue() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.bool(default = False) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect_a on target //test:main_target, p = False",
+            "aspect_a on target //test:dep_target_1, p = False",
+            "aspect_a on target //test:dep_target_2, p = False");
+  }
+
+  @Test
+  public void testTopLevelAspectsWithBooleanParameter_invalidValue() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.bool() },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label() },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    useConfiguration("--experimental_allow_top_level_aspects_parameters");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult =
+          update(
+              ImmutableList.of("//test:defs.bzl%aspect_a"),
+              ImmutableMap.of("p", "x"),
+              "//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("//test:defs.bzl%aspect_a"),
+                  ImmutableMap.of("p", "x"),
+                  "//test:main_target"));
+    }
+    assertContainsEvent(
+        "//test:defs.bzl%aspect_a: expected value of type 'bool' for attribute 'p' but got 'x'");
+  }
+
+  @Test
+  public void testRuleAspectWithMandatoryParameterNotProvided() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label(aspects = [aspect_a]) },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update("//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:main_target"));
+    }
+    assertContainsEvent(
+        "Aspect //test:defs.bzl%aspect_a requires rule my_rule to specify attribute 'p' with type"
+            + " string");
+  }
+
+  @Test
+  public void testRuleAspectWithMandatoryParameterProvidedWrongType() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label(aspects = [aspect_a]),",
+        "             'p': attr.int() } ",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update("//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:main_target"));
+    }
+    assertContainsEvent(
+        "Aspect //test:defs.bzl%aspect_a requires rule my_rule to specify attribute 'p' with type"
+            + " string");
+  }
+
+  @Test
+  public void testRuleAspectWithMandatoryParameter_useRuleDefault() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v1', values = ['p_v1', 'p_v2'],",
+        "                              mandatory = True) },",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)",
+        "  pass",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [aspect_a]),",
+        "    'p' : attr.string(default = 'p_v2'),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "main_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target, p = p_v2");
+  }
+
+  @Test
+  public void testRuleAspectWithMandatoryParameterProvided() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v2', values = ['p_v1', 'p_v2'],",
+        "                              mandatory = True) },",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)",
+        "  pass",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [aspect_a]),",
+        "    'p' : attr.string(mandatory = True),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        "  p = 'p_v1',",
+        ")",
+        "main_rule(",
+        "  name = 'dep_target',",
+        "  p = 'p_v2',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target, p = p_v1");
   }
 
   private ConfiguredAspect getConfiguredAspect(

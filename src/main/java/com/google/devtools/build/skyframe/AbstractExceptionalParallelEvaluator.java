@@ -95,7 +95,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionJobsThreadPoolSize) {
     super(
@@ -111,7 +110,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
         cpuHeavySkyKeysThreadPoolSize,
         executionJobsThreadPoolSize);
   }
@@ -157,8 +155,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             evaluationState);
   }
 
-  <T extends SkyValue> EvaluationResult<T> evalExceptionally(Iterable<? extends SkyKey> skyKeys)
-      throws InterruptedException, E {
+  protected <T extends SkyValue> EvaluationResult<T> evalExceptionally(
+      Iterable<? extends SkyKey> skyKeys) throws InterruptedException, E {
     ImmutableSet<SkyKey> skyKeySet = ImmutableSet.copyOf(skyKeys);
 
     // Optimization: if all required node values are already present in the cache, return them
@@ -371,6 +369,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Iterable<SkyKey> roots,
       Set<SkyKey> rdepsToBubbleUpTo)
       throws InterruptedException {
+    // Remove all the compute states so as to give the SkyFunctions a chance to do fresh
+    // computations during error bubbling.
+    stateCache.invalidateAll();
+
     Set<SkyKey> rootValues = ImmutableSet.copyOf(roots);
     ErrorInfo error = leafFailure;
     LinkedHashMap<SkyKey, ValueWithMetadata> bubbleErrorInfo = new LinkedHashMap<>();
@@ -490,7 +492,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       SkyKey childErrorKey = errorKey;
       errorKey = parent;
       SkyFunctionEnvironment env =
-          new SkyFunctionEnvironment(
+          SkyFunctionEnvironment.createForError(
               parent,
               parentEntry.getTemporaryDirectDeps(),
               bubbleErrorInfo,
@@ -633,36 +635,12 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     if (!cycleRoots.isEmpty()) {
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
-    if (haveKeys && result.isEmpty()) {
-      Preconditions.checkState(
-          catastrophe && bubbleErrorInfo != null,
-          "No top-level keys were present but we did not have catastrophic error bubbling: %s %s %s"
-              + " %s",
-          skyKeys,
-          catastrophe,
-          bubbleErrorInfo,
-          cycleRoots);
-      boolean exceptionFound = false;
-      for (ValueWithMetadata valueWithMetadata :
-          ImmutableList.copyOf(bubbleErrorInfo.values()).reverse()) {
-        ErrorInfo errorInfo =
-            Preconditions.checkNotNull(
-                valueWithMetadata.getErrorInfo(),
-                "bubbleErrorInfo should have contained element with errorInfo: %s",
-                bubbleErrorInfo);
-        if (errorInfo.getException() != null) {
-          result.setCatastrophe(errorInfo.getException());
-          exceptionFound = true;
-          break;
-        }
-      }
-      Preconditions.checkState(
-          exceptionFound,
-          "Evaluation of %s terminated early with no exception (%s %s %s)",
-          skyKeys,
-          bubbleErrorInfo,
-          result);
-    }
+    Preconditions.checkState(
+        !result.isEmpty() || !haveKeys,
+        "No result for keys %s (%s %s)",
+        skyKeys,
+        bubbleErrorInfo,
+        catastrophe);
     EvaluationResult<T> builtResult = result.build();
     Preconditions.checkState(
         bubbleErrorInfo == null || builtResult.hasError(),
@@ -674,7 +652,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   }
 
   @Nullable
-  static SkyValue maybeGetValueFromError(
+  private static SkyValue maybeGetValueFromError(
       SkyKey key,
       @Nullable NodeEntry entry,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo)
@@ -714,7 +692,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
       }
       prevEntry.markRebuilding();
-      prevEntry.setValue(value, version);
+      prevEntry.setValue(value, version, /*maxTransitiveSourceVersion=*/ null);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }

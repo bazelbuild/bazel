@@ -138,7 +138,8 @@ class IncludeParser {
   }
 
   /** {@link SkyValue} encapsulating the source-state-dependent part of {@link Hints}. */
-  public static class HintsRules implements SkyValue {
+  public static final class HintsRules implements SkyValue {
+    static final HintsRules EMPTY = new HintsRules(ImmutableList.of());
     private final ImmutableList<Rule> rules;
 
     private HintsRules(ImmutableList<Rule> rules) {

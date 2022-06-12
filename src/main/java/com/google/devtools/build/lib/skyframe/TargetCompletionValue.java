@@ -68,8 +68,13 @@ public class TargetCompletionValue implements SkyValue {
     public abstract ConfiguredTargetKey actionLookupKey();
 
     @Override
-    public SkyFunctionName functionName() {
+    public final SkyFunctionName functionName() {
       return SkyFunctions.TARGET_COMPLETION;
+    }
+
+    @Override
+    public final boolean valueIsShareable() {
+      return false;
     }
 
     abstract boolean willTest();

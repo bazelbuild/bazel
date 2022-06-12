@@ -115,10 +115,8 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   ActionExecutionMetadata getResourceOwner();
 
-  /**
-   * Returns the amount of resources needed for local fallback.
-   */
-  ResourceSet getLocalResources();
+  /** Returns the amount of resources needed for local fallback. */
+  ResourceSet getLocalResources() throws ExecException;
 
   /**
    * Returns a mnemonic (string constant) for this kind of spawn.

@@ -13,15 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
 public interface InMemoryGraph extends ProcessableGraph {
+
+  /** Creates a new in-memory graph suitable for incremental builds. */
+  static InMemoryGraph create() {
+    return new InMemoryGraphImpl();
+  }
+
+  /**
+   * Creates a new in-memory graph that discards graph edges to save memory and cannot be used for
+   * incremental builds.
+   */
+  static InMemoryGraph createEdgeless() {
+    return new EdgelessInMemoryGraphImpl();
+  }
+
   @Override
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);
@@ -53,25 +68,14 @@ public interface InMemoryGraph extends ProcessableGraph {
   }
 
   // Only for use by MemoizingEvaluator#delete
-  Map<SkyKey, ? extends NodeEntry> getAllValues();
+  Map<SkyKey, InMemoryNodeEntry> getAllValues();
 
-  ConcurrentHashMap<SkyKey, ? extends NodeEntry> getAllValuesMutable();
+  ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable();
 
-  static Map<SkyKey, SkyValue> transformDoneEntries(Map<SkyKey, ? extends NodeEntry> nodeMap) {
+  static Map<SkyKey, SkyValue> transformDoneEntries(Map<SkyKey, InMemoryNodeEntry> nodeMap) {
     return Collections.unmodifiableMap(
         Maps.filterValues(
-            Maps.transformValues(
-                nodeMap,
-                entry -> {
-                  if (!entry.isDone()) {
-                    return null;
-                  }
-                  try {
-                    return entry.getValue();
-                  } catch (InterruptedException e) {
-                    throw new IllegalStateException("Interrupted getting " + entry, e);
-                  }
-                }),
-            Predicates.notNull()));
+            Maps.transformValues(nodeMap, entry -> entry.isDone() ? entry.getValue() : null),
+            Objects::nonNull));
   }
 }

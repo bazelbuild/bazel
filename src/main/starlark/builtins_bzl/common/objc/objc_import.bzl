@@ -26,6 +26,7 @@ def _objc_import_impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     common_variables = compilation_support.build_common_variables(
         ctx = ctx,
+        deps = ctx.attr.deps,
         toolchain = cc_toolchain,
         alwayslink = ctx.attr.alwayslink,
         extra_import_libraries = ctx.files.archives,

@@ -143,9 +143,4 @@ public final class ChainedFunction implements SkyFunction {
           notifyStart, waitToFinish, notifyFinish, waitForException, value, deps);
     }
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    throw new UnsupportedOperationException();
-  }
 }

@@ -77,4 +77,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "stamp_binaries", documented = false, useStarlarkThread = true)
   boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "is_tool_configuration", documented = false, useStarlarkThread = true)
+  boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException;
 }

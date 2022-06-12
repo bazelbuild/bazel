@@ -49,8 +49,13 @@ public class AspectCompletionValue implements SkyValue {
     public abstract AspectKey actionLookupKey();
 
     @Override
-    public SkyFunctionName functionName() {
+    public final SkyFunctionName functionName() {
       return SkyFunctions.ASPECT_COMPLETION;
+    }
+
+    @Override
+    public final boolean valueIsShareable() {
+      return false;
     }
   }
 }

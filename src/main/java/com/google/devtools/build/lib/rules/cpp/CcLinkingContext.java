@@ -276,7 +276,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     @Override
     public void debugPrint(Printer printer) {
       printer.append("<LinkerInput(owner=");
-      owner.debugPrint(printer);
+      if (owner == null) {
+        printer.append("[null owner, uses old create_linking_context API]");
+      } else {
+        owner.debugPrint(printer);
+      }
       printer.append(", libraries=[");
       for (LibraryToLink libraryToLink : libraries) {
         libraryToLink.debugPrint(printer);

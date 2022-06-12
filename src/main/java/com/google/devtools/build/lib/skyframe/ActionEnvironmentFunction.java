@@ -34,13 +34,6 @@ import javax.annotation.Nullable;
  * --action_env flag, if the variable's value is explicitly set.
  */
 public final class ActionEnvironmentFunction implements SkyFunction {
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {

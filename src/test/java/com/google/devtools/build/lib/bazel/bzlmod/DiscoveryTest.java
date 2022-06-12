@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -60,7 +59,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -80,7 +78,7 @@ import org.junit.runners.JUnit4;
 public class DiscoveryTest extends FoundationTestCase {
 
   private Path workspaceRoot;
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
   private FakeRegistry.Factory registryFactory;
@@ -108,11 +106,6 @@ public class DiscoveryTest extends FoundationTestCase {
       }
       ImmutableMap<ModuleKey, Module> depGraph = Discovery.run(env, root);
       return depGraph == null ? null : DiscoveryValue.create(depGraph);
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 
@@ -154,14 +147,14 @@ public class DiscoveryTest extends FoundationTestCase {
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
-    MemoizingEvaluator evaluator =
+    evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileValue.FILE, new FileFunction(packageLocator))
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
@@ -188,7 +181,6 @@ public class DiscoveryTest extends FoundationTestCase {
                         new BzlmodRepoRuleHelperImpl()))
                 .build(),
             differencer);
-    driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -225,7 +217,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -284,7 +276,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -335,7 +327,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -376,7 +368,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -424,7 +416,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -466,7 +458,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -520,7 +512,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry1.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -573,7 +565,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
-        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }

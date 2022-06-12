@@ -85,7 +85,7 @@ int main(void) {
 EOF
   cp foo/foo.cc foo/bar.cc
 
-  bazel build --nouse_action_cache --experimental_merged_skyframe_analysis_execution //foo:all &> "$TEST_log" || fail "Expected success"
+  bazel build --experimental_merged_skyframe_analysis_execution //foo:all &> "$TEST_log" || fail "Expected success"
 }
 
 function test_failed_builds() {
@@ -121,23 +121,23 @@ EOF
   touch foo/foo.cc
   touch foo/bar.cc
 
-  bazel build --nouse_action_cache --experimental_merged_skyframe_analysis_execution //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
+  bazel build --experimental_merged_skyframe_analysis_execution //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
   exit_code="$?"
   [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
   expect_log "missing input file '//foo:missing.a'"
 
-  bazel build --nouse_action_cache --experimental_merged_skyframe_analysis_execution //foo:analysis_failure &> "$TEST_log" && fail "Expected failure"
+  bazel build --experimental_merged_skyframe_analysis_execution //foo:analysis_failure &> "$TEST_log" && fail "Expected failure"
   exit_code="$?"
   [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
   expect_log "Analysis of target '//foo:analysis_failure' failed"
 
-  bazel build --nouse_action_cache --nokeep_going --experimental_merged_skyframe_analysis_execution //foo:analysis_failure //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
+  bazel build --nokeep_going --experimental_merged_skyframe_analysis_execution //foo:analysis_failure //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
   exit_code="$?"
   [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
   # With --nokeep_going, technically nothing can be said about the message: whichever target fails first would abort the build.
 
 
-  bazel build --nouse_action_cache --keep_going --experimental_merged_skyframe_analysis_execution //foo:analysis_failure //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
+  bazel build --keep_going --experimental_merged_skyframe_analysis_execution //foo:analysis_failure //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
   exit_code="$?"
   [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
   expect_log "missing input file '//foo:missing.a'"

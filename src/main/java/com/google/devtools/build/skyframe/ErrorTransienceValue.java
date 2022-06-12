@@ -22,20 +22,31 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 public final class ErrorTransienceValue implements SkyValue {
 
   private static final SkyFunctionName FUNCTION_NAME =
-      SkyFunctionName.create(
-          "ERROR_TRANSIENCE", ShareabilityOfValue.NEVER, FunctionHermeticity.NONHERMETIC);
+      SkyFunctionName.createNonHermetic("ERROR_TRANSIENCE");
 
-  @SerializationConstant public static final SkyKey KEY = () -> FUNCTION_NAME;
+  @SerializationConstant
+  public static final SkyKey KEY =
+      new SkyKey() {
+        @Override
+        public SkyFunctionName functionName() {
+          return FUNCTION_NAME;
+        }
+
+        @Override
+        public boolean valueIsShareable() {
+          return false;
+        }
+
+        @Override
+        public String toString() {
+          return "ErrorTransienceValue.KEY";
+        }
+      };
 
   @SerializationConstant
   public static final ErrorTransienceValue INSTANCE = new ErrorTransienceValue();
 
   private ErrorTransienceValue() {}
-
-  @Override
-  public boolean dataIsShareable() {
-    return false;
-  }
 
   @Override
   public int hashCode() {

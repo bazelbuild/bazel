@@ -55,7 +55,7 @@ public final class SystemSuspensionModule extends BlazeModule {
   /** Callback method called from JNI whenever a suspension event occurs. */
   synchronized void suspendCallback(int reason) {
     SystemSuspensionEvent event = new SystemSuspensionEvent(reason);
-    logger.atInfo().log(event.logString());
+    logger.atInfo().log("%s", event.logString());
     if (reporter != null) {
       reporter.post(event);
     }

@@ -234,11 +234,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         StarlarkList.immutableCopyOf(modules));
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   static final class SingleExtensionEvalFunctionException extends SkyFunctionException {
 
     SingleExtensionEvalFunctionException(Exception cause, Transience transience) {

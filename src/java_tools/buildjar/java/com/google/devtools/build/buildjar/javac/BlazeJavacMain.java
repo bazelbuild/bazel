@@ -112,7 +112,9 @@ public class BlazeJavacMain {
     // Initialize parts of context that the filemanager depends on
     context.put(DiagnosticListener.class, diagnosticsBuilder);
     Log.instance(context).setWriters(errWriter);
-    Options.instance(context).put("-Xlint:path", "path");
+    Options options = Options.instance(context);
+    options.put("-Xlint:path", "path");
+    options.put("expandJarClassPaths", "false");
 
     try (ClassloaderMaskingFileManager fileManager =
         new ClassloaderMaskingFileManager(

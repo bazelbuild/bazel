@@ -150,11 +150,6 @@ public abstract class AnalysisMock extends LoadingMock {
             return ModuleExtensionResolutionValue.create(
                 ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
           }
-
-          @Override
-          public String extractTag(SkyKey skyKey) {
-            return null;
-          }
         },
         CcSkyframeFdoSupportValue.SKYFUNCTION,
         new CcSkyframeFdoSupportFunction(directories));

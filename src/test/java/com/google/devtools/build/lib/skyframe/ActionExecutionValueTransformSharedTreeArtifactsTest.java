@@ -256,12 +256,8 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   private static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> fileArtifacts,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts) {
-    return ActionExecutionValue.create(
-        fileArtifacts,
-        treeArtifacts,
-        /*outputSymlinks=*/ null,
-        /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
+    return ActionExecutionValue.createForTesting(
+        fileArtifacts, treeArtifacts, /*outputSymlinks=*/ null);
   }
 
   private static void createFile(Path file) throws IOException {

@@ -59,7 +59,7 @@ public final class SystemMemoryPressureMonitor {
     if (reporter != null) {
       reporter.post(event);
     }
-    logger.atInfo().log(event.logString());
+    logger.atInfo().log("%s", event.logString());
     eventCount += 1;
   }
 }

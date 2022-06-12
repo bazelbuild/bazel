@@ -175,11 +175,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         ImmutableMap.copyOf(extensionUniqueNames.inverse()));
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   static class BazelModuleResolutionFunctionException extends SkyFunctionException {
     BazelModuleResolutionFunctionException(ExternalDepsException e, Transience transience) {
       super(e, transience);

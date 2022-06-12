@@ -129,7 +129,7 @@ public class RemoteSpawnCacheTest {
         public void prefetchInputs() {}
 
         @Override
-        public void lockOutputFiles() {}
+        public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr) {}
 
         @Override
         public boolean speculating() {
@@ -226,7 +226,7 @@ public class RemoteSpawnCacheTest {
                 null,
                 ImmutableSet.of(),
                 /* captureCorruptedOutputsDir= */ null));
-    return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, reporter, service);
+    return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, service);
   }
 
   @Before

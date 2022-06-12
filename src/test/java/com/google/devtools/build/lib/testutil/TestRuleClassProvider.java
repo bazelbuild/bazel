@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -112,7 +113,7 @@ public class TestRuleClassProvider {
     // TODO(bazel-team): See also TrimmableTestConfigurationFragments#installFragmentsAndNativeRules
     // for alternative/additional setup. Consider factoring that one to use this method.
     builder
-        .setToolsRepository("@")
+        .setToolsRepository(RepositoryName.MAIN)
         .setRunfilesPrefix("test")
         .setPrerequisiteValidator(new MinimalPrerequisiteValidator());
     CoreRules.INSTANCE.init(builder);

@@ -176,8 +176,23 @@ public interface SpawnRunner {
      * All implementations must call this method before writing to the provided stdout / stderr or
      * to any of the output file locations. This method is used to coordinate - implementations must
      * throw an {@link InterruptedException} for all but one caller.
+     *
+     * <p>This method may look at various outputs from the finished action to decide whether to grab
+     * the lock. It may decide that the failure is of a character where the other branch should be
+     * allowed to finish this action. In that case, this method will throw {@link
+     * InterruptedException} to stop itself.
+     *
+     * @param exitCode The exit code from running the command. This and the other parameters are
+     *     used only to determine whether to ignore failures, so pass 0 if you know the command was
+     *     successful or you don't yet have success information.
+     * @param errorMessage The error messages returned from the command, possibly in other ways than
+     *     through stdout/err.
+     * @param outErr The location of the stdout and stderr files from the command.
+     * @throws InterruptedException if the error info indicates an error we can ignore or if we got
+     *     interrupted before we finished.
      */
-    void lockOutputFiles() throws InterruptedException;
+    void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
+        throws InterruptedException;
 
     /**
      * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,
@@ -235,7 +250,8 @@ public interface SpawnRunner {
    * @param context the spawn execution context
    * @return the result from running the spawn
    * @throws InterruptedException if the calling thread was interrupted, or if the runner could not
-   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles()})
+   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles(int, String,
+   *     FileOutErr)})
    * @throws IOException if something went wrong reading or writing to the local file system
    * @throws ExecException if the request is malformed
    */
@@ -252,7 +268,8 @@ public interface SpawnRunner {
    * @param context the spawn execution context
    * @return the result from running the spawn
    * @throws InterruptedException if the calling thread was interrupted, or if the runner could not
-   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles()})
+   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles(int, String,
+   *     FileOutErr)})
    * @throws IOException if something went wrong reading or writing to the local file system
    * @throws ExecException if the request is malformed
    */

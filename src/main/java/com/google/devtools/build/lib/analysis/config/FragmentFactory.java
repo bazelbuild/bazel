@@ -17,8 +17,8 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Set;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 
@@ -67,7 +67,8 @@ public final class FragmentFactory {
   private static BuildOptions trimToRequiredOptions(
       BuildOptions original, Class<? extends Fragment> fragment) {
     BuildOptions.Builder trimmed = BuildOptions.builder();
-    Set<Class<? extends FragmentOptions>> requiredOptions = Fragment.requiredOptions(fragment);
+    ImmutableSet<Class<? extends FragmentOptions>> requiredOptions =
+        Fragment.requiredOptions(fragment);
     for (FragmentOptions options : original.getNativeOptions()) {
       // CoreOptions is implicitly required by all fragments.
       if (options instanceof CoreOptions || requiredOptions.contains(options.getClass())) {

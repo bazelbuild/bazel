@@ -201,12 +201,6 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
         throw new GetConstraintValueInfoFunctionException(e);
       }
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private static class GetConstraintValueInfoFunctionException extends SkyFunctionException {

@@ -48,16 +48,19 @@ final class IntVersion implements Version {
 
   @Override
   public int hashCode() {
-    return Long.valueOf(val).hashCode();
+    return Long.hashCode(val);
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof IntVersion) {
-      IntVersion other = (IntVersion) obj;
-      return other.val == val;
+    if (this == obj) {
+      return true;
     }
-    return false;
+    if (!(obj instanceof IntVersion)) {
+      return false;
+    }
+    IntVersion other = (IntVersion) obj;
+    return other.val == val;
   }
 
   @Override

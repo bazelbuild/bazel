@@ -22,10 +22,12 @@ java_test(
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:auth",

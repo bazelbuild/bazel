@@ -400,7 +400,8 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
     File file = getIoFile(path);
-    if (!file.setLastModified(newTime == -1L ? clock.currentTimeMillis() : newTime)) {
+    if (!file.setLastModified(
+        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime)) {
       if (!file.exists()) {
         throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       } else if (!file.getParentFile().canWrite()) {

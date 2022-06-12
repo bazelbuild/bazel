@@ -243,12 +243,14 @@ public class ExecutionTool {
    *
    * <p>b/199053098: This method concentrates the setup steps for execution, which were previously
    * scattered over several classes. We need this in order to merge analysis & execution phases.
-   * TODO(b/199053098): Minimize code duplication with the main code path.
+   * TODO(b/199053098): Minimize code duplication with the main code path. TODO(b/213040766): Write
+   * tests for these setup steps.
    */
   public void prepareForExecution(
       UUID buildId, Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects)
       throws AbruptExitException, BuildFailedException, InterruptedException {
     init();
+    BuildRequestOptions options = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     // TODO(b/199053098): Support symlink forest.
@@ -284,8 +286,11 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    ActionCache actionCache = getActionCache();
-    actionCache.resetStatistics();
+    ActionCache actionCache = null;
+    if (options.useActionCache) {
+      actionCache = getActionCache();
+      actionCache.resetStatistics();
+    }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
       skyframeBuilder =
@@ -300,11 +305,7 @@ public class ExecutionTool {
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
-          env.getReporter(),
-          executor,
-          request,
-          skyframeBuilder.getActionCacheChecker(),
-          skyframeBuilder.getTopDownActionCache());
+          env.getReporter(), executor, request, skyframeBuilder.getActionCacheChecker());
     }
 
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
@@ -598,7 +599,7 @@ public class ExecutionTool {
         for (Path entry : entries) {
           directoryDetails.append(" '").append(entry.getBaseName()).append("'");
         }
-        logger.atWarning().log(directoryDetails.toString());
+        logger.atWarning().log("%s", directoryDetails);
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
       }
@@ -886,8 +887,10 @@ public class ExecutionTool {
                 .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
                 .build()),
-        env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
+                // Do not skip invalidation in case the output tree is empty -- this can happen
+                // after it's cleaned or corrupted.
+                || modifiedOutputFiles.treatEverythingAsDeleted()
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),

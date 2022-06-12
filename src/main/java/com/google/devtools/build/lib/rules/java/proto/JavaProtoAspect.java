@@ -30,12 +30,14 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -87,7 +89,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository,
       Iterable<String> additionalProtocOpts)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(ruleContext);
@@ -100,9 +101,14 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
-    Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport, additionalProtocOpts);
-    impl.addProviders(aspect);
-    return aspect.build();
+    try {
+      Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport, additionalProtocOpts);
+      impl.addProviders(aspect);
+      return aspect.build();
+    } catch (RuleErrorException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
   }
 
   @Override
@@ -110,10 +116,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
-    return createWithProtocOpts(
-        ctadBase, ruleContext, parameters, toolsRepository, ImmutableList.of());
+    return createWithProtocOpts(ctadBase, ruleContext, parameters, ImmutableList.of());
   }
 
   @Override
@@ -198,7 +203,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               ruleContext.getPrerequisites("exports", JavaCompilationArgsProvider.class));
     }
 
-    void addProviders(ConfiguredAspect.Builder aspect) throws InterruptedException {
+    void addProviders(ConfiguredAspect.Builder aspect)
+        throws InterruptedException, RuleErrorException {
       // Represents the result of compiling the code generated for this proto, including all of its
       // dependencies.
       JavaInfo.Builder javaInfo = JavaInfo.Builder.create();
@@ -276,7 +282,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                       aspectCommon.getProtoRuntimeDeps())));
     }
 
-    private void createProtoCompileAction(Artifact sourceJar) {
+    private void createProtoCompileAction(Artifact sourceJar)
+        throws RuleErrorException, InterruptedException {
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
       invocations.add(
           new ToolchainInvocation(
@@ -289,9 +296,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           ruleContext,
           invocations.build(),
           protoInfo,
-          ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
-          "Java (Immutable)",
+          "Generating Java (Immutable) proto_library %{label}",
           Exports.USE,
           rpcSupport.allowServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
     }

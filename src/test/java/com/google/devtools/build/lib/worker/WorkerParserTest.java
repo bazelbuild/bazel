@@ -15,12 +15,11 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING;
 
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,7 +31,7 @@ public class WorkerParserTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   @Test
-  public void workerKeyComputationCheck() throws ExecException, IOException, InterruptedException {
+  public void workerKeyComputationCheck() {
     WorkerKey keyNomultiNoSandboxedNoDynamic = TestUtils.createWorkerKey(fs, false, false, false);
     assertThat(keyNomultiNoSandboxedNoDynamic.isMultiplex()).isFalse();
     assertThat(keyNomultiNoSandboxedNoDynamic.isSandboxed()).isFalse();
@@ -49,9 +48,9 @@ public class WorkerParserTest {
     assertThat(keyNomultiSandboxedNoDynamic.getWorkerTypeName()).isEqualTo("worker");
 
     WorkerKey keyMultiSandboxedNoDynamic = TestUtils.createWorkerKey(fs, true, true, false);
-    assertThat(keyMultiSandboxedNoDynamic.isMultiplex()).isFalse();
-    assertThat(keyMultiSandboxedNoDynamic.isSandboxed()).isTrue();
-    assertThat(keyMultiSandboxedNoDynamic.getWorkerTypeName()).isEqualTo("worker");
+    assertThat(keyMultiSandboxedNoDynamic.isMultiplex()).isTrue();
+    assertThat(keyMultiSandboxedNoDynamic.isSandboxed()).isFalse();
+    assertThat(keyMultiSandboxedNoDynamic.getWorkerTypeName()).isEqualTo("multiplex-worker");
 
     WorkerKey keyNomultiNoSandboxedDynamic = TestUtils.createWorkerKey(fs, false, false, true);
     assertThat(keyNomultiNoSandboxedDynamic.isMultiplex()).isFalse();
@@ -72,5 +71,53 @@ public class WorkerParserTest {
     assertThat(keyMultiSandboxedDynamic.isMultiplex()).isFalse();
     assertThat(keyMultiSandboxedDynamic.isSandboxed()).isTrue();
     assertThat(keyMultiSandboxedDynamic.getWorkerTypeName()).isEqualTo("worker");
+  }
+
+  @Test
+  public void createWorkerKey_understandsMultiplexSandboxing() {
+    WorkerOptions options = new WorkerOptions();
+    options.multiplexSandboxing = false;
+    options.workerMultiplex = true;
+
+    WorkerKey keyNoMultiplexSandboxing =
+        TestUtils.createWorkerKeyWithRequirements(fs.getPath("/outputbase"), options, "Nom", false);
+    assertThat(keyNoMultiplexSandboxing.isMultiplex()).isTrue();
+    assertThat(keyNoMultiplexSandboxing.isSandboxed()).isFalse();
+    assertThat(keyNoMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
+
+    WorkerKey keyForcedSandboxedDynamic =
+        TestUtils.createWorkerKeyWithRequirements(fs.getPath("/outputbase"), options, "Nom", true);
+    assertThat(keyForcedSandboxedDynamic.isMultiplex()).isFalse();
+    assertThat(keyForcedSandboxedDynamic.isSandboxed()).isTrue();
+    assertThat(keyForcedSandboxedDynamic.getWorkerTypeName()).isEqualTo("worker");
+
+    WorkerKey keyForcedeMultiplexSandboxing =
+        TestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Nom", true, SUPPORTS_MULTIPLEX_SANDBOXING);
+    assertThat(keyForcedeMultiplexSandboxing.isMultiplex()).isFalse();
+    assertThat(keyForcedeMultiplexSandboxing.isSandboxed()).isTrue();
+    assertThat(keyForcedeMultiplexSandboxing.getWorkerTypeName()).isEqualTo("worker");
+
+    options.multiplexSandboxing = true;
+
+    WorkerKey keyBaseMultiplexNoSandbox =
+        TestUtils.createWorkerKeyWithRequirements(fs.getPath("/outputbase"), options, "Nom", false);
+    assertThat(keyBaseMultiplexNoSandbox.isMultiplex()).isTrue();
+    assertThat(keyBaseMultiplexNoSandbox.isSandboxed()).isFalse();
+    assertThat(keyBaseMultiplexNoSandbox.getWorkerTypeName()).isEqualTo("multiplex-worker");
+
+    WorkerKey keyBaseMultiplexSandboxing =
+        TestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Nom", false, SUPPORTS_MULTIPLEX_SANDBOXING);
+    assertThat(keyBaseMultiplexSandboxing.isMultiplex()).isTrue();
+    assertThat(keyBaseMultiplexSandboxing.isSandboxed()).isTrue();
+    assertThat(keyBaseMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
+
+    WorkerKey keyDynamicMultiplexSandboxing =
+        TestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Nom", true, SUPPORTS_MULTIPLEX_SANDBOXING);
+    assertThat(keyDynamicMultiplexSandboxing.isMultiplex()).isTrue();
+    assertThat(keyDynamicMultiplexSandboxing.isSandboxed()).isTrue();
+    assertThat(keyDynamicMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
   }
 }

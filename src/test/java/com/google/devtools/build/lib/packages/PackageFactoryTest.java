@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -47,6 +46,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
@@ -1240,29 +1241,34 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   private static void assertGlob(
       Package pkg, List<String> expected, List<String> include, List<String> exclude)
       throws Exception {
-    GlobCache globCache =
-        new GlobCache(
-            pkg.getFilename().asPath().getParentDirectory(),
-            pkg.getPackageIdentifier(),
-            ImmutableSet.of(),
-            // a package locator that finds no packages
-            new CachingPackageLocator() {
-              @Override
-              public Path getBuildFileForPackage(PackageIdentifier packageName) {
-                return null;
-              }
+    ExecutorService executorService = Executors.newFixedThreadPool(10);
+    try {
+      GlobCache globCache =
+          new GlobCache(
+              pkg.getFilename().asPath().getParentDirectory(),
+              pkg.getPackageIdentifier(),
+              ImmutableSet.of(),
+              // a package locator that finds no packages
+              new CachingPackageLocator() {
+                @Override
+                public Path getBuildFileForPackage(PackageIdentifier packageName) {
+                  return null;
+                }
 
-              @Override
-              public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
-                return null;
-              }
-            },
-            null,
-            TestUtils.getPool(),
-            -1,
-            ThreadStateReceiver.NULL_INSTANCE);
-    assertThat(globCache.globUnsorted(include, exclude, false, true))
-        .containsExactlyElementsIn(expected);
+                @Override
+                public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+                  return null;
+                }
+              },
+              null,
+              executorService,
+              -1,
+              ThreadStateReceiver.NULL_INSTANCE);
+      assertThat(globCache.globUnsorted(include, exclude, false, true))
+          .containsExactlyElementsIn(expected);
+    } finally {
+      executorService.shutdownNow();
+    }
   }
 
   private Path emptyFile(String path) {

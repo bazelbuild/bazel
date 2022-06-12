@@ -93,34 +93,12 @@ bool IsDirectory(const string& path) {
 #endif
 }
 
-// Computes the path of the runfiles manifest and the runfiles directory.
-// By searching first next to the binary location `argv0` and then falling
-// back on the values passed in `runfiles_manifest_file` and `runfiles_dir`
-//
-// If the method finds both a valid manifest and valid directory according to
-// `is_runfiles_manifest` and `is_runfiles_directory`, then the method sets
-// the corresponding values to `out_manifest` and `out_directory` and returns
-// true.
-//
-// If the method only finds a valid manifest or a valid directory, but not
-// both, then it sets the corresponding output variable (`out_manifest` or
-// `out_directory`) to the value while clearing the other output variable. The
-// method still returns true in this case.
-//
-// If the method cannot find either a valid manifest or valid directory, it
-// clears both output variables and returns false.
 bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::string runfiles_dir, std::string* out_manifest,
                std::string* out_directory);
 
 bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::string runfiles_dir,
-               std::function<bool(const std::string&)> is_runfiles_manifest,
-               std::function<bool(const std::string&)> is_runfiles_directory,
-               std::string* out_manifest, std::string* out_directory);
-
-bool PathsFrom(const std::string& runfiles_manifest_file,
-               const std::string& runfiles_dir,
                std::function<bool(const std::string&)> is_runfiles_manifest,
                std::function<bool(const std::string&)> is_runfiles_directory,
                std::string* out_manifest, std::string* out_directory);
@@ -287,71 +265,45 @@ bool PathsFrom(const string& argv0, string mf, string dir,
   out_manifest->clear();
   out_directory->clear();
 
-  string existing_mf = mf;
-  string existing_dir = dir;
+  bool mfValid = is_runfiles_manifest(mf);
+  bool dirValid = is_runfiles_directory(dir);
 
-  // if argv0 is not empty, try to use it to find the runfiles manifest
-  // file/directory paths
-  if (!argv0.empty()) {
+  if (!argv0.empty() && !mfValid && !dirValid) {
     mf = argv0 + ".runfiles/MANIFEST";
     dir = argv0 + ".runfiles";
-    if (!is_runfiles_manifest(mf)) {
+    mfValid = is_runfiles_manifest(mf);
+    dirValid = is_runfiles_directory(dir);
+    if (!mfValid) {
       mf = argv0 + ".runfiles_manifest";
+      mfValid = is_runfiles_manifest(mf);
     }
-    PathsFrom(mf, dir, is_runfiles_manifest, is_runfiles_directory,
-              out_manifest, out_directory);
   }
 
-  // if the runfiles manifest file/directory paths are not found, use existing
-  // mf and dir to find the paths
-  if (out_manifest->empty() && out_directory->empty()) {
-    return PathsFrom(existing_mf, existing_dir, is_runfiles_manifest,
-                     is_runfiles_directory, out_manifest, out_directory);
-  }
-
-  return true;
-}
-
-bool PathsFrom(const std::string& runfiles_manifest,
-               const std::string& runfiles_directory,
-               function<bool(const std::string&)> is_runfiles_manifest,
-               function<bool(const std::string&)> is_runfiles_directory,
-               std::string* out_manifest, std::string* out_directory) {
-  out_manifest->clear();
-  out_directory->clear();
-
-
-  std::string mf = runfiles_manifest;
-  std::string dir = runfiles_directory;
-
-  bool mf_valid = is_runfiles_manifest(mf);
-  bool dir_valid = is_runfiles_directory(dir);
-
-  if (!mf_valid && !dir_valid) {
+  if (!mfValid && !dirValid) {
     return false;
   }
 
-  if (!mf_valid) {
+  if (!mfValid) {
     mf = dir + "/MANIFEST";
-    mf_valid = is_runfiles_manifest(mf);
-    if (!mf_valid) {
+    mfValid = is_runfiles_manifest(mf);
+    if (!mfValid) {
       mf = dir + "_manifest";
-      mf_valid = is_runfiles_manifest(mf);
+      mfValid = is_runfiles_manifest(mf);
     }
   }
 
-  if (!dir_valid &&
+  if (!dirValid &&
       (ends_with(mf, ".runfiles_manifest") || ends_with(mf, "/MANIFEST"))) {
     static const size_t kSubstrLen = 9;  // "_manifest" or "/MANIFEST"
     dir = mf.substr(0, mf.size() - kSubstrLen);
-    dir_valid = is_runfiles_directory(dir);
+    dirValid = is_runfiles_directory(dir);
   }
 
-  if (mf_valid) {
+  if (mfValid) {
     *out_manifest = mf;
   }
 
-  if (dir_valid) {
+  if (dirValid) {
     *out_directory = dir;
   }
 

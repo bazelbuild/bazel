@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -106,7 +105,6 @@ public final class PathPackageLocator {
   public Path getPackageBuildFileNullable(
       PackageIdentifier packageIdentifier,
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
-    Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
     if (packageIdentifier.getRepository().isMain()) {
       for (BuildFileName buildFileName : buildFilesByPriority) {
         Path buildFilePath =

@@ -87,7 +87,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
@@ -96,7 +95,6 @@ import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -204,11 +202,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  protected BuildDriver createBuildDriver() {
-    return new SequentialBuildDriver(memoizingEvaluator);
-  }
-
-  @Override
   public void resetEvaluator() {
     super.resetEvaluator();
     diffAwarenessManager.reset();
@@ -291,7 +284,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           FileStateValue.FILE_STATE,
           FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
-          SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.TARGET_PATTERN_PHASE);
@@ -494,12 +486,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       // have actually been invalidated (recall that invalidation happens at the beginning of the
       // next evaluate() call), because checking those is a waste of time.
       EvaluationContext evaluationContext =
-          EvaluationContext.newBuilder()
+          newEvaluationContextBuilder()
               .setKeepGoing(false)
               .setNumThreads(DEFAULT_THREAD_COUNT)
               .setEventHandler(eventHandler)
               .build();
-      getDriver().evaluate(ImmutableList.of(), evaluationContext);
+      memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
 
       FilesystemValueChecker fsvc =
           new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
@@ -572,7 +564,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                     tmpExternalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
       }
       handleChangedFiles(
-          ImmutableList.<Root>of(),
+          ImmutableList.of(),
           batchDirtyResult,
           batchDirtyResult.getNumKeysChecked(),
           /*managedDirectoriesChanged=*/ false);
@@ -651,7 +643,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    logger.atInfo().log(result.toString());
+    logger.atInfo().log("%s", result);
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -722,7 +714,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void clearAnalysisCache(
+  public void clearAnalysisCacheImpl(
       Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     discardPreExecutionCache(
         topLevelTargets,
@@ -886,12 +878,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Uninterruptibles.callUninterruptibly(
           () -> {
             EvaluationContext evaluationContext =
-                EvaluationContext.newBuilder()
+                newEvaluationContextBuilder()
                     .setKeepGoing(false)
                     .setNumThreads(ResourceUsage.getAvailableProcessors())
                     .setEventHandler(eventHandler)
                     .build();
-            getDriver().evaluate(ImmutableList.of(), evaluationContext);
+            memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
             return null;
           });
     } catch (Exception e) {
@@ -1013,12 +1005,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private SkyValue evaluateSingleValue(SkyKey key, ExtendedEventHandler eventHandler)
       throws InterruptedException {
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(false)
             .setNumThreads(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
-    return getDriver().evaluate(ImmutableSet.of(key), evaluationContext).get(key);
+    return memoizingEvaluator.evaluate(ImmutableSet.of(key), evaluationContext).get(key);
   }
 
   public static Builder builder() {

@@ -370,7 +370,11 @@ def _get_static_mode_params_for_dynamic_library_libraries(libs):
     return linker_inputs
 
 def _should_create_per_object_debug_info(feature_configuration, cpp_configuration):
-    return cpp_configuration.fission_active_for_current_compilation_mode() and cc_common.is_enabled(feature_configuration, "per_object_debug_info")
+    return cpp_configuration.fission_active_for_current_compilation_mode() and \
+           cc_common.is_enabled(
+               feature_configuration = feature_configuration,
+               feature_name = "per_object_debug_info",
+           )
 
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,

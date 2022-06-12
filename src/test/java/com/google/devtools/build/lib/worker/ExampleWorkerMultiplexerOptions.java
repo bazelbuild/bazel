@@ -78,6 +78,14 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
         defaultValue = "false",
         help = "Randomly delay the worker response (between 100 to 300 ms).")
     public boolean delay;
+
+    @Option(
+        name = "ignore_sandbox",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "Ignore the sandbox settings in work requests.")
+    public boolean ignoreSandbox;
   }
 
   @Option(

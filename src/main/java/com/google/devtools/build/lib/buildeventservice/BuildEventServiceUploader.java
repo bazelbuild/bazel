@@ -293,7 +293,7 @@ public final class BuildEventServiceUploader implements Runnable {
 
   private DetailedExitCode logAndSetException(
       String message, BuildProgress.Code bpCode, Throwable cause) {
-    logger.atSevere().log(message);
+    logger.atSevere().log("%s", message);
     DetailedExitCode detailedExitCode =
         DetailedExitCode.of(
             FailureDetail.newBuilder()
@@ -490,7 +490,7 @@ public final class BuildEventServiceUploader implements Runnable {
                       String.format(
                           "Expected ACK with seqNum=%d but received ACK with seqNum=%d",
                           expected.getSequenceNumber(), actualSeqNum);
-                  logger.atInfo().log(message);
+                  logger.atInfo().log("%s", message);
                   streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
                 }
               } else {
@@ -498,7 +498,7 @@ public final class BuildEventServiceUploader implements Runnable {
                     String.format(
                         "Received ACK (seqNum=%d) when no ACK was expected",
                         ackEvent.getSequenceNumber());
-                logger.atInfo().log(message);
+                logger.atInfo().log("%s", message);
                 streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
               }
             }
@@ -537,7 +537,7 @@ public final class BuildEventServiceUploader implements Runnable {
               if (!shouldRetryStatus(streamStatus)) {
                 String message =
                     String.format("Not retrying publishBuildEvents: status='%s'", streamStatus);
-                logger.atInfo().log(message);
+                logger.atInfo().log("%s", message);
                 throw withFailureDetail(
                     streamStatus.asException(),
                     BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE,
@@ -548,7 +548,7 @@ public final class BuildEventServiceUploader implements Runnable {
                     String.format(
                         "Not retrying publishBuildEvents, no more attempts left: status='%s'",
                         streamStatus);
-                logger.atInfo().log(message);
+                logger.atInfo().log("%s", message);
                 throw withFailureDetail(
                     streamStatus.asException(),
                     BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE,
@@ -636,7 +636,7 @@ public final class BuildEventServiceUploader implements Runnable {
         if (!shouldRetryStatus(e.getStatus())) {
           String message =
               String.format("Not retrying publishLifecycleEvent: status='%s'", e.getStatus());
-          logger.atInfo().log(message);
+          logger.atInfo().log("%s", message);
           throw withFailureDetail(e, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE, message);
         }
 

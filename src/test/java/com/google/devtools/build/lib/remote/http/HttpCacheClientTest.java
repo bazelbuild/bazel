@@ -32,11 +32,13 @@ import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
+import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -258,7 +260,8 @@ public class HttpCacheClientTest {
       ServerChannel serverChannel,
       int timeoutSeconds,
       boolean remoteVerifyDownloads,
-      @Nullable final Credentials creds)
+      @Nullable final Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
     if (socketAddress instanceof DomainSocketAddress) {
@@ -272,7 +275,8 @@ public class HttpCacheClientTest {
           remoteVerifyDownloads,
           ImmutableList.of(),
           DIGEST_UTIL,
-          creds);
+          creds,
+          authAndTlsOptions);
     } else if (socketAddress instanceof InetSocketAddress) {
       InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
@@ -283,7 +287,8 @@ public class HttpCacheClientTest {
           remoteVerifyDownloads,
           ImmutableList.of(),
           DIGEST_UTIL,
-          creds);
+          creds,
+          authAndTlsOptions);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
@@ -291,10 +296,13 @@ public class HttpCacheClientTest {
   }
 
   private HttpCacheClient createHttpBlobStore(
-      ServerChannel serverChannel, int timeoutSeconds, @Nullable final Credentials creds)
+      ServerChannel serverChannel,
+      int timeoutSeconds,
+      @Nullable final Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
     return createHttpBlobStore(
-        serverChannel, timeoutSeconds, /* remoteVerifyDownloads= */ true, creds);
+        serverChannel, timeoutSeconds, /* remoteVerifyDownloads= */ true, creds, authAndTlsOptions);
   }
 
   @Before
@@ -313,7 +321,8 @@ public class HttpCacheClientTest {
       server = testServer.start(new HttpCacheServerHandler(cacheContents));
 
       HttpCacheClient blobStore =
-          createHttpBlobStore(server, /* timeoutSeconds= */ 1, /* credentials= */ null);
+          createHttpBlobStore(
+              server, /* timeoutSeconds= */ 1, /* creds= */ null, new AuthAndTLSOptions());
 
       ByteString data = ByteString.copyFrom("foo bar", StandardCharsets.UTF_8);
       Digest digest = DIGEST_UTIL.compute(data.toByteArray());
@@ -343,7 +352,9 @@ public class HttpCacheClientTest {
     testServer.stop(server);
 
     Credentials credentials = newCredentials();
-    HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+    AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    HttpCacheClient blobStore =
+        createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
     getFromFuture(
         blobStore.downloadBlob(remoteActionExecutionContext, DIGEST, new ByteArrayOutputStream()));
 
@@ -365,7 +376,9 @@ public class HttpCacheClientTest {
               });
 
       Credentials credentials = newCredentials();
-      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       getFromFuture(
           blobStore.uploadBlob(
@@ -391,7 +404,9 @@ public class HttpCacheClientTest {
               });
 
       Credentials credentials = newCredentials();
-      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       getFromFuture(
           blobStore.downloadBlob(
               remoteActionExecutionContext, DIGEST, new ByteArrayOutputStream()));
@@ -425,7 +440,9 @@ public class HttpCacheClientTest {
               });
 
       Credentials credentials = newCredentials();
-      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       ByteString data = ByteString.copyFrom("File Contents", Charsets.US_ASCII);
       IOException e =
           assertThrows(
@@ -465,9 +482,14 @@ public class HttpCacheClientTest {
               });
 
       Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
       HttpCacheClient blobStore =
           createHttpBlobStore(
-              server, /* timeoutSeconds= */ 1, /* remoteVerifyDownloads= */ true, credentials);
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ true,
+              credentials,
+              authAndTlsOptions);
       Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
       try (OutputStream out = new ByteArrayOutputStream()) {
         IOException e =
@@ -507,9 +529,14 @@ public class HttpCacheClientTest {
               });
 
       Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
       HttpCacheClient blobStore =
           createHttpBlobStore(
-              server, /* timeoutSeconds= */ 1, /* remoteVerifyDownloads= */ false, credentials);
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ false,
+              credentials,
+              authAndTlsOptions);
       Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
       try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
         getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, fooDigest, out));
@@ -535,7 +562,9 @@ public class HttpCacheClientTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
       getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, DIGEST, out));
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
@@ -565,7 +594,9 @@ public class HttpCacheClientTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       blobStore
           .uploadBlob(
@@ -595,7 +626,9 @@ public class HttpCacheClientTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       getFromFuture(
           blobStore.downloadBlob(
               remoteActionExecutionContext, DIGEST, new ByteArrayOutputStream()));
@@ -624,7 +657,9 @@ public class HttpCacheClientTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       byte[] oneByte = new byte[] {0};
       getFromFuture(
           blobStore.uploadBlob(

@@ -216,12 +216,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   private static RepositoryName getToolsRepository(RuleContext ruleContext) {
-    try {
-      return RepositoryName.create(
-          ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
-    } catch (LabelSyntaxException ex) {
-      throw new IllegalStateException(ex);
-    }
+    return RepositoryName.createFromValidStrippedName(
+        ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
   }
 
   /**

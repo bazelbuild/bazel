@@ -289,7 +289,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             channel.retain(),
             callCredentialsProvider,
             remoteOptions.remoteTimeout.getSeconds(),
-            retrier);
+            retrier,
+            /*maximumOpenFiles=*/ -1);
     GrpcCacheClient cacheProtocol =
         new GrpcCacheClient(
             channel.retain(),

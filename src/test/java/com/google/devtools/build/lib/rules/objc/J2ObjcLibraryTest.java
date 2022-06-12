@@ -80,9 +80,9 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
-        "proto_lang_toolchain(name = 'java', command_line = 'dont_care')",
-        "proto_lang_toolchain(name='java_stubby1_immutable', command_line = 'dont_care')",
-        "proto_lang_toolchain(name='java_stubby3_immutable', command_line = 'dont_care')",
+        "proto_lang_toolchain(name = 'java', command_line = 'dont_care:$(OUT)')",
+        "proto_lang_toolchain(name='java_stubby1_immutable', command_line = 'dont_care:$(OUT)')",
+        "proto_lang_toolchain(name='java_stubby3_immutable', command_line = 'dont_care:$(OUT)')",
         "proto_lang_toolchain(name='java_stubby_compatible13_immutable', "
             + "command_line = 'dont_care')");
 

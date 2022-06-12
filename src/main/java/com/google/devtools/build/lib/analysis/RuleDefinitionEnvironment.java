@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Optional;
 
 /**
@@ -25,7 +26,7 @@ import java.util.Optional;
 public interface RuleDefinitionEnvironment {
 
   /** Returns the name of the tools repository. */
-  String getToolsRepository();
+  RepositoryName getToolsRepository();
 
   /**
    * Prepends the tools repository path to the given string and parses the result using {@link

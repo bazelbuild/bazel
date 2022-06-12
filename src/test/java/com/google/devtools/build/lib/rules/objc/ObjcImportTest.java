@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -124,5 +127,40 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_import"),
         "objc_import(name='a', archives=['a.a'])");
+  }
+
+  @Test
+  public void testDependency() throws Exception {
+    scratch.file("imp/precomp_dep.a");
+    scratch.file("imp/precomp_dep.h");
+    scratch.file("imp/precomp_lib.a");
+    scratch.file(
+        "imp/BUILD",
+        "objc_import(",
+        "    name = 'imp_dep',",
+        "    archives = ['precomp_dep.a'],",
+        "    hdrs = ['precomp_dep.h'],",
+        ")",
+        "objc_import(",
+        "    name = 'imp',",
+        "    archives = ['precomp_lib.a'],",
+        "    deps = [':imp_dep'],",
+        ")");
+
+    assertThat(getArifactPaths(getConfiguredTarget("//imp:imp"), IMPORTED_LIBRARY))
+        .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
+    assertThat(getArifactPathsOfHeaders(getConfiguredTarget("//imp:imp")))
+        .containsExactly("imp/precomp_dep.h");
+  }
+
+  private static Iterable<String> getArifactPaths(
+      ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
+    return Artifact.toRootRelativePaths(
+        target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
+  }
+
+  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+    return Artifact.toRootRelativePaths(
+        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 }

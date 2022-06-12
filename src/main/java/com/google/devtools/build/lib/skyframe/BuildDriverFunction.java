@@ -102,12 +102,6 @@ public class BuildDriverFunction implements SkyFunction {
     return new BuildDriverValue(topLevelSkyValue);
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private void addExtraActionsIfRequested(
       ExtraActionArtifactsProvider provider, ImmutableSet.Builder<Artifact> artifactsToBuild) {
     if (provider != null) {

@@ -38,12 +38,14 @@ import java.util.function.Supplier;
 /**
  * Splits a data source into one or more {@link Chunk}s of at most {@code chunkSize} bytes.
  *
- * <p>After a data source has been fully consumed, that is until {@link #hasNext()} returns
- * {@code false}, the chunker closes the underlying data source (i.e. file) itself. However, in
- * case of error or when a data source does not get fully consumed, a user must call
- * {@link #reset()} manually.
+ * <p>After a data source has been fully consumed, that is until {@link #hasNext()} returns {@code
+ * false}, the chunker closes the underlying data source (i.e. file) itself. However, in case of
+ * error or when a data source does not get fully consumed, a user must call {@link #reset()}
+ * manually.
+ *
+ * <p>This class should not be extended - it's only non-final for testing.
  */
-public final class Chunker {
+public class Chunker {
 
   private static int defaultChunkSize = 1024 * 16;
 
@@ -104,7 +106,7 @@ public final class Chunker {
   private final int chunkSize;
   private final Chunk emptyChunk;
 
-  private ChunkerInputStream data;
+  @VisibleForTesting protected ChunkerInputStream data;
   private long offset;
   private byte[] chunkCache;
 
@@ -274,7 +276,13 @@ public final class Chunker {
     public Builder setInput(byte[] data) {
       checkState(inputStream == null);
       size = data.length;
-      inputStream = () -> new ByteArrayInputStream(data);
+      setInputSupplier(() -> new ByteArrayInputStream(data));
+      return this;
+    }
+
+    @VisibleForTesting
+    protected final Builder setInputSupplier(Supplier<InputStream> inputStream) {
+      this.inputStream = inputStream;
       return this;
     }
 

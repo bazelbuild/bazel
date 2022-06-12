@@ -103,7 +103,6 @@ java_library(
     ],
     deps = [
         ":autocodec-annotation",
-        ":serialization-constant-processor",
         ":serialization-processor-util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",

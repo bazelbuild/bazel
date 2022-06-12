@@ -52,12 +52,6 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
     this.externalPackageHelper = externalPackageHelper;
   }
 
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   // Implementation note: Although LocalRepositoryLookupValue.NOT_FOUND exists, it should never be
   // returned from this method.
   @Override

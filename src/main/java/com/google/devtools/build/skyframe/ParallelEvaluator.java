@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +37,7 @@ import javax.annotation.Nullable;
  * is not worth the effort.
  */
 public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<RuntimeException> {
+  private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
   public ParallelEvaluator(
       ProcessableGraph graph,
@@ -50,41 +52,9 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
-    this(
-        graph,
-        graphVersion,
-        skyFunctions,
-        reporter,
-        emittedEventState,
-        storedEventFilter,
-        errorInfoManager,
-        keepGoing,
-        progressReceiver,
-        graphInconsistencyReceiver,
-        executorService,
-        cycleDetector,
-        evaluationVersionBehavior,
-        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-        /*executionJobsThreadPoolSize=*/ 0);
-  }
-
-  public ParallelEvaluator(
-      ProcessableGraph graph,
-      Version graphVersion,
-      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
-      final ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
-      EventFilter storedEventFilter,
-      ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
-      GraphInconsistencyReceiver graphInconsistencyReceiver,
-      Supplier<ExecutorService> executorService,
-      CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
       int cpuHeavySkyKeysThreadPoolSize,
-      int executionJobsThreadPoolSize) {
+      int executionJobsThreadPoolSize,
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     super(
         graph,
         graphVersion,
@@ -98,9 +68,9 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
         cpuHeavySkyKeysThreadPoolSize,
         executionJobsThreadPoolSize);
+    this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
   /**
@@ -110,7 +80,13 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
   @ThreadCompatible
   public <T extends SkyValue> EvaluationResult<T> eval(Iterable<? extends SkyKey> skyKeys)
       throws InterruptedException {
-    return this.evalExceptionally(skyKeys);
+    unnecessaryTemporaryStateDropperReceiver.onEvaluationStarted(
+        () -> evaluatorContext.stateCache().invalidateAll());
+    try {
+      return this.evalExceptionally(skyKeys);
+    } finally {
+      unnecessaryTemporaryStateDropperReceiver.onEvaluationFinished();
+    }
   }
 
   @Override

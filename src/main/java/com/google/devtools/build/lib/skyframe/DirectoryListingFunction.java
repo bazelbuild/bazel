@@ -20,7 +20,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingValue}s.
@@ -53,12 +52,6 @@ public final class DirectoryListingFunction implements SkyFunction {
     }
 
     return DirectoryListingValue.value(dirRootedPath, dirFileValue, directoryListingStateValue);
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

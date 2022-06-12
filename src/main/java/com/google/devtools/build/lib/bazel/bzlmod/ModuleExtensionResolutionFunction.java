@@ -84,9 +84,4 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
         canonicalRepoNameToExtensionId.build(),
         extensionIdToRepoInternalNames.build());
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

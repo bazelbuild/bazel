@@ -14,18 +14,28 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.Param;
@@ -183,6 +193,23 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "init_make_variables",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+      })
+  public void initMakeVariables(
+      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain) {
+    ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
+    ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
+    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+    ruleContext.initConfigurationMakeVariableContext(
+        new MapBackedMakeVariableSupplier(toolchainMakeVariables.buildOrThrow()),
+        new CcFlagsSupplier(starlarkRuleContext.getRuleContext()));
+  }
+
+  @StarlarkMethod(
       name = "get_build_info",
       documented = false,
       parameters = {@Param(name = "ctx")})
@@ -195,6 +222,65 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
   public ProviderApi getCcLauncherInfoProvider() throws EvalException {
     return CcLauncherInfo.PROVIDER;
+  }
+
+  @StarlarkMethod(
+      name = "create_linkstamp",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "linkstamp", positional = false, named = true),
+        @Param(name = "compilation_context", positional = false, named = true),
+      })
+  public Linkstamp createLinkstamp(
+      StarlarkActionFactory starlarkActionFactoryApi,
+      Artifact linkstamp,
+      CcCompilationContext ccCompilationContext)
+      throws EvalException {
+    try {
+      return new Linkstamp( // throws InterruptedException
+          linkstamp,
+          ccCompilationContext.getDeclaredIncludeSrcs(),
+          starlarkActionFactoryApi.getActionConstructionContext().getActionKeyContext());
+    } catch (CommandLineExpansionException | InterruptedException ex) {
+      throw new EvalException(ex);
+    }
+  }
+
+  static class DefaultCoptsBuiltinComputedDefault extends ComputedDefault
+      implements NativeComputedDefaultApi {
+    @Override
+    public Object getDefault(AttributeMap rule) {
+      return rule.getPackageDefaultCopts();
+    }
+
+    @Override
+    public boolean resolvableWithRawAttributes() {
+      return true;
+    }
+  }
+
+  @StarlarkMethod(name = "default_copts_computed_default", documented = false)
+  public ComputedDefault getDefaultCoptsComputedDefault() {
+    return new DefaultCoptsBuiltinComputedDefault();
+  }
+
+  static class DefaultHdrsCheckBuiltinComputedDefault extends ComputedDefault
+      implements NativeComputedDefaultApi {
+    @Override
+    public Object getDefault(AttributeMap rule) {
+      return rule.isPackageDefaultHdrsCheckSet() ? rule.getPackageDefaultHdrsCheck() : "";
+    }
+
+    @Override
+    public boolean resolvableWithRawAttributes() {
+      return true;
+    }
+  }
+
+  @StarlarkMethod(name = "default_hdrs_check_computed_default", documented = false)
+  public ComputedDefault getDefaultHdrsCheckComputedDefault() {
+    return new DefaultHdrsCheckBuiltinComputedDefault();
   }
 
   // TODO(b/207761932): perhaps move this to another internal module

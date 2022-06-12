@@ -123,11 +123,4 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
     String errorMessage = e.getMessage();
     eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
   }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
 }

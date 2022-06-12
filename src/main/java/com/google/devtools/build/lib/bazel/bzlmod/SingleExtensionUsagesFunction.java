@@ -62,9 +62,4 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
         usagesTable.row(id).keySet().stream()
             .collect(toImmutableMap(key -> key, bazelModuleResolutionValue::getFullRepoMapping)));
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

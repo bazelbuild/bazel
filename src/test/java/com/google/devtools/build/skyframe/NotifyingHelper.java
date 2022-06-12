@@ -279,9 +279,11 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+    public Set<SkyKey> setValue(
+        SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
+        throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version);
+      Set<SkyKey> result = super.setValue(value, graphVersion, maxTransitiveSourceVersion);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
       return result;
     }
@@ -370,7 +372,7 @@ public class NotifyingHelper {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this).add("delegate", getThinDelegate()).toString();
+      return MoreObjects.toStringHelper(this).add("delegate", delegate).toString();
     }
   }
 

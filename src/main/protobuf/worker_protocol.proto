@@ -54,10 +54,21 @@ message WorkRequest {
   // The arguments and inputs fields must be empty and should be ignored.
   bool cancel = 4;
 
-  // Values greater than 0 indicate that the worker should output extra debug
+  // Values greater than 0 indicate that the worker may output extra debug
   // information to stderr (which will go into the worker log). Setting the
   // --worker_verbose flag for Bazel makes this flag default to 10.
   int32 verbosity = 5;
+
+  // The relative directory inside the workers working directory where the
+  // inputs and outputs are placed, for sandboxing purposes. For singleplex
+  // workers, this is unset, as they can use their working directory as sandbox.
+  // For multiplex workers, this will be set when the
+  // --experimental_worker_multiplex_sandbox flag is set _and_ the execution
+  // requirements for the worker includes 'supports-multiplex-sandbox'.
+  // The paths in `inputs` will not contain this prefix, but the actual files
+  // will be placed/must be written relative to this directory. The worker
+  // implementation is responsible for resolving the file paths.
+  string sandbox_dir = 6;
 }
 
 // The worker sends this message to Blaze when it finished its work on the

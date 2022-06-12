@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -88,7 +89,7 @@ public class AspectDefinitionTest {
         ConfiguredTargetAndData ctadBase,
         RuleContext context,
         AspectParameters parameters,
-        String toolsRepository) {
+        RepositoryName toolsRepository) {
       throw new IllegalStateException();
     }
 

@@ -73,7 +73,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
             .setEventHandler(reporter)
             .build();
     EvaluationResult<RecursivePkgValue> evaluationResult =
-        skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+        skyframeExecutor.getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
     Preconditions.checkState(!evaluationResult.hasError());
     return evaluationResult;
   }

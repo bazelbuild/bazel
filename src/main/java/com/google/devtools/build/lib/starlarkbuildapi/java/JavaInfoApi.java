@@ -108,7 +108,10 @@ public interface JavaInfoApi<
       name = "annotation_processing",
       structField = true,
       allowReturnNones = true,
-      doc = "Returns information about annotation processing for this Java/Java-like target.")
+      doc =
+          "Returns information about annotation processors applied on this Java/Java-like target."
+              + "<p>Deprecated: Please use <code>plugins</code> instead (which returns information "
+              + "about annotation processors to be applied by consuming targets).")
   @Nullable
   JavaAnnotationProcessingApi<?> getGenJarsProvider();
 

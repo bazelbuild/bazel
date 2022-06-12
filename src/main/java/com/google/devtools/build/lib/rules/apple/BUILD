@@ -28,8 +28,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:visibility_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:visibility_provider_impl",
         "//src/main/java/com/google/devtools/build/lib/analysis:xcode_config_event",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

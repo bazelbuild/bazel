@@ -193,13 +193,11 @@ public class ActionGraphDump {
       }
     }
     Map<String, String> executionInfo = action.getExecutionInfo();
-    if (executionInfo != null) {
-      for (Map.Entry<String, String> info : executionInfo.entrySet()) {
-        actionBuilder.addExecutionInfo(
-            AnalysisProtosV2.KeyValuePair.newBuilder()
-                .setKey(info.getKey())
-                .setValue(info.getValue()));
-      }
+    for (Map.Entry<String, String> info : executionInfo.entrySet()) {
+      actionBuilder.addExecutionInfo(
+          AnalysisProtosV2.KeyValuePair.newBuilder()
+              .setKey(info.getKey())
+              .setValue(info.getValue()));
     }
 
     ActionOwner actionOwner = action.getOwner();

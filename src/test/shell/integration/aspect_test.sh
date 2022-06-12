@@ -1182,4 +1182,57 @@ EOF
   expect_log "Error in top-level aspects parameters: Multiple entries with same key: p=p_v1 and p=p_v1"
 }
 
+function test_int_top_level_aspects_parameters_invalid_value() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p))
+  return []
+
+aspect_a = aspect(
+              implementation = _aspect_a_impl,
+              attr_aspects = ['dep'],
+              attrs = { 'p' : attr.int() },
+)
+
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}, p = {}'.format(target.label, ctx.attr.p))
+  return []
+
+aspect_b = aspect(
+              implementation = _aspect_b_impl,
+              attr_aspects = ['dep'],
+              attrs = { 'p' : attr.string() },
+)
+
+def _my_rule_impl(ctx):
+  pass
+
+my_rule = rule(
+           implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'my_rule')
+my_rule(name = 'main_target',
+        dep = ':dep_target',
+)
+my_rule(name = 'dep_target',
+)
+EOF
+
+  bazel build "//${package}:main_target" \
+      --aspects="//${package}:defs.bzl%aspect_a" \
+      --aspects="//${package}:defs.bzl%aspect_b" \
+      --aspects_parameters="p=val" \
+      --experimental_allow_top_level_aspects_parameters \
+      &> $TEST_log && fail "Build succeeded, expected to fail"
+
+  expect_log "//test:defs.bzl%aspect_a: expected value of type 'int' for attribute 'p' but got 'val'"
+}
+
 run_suite "Tests for aspects"

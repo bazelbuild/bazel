@@ -1033,8 +1033,7 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);
 
     boolean external =
-        !repositoryName.isDefault()
-            && !repositoryName.isMain()
+        !repositoryName.isMain()
             && featureConfiguration.isEnabled(CppRuleClasses.EXTERNAL_INCLUDE_PATHS);
 
     if (external) {

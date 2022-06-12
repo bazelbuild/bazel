@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -47,7 +46,6 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
   public void testNoInput() throws Exception {
     // Multiple missing inputs means error is non-deterministic in --nokeep_going case.
     this.addOptions("--keep_going");
-    MockGenruleSupport.setup(mockToolsConfig);
     write("dummy/BUILD",
           "genrule(name = 'dummy', ",
           "        srcs = ['in1', 'in2', 'in3'], ",
@@ -68,7 +66,6 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
 
   @Test
   public void testMissingInputRacesWithWorkspaceStatusAction() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     write(
         "dummy/BUILD",
         "genrule(name = 'dummy', srcs = ['in'], outs = ['out'], cmd = '/bin/false')");

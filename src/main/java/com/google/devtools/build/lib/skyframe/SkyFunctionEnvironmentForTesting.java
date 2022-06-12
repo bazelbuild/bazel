@@ -27,12 +27,13 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * A {@link SkyFunction.Environment} backed by a {@link SkyframeExecutor} that can be used to
  * evaluate arbitrary {@link SkyKey}s for testing.
  */
-public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnvironment
+public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnvironment
     implements SkyFunction.Environment {
 
   private final ExtendedEventHandler eventHandler;
@@ -63,13 +64,18 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
   }
 
   @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
     return false;
   }
 
@@ -81,5 +87,10 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
   @Override
   public boolean restartPermitted() {
     return false;
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return stateSupplier.get();
   }
 }

@@ -133,4 +133,8 @@ void portable_start_memory_pressure_monitoring() {
   // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
 }
 
+void portable_start_disk_space_monitoring() {
+  // Currently not implemented.
+}
+
 }  // namespace blaze_jni

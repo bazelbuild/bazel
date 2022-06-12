@@ -28,9 +28,11 @@ strategy achieves these improvements by sending multiple requests to a
 long-running process.
 
 Persistent workers are implemented for multiple languages, including Java,
-[TypeScript](https://bazelbuild.github.io/rules_nodejs/TypeScript.html),
 [Scala](https://github.com/bazelbuild/rules_scala),
 [Kotlin](https://github.com/bazelbuild/rules_kotlin), and more.
+
+Programs using a NodeJS runtime can use the [@bazel/worker](https://www.npmjs.com/package/@bazel/worker)
+helper library to implement the worker protocol.
 
 ## Using persistent workers <a name="usage"></a>
 
@@ -247,6 +249,11 @@ still valid without having to read the file.
 Even when using the input digests to guard against unwanted caching, sandboxed
 workers offer less strict sandboxing than a pure sandbox, because the tool may
 keep other internal state that has been affected by previous requests.
+
+Multiplex workers can only be sandboxed if the worker implementation support it,
+and this sandboxing must be separately enabled with the
+`--experimental_worker_multiplex_sandboxing` flag. See more details in
+[the design doc](https://docs.google.com/document/d/1ncLW0hz6uDhNvci1dpzfEoifwTiNTqiBEm1vi-bIIRM/edit))
 
 ## Further reading <a name="further-reading"></a>
 

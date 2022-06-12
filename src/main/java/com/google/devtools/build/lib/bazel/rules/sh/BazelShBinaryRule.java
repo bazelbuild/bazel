@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 
@@ -32,7 +32,7 @@ public final class BazelShBinaryRule implements RuleDefinition {
     return builder
         .add(
             attr("$launcher", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(environment.getToolsLabel("//tools/launcher:launcher")))
         .build();
   }

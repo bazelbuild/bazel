@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
@@ -28,14 +29,13 @@ public interface ConfiguredAspectFactory {
    * @param context the context of the associated configured target plus all the attributes the
    *     aspect itself has defined
    * @param parameters information from attributes of the rule that have requested this
-   * @param toolsRepository string representing the name of the tools repository such as
-   *     "@bazel_tools"
+   * @param toolsRepository the name of the tools repository such as "{@literal @}bazel_tools"
    */
   ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase,
       RuleContext context,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws ActionConflictException, InterruptedException;
 
   /** Adds any aspect implementation-specific requirements to the given builder. */

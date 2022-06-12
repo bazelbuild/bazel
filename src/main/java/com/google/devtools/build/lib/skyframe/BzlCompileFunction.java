@@ -30,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
@@ -181,12 +180,6 @@ public class BzlCompileFunction implements SkyFunction {
           key.label.toPathFragment(),
           StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   static final class FailedIOException extends Exception {

@@ -13,26 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory.ChannelConnection;
 import com.google.devtools.build.lib.remote.grpc.DynamicConnectionPool;
 import com.google.devtools.build.lib.remote.grpc.SharedConnectionFactory.SharedConnection;
-import io.grpc.CallOptions;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import io.grpc.Channel;
-import io.grpc.ClientCall;
-import io.grpc.ForwardingClientCall;
-import io.grpc.ForwardingClientCallListener;
-import io.grpc.Metadata;
-import io.grpc.MethodDescriptor;
-import io.grpc.Status;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
+import io.reactivex.rxjava3.annotations.CheckReturnValue;
+import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleSource;
+import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
 
 /**
  * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
@@ -41,7 +38,7 @@ import javax.annotation.Nullable;
  *
  * <p>See {@link ReferenceCounted} for more information about reference counting.
  */
-public class ReferenceCountedChannel extends Channel implements ReferenceCounted {
+public class ReferenceCountedChannel implements ReferenceCounted {
   private final DynamicConnectionPool dynamicConnectionPool;
   private final AbstractReferenceCounted referenceCounted =
       new AbstractReferenceCounted() {
@@ -59,7 +56,6 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
           return this;
         }
       };
-  private final AtomicReference<String> authorityRef = new AtomicReference<>();
 
   public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory) {
     this(connectionFactory, /*maxConnections=*/ 0);
@@ -75,93 +71,42 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
     return dynamicConnectionPool.isClosed();
   }
 
-  /** A {@link ClientCall} which call {@link SharedConnection#close()} after the RPC is closed. */
-  static class ConnectionCleanupCall<ReqT, RespT>
-      extends ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT> {
-    private final SharedConnection connection;
-
-    protected ConnectionCleanupCall(ClientCall<ReqT, RespT> delegate, SharedConnection connection) {
-      super(delegate);
-      this.connection = connection;
-    }
-
-    @Override
-    public void start(Listener<RespT> responseListener, Metadata headers) {
-      super.start(
-          new ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(
-              responseListener) {
-            @Override
-            public void onClose(Status status, Metadata trailers) {
-              try {
-                connection.close();
-              } catch (IOException e) {
-                throw new AssertionError(e.getMessage(), e);
-              } finally {
-                super.onClose(status, trailers);
-              }
-            }
-          },
-          headers);
-    }
+  @CheckReturnValue
+  public <T> ListenableFuture<T> withChannelFuture(
+      Function<Channel, ? extends ListenableFuture<T>> source) {
+    return RxFutures.toListenableFuture(
+        withChannel(channel -> RxFutures.toSingle(() -> source.apply(channel), directExecutor())));
   }
 
-  private static class CloseOnStartClientCall<ReqT, RespT> extends ClientCall<ReqT, RespT> {
-    private final Status status;
-
-    CloseOnStartClientCall(Status status) {
-      this.status = status;
-    }
-
-    @Override
-    public void start(Listener<RespT> responseListener, Metadata headers) {
-      responseListener.onClose(status, new Metadata());
-    }
-
-    @Override
-    public void request(int numMessages) {}
-
-    @Override
-    public void cancel(@Nullable String message, @Nullable Throwable cause) {}
-
-    @Override
-    public void halfClose() {}
-
-    @Override
-    public void sendMessage(ReqT message) {}
-  }
-
-  private SharedConnection acquireSharedConnection() throws IOException, InterruptedException {
+  public <T> T withChannelBlocking(Function<Channel, T> source)
+      throws IOException, InterruptedException {
     try {
-      SharedConnection sharedConnection = dynamicConnectionPool.create().blockingGet();
-      ChannelConnection connection = (ChannelConnection) sharedConnection.getUnderlyingConnection();
-      authorityRef.compareAndSet(null, connection.getChannel().authority());
-      return sharedConnection;
+      return withChannel(channel -> Single.just(source.apply(channel))).blockingGet();
     } catch (RuntimeException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
-      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+      }
       throw e;
     }
   }
 
-  @Override
-  public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> newCall(
-      MethodDescriptor<RequestT, ResponseT> methodDescriptor, CallOptions callOptions) {
-    try {
-      SharedConnection sharedConnection = acquireSharedConnection();
-      return new ConnectionCleanupCall<>(
-          sharedConnection.call(methodDescriptor, callOptions), sharedConnection);
-    } catch (IOException e) {
-      return new CloseOnStartClientCall<>(Status.UNKNOWN.withCause(e));
-    } catch (InterruptedException e) {
-      return new CloseOnStartClientCall<>(Status.CANCELLED.withCause(e));
-    }
-  }
-
-  @Override
-  public String authority() {
-    String authority = authorityRef.get();
-    checkNotNull(authority, "create a connection first to get the authority");
-    return authority;
+  @CheckReturnValue
+  public <T> Single<T> withChannel(Function<Channel, ? extends SingleSource<? extends T>> source) {
+    return dynamicConnectionPool
+        .create()
+        .flatMap(
+            sharedConnection ->
+                Single.using(
+                    () -> sharedConnection,
+                    conn -> {
+                      ChannelConnection connection =
+                          (ChannelConnection) sharedConnection.getUnderlyingConnection();
+                      Channel channel = connection.getChannel();
+                      return source.apply(channel);
+                    },
+                    SharedConnection::close));
   }
 
   @Override

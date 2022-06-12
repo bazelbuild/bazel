@@ -32,11 +32,6 @@ import javax.annotation.Nullable;
 /** The name of an external repository. */
 public final class RepositoryName {
 
-  static final String DEFAULT_REPOSITORY = "";
-
-  @SerializationConstant
-  public static final RepositoryName DEFAULT = new RepositoryName(DEFAULT_REPOSITORY);
-
   @SerializationConstant
   public static final RepositoryName BAZEL_TOOLS = new RepositoryName("@bazel_tools");
 
@@ -71,10 +66,8 @@ public final class RepositoryName {
    * @throws LabelSyntaxException if the name is invalid
    */
   public static RepositoryName create(String name) throws LabelSyntaxException {
-    if (name.isEmpty()) {
-      return DEFAULT;
-    }
-    if (name.equals("@")) {
+    // TODO(b/200024947): Get rid of the '@'.
+    if (name.isEmpty() || name.equals("@")) {
       return MAIN;
     }
     try {
@@ -90,6 +83,12 @@ public final class RepositoryName {
    * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
    */
   public static RepositoryName createFromValidStrippedName(String name) {
+    if (name.isEmpty()) {
+      // NOTE(wyv): Without this `if` clause, a lot of Google-internal integration tests would start
+      //   failing. This suggests to me that something is comparing RepositoryName objects using
+      //   reference equality instead of #equals().
+      return MAIN;
+    }
     return repositoryNameCache.get("@" + name);
   }
 
@@ -231,6 +230,7 @@ public final class RepositoryName {
    * Returns the repository name, except that the main repo is conflated with the default repo
    * ({@code "@"} becomes the empty string).
    */
+  // TODO(bazel-team): Consider renaming to "getDefaultForm".
   public String getCanonicalForm() {
     return isMain() ? "" : name;
   }
@@ -243,7 +243,7 @@ public final class RepositoryName {
    * __main__), instead of "$execroot/external/repo".
    */
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
-    if (isDefault() || isMain()) {
+    if (isMain()) {
       return PathFragment.EMPTY_FRAGMENT;
     }
     PathFragment prefix =
@@ -258,8 +258,9 @@ public final class RepositoryName {
    */
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create("..").getRelative(strippedName());
+    return isMain()
+        ? PathFragment.EMPTY_FRAGMENT
+        : PathFragment.create("..").getRelative(strippedName());
   }
 
   /**

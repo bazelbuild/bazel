@@ -99,6 +99,11 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public boolean isPackageDefaultHdrsCheckSet() {
+    return delegate.isPackageDefaultHdrsCheckSet();
+  }
+
+  @Override
   public Boolean getPackageDefaultTestOnly() {
     return delegate.getPackageDefaultTestOnly();
   }

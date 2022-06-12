@@ -40,7 +40,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   }
 
   private void validateProtoLangToolchain(ProtoLangToolchainProvider toolchain) throws Exception {
-    assertThat(toolchain.outReplacementFormatFlag()).isEqualTo("cmd-line");
+    assertThat(toolchain.outReplacementFormatFlag()).isEqualTo("cmd-line:%s");
     assertThat(toolchain.pluginFormatFlag()).isEqualTo("--plugin=%s");
     assertThat(toolchain.pluginExecutable().getExecutable().getRootRelativePathString())
         .isEqualTo("third_party/x/plugin");
@@ -73,7 +73,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "licenses(['unencumbered'])",
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
@@ -102,7 +102,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
@@ -131,7 +131,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
         "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
@@ -151,7 +151,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());

@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -442,7 +443,19 @@ public class AndroidCommon {
       boolean generateExtensionRegistry)
       throws InterruptedException, RuleErrorException {
 
-    classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
+    if (shouldCompileJavaSrcs) {
+      classJar =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
+    } else {
+      // When java compilation happens in application_resources, grab the class jar from its
+      // JavaInfo.
+      classJar =
+          Iterables.getOnlyElement(
+                  JavaInfo.getJavaInfo(ruleContext.getPrerequisite("application_resources"))
+                      .getOutputJars()
+                      .getJavaOutputs())
+              .getClassJar();
+    }
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
     BootClassPathInfo bootClassPathInfo;
@@ -538,21 +551,71 @@ public class AndroidCommon {
     }
 
     JavaTargetAttributes attributes = attributesBuilder.build();
-    initJava(
-        javaSemantics,
-        helper,
-        attributes,
-        artifactsBuilder,
-        collectJavaCompilationArgs,
-        filesBuilder,
-        generateExtensionRegistry);
-    if (ruleContext.hasErrors()) {
-      return null;
+    if (shouldCompileJavaSrcs) {
+      initJava(
+          javaSemantics,
+          helper,
+          attributes,
+          artifactsBuilder,
+          collectJavaCompilationArgs,
+          filesBuilder,
+          generateExtensionRegistry);
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
+      if (generatedExtensionRegistryProvider != null) {
+        jarsProducedForRuntime.add(generatedExtensionRegistryProvider.getClassJar());
+      }
+      this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
+    } else {
+      // Getting java artifacts from application_resources
+      JavaInfo javaInfo =
+          JavaInfo.getJavaInfo(ruleContext.getPrerequisite("application_resources"));
+      JavaOutput javaOutput = Iterables.getOnlyElement(javaInfo.getOutputJars().getJavaOutputs());
+      outputs = helper.createOutputs(javaOutput);
+
+      // The macro creating both the Starlark android_binary_internal and android_binary ensures
+      // that they share the same attributes, which is why we can still check the android_binary
+      // attributes when Javac happens in android_binary_internal.
+      if (attributes.hasSources() || attributes.hasResources()) {
+        // We only want to add a jar to the classpath of a dependent rule if it has content.
+        artifactsBuilder.addRuntimeJar(classJar);
+      }
+
+      artifactsBuilder.addCompileTimeJarAsFullJar(classJar);
+      javaSourceJarsProviderBuilder
+          .addAllSourceJars(javaInfo.getSourceJars())
+          .addAllTransitiveSourceJars(
+              javaCommon.collectTransitiveSourceJars(javaInfo.getSourceJars()));
+
+      if (generateExtensionRegistry) {
+        generatedExtensionRegistryProvider =
+            javaSemantics.createGeneratedExtensionRegistry(
+                ruleContext,
+                javaCommon,
+                filesBuilder,
+                artifactsBuilder,
+                javaRuleOutputJarsProviderBuilder,
+                javaSourceJarsProviderBuilder);
+      }
+
+      JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
+      javaCommon.setJavaCompilationArtifacts(javaArtifacts);
+      filesToBuild = filesBuilder.build();
+      NestedSetBuilder<Artifact> runtimeJars =
+          NestedSetBuilder.<Artifact>naiveLinkOrder().addAll(javaInfo.getDirectRuntimeJars());
+      if (generatedExtensionRegistryProvider != null) {
+        jarsProducedForRuntime.add(generatedExtensionRegistryProvider.getClassJar());
+        runtimeJars.add(generatedExtensionRegistryProvider.getClassJar());
+      }
+      transitiveNeverlinkLibraries =
+          collectTransitiveNeverlinkLibraries(
+              ruleContext, javaCommon.getDependencies(), runtimeJars.build());
+      this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
+      if (collectJavaCompilationArgs) {
+        this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, attributes.hasSources());
+      }
     }
-    if (generatedExtensionRegistryProvider != null) {
-      jarsProducedForRuntime.add(generatedExtensionRegistryProvider.getClassJar());
-    }
-    this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
     return attributes;
   }
 
@@ -872,9 +935,12 @@ public class AndroidCommon {
       boolean isLibrary,
       boolean shouldCompileJavaSrcs) {
 
+    ImmutableList<Artifact> ruleSources = ruleContext.getPrerequisiteArtifacts("srcs").list();
+
     /**
      * When within the context of an android_binary rule and shouldCompileJavaSrcs is False, the
-     * Java compilation happens within the Starlark rule.
+     * Java compilation happens within the Starlark rule. We still list the srcs to know if the
+     * class jar has content and should be included.
      */
     if (!isLibrary && !shouldCompileJavaSrcs) {
       ImmutableList<TransitiveInfoCollection> runtimeDeps =
@@ -882,17 +948,14 @@ public class AndroidCommon {
       return new JavaCommon(
           ruleContext,
           semantics,
-          ImmutableList.of(),
+          ruleSources,
           runtimeDeps, /* compileDeps */
           runtimeDeps,
           runtimeDeps); /* bothDeps */
     }
 
-    ImmutableList<Artifact> ruleSources = ruleContext.getPrerequisiteArtifacts("srcs").list();
-
     ImmutableList<Artifact> dataBindingSources =
         dataBindingContext.getAnnotationSourceFiles(ruleContext);
-
     ImmutableList<Artifact> srcs =
         ImmutableList.<Artifact>builder().addAll(ruleSources).addAll(dataBindingSources).build();
 

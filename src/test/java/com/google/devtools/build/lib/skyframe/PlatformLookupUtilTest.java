@@ -197,12 +197,6 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
         throw new GetPlatformInfoFunctionException(e);
       }
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private static final class GetPlatformInfoFunctionException extends SkyFunctionException {

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Splitter;
 import com.google.common.primitives.Doubles;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Iterator;
@@ -175,7 +175,7 @@ public class ResourceSet implements ResourceSetOrBuilder {
   }
 
   @Override
-  public ResourceSet buildResourceSet(NestedSet<Artifact> inputs) {
+  public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
     return this;
   }
 }

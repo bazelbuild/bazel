@@ -50,7 +50,9 @@ class WorkerParser {
   /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
   private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
+  /** The global execRoot. */
   private final Path execRoot;
+
   private final WorkerOptions workerOptions;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
@@ -125,6 +127,17 @@ class WorkerParser {
       WorkerOptions options,
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
+    boolean multiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
+    if (dynamic && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
+      multiplex = false;
+    }
+    boolean sandboxed;
+    if (multiplex) {
+      sandboxed =
+          Spawns.supportsMultiplexSandboxing(spawn) && (options.multiplexSandboxing || dynamic);
+    } else {
+      sandboxed = options.workerSandboxing || dynamic;
+    }
     return new WorkerKey(
         workerArgs,
         env,
@@ -132,11 +145,8 @@ class WorkerParser {
         Spawns.getWorkerKeyMnemonic(spawn),
         workerFilesCombinedHash,
         workerFiles,
-        /* sandboxed= */ options.workerSandboxing || dynamic,
-        /* multiplex= */ options.workerMultiplex
-            && Spawns.supportsMultiplexWorkers(spawn)
-            && !dynamic
-            && !options.workerSandboxing,
+        sandboxed,
+        multiplex,
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
   }

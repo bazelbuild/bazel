@@ -75,13 +75,11 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
 
     AvailableXcodesInfo remoteVersions =
         ruleContext.getPrerequisite(
-            XcodeConfigRule.REMOTE_VERSIONS_ATTR_NAME,
-            AvailableXcodesInfo.PROVIDER);
+            XcodeConfigRule.REMOTE_VERSIONS_ATTR_NAME, AvailableXcodesInfo.PROVIDER);
 
     AvailableXcodesInfo localVersions =
         ruleContext.getPrerequisite(
-            XcodeConfigRule.LOCAL_VERSIONS_ATTR_NAME,
-            AvailableXcodesInfo.PROVIDER);
+            XcodeConfigRule.LOCAL_VERSIONS_ATTR_NAME, AvailableXcodesInfo.PROVIDER);
 
     XcodeVersionProperties xcodeVersionProperties;
     Availability availability = null;
@@ -310,12 +308,19 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     } catch (XcodeConfigException e) {
       throw ruleContext.throwWithRuleError(e);
     }
-    // Mutually available Xcode versions are versions that are available both locally and remotely,
-    // but are referred to by the aliases listed in remote_xcodes.
+    // A version is mutually available (available both locally and remotely) if the local version
+    // attribute matches either the version attribute or one of the aliases of the remote version.
+    // mutuallyAvailableVersions is a subset of available versions in remoteVersions.
+    // We assume the "version" attribute in local xcode_version contains a full version string,
+    // e.g. including the build, while the versions in "alias" attribute may be less granular.
+    // On the other hand, it's could be either way for remote xcode_version.
     Set<XcodeVersionRuleData> mutuallyAvailableVersions = Sets.newHashSet();
-    for (String version : localAliasesToVersionMap.keySet()) {
-      if (remoteAliasesToVersionMap.containsKey(version)) {
-        mutuallyAvailableVersions.add(remoteAliasesToVersionMap.get(version));
+    if (localVersions.getAvailableVersions() != null) {
+      for (XcodeVersionRuleData local : localVersions.getAvailableVersions()) {
+        if (remoteAliasesToVersionMap.containsKey(local.getVersion().toString())) {
+          mutuallyAvailableVersions.add(
+              remoteAliasesToVersionMap.get(local.getVersion().toString()));
+        }
       }
     }
     logger.atInfo().log(

@@ -613,7 +613,7 @@ public class CcCommonTest extends BuildViewTestCase {
             reporter,
             new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
             Root.fromPath(rootDirectory));
-    FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
+    scratch.resolve("/foo/bar").createDirectoryAndParents();
     scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
     scratch.file(
         "/foo/bar/BUILD",

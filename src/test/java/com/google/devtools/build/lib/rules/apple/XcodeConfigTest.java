@@ -262,7 +262,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPreferLocalDefaultIfNoMutualNoFlag() throws Exception {
+  public void testPreferLocalDefaultIfNoMutualNoFlagDifferentMainVersion() throws Exception {
     new BuildFileBuilder()
         .addRemoteVersion("version512", "5.1.2", true)
         .addLocalVersion("version84", "8.4", true)
@@ -281,6 +281,52 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "Using a local Xcode version, '8.4', since there are no"
             + " remotely available Xcodes on this machine. Consider downloading one of the"
             + " remotely available Xcode versions (5.1.2)");
+  }
+
+  @Test
+  public void testPreferLocalDefaultIfNoMutualNoFlagDifferentBuildAlias() throws Exception {
+    // Version 10.0 of different builds are not matched
+    new BuildFileBuilder()
+        .addRemoteVersion("version10", "10.0", true, "10.0.0.101ff", "10.0")
+        .addLocalVersion("version10.0.0.10C504", "10.0.0.10C504", true, "10.0.0.10C504", "10.0")
+        .write(scratch, "xcode/BUILD");
+
+    useConfiguration("--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("10.0.0.10C504");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN,
+            ExecutionRequirements.NO_REMOTE,
+            ExecutionRequirements.REQUIREMENTS_SET));
+
+    assertContainsEvent(
+        "Using a local Xcode version, '10.0.0.10C504', since there are no"
+            + " remotely available Xcodes on this machine. Consider downloading one of the"
+            + " remotely available Xcode versions (10.0)");
+  }
+
+  @Test
+  public void testPreferLocalDefaultIfNoMutualNoFlagDifferentFullVersion() throws Exception {
+    // Version 10.0 of different builds are not matched
+    new BuildFileBuilder()
+        .addRemoteVersion("version10", "10.0.0.101ff", true, "10.0", "10.0.0.101ff")
+        .addLocalVersion("version10.0.0.10C504", "10.0.0.10C504", true, "10.0.0.10C504", "10.0")
+        .write(scratch, "xcode/BUILD");
+
+    useConfiguration("--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("10.0.0.10C504");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN,
+            ExecutionRequirements.NO_REMOTE,
+            ExecutionRequirements.REQUIREMENTS_SET));
+
+    assertContainsEvent(
+        "Using a local Xcode version, '10.0.0.10C504', since there are no"
+            + " remotely available Xcodes on this machine. Consider downloading one of the"
+            + " remotely available Xcode versions (10.0.0.101ff)");
   }
 
   @Test
@@ -343,6 +389,27 @@ public class XcodeConfigTest extends BuildViewTestCase {
             ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
 
     assertNoEvents();
+  }
+
+  @Test
+  public void testPreferLocalDefaultOverDifferentBuild() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version10", "10", true, "10.0.0.10C1ff")
+        .addLocalVersion("version10.0.0.10C504", "10.0.0.10C504", true, "10")
+        .write(scratch, "xcode/BUILD");
+
+    useConfiguration(
+        "--xcode_version_config=//xcode:foo", "--experimental_prefer_mutual_xcode=false");
+    assertXcodeVersion("10.0.0.10C504");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
+
+    assertContainsEvent(
+        "Using a local Xcode version, '10.0.0.10C504', since there are no"
+            + " remotely available Xcodes on this machine. Consider downloading one of the"
+            + " remotely available Xcode versions (10)");
   }
 
   @Test

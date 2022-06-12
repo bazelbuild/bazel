@@ -127,7 +127,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
   }
 
   static PathFragment defaultJavaHome(Label javabase, boolean siblingRepositoryLayout) {
-    if (javabase.getRepository().isDefault()) {
+    if (javabase.getRepository().isMain()) {
       return javabase.getPackageFragment();
     }
     return javabase.getPackageIdentifier().getExecPath(siblingRepositoryLayout);

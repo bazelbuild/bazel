@@ -459,7 +459,7 @@ public final class MockObjcSupport {
         .withCompiler("compiler")
         .withToolchainIdentifier("watchos_armv7k")
         .withHostSystemName("x86_64-apple-ios")
-        .withTargetSystemName("armv7-apple-watchos")
+        .withTargetSystemName("armv7k-apple-watchos")
         .withTargetLibc("watchos")
         .withAbiVersion("local")
         .withAbiLibcVersion("local")

@@ -132,11 +132,6 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
         super(cause, Transience.PERSISTENT); // We can generalize the transience if/when needed.
       }
     }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   /**

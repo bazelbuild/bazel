@@ -51,10 +51,8 @@ def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
 def _get_intermediate_dwp_file(ctx, dwp_output, order_number):
     output_path = dwp_output.short_path
     intermediate_path = output_path + "-" + str(order_number)
-    if dwp_output.extension != "":
-        intermediate_path = output_path.split(".")[0] + "-" + str(order_number) + "." + dwp_output.extension
 
-    return ctx.actions.declare_file("_dwp/" + intermediate_path)
+    return ctx.actions.declare_file("_dwps/" + intermediate_path)
 
 def _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, dwp_files, dwo_files, intermediate_dwp_count):
     intermediate_outputs = dwo_files
@@ -148,6 +146,8 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
             target_file = input,
             progress_message = "Symlinking original binary as stripped binary",
         )
+        return
+
     if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
         fail("Expected action_config for 'strip' to be configured.")
 
@@ -221,8 +221,9 @@ def _generate_def_file(ctx, def_parser, object_files, dll_name):
     return def_file
 
 def _is_stamping_enabled(ctx):
-    # TODO(b/198254254): Maybe add istoolchainconfigured.
     # TODO(b/198254254): Not the exact same behaviour as in cc_binary.
+    if ctx.configuration.is_tool_configuration():
+        return 0
     stamp = 0
     if hasattr(ctx.attr, "stamp"):
         stamp = ctx.attr.stamp
@@ -404,7 +405,7 @@ def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, 
         else:
             transitive_dwo_files = cc_debug_context.files
 
-    return depset(dwo_files, transitive = transitive_dwo_files.to_list())
+    return depset(dwo_files, transitive = [transitive_dwo_files])
 
 def _separate_static_and_dynamic_link_libraries(direct_children, can_be_linked_dynamically):
     link_statically_labels = {}
@@ -574,7 +575,7 @@ def _create_transitive_linking_actions(
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
         name = ctx.label.name,
-        use_test_only_flags = cc_helper.is_test_target(ctx),
+        use_test_only_flags = ctx.label.name.endswith("_test"),
         # Note: Current Starlark API supports either dynamic or static linking modes,
         # even though there are more(LEGACY_FULL_STATIC, LEGACY_MOSTLY_STATIC_LIBRARIES) cc_binary
         # only uses dynamic or static modes. So instead of adding more native footprint
@@ -582,6 +583,7 @@ def _create_transitive_linking_actions(
         # It is highly unlikely that cc_binary will start using legacy modes,
         # but if in case it does, code needs to be modified to support it.
         link_deps_statically = link_deps_statically,
+        test_only_target = cc_helper.is_test_target(ctx) or ctx.label.name.endswith("_test"),
         output_type = link_target_type,
         main_output = binary,
         never_link = True,
@@ -787,23 +789,24 @@ def cc_binary_impl(ctx):
     win_def_file = None
     if _is_link_shared(ctx):
         if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
-            object_files = cc_compilation_outputs.objects
+            # Make copy of a list, to avoid mutating frozen values.
+            object_files = list(cc_compilation_outputs.objects)
             for linker_input in deps_cc_linking_context.linker_inputs.to_list():
                 for library in linker_input.libraries:
                     if is_static_mode or (library.dynamic_library == None and library.interface_library == None):
                         if library.pic_static_library != None:
                             if library.pic_objects != None:
-                                object_files.expand(library.pic_objects)
+                                object_files.extend(library.pic_objects)
                         elif library.static_library != None:
                             if library.objects != None:
-                                object_files.expand(library.objects)
+                                object_files.extend(library.objects)
             def_parser = None
 
             # TODO(b/198254254): def_parser
             if def_parser != None:
                 generated_def_file = _generate_def_file(ctx, def_parser, object_files, binary.basename)
-
-            win_def_file = _get_windows_def_file_for_linking(ctx, ctx.attr.win_def_file, generated_def_file, feature_configuration)
+            custom_win_def_file = ctx.file.win_def_file
+            win_def_file = _get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
 
     use_pic = _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration)
 
@@ -811,7 +814,10 @@ def cc_binary_impl(ctx):
     # then a pdb file will be built along with the executable.
     pdb_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
-        pdb_file = ctx.actions.declare_file(target_name + ".pdb")
+        pdb_file_name = target_name
+        if "." in pdb_file_name:
+            pdb_file_name = pdb_file_name[:pdb_file_name.rfind(".")]
+        pdb_file = ctx.actions.declare_file(pdb_file_name + ".pdb")
 
     extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
     linker_inputs_extra = depset()
@@ -880,7 +886,11 @@ def cc_binary_impl(ctx):
     # all the dynamic libraries we need at runtime. Then copy these libraries next to the binary.
     copied_runtime_dynamic_libraries = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "copy_dynamic_libraries_to_binary"):
-        copied_runtime_dynamic_libraries = _create_dynamic_libraries_copy_actions(ctx, _get_dynamic_libraries_for_runtime(is_static_mode, deps_cc_linking_context.libraries.to_list()))
+        linker_inputs = deps_cc_linking_context.linker_inputs.to_list()
+        libraries = []
+        for linker_input in linker_inputs:
+            libraries.extend(linker_input.libraries)
+        copied_runtime_dynamic_libraries = _create_dynamic_libraries_copy_actions(ctx, _get_dynamic_libraries_for_runtime(is_static_mode, libraries))
 
     # TODO(b/198254254)(bazel-team): Do we need to put original shared libraries (along with
     # mangled symlinks) into the RunfilesSupport object? It does not seem
@@ -925,7 +935,7 @@ def cc_binary_impl(ctx):
 
     # If PDB file is generated by the link action, we add it to pdb_file output group
     if pdb_file != None:
-        output_groups["pdb_file"] = pdb_file
+        output_groups["pdb_file"] = depset([pdb_file])
     if generated_def_file != None:
         output_groups["def_file"] = generated_def_file
 
@@ -949,7 +959,6 @@ def cc_binary_impl(ctx):
     if copied_runtime_dynamic_libraries != None:
         output_groups["runtime_dynamic_libraries"] = copied_runtime_dynamic_libraries
 
-    # TODO(b/198254254): CcStarlarkApiProvider.maybeAdd(ruleContext, ruleBuilder), might not be necessary.
     # TODO(b/198254254): SetRunfilesSupport.
     debug_package_info = DebugPackageInfo(
         target_label = ctx.label,
@@ -968,7 +977,14 @@ def cc_binary_impl(ctx):
         result.append(cc_internal.statically_linked_marker_provider(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
-    return result
+    if ctx.fragments.cpp.enable_legacy_cc_provider():
+        # buildifier: disable=rule-impl-return
+        return struct(
+            cc = cc_internal.create_cc_provider(cc_info = cc_info),
+            providers = result,
+        )
+    else:
+        return result
 
 ALLOWED_SRC_FILES = []
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_SOURCE)
@@ -991,7 +1007,7 @@ cc_binary_attrs = {
         allow_files = True,
     ),
     "win_def_file": attr.label(
-        allow_files = [".def"],
+        allow_single_file = [".def"],
     ),
     "reexport_deps": attr.label_list(
         allow_files = True,
@@ -1030,7 +1046,6 @@ cc_binary_attrs = {
         # TODO(b/198254254): Add aspects. in progress
         aspects = [],
     ),
-    "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_default_malloc": attr.label(
         # TODO(b/198254254): Add default value. in progress
         default = configuration_field(fragment = "cpp", name = "custom_malloc"),
@@ -1043,21 +1058,22 @@ cc_binary_attrs = {
     ),
     "data": attr.label_list(
         allow_files = True,
+        flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
     ),
-    "args": attr.string_list(),
     "env": attr.string_dict(),
-    "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "distribs": attr.string_list(),
     "_is_test": attr.bool(default = False),
     "_grep_includes": attr.label(
         allow_files = True,
         executable = True,
-        cfg = "host",
+        cfg = "exec",
         default = Label("@//tools/cpp:grep-includes"),
     ),
     "_stl": attr.label(default = "@//third_party/stl"),
     "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
     "_cc_toolchain_type": attr.label(default = "@//tools/cpp:toolchain_type"),
+    # TODO(b/198254254): Add default computed value once it is available in the API.
+    "_default_copts": attr.string_list(),
 }
 cc_binary_attrs.update(semantics.get_licenses_attr())
 cc_binary_attrs.update(semantics.get_distribs_attr())
@@ -1075,5 +1091,9 @@ cc_binary = rule(
     exec_groups = {
         "cpp_link": exec_group(copy_from_rule = True),
     },
+    toolchains = [
+        "@//tools/cpp:toolchain_type",
+    ],
     incompatible_use_toolchain_transition = True,
+    executable = True,
 )

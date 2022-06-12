@@ -70,9 +70,13 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   @Override
   public void setUp() throws Exception {
+    setUp(new AnalysisHelper());
+  }
+
+  public void setUp(AnalysisHelper analysisHelper) throws Exception {
     super.setUp();
     parserPrefix = PathFragment.EMPTY_FRAGMENT;
-    analysisHelper = new AnalysisHelper();
+    this.analysisHelper = analysisHelper;
     wholeTestUniverse = false;
     // Reverse the @Before method list, so that superclass is called before subclass.
     for (Method method :
@@ -182,7 +186,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
-      Collection<String> universe) throws QueryException, InterruptedException {
+      Collection<String> universe) throws Exception {
     if (ImmutableList.copyOf(universe)
         .equals(ImmutableList.of(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(
@@ -191,11 +195,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
           Query.Code.QUERY_UNKNOWN);
     }
     AnalysisResult analysisResult;
-    try {
-      analysisResult = analysisHelper.update(universe.toArray(new String[0]));
-    } catch (Exception e) {
-      throw new QueryException(e.getMessage(), Query.Code.QUERY_UNKNOWN);
-    }
+    analysisResult = analysisHelper.update(universe.toArray(new String[0]));
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());
 
@@ -222,8 +222,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       throws InterruptedException;
 
   @Override
-  public ResultAndTargets<T> evaluateQuery(String query)
-      throws QueryException, InterruptedException {
+  public ResultAndTargets<T> evaluateQuery(String query) throws Exception {
     PostAnalysisQueryEnvironment<T> env =
         getPostAnalysisQueryEnvironment(getUniverseScopeAsStringList());
     AggregateAllOutputFormatterCallback<T, ?> callback =

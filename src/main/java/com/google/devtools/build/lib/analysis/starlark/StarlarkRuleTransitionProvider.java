@@ -145,7 +145,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
     private final StructImpl attrObject;
     private final int hashCode;
 
-    FunctionPatchTransition(
+    private FunctionPatchTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition, Rule rule) {
       super(starlarkDefinedConfigTransition);
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();

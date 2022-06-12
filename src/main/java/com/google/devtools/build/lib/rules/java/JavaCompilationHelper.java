@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -172,6 +173,21 @@ public final class JavaCompilationHelper {
     }
     JavaCompileOutputs<Artifact> result = builder.build();
     return result;
+  }
+
+  public JavaCompileOutputs<Artifact> createOutputs(JavaOutput output) {
+    JavaCompileOutputs.Builder<Artifact> builder =
+        JavaCompileOutputs.builder()
+            .output(output.getClassJar())
+            .manifestProto(output.getManifestProto())
+            .nativeHeader(output.getNativeHeadersJar());
+    if (generatesOutputDeps()) {
+      builder.depsProto(output.getJdeps());
+    }
+    if (usesAnnotationProcessing()) {
+      builder.genClass(output.getGeneratedClassJar()).genSource(output.getGeneratedSourceJar());
+    }
+    return builder.build();
   }
 
   public void createCompileAction(JavaCompileOutputs<Artifact> outputs)

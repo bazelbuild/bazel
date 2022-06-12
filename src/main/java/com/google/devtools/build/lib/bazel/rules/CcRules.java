@@ -80,7 +80,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
     builder.addRuleDefinition(new BazelCcLibraryRule());
     builder.addRuleDefinition(new BazelCcImportRule());
-    builder.addRuleDefinition(new CcIncludeScanningRule());
+    builder.addRuleDefinition(new CcIncludeScanningRule(/* addGrepIncludes= */ false));
     builder.addRuleDefinition(new FdoProfileRule());
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
     builder.addRuleDefinition(new CcLinkingRule());

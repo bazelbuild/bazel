@@ -148,6 +148,11 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public boolean isPackageDefaultHdrsCheckSet() {
+    return ruleAttributes.isPackageDefaultHdrsCheckSet();
+  }
+
+  @Override
   public Boolean getPackageDefaultTestOnly() {
     return ruleAttributes.getPackageDefaultTestOnly();
   }

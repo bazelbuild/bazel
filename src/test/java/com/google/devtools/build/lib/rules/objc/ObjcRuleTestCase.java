@@ -29,6 +29,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -65,6 +66,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -76,6 +78,8 @@ import javax.annotation.Nullable;
  * simply call a check... method) across several rule types.
  */
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
+  private static final Correspondence<String, String> MATCHES_REGEX =
+      Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
   protected static final String MOCK_XCRUNWRAPPER_PATH =
       toolsRepoExecPath("tools/objc/xcrunwrapper.sh");
   protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
@@ -163,8 +167,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   private static String toolExecutable(String toolSrcPath) {
-    return String.format("%s-out/host/bin/%s", TestConstants.PRODUCT_NAME,
-        TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
+    return String.format(
+        "%s-out/[^/]*-exec-[^/]*/bin/%s",
+        TestConstants.PRODUCT_NAME, TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
   }
 
   private String configurationDir(
@@ -1096,13 +1101,20 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
+        .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertThat(action.getArguments())
-        .containsExactly(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO,
-            "-create", i386Bin, x8664Bin,
-            "-o", execPathEndingWith(action.getOutputs(), "x_lipobin"))
+        .comparingElementsUsing(MATCHES_REGEX)
+        .containsExactly(
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH,
+            LIPO,
+            "-create",
+            i386Bin,
+            x8664Bin,
+            "-o",
+            execPathEndingWith(action.getOutputs(), "x_lipobin"))
         .inOrder();
 
     assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
@@ -1418,11 +1430,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + "x/x_bin";
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
+        .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
-    assertContainsSublist(action.getArguments(), ImmutableList.of(
-        MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
+    assertThat(action.getArguments())
+        .comparingElementsUsing(MATCHES_REGEX)
+        .containsAtLeast(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create")
+        .inOrder();
     assertThat(action.getArguments()).containsAtLeast(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipobin")));

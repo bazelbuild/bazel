@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -184,11 +185,14 @@ public final class RequiredFragmentsUtil {
     requiredFragments
         // Fragments explicitly required by the native target/aspect definition API:
         .addFragmentClasses(configurationFragmentPolicy.getRequiredConfigurationFragments())
-        // Fragments explicitly required by the Starlark target/aspect definition API:
+        // Fragments explicitly required by the Starlark target/aspect definition API (nulls are
+        // filtered because the rule definition may reference non-existent fragments):
         .addFragmentClasses(
-            Collections2.transform(
-                configurationFragmentPolicy.getRequiredStarlarkFragments(),
-                configuration::getStarlarkFragmentByName))
+            Collections2.filter(
+                Collections2.transform(
+                    configurationFragmentPolicy.getRequiredStarlarkFragments(),
+                    configuration::getStarlarkFragmentByName),
+                Objects::nonNull))
         // Fragments universally required by everything:
         .addFragmentClasses(universallyRequiredFragments);
     // Fragments required by attached select()s.

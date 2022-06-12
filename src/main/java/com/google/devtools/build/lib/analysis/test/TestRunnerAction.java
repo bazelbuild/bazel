@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -608,7 +609,7 @@ public class TestRunnerAction extends AbstractAction
                   .getContext(TestActionContext.class)
                   .newCachedTestResult(executor.getExecRoot(), this, cachedTestResultData.get()));
     } catch (IOException e) {
-      logger.atInfo().log(getErrorMessageOnNewCachedTestResultError(e.getMessage()));
+      logger.atInfo().log("%s", getErrorMessageOnNewCachedTestResultError(e.getMessage()));
       executor
           .getEventHandler()
           .handle(Event.warn(getErrorMessageOnNewCachedTestResultError(e.getMessage())));
@@ -646,7 +647,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   void createEmptyOutputs(ActionExecutionContext context) throws IOException {
-    for (Artifact output : TestRunnerAction.this.getMandatoryOutputs()) {
+    for (Artifact output : TestRunnerAction.this.getOutputs()) {
       FileSystemUtils.touchFile(context.getInputPath(output));
     }
   }
@@ -883,8 +884,8 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Map<String, String> getExecutionInfo() {
-    return testProperties.getExecutionInfo();
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return mergeMaps(super.getExecutionInfo(), testProperties.getExecutionInfo());
   }
 
   public TestTargetExecutionSettings getExecutionSettings() {
@@ -998,12 +999,12 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult execute(
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
-      ActionContinuationOrResult continuation =
-          beginExecution(actionExecutionContext, testActionContext);
-      while (!continuation.isDone()) {
-        continuation = continuation.execute();
-      }
-      return continuation.get();
+    ActionContinuationOrResult continuation =
+        beginExecution(actionExecutionContext, testActionContext);
+    while (!continuation.isDone()) {
+      continuation = continuation.execute();
+    }
+    return continuation.get();
   }
 
   @Override

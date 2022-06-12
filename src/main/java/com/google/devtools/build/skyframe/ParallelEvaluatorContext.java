@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -46,8 +48,8 @@ class ParallelEvaluatorContext {
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  private final EvaluationVersionBehavior evaluationVersionBehavior;
   private final boolean mergingSkyframeAnalysisExecutionPhases;
+  private final Cache<SkyKey, SkyKeyComputeState> stateCache;
 
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -81,14 +83,13 @@ class ParallelEvaluatorContext {
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      EvaluationVersionBehavior evaluationVersionBehavior,
-      boolean mergingSkyframeAnalysisExecutionPhases) {
+      boolean mergingSkyframeAnalysisExecutionPhases,
+      Cache<SkyKey, SkyKeyComputeState> stateCache) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
-    this.evaluationVersionBehavior = evaluationVersionBehavior;
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
     this.replayingNestedSetPostableVisitor =
@@ -100,6 +101,7 @@ class ParallelEvaluatorContext {
     this.errorInfoManager = errorInfoManager;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
     this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
+    this.stateCache = stateCache;
   }
 
   Map<SkyKey, ? extends NodeEntry> getBatchValues(
@@ -189,16 +191,16 @@ class ParallelEvaluatorContext {
     return errorInfoManager;
   }
 
-  EvaluationVersionBehavior getEvaluationVersionBehavior() {
-    return evaluationVersionBehavior;
-  }
-
   boolean restartPermitted() {
     return graphInconsistencyReceiver.restartPermitted();
   }
 
   boolean mergingSkyframeAnalysisExecutionPhases() {
     return mergingSkyframeAnalysisExecutionPhases;
+  }
+
+  Cache<SkyKey, SkyKeyComputeState> stateCache() {
+    return stateCache;
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */

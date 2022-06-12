@@ -19,20 +19,13 @@ package com.google.devtools.build.skyframe;
  * save memory when it is known that the graph will not be reused.
  *
  * <p>Graph edges must be stored for incremental builds, but if this program will terminate after a
- * single run, edges can be thrown away in order to save memory. The edges will be stored in the
- * {@link BuildingState} as usual while the node is being built, but will not be stored once the
- * node is done and written to the graph. Any attempt to access the edges once the node is done will
- * fail the build fast.
+ * single run, edges can be thrown away in order to save memory. The edges will be stored as usual
+ * while the node is being built, but will not be stored once the node is done and written to the
+ * graph. Any attempt to access the edges once the node is done will fail the build fast.
  */
 public class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
   @Override
-  public KeepEdgesPolicy keepEdges() {
+  public final KeepEdgesPolicy keepEdges() {
     return KeepEdgesPolicy.NONE;
-  }
-
-  @Override
-  protected void postProcessAfterDone() {
-    this.directDeps = null;
-    this.reverseDeps = null;
   }
 }

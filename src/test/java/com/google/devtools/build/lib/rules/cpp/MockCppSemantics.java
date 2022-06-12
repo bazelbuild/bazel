@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * Null-object like {@link CppSemantics} implementation. Only to be used in tests that don't depend
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  */
 @Immutable
 public final class MockCppSemantics implements CppSemantics {
-  @AutoCodec public static final MockCppSemantics INSTANCE = new MockCppSemantics();
+  @SerializationConstant public static final MockCppSemantics INSTANCE = new MockCppSemantics();
 
   private MockCppSemantics() {}
 

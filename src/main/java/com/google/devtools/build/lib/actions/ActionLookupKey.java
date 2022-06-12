@@ -38,4 +38,19 @@ public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {
    */
   @Nullable
   BuildConfigurationKey getConfigurationKey();
+
+  /**
+   * Returns {@code true} if this key <em>may</em> own shareable actions, as determined by {@link
+   * ActionLookupData#valueIsShareable}.
+   *
+   * <p>Returns {@code false} for some non-standard keys such as the build info key and coverage
+   * report key.
+   *
+   * <p>A return of {@code true} still requires checking {@link ActionLookupData#valueIsShareable}
+   * to determine whether the individual action can be shared - notably, for a test target,
+   * compilation actions are shareable, but test actions are not.
+   */
+  default boolean mayOwnShareableActions() {
+    return getLabel() != null;
+  }
 }

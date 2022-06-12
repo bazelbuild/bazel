@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -106,7 +105,6 @@ public class CommandEnvironment {
   private final Consumer<String> shutdownReasonConsumer;
 
   private OutputService outputService;
-  private TopDownActionCache topDownActionCache;
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
   @Nullable private WorkspaceInfoFromDiff workspaceInfoFromDiff;
@@ -601,11 +599,6 @@ public class CommandEnvironment {
     return workspaceInfoFromDiff;
   }
 
-  /** Returns the top-down action cache to use, or null. */
-  public TopDownActionCache getTopDownActionCache() {
-    return topDownActionCache;
-  }
-
   public ResourceManager getLocalResourceManager() {
     return ResourceManager.instance();
   }
@@ -732,8 +725,6 @@ public class CommandEnvironment {
 
     outputService = null;
     BlazeModule outputModule = null;
-    topDownActionCache = null;
-    BlazeModule topDownCachingModule = null;
     if (command.builds()) {
       for (BlazeModule module : runtime.getBlazeModules()) {
         OutputService moduleService = module.getOutputService();
@@ -746,18 +737,6 @@ public class CommandEnvironment {
           }
           outputService = moduleService;
           outputModule = module;
-        }
-
-        TopDownActionCache moduleCache = module.getTopDownActionCache();
-        if (moduleCache != null) {
-          if (topDownActionCache != null) {
-            throw new IllegalStateException(
-                String.format(
-                    "More than one module (%s and %s) returns a top down action cache",
-                    module.getClass(), topDownCachingModule.getClass()));
-          }
-          topDownActionCache = moduleCache;
-          topDownCachingModule = module;
         }
       }
     }

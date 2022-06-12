@@ -485,6 +485,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalCcSharedLibraryDebug;
   }
 
+  public boolean experimentalPlatformCcTest() {
+    return cppOptions.experimentalPlatformCcTest;
+  }
+
   public boolean legacyWholeArchive() {
     return cppOptions.legacyWholeArchive;
   }
@@ -766,6 +770,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.targetLibcTopLabel;
   }
 
+  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
+  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return enableLegacyCcProvider();
+  }
+
   public boolean enableLegacyCcProvider() {
     return !cppOptions.disableLegacyCcProvider;
   }
@@ -837,12 +847,26 @@ public final class CppConfiguration extends Fragment
     return cppOptions.generateLlvmLcov;
   }
 
+  public boolean experimentalIncludeScanning() {
+    return cppOptions.experimentalIncludeScanning;
+  }
+
   public boolean objcShouldScanIncludes() {
     return cppOptions.objcScanIncludes;
   }
 
   public boolean objcShouldGenerateDotdFiles() {
     return cppOptions.objcGenerateDotdFiles;
+  }
+
+  @StarlarkMethod(
+      name = "experimental_cc_implementation_deps",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcImplementationDeps();
   }
 
   public boolean experimentalCcImplementationDeps() {
@@ -925,6 +949,12 @@ public final class CppConfiguration extends Fragment
   public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalCcSharedLibraryDebug();
+  }
+
+  @Override
+  public boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalPlatformCcTest();
   }
 
   /**

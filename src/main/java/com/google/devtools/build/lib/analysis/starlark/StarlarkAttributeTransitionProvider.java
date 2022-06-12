@@ -93,7 +93,7 @@ public class StarlarkAttributeTransitionProvider
     private final StructImpl attrObject;
     private final int hashCode;
 
-    FunctionSplitTransition(
+    private FunctionSplitTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
         ConfiguredAttributeMapper attributeMap) {
       super(starlarkDefinedConfigTransition);

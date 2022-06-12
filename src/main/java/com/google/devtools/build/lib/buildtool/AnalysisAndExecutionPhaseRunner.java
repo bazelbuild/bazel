@@ -192,6 +192,7 @@ public final class AnalysisAndExecutionPhaseRunner {
                 request.getCheckForActionConflicts(),
                 request.getLoadingPhaseThreadCount(),
                 request.getTopLevelArtifactContext(),
+                request.reportIncompatibleTargets(),
                 env.getReporter(),
                 env.getEventBus(),
                 /*includeExecutionPhase=*/ true,

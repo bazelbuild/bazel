@@ -21,7 +21,7 @@ load(
 )
 load(":git_worker.bzl", "git_repo")
 
-def _clone_or_update(ctx):
+def _clone_or_update_repo(ctx):
     if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
         (ctx.attr.tag and ctx.attr.commit) or
         (ctx.attr.tag and ctx.attr.branch) or
@@ -171,14 +171,14 @@ def _new_git_repository_implementation(ctx):
     if ((not ctx.attr.build_file and not ctx.attr.build_file_content) or
         (ctx.attr.build_file and ctx.attr.build_file_content)):
         fail("Exactly one of build_file and build_file_content must be provided.")
-    update = _clone_or_update(ctx)
+    update = _clone_or_update_repo(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
     ctx.delete(ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _new_git_repository_attrs.keys(), update)
 
 def _git_repository_implementation(ctx):
-    update = _clone_or_update(ctx)
+    update = _clone_or_update_repo(ctx)
     patch(ctx)
     ctx.delete(ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)

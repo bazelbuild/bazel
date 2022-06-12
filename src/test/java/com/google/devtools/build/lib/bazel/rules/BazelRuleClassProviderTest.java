@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
@@ -71,7 +72,7 @@ public class BazelRuleClassProviderTest {
 
   private static void checkModule(RuleSet top) {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
+    builder.setToolsRepository(RepositoryName.BAZEL_TOOLS);
     Set<RuleSet> result = new HashSet<>();
     result.add(BazelRuleClassProvider.BAZEL_SETUP);
     collectTransitiveClosure(result, top);
@@ -174,7 +175,7 @@ public class BazelRuleClassProviderTest {
             "--experimental_strict_action_env",
             "--action_env=FOO=bar");
 
-    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.getActionEnvironment(options);
+    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options);
     assertThat(env.getFixedEnv().toMap()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
     assertThat(env.getFixedEnv().toMap()).containsEntry("FOO", "bar");
   }

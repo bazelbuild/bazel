@@ -91,7 +91,6 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),
-        getHostConfiguration(),
         aspect != null ? Aspect.forNative(aspect) : null,
         ImmutableMap.of(),
         /*toolchainContexts=*/ null,

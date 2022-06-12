@@ -72,14 +72,6 @@ public class CppRuleClasses {
   static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
 
-  public static LabelLateBoundDefault<CppConfiguration> ccHostToolchainAttribute(
-      RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromHostConfiguration(
-        CppConfiguration.class,
-        env.getToolsLabel(CROSSTOOL_LABEL),
-        (rules, attributes, cppConfig) -> cppConfig.getRuleProvidingCcToolchainProvider());
-  }
-
   public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
     return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
   }
@@ -459,14 +451,25 @@ public class CppRuleClasses {
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
+    private final boolean addGrepIncludes;
+
+    public CcIncludeScanningRule(boolean addGrepIncludes) {
+      this.addGrepIncludes = addGrepIncludes;
+    }
+
+    public CcIncludeScanningRule() {
+      this(true);
+    }
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$grep_includes", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
-                  .value(env.getToolsLabel("//tools/cpp:grep-includes")))
-          .build();
+      if (addGrepIncludes) {
+        builder.add(
+            attr("$grep_includes", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(env.getToolsLabel("//tools/cpp:grep-includes")));
+      }
+      return builder.build();
     }
 
     @Override

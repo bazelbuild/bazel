@@ -21,33 +21,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Some static utility functions for testing.
  */
 public class TestUtils {
-  public static final ThreadPoolExecutor POOL =
-    (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
 
   public static final UUID ZERO_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
-
-  /**
-   * Wait until the {@link System#currentTimeMillis} / 1000 advances.
-   *
-   * This method takes 0-1000ms to run, 500ms on average.
-   */
-  public static void advanceCurrentTimeSeconds() throws InterruptedException {
-    long currentTimeSeconds = System.currentTimeMillis() / 1000;
-    do {
-      Thread.sleep(50);
-    } while (currentTimeSeconds == System.currentTimeMillis() / 1000);
-  }
-
-  public static ThreadPoolExecutor getPool() {
-    return POOL;
-  }
 
   /**
    * Returns the path to a fixed temporary directory, with back-slashes turned into slashes. The
@@ -99,14 +79,6 @@ public class TestUtils {
     return path;
   }
 
-  /**
-   * Creates a unique and empty temporary directory and returns the path, with backslashes turned
-   * into slashes.
-   */
-  public static String createUniqueTmpDirString() throws IOException {
-    return createUniqueTmpDir(null).getPathString().replace('\\', '/');
-  }
-
   private static File tmpDirRoot() {
     File tmpDir; // Flag value specified in environment?
     String tmpDirStr = getUserValue("TEST_TMPDIR");
@@ -127,17 +99,6 @@ public class TestUtils {
       tmpDir = new File(tmpDir, "tmp");
     }
     return tmpDir;
-  }
-
-  public static File makeTmpDir() throws IOException {
-    File dir = File.createTempFile(TestUtils.class.getName(), ".temp", tmpDirFile());
-    if (!dir.delete()) {
-      throw new IOException("Cannot remove a temporary file " + dir);
-    }
-    if (!dir.mkdir()) {
-      throw new IOException("Cannot create a temporary directory " + dir);
-    }
-    return dir;
   }
 
   public static int getRandomSeed() {

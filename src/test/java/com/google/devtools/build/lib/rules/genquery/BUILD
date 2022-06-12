@@ -22,7 +22,6 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/rules/genquery",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",

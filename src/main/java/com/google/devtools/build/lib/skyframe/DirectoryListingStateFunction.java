@@ -72,11 +72,6 @@ public class DirectoryListingStateFunction implements SkyFunction {
     }
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
    * {@link DirectoryListingStateFunction#compute}.

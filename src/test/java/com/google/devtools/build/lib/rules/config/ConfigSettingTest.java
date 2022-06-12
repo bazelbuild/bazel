@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
@@ -110,9 +109,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /** Test fragment. */
-  @AutoCodec
   @RequiresOptions(options = {DummyTestOptions.class})
-  public static class DummyTestOptionsFragment extends Fragment {
+  public static final class DummyTestOptionsFragment extends Fragment {
     private final BuildOptions buildOptions;
 
     public DummyTestOptionsFragment(BuildOptions buildOptions) {
@@ -291,7 +289,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         String.format(
             "option 'nonselectable_allowlisted_option' cannot be used in a config_setting (it is "
                 + "allowlisted to %s//tools/... only)",
-            RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getCanonicalForm()),
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
         "config_setting(",
         "    name = 'badoption',",
         "    values = {",

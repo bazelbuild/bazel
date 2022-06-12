@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectoryValue.PrepareDepsOfTargetsUnderDirectoryKey;
+import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /**
  * Ensures the graph contains the targets in the directory's package, if any, and in the
@@ -38,7 +38,8 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     PrepareDepsOfTargetsUnderDirectoryKey argument =
         (PrepareDepsOfTargetsUnderDirectoryKey) skyKey.argument();
     final FilteringPolicy filteringPolicy = argument.getFilteringPolicy();
@@ -78,11 +79,5 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
       return null;
     }
     return PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

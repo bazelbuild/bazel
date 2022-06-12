@@ -78,7 +78,7 @@ Merino's excellent
 ## When should I use dynamic execution?
 
 Dynamic execution obviously requires some form of
-[remote execution system](/remote-execution-services.html). It is not currently
+[remote execution system](https://www.bazel.build/remote-execution-services.html). It is not currently
 possible to use a cache-only remote system, as a cache miss would be considered
 a failed action.
 

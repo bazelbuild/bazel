@@ -571,22 +571,51 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAspectParameterRequiresValues() throws Exception {
-    ev.checkEvalErrorContains(
-        "Aspect parameter attribute 'param' must have type 'string' and use the 'values' "
-            + "restriction.",
+  public void testAspectParameterWithDefaultValue() throws Exception {
+    evalAndExport(
+        ev,
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(_impl,",
-        "   attrs = { 'param' : attr.string(default = 'c') }",
+        "   attrs = { 'param' : attr.string(default = 'a', values=['a', 'b']) }",
         ")");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
+    assertThat(attribute.getName()).isEqualTo("param");
+    assertThat(((String) attribute.getDefaultValueUnchecked())).isEqualTo("a");
+  }
+
+  @Test
+  public void testAspectParameterBadDefaultValue() throws Exception {
+    ev.checkEvalErrorContains(
+        "Aspect parameter attribute 'param' has a bad default value: has to be"
+            + " one of 'b' instead of 'a'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.string(default = 'a', values = ['b']) }",
+        ")");
+  }
+
+  @Test
+  public void testAspectParameterNotRequireValues() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.string(default = 'val') }",
+        ")");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
+    assertThat(attribute.getName()).isEqualTo("param");
+    assertThat(((String) attribute.getDefaultValueUnchecked())).isEqualTo("val");
   }
 
   @Test
   public void testAspectParameterBadType() throws Exception {
     ev.checkEvalErrorContains(
-        "Aspect parameter attribute 'param' must have type 'string' and use the 'values' "
-            + "restriction.",
+        "Aspect parameter attribute 'param' must have type 'bool', 'int' or 'string'.",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(_impl,",
@@ -687,16 +716,17 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testLabelAttrDefaultValueAsStringBadValue() throws Exception {
     ev.checkEvalErrorContains(
         "invalid label '/foo:bar' in parameter 'default' of attribute 'label': "
-            + "invalid target name '/foo:bar'",
+            + "invalid package name '/foo': package names may not start with '/'",
         "attr.label(default = '/foo:bar')");
 
     ev.checkEvalErrorContains(
         "invalid label '/bar:foo' in element 1 of parameter 'default' of attribute "
-            + "'label_list': invalid target name '/bar:foo'",
+            + "'label_list': invalid package name '/bar': package names may not start with '/'",
         "attr.label_list(default = ['//foo:bar', '/bar:foo'])");
 
     ev.checkEvalErrorContains(
-        "invalid label '/bar:foo' in dict key element: invalid target name '/bar:foo'",
+        "invalid label '/bar:foo' in dict key element: invalid package name '/bar': "
+            + "package names may not start with '/'",
         "attr.label_keyed_string_dict(default = {'//foo:bar': 'a', '/bar:foo': 'b'})");
   }
 

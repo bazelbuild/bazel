@@ -436,7 +436,7 @@ class LambdaDesugaring extends ClassVisitor {
         MethodHandle bsmMethod = toMethodHandle(publicLookup(), bsm, /*target*/ false);
         // Give generated classes to have more stable names (b/35643761).  Use BSM's naming scheme
         // but with separate counter for each surrounding class.
-        String lambdaClassName = internalName + "$$Lambda$" + (lambdaCount++);
+        String lambdaClassName = internalName + "$$Lambda$" + lambdaCount++;
         Type[] capturedTypes = Type.getArgumentTypes(desc);
         boolean needFactory =
             capturedTypes.length != 0

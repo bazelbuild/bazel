@@ -27,7 +27,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** SkyFunction for {@link PathCasingLookupValue}s. */
 public final class PathCasingLookupFunction implements SkyFunction {
@@ -99,12 +98,6 @@ public final class PathCasingLookupFunction implements SkyFunction {
     return (child != null && expected.equals(child.getName()))
         ? PathCasingLookupValue.GOOD
         : PathCasingLookupValue.BAD;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /** Thrown if a non-terminal path component exists, but it's not a directory. */

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
@@ -380,6 +381,25 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/alpha-fastbuild");
+  }
+
+  @Test
+  public void testConfigurationEquality() throws Exception {
+    // Note that, in practice, test_arg should not be used as a no-op argument; however,
+    // these configurations are never trimmed nor even used to build targets so not an issue.
+    new EqualsTester()
+        .addEqualityGroup(
+            createRaw(parseBuildOptions("--test_arg=1a"), "@testrepo", false),
+            createRaw(parseBuildOptions("--test_arg=1a"), "@testrepo", false))
+        // Different BuildOptions means non-equal
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "@testrepo", false))
+        // Different --experimental_sibling_repository_layout means non-equal
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "@testrepo", true))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "@testrepo", false))
+        // Different repositoryName means non-equal
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "@testrepo1", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "@testrepo2", false))
+        .testEquals();
   }
 
   /**

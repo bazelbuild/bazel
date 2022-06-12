@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -53,11 +53,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class PathCasingLookupFunctionTest extends FoundationTestCase {
 
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
 
   @Before
-  public final void setUp() {
+  public void setUp() {
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -90,8 +90,7 @@ public final class PathCasingLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction());
 
     differencer = new SequencedRecordingDifferencer();
-    driver =
-        new SequentialBuildDriver(new InMemoryMemoizingEvaluator(skyFunctions, differencer, null));
+    evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer, null);
   }
 
   private RootedPath rootedPath(String relative) {
@@ -192,7 +191,7 @@ public final class PathCasingLookupFunctionTest extends FoundationTestCase {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver.evaluate(ImmutableList.of(key), evaluationContext);
+    return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
   }
 
   private PathCasingLookupValue expectEvalSuccess(RootedPath path) throws Exception {

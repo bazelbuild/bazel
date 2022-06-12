@@ -60,7 +60,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
-        "//src/main/java/com/google/devtools/build/lib/includescanning",
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
         "//src/main/java/com/google/devtools/build/lib/packages",

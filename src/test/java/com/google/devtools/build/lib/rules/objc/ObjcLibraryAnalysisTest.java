@@ -69,7 +69,7 @@ public final class ObjcLibraryAnalysisTest extends AnalysisTestCase {
       ActionLookupValue actionLookupValue =
           (ActionLookupValue)
               skyframeExecutor
-                  .getEvaluatorForTesting()
+                  .getEvaluator()
                   .getExistingValue(generatingActionKey.getActionLookupKey());
       Action generatingAction = actionLookupValue.getAction(generatingActionKey.getActionIndex());
 

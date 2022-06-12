@@ -32,7 +32,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/file",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/lexer",
         "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:error_prone_annotations",

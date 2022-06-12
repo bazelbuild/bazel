@@ -60,7 +60,7 @@ public class SingleBuildFileCache implements MetadataProvider {
               Path path = ActionInputHelper.toInputPath(input, execRoot);
               FileArtifactValue metadata;
               try {
-                metadata = FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW), true);
+                metadata = FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW));
               } catch (IOException e) {
                 return new ActionInputMetadata(input, e);
               }

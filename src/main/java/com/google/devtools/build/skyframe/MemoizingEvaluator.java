@@ -31,14 +31,14 @@ import javax.annotation.Nullable;
  * prerequisite {@link SkyValue}s. The {@link MemoizingEvaluator} implementation makes sure that
  * those are created beforehand.
  *
- * <p>The graph caches previously computed value values. Arbitrary values can be invalidated between
- * calls to {@link #evaluate}; they will be recreated the next time they are requested.
+ * <p>The graph caches previously computed values. Arbitrary values can be invalidated between calls
+ * to {@link #evaluate}; they will be recreated the next time they are requested.
  */
 public interface MemoizingEvaluator {
 
   /**
-   * Computes the transitive closure of a given set of values at the given {@link Version}. See
-   * {@link EagerInvalidator#invalidate}.
+   * Computes the transitive closure of a given set of values. See {@link
+   * EagerInvalidator#invalidate}.
    *
    * <p>The returned EvaluationResult is guaranteed to contain a result for at least one root if
    * keepGoing is false. It will contain a result for every root if keepGoing is true, <i>unless</i>
@@ -46,7 +46,7 @@ public interface MemoizingEvaluator {
    * missing.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, Version version, EvaluationContext evaluationContext)
+      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException;
 
   /**

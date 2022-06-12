@@ -22,7 +22,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
@@ -42,6 +41,8 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -941,18 +942,33 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
     BuildConfigurationValue configuration =
-        new BuildConfigurationValue(
+        BuildConfigurationValue.create(
+            defaultBuildOptions,
+            RepositoryName.createFromValidStrippedName("workspace"),
+            /*siblingRepositoryLayout=*/ false,
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
                 /*defaultSystemJavabase=*/ null,
                 "productName"),
-            /*fragments=*/ ImmutableMap.of(),
-            defaultBuildOptions,
-            /*reservedActionMnemonics=*/ ImmutableSet.of(),
-            ActionEnvironment.EMPTY,
-            RepositoryName.createFromValidStrippedName("workspace"),
-            /*siblingRepositoryLayout=*/ false);
+            new BuildConfigurationValue.GlobalStateProvider() {
+              @Override
+              public ActionEnvironment getActionEnvironment(BuildOptions buildOptions) {
+                return ActionEnvironment.EMPTY;
+              }
+
+              @Override
+              public FragmentRegistry getFragmentRegistry() {
+                return FragmentRegistry.create(
+                    ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+              }
+
+              @Override
+              public ImmutableSet<String> getReservedActionMnemonics() {
+                return ImmutableSet.of();
+              }
+            },
+            new FragmentFactory());
     BuildEvent firstWithConfiguration =
         new GenericConfigurationEvent(testId("first"), configuration.toBuildEvent());
     BuildEvent secondWithConfiguration =

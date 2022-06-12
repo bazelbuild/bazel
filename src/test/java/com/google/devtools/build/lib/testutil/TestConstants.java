@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CROSSTOOL_LABEL;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /**
  * Various constants required by the tests.
@@ -98,7 +99,7 @@ public class TestConstants {
   public static final String MOCK_CC_CROSSTOOL_PATH = "tools/cpp";
 
   /** The workspace repository label under which built-in tools reside. */
-  public static final String TOOLS_REPOSITORY = "@bazel_tools";
+  public static final RepositoryName TOOLS_REPOSITORY = RepositoryName.BAZEL_TOOLS;
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
   public static final String TOOLS_REPOSITORY_SCRATCH = "embedded_tools/";
 

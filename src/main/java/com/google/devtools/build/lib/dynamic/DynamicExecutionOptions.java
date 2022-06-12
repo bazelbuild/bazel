@@ -54,6 +54,16 @@ public class DynamicExecutionOptions extends OptionsBase {
   public boolean internalSpawnScheduler;
 
   @Option(
+      name = "experimental_dynamic_execution_cpu_limited",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "If true, the number of parallel dynamic executions is limited to the number of CPUs. "
+              + "The number of CPUs available can be set with the --local_cpu_resources flag.")
+  public boolean cpuLimited;
+
+  @Option(
       name = "dynamic_local_strategy",
       converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

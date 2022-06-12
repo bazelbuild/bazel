@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +43,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
@@ -90,37 +93,7 @@ abstract class AbstractParallelEvaluator {
    */
   private final AtomicInteger globalEnqueuedIndex = new AtomicInteger(Integer.MIN_VALUE);
 
-  AbstractParallelEvaluator(
-      ProcessableGraph graph,
-      Version graphVersion,
-      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
-      ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
-      EventFilter storedEventFilter,
-      ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
-      GraphInconsistencyReceiver graphInconsistencyReceiver,
-      Supplier<ExecutorService> executorService,
-      CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
-    this(
-        graph,
-        graphVersion,
-        skyFunctions,
-        reporter,
-        emittedEventState,
-        storedEventFilter,
-        errorInfoManager,
-        keepGoing,
-        progressReceiver,
-        graphInconsistencyReceiver,
-        executorService,
-        cycleDetector,
-        evaluationVersionBehavior,
-        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-        /*executionJobsThreadPoolSize=*/ 0);
-  }
+  protected final Cache<SkyKey, SkyKeyComputeState> stateCache = Caffeine.newBuilder().build();
 
   AbstractParallelEvaluator(
       ProcessableGraph graph,
@@ -135,7 +108,6 @@ abstract class AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionJobsThreadPoolSize) {
     this.graph = graph;
@@ -143,7 +115,7 @@ abstract class AbstractParallelEvaluator {
     Supplier<QuiescingExecutor> quiescingExecutorSupplier =
         getQuiescingExecutorSupplier(
             executorService, cpuHeavySkyKeysThreadPoolSize, executionJobsThreadPoolSize);
-    evaluatorContext =
+    this.evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
             graphVersion,
@@ -158,8 +130,8 @@ abstract class AbstractParallelEvaluator {
             () ->
                 new NodeEntryVisitor(
                     quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
-            evaluationVersionBehavior,
-            /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0);
+            /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0,
+            stateCache);
   }
 
   private Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(
@@ -559,7 +531,7 @@ abstract class AbstractParallelEvaluator {
               .getProgressReceiver()
               .stateStarting(skyKey, NodeState.INITIALIZING_ENVIRONMENT);
           env =
-              new SkyFunctionEnvironment(
+              SkyFunctionEnvironment.create(
                   skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
@@ -599,6 +571,8 @@ abstract class AbstractParallelEvaluator {
             }
           }
         } catch (final SkyFunctionException builderException) {
+          stateCache.invalidate(skyKey);
+
           ReifiedSkyFunctionException reifiedBuilderException =
               new ReifiedSkyFunctionException(builderException);
           // In keep-going mode, we do not let SkyFunctions complete with a thrown error if they
@@ -664,6 +638,7 @@ abstract class AbstractParallelEvaluator {
         }
 
         if (maybeHandleRestart(skyKey, state, value)) {
+          stateCache.invalidate(skyKey);
           cancelExternalDeps(env);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
@@ -674,6 +649,8 @@ abstract class AbstractParallelEvaluator {
         GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
 
         if (value != null) {
+          stateCache.invalidate(skyKey);
+
           Preconditions.checkState(
               !env.valuesMissing(),
               "Evaluation of %s returned non-null value but requested dependencies that weren't "

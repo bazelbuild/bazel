@@ -118,67 +118,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     validateRuntimeClassPath(javaLib, "java/somelib/libjavalib.jar", "java/jarlib/library.jar");
   }
 
-  /**
-   * Tests that a Java custom library written in Starlark is on the runtime classpath when it's a
-   * runtime dep for a java_import rule.
-   */
-  @Test
-  public void testWithJavaCustomLibrary() throws Exception {
-    scratch.file(
-        "java/sandwich/java_custom_library.bzl",
-        "def _impl(ctx):",
-        "  deps = []",
-        "  for dep in ctx.attr.deps:",
-        "    if JavaInfo in dep:",
-        "      deps.append(dep[JavaInfo])",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    deps = deps,",
-        "    strict_deps = 'ERROR',",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "  result = java_common.merge(deps + [compilation_provider])",
-        "  return struct(",
-        "    files = depset([output_jar]),",
-        "    providers = [result]",
-        "  )",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=True),",
-        "    'deps': attr.label_list(),",
-        "    '_java_toolchain': attr.label(default=Label('//tools/jdk:toolchain')),",
-        "  },",
-        "  fragments = ['java']",
-        ")");
-    scratch.file(
-        "java/sandwich/BUILD",
-        "load(':java_custom_library.bzl', 'java_custom_library')",
-        "java_library(",
-        "    name = 'javalib',",
-        "    srcs = ['MyClass.java'],",
-        "    deps = [':foo']",
-        ")",
-        "java_import(",
-        "    name = 'foo',",
-        "    jars = ['foo.jar'],",
-        "    runtime_deps = [':javacustomlib']",
-        ")",
-        "java_custom_library(",
-        "    name  = 'javacustomlib',",
-        "    srcs = ['Other.java']",
-        ")");
-
-    ConfiguredTarget javaLib = getConfiguredTarget("//java/sandwich:javalib");
-    validateRuntimeClassPath(
-        javaLib,
-        "java/sandwich/libjavalib.jar",
-        "java/sandwich/foo.jar",
-        "java/sandwich/libjavacustomlib.jar");
-  }
 
   @Test
   public void testDeps() throws Exception {
@@ -359,46 +298,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "             srcs = ['Javalib.java'])",
         "java_import(name  = 'library-jar',",
         "            jars = [':javalib'])");
-  }
-
-  @Test
-  public void testAndroidConstraint() throws Exception {
-    scratchRule(
-        "java/android",
-        "jar",
-        "java_library(name = 'lib',",
-        "             constraints = ['android'])",
-        "java_import(name = 'jar',",
-        "    jars = ['dummy.jar'],",
-        "    constraints = ['android'],",
-        "    exports = [':lib'])");
-  }
-
-  @Test
-  public void testAndroidConstraintDeps() throws Exception {
-    checkError(
-        "ugly",
-        "jar",
-        getErrorMsgMisplacedRules(
-            "exports", "java_import", "//ugly:jar", "cc_library", "//ugly:cc"),
-        "cc_library(name = 'cc', srcs = ['cc.cc'])",
-        "java_import(name = 'jar',",
-        "    jars = ['dummy.jar'],",
-        "    constraints = ['android'],",
-        "    exports = [':cc'])");
-  }
-
-  @Test
-  public void testAndroidConstraintMissing() throws Exception {
-    checkError(
-        "java/android",
-        "jar",
-        "//java/android:lib: does not have constraint 'android'",
-        "java_library(name = 'lib')",
-        "java_import(name = 'jar',",
-        "    jars = ['dummy.jar'],",
-        "    constraints = ['android'],",
-        "    exports = [':lib'])");
   }
 
   @Test

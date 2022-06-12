@@ -33,12 +33,14 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -66,6 +68,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * Module that provides implementations of {@link CppIncludeExtractionContext},
@@ -74,16 +77,14 @@ import java.util.function.Supplier;
 public class IncludeScanningModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final PathFragment INCLUDE_HINTS_FILENAME =
-      PathFragment.create("tools/cpp/INCLUDE_HINTS");
-
   private final MutableSupplier<SpawnIncludeScanner> spawnIncludeScannerSupplier =
       new MutableSupplier<>();
   private final MutableSupplier<ArtifactFactory> artifactFactory = new MutableSupplier<>();
   private IncludeScannerLifecycleManager lifecycleManager;
 
+  @Nullable
   protected PathFragment getIncludeHintsFilename() {
-    return INCLUDE_HINTS_FILENAME;
+    return null;
   }
 
   @Override
@@ -106,7 +107,8 @@ public class IncludeScanningModule extends BlazeModule {
   @ThreadHostile
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     lifecycleManager =
-        new IncludeScannerLifecycleManager(env, request, spawnIncludeScannerSupplier);
+        new IncludeScannerLifecycleManager(
+            env, request, spawnIncludeScannerSupplier, getIncludeHintsFilename() != null);
     builder.addExecutorLifecycleListener(lifecycleManager);
   }
 
@@ -119,6 +121,11 @@ public class IncludeScanningModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
+    CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
+    if (cppOptions != null && cppOptions.experimentalIncludeScanning) {
+      env.getReporter()
+          .handle(Event.warn("Include scanning enabled. This feature is unsupported."));
+    }
     artifactFactory.set(env.getSkyframeBuildView().getArtifactFactory());
   }
 
@@ -137,10 +144,13 @@ public class IncludeScanningModule extends BlazeModule {
 
   @VisibleForTesting
   public static ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
-      PathFragment includeHintsFile) {
-    return ImmutableMap.of(
-        IncludeScanningSkyFunctions.INCLUDE_HINTS,
-        new IncludeHintsFunction(includeHintsFile));
+      @Nullable PathFragment includeHintsFile) {
+    ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
+    if (includeHintsFile != null) {
+      skyFunctions.put(
+          IncludeScanningSkyFunctions.INCLUDE_HINTS, new IncludeHintsFunction(includeHintsFile));
+    }
+    return skyFunctions.buildOrThrow();
   }
 
   /**
@@ -225,6 +235,7 @@ public class IncludeScanningModule extends BlazeModule {
   private static final class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
     private final IncludeScanningOptions options;
+    private final boolean useIncludeHints;
 
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
     private IncludeScannerSupplier includeScannerSupplier;
@@ -233,9 +244,11 @@ public class IncludeScanningModule extends BlazeModule {
     IncludeScannerLifecycleManager(
         CommandEnvironment env,
         BuildRequest buildRequest,
-        MutableSupplier<SpawnIncludeScanner> spawnScannerSupplier) {
+        MutableSupplier<SpawnIncludeScanner> spawnScannerSupplier,
+        boolean useIncludeHints) {
       this.env = env;
       this.options = buildRequest.getOptions(IncludeScanningOptions.class);
+      this.useIncludeHints = useIncludeHints;
 
       spawnScannerSupplier.set(
           new SpawnIncludeScanner(
@@ -258,26 +271,32 @@ public class IncludeScanningModule extends BlazeModule {
     public void executionPhaseStarting(
         ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts)
         throws AbruptExitException, InterruptedException {
-      try {
-        includeScannerSupplier.init(
-            new IncludeParser(
-                new IncludeParser.Hints(
-                    (IncludeParser.HintsRules)
-                        env.getSkyframeExecutor()
-                            .evaluateSkyKeyForExecutionSetup(
-                                env.getReporter(), IncludeHintsFunction.INCLUDE_HINTS_KEY),
-                    env.getSkyframeBuildView().getArtifactFactory())));
-      } catch (ExecException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage("could not initialize include hints: " + e.getMessage())
-                    .setIncludeScanning(
-                        IncludeScanning.newBuilder()
-                            .setCode(IncludeScanning.Code.INITIALIZE_INCLUDE_HINTS_ERROR))
-                    .build()),
-            e);
+      IncludeParser.HintsRules hintsRules;
+      if (useIncludeHints) {
+        try {
+          hintsRules =
+              (IncludeParser.HintsRules)
+                  env.getSkyframeExecutor()
+                      .evaluateSkyKeyForExecutionSetup(
+                          env.getReporter(), IncludeHintsFunction.INCLUDE_HINTS_KEY);
+        } catch (ExecException e) {
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage("could not initialize include hints: " + e.getMessage())
+                      .setIncludeScanning(
+                          IncludeScanning.newBuilder()
+                              .setCode(IncludeScanning.Code.INITIALIZE_INCLUDE_HINTS_ERROR))
+                      .build()),
+              e);
+        }
+      } else {
+        hintsRules = IncludeParser.HintsRules.EMPTY;
       }
+      includeScannerSupplier.init(
+          new IncludeParser(
+              new IncludeParser.Hints(
+                  hintsRules, env.getSkyframeBuildView().getArtifactFactory())));
     }
 
     @Override

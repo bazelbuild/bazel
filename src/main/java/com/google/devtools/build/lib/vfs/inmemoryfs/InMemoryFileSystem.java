@@ -597,7 +597,8 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   public synchronized void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
-    status.setLastModifiedTime(newTime == -1L ? clock.currentTimeMillis() : newTime);
+    status.setLastModifiedTime(
+        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime);
   }
 
   @Override

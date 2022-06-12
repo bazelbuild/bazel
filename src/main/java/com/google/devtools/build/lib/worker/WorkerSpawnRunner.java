@@ -498,7 +498,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                   ProfilerTask.WORKER_COPYING_OUTPUTS,
                   String.format("Worker #%d copying output files", worker.getWorkerId()))) {
         Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
-        context.lockOutputFiles();
+        context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
         worker.finishExecution(execRoot, outputs);
         spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
       } catch (IOException e) {

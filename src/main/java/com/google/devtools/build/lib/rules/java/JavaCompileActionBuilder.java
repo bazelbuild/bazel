@@ -322,7 +322,7 @@ public final class JavaCompileActionBuilder {
     }
     if (targetLabel != null) {
       result.add("--target_label");
-      if (targetLabel.getRepository().isDefault() || targetLabel.getRepository().isMain()) {
+      if (targetLabel.getRepository().isMain()) {
         result.addLabel(targetLabel);
       } else {
         // @-prefixed strings will be assumed to be filenames and expanded by

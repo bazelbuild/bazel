@@ -98,9 +98,4 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     }
     return new BuildInfoCollectionValue(collection, generatingActions);
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

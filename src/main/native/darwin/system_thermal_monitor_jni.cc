@@ -24,39 +24,9 @@ namespace blaze_jni {
 
 static int gThermalNotifyToken = 0;
 
-void portable_start_thermal_monitoring() {
-  // To test use:
-  //   /usr/bin/log stream -level debug \
-  //       --predicate '(subsystem == "build.bazel")'
-  //   sudo thermal simulate cpu {nominal|moderate|heavy|trapping|sleeping}
-  // Note that we install the test notification as well that can be used for
-  // testing.
-  static dispatch_once_t once_token;
-  dispatch_once(&once_token, ^{
-    dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
-    notify_handler_t handler = (^(int state) {
-      int value = portable_thermal_load();
-      thermal_callback(value);
-    });
-    int status =
-        notify_register_dispatch(kOSThermalNotificationPressureLevelName,
-                                 &gThermalNotifyToken, queue, handler);
-    CHECK(status == NOTIFY_STATUS_OK);
-
-    // This is registered solely so we can test the system from end-to-end.
-    // Using the Apple notification requires admin access.
-    int testToken;
-    status =
-        notify_register_dispatch("com.google.bazel.test.thermalpressurelevel",
-                                 &testToken, queue, handler);
-    CHECK(status == NOTIFY_STATUS_OK);
-    log_if_possible("thermal monitoring registered");
-  });
-}
-
-int portable_thermal_load() {
+static int thermal_load_from_token(int token) {
   uint64_t state;
-  uint32_t status = notify_get_state(gThermalNotifyToken, &state);
+  uint32_t status = notify_get_state(token, &state);
   if (status != NOTIFY_STATUS_OK) {
     log_if_possible("error: notify_get_state failed (%d)", status);
     return -1;
@@ -95,6 +65,40 @@ int portable_thermal_load() {
   }
 
   return load;
+}
+
+void portable_start_thermal_monitoring() {
+  // To test use:
+  //   /usr/bin/log stream -level debug \
+  //       --predicate '(subsystem == "build.bazel")'
+  //   sudo thermal simulate cpu {nominal|moderate|heavy|trapping|sleeping}
+  // Note that we install the test notification as well that can be used for
+  // testing.
+  static dispatch_once_t once_token;
+  dispatch_once(&once_token, ^{
+    dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
+    notify_handler_t handler = (^(int token) {
+      int value = thermal_load_from_token(token);
+      thermal_callback(value);
+    });
+    int status =
+        notify_register_dispatch(kOSThermalNotificationPressureLevelName,
+                                 &gThermalNotifyToken, queue, handler);
+    CHECK(status == NOTIFY_STATUS_OK);
+
+    // This is registered solely so we can test the system from end-to-end.
+    // Using the Apple notification requires admin access.
+    int testToken;
+    status =
+        notify_register_dispatch("com.google.bazel.test.thermalpressurelevel",
+                                 &testToken, queue, handler);
+    CHECK(status == NOTIFY_STATUS_OK);
+    log_if_possible("thermal monitoring registered");
+  });
+}
+
+int portable_thermal_load() {
+  return thermal_load_from_token(gThermalNotifyToken);
 }
 
 }  // namespace blaze_jni

@@ -120,7 +120,7 @@ public abstract class PackageSpecification {
       throw new InvalidPackageSpecificationException(
           String.format("invalid package name '%s': %s", spec, e.getMessage()));
     }
-    Verify.verify(packageId.getRepository().isDefault());
+    Verify.verify(packageId.getRepository().isMain());
 
     PackageIdentifier packageIdForSpecifiedRepository =
         PackageIdentifier.create(repositoryName, packageId.getPackageFragment());

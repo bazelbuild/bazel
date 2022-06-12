@@ -361,7 +361,7 @@ public class Dict<K, V>
   public StarlarkList<?> items(StarlarkThread thread) throws EvalException {
     Object[] array = new Object[size()];
     int i = 0;
-    for (Map.Entry<?, ?> e : entrySet()) {
+    for (Map.Entry<?, ?> e : contents.entrySet()) {
       array[i++] = Tuple.pair(e.getKey(), e.getValue());
     }
     return StarlarkList.wrap(thread.mutability(), array);
@@ -377,8 +377,8 @@ public class Dict<K, V>
   public StarlarkList<?> keys(StarlarkThread thread) throws EvalException {
     Object[] array = new Object[size()];
     int i = 0;
-    for (Map.Entry<?, ?> e : entrySet()) {
-      array[i++] = e.getKey();
+    for (K e : contents.keySet()) {
+      array[i++] = e;
     }
     return StarlarkList.wrap(thread.mutability(), array);
   }

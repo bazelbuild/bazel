@@ -96,8 +96,7 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
-        FileArtifactValue.createForNormalFile(
-            FAKE_DIGEST, /*proxy=*/ null, 0L, /*isShareable=*/ true));
+        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 0L));
 
     expander.addRunfilesToInputs(
         inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
@@ -115,8 +114,7 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
-        FileArtifactValue.createForNormalFile(
-            FAKE_DIGEST, /*proxy=*/ null, 0L, /*isShareable=*/ true));
+        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 0L));
 
     ArtifactExpander filesetExpander =
         new ArtifactExpander() {
@@ -206,12 +204,10 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact1,
-        FileArtifactValue.createForNormalFile(
-            FAKE_DIGEST, /*proxy=*/ null, 1L, /*isShareable=*/ true));
+        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
     mockCache.put(
         artifact2,
-        FileArtifactValue.createForNormalFile(
-            FAKE_DIGEST, /*proxy=*/ null, 12L, /*isShareable=*/ true));
+        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 12L));
 
     expander.addRunfilesToInputs(
         inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
@@ -237,8 +233,7 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
-        FileArtifactValue.createForNormalFile(
-            FAKE_DIGEST, /*proxy=*/ null, 1L, /*isShareable=*/ true));
+        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
 
     expander.addRunfilesToInputs(
         inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);
@@ -262,8 +257,7 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(
         artifact,
-        FileArtifactValue.createForNormalFile(
-            FAKE_DIGEST, /*proxy=*/ null, 1L, /*isShareable=*/ true));
+        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
 
     expander.addRunfilesToInputs(
         inputMappings, supplier, mockCache, NO_ARTIFACT_EXPANDER, PathFragment.EMPTY_FRAGMENT);

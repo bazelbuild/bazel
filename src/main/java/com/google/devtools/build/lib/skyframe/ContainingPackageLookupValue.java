@@ -57,7 +57,6 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
 
   public static Key key(PackageIdentifier id) {
     Preconditions.checkArgument(!id.getPackageFragment().isAbsolute(), id);
-    Preconditions.checkArgument(!id.getRepository().isDefault(), id);
     return Key.create(id);
   }
 
@@ -90,7 +89,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
                   labelNameFragment.segmentCount())
               : label.toPathFragment().relativeTo(containingPkgFragment);
       message += "; perhaps you meant to put the colon here: '";
-      if (containingPkg.getRepository().isDefault() || containingPkg.getRepository().isMain()) {
+      if (containingPkg.getRepository().isMain()) {
         message += "//";
       }
       message += containingPkg + ":" + labelNameInContainingPackage + "'?";

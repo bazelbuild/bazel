@@ -184,8 +184,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         continue;
       }
 
-      ConfigMatchingProvider curCondition =
-          configConditions.get(getLabel().resolveRepositoryRelative(selectorKey));
+      ConfigMatchingProvider curCondition = configConditions.get(selectorKey);
       if (curCondition == null) {
         // This can happen if the rule is in error
         continue;

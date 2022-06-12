@@ -281,6 +281,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "rule_with_transition(name = 'buildme')");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:buildme")).isNull();
-    assertContainsEvent("invalid label: :other_rule");
+    assertContainsEvent("invalid label ':other_rule': absolute label must begin with '@' or '//'");
   }
 }

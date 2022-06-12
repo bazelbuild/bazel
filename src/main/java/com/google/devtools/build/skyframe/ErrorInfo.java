@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.util.Collection;
 import java.util.Objects;
@@ -48,7 +47,7 @@ public class ErrorInfo {
         ImmutableList.of(cycleInfo),
         /*isDirectlyTransient=*/ false,
         /*isTransitivelyTransient=*/ false,
-        /* isCatastrophic= */ false);
+        /*isCatastrophic=*/ false);
   }
 
   /** Create an ErrorInfo from a collection of existing errors. */
@@ -64,11 +63,11 @@ public class ErrorInfo {
     for (ErrorInfo child : childErrors) {
       if (firstException == null) {
         // Arbitrarily pick the first error.
-        firstException = child.getException();
+        firstException = child.exception;
       }
       cycleBuilder.addAll(CycleInfo.prepareCycles(currentValue, child.cycles));
-      isTransitivelyTransient |= child.isTransitivelyTransient();
-      isCatastrophic |= child.isCatastrophic();
+      isTransitivelyTransient |= child.isTransitivelyTransient;
+      isCatastrophic |= child.isCatastrophic;
     }
 
     return new ErrorInfo(
@@ -80,9 +79,7 @@ public class ErrorInfo {
   }
 
   @Nullable private final Exception exception;
-
   private final ImmutableList<CycleInfo> cycles;
-
   private final boolean isDirectlyTransient;
   private final boolean isTransitivelyTransient;
   private final boolean isCatastrophic;
@@ -93,14 +90,19 @@ public class ErrorInfo {
       boolean isDirectlyTransient,
       boolean isTransitivelyTransient,
       boolean isCatastrophic) {
-    Preconditions.checkState(exception != null || !Iterables.isEmpty(cycles),
-        "At least one of exception and cycles must be non-null/empty, respectively");
-
     this.exception = exception;
     this.cycles = cycles;
     this.isDirectlyTransient = isDirectlyTransient;
     this.isTransitivelyTransient = isTransitivelyTransient;
     this.isCatastrophic = isCatastrophic;
+    Preconditions.checkArgument(
+        exception != null || !cycles.isEmpty(),
+        "At least one of exception and cycles must be present",
+        this);
+    Preconditions.checkArgument(
+        !isDirectlyTransient || isTransitivelyTransient,
+        "Cannot be directly transient but not transitively transient",
+        this);
   }
 
   @Override
@@ -188,6 +190,9 @@ public class ErrorInfo {
   /**
    * Returns true iff the error is directly transient, i.e. if there was a transient error
    * encountered during the computation itself.
+   *
+   * <p>A return of {@code true} implies that {@link #isTransitivelyTransient()} is also {@code
+   * true}.
    */
   public boolean isDirectlyTransient() {
     return isDirectlyTransient;

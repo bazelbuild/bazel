@@ -417,7 +417,7 @@ public class Desugar {
                 .getConstructor(Boolean.TYPE)
                 .newInstance(options.tolerateMissingDependencies);
       } catch (ReflectiveOperationException | SecurityException e) {
-        throw new IllegalStateException("Can't emit desugaring metadata as requested");
+        throw new IllegalStateException("Can't emit desugaring metadata as requested", e);
       }
     } else if (options.tolerateMissingDependencies) {
       return DependencyCollector.NoWriteCollectors.NOOP;

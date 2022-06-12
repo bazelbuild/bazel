@@ -304,6 +304,15 @@ final class Lexer {
             case '\n':
               // ignore end of line character
               break;
+            case 'a':
+              literal.append('\u0007');
+              break;
+            case 'b':
+              literal.append('\b');
+              break;
+            case 'f':
+              literal.append('\f');
+              break;
             case 'n':
               literal.append('\n');
               break;
@@ -312,6 +321,9 @@ final class Lexer {
               break;
             case 't':
               literal.append('\t');
+              break;
+            case 'v':
+              literal.append('\u000b');
               break;
             case '\\':
               literal.append('\\');
@@ -352,13 +364,9 @@ final class Lexer {
                 literal.append((char) (octal & 0xff));
                 break;
               }
-            case 'a':
-            case 'b':
-            case 'f':
             case 'N':
             case 'u':
             case 'U':
-            case 'v':
             default:
               // unknown char escape => "\literal"
               error("invalid escape sequence: \\" + c + ". Use '\\\\' to insert '\\'.", pos - 1);

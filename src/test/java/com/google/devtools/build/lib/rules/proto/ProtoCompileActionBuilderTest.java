@@ -44,12 +44,14 @@ import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkValue;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -153,7 +155,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 protoSource("import1.proto"), protoSource("import2.proto")),
             /* publicImportProtoSources */ ImmutableList.of(),
             /* strictImportableSources */ ImmutableList.of()),
-        Label.parseAbsoluteUnchecked("//foo:bar"),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
         Exports.DO_NOT_USE,
@@ -189,7 +190,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* transitiveProtoSources */ ImmutableList.of(),
             /* publicImportProtoSources */ ImmutableList.of(),
             /* strictImportableSources */ ImmutableList.of()),
-        Label.parseAbsoluteUnchecked("//foo:bar"),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
         Exports.DO_NOT_USE,
@@ -222,7 +222,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 protoSource("import1.proto"), protoSource("import2.proto")),
             /* publicImportProtoSources */ ImmutableList.of(),
             /* strictImportableSources */ ImmutableList.of(protoSource("import1.proto"))),
-        Label.parseAbsoluteUnchecked("//foo:bar"),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
         Exports.DO_NOT_USE,
@@ -266,7 +265,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 protoSource("import1.proto"), protoSource("import2.proto")),
             /* publicImportProtoSources */ ImmutableList.of(protoSource("export1.proto")),
             /* strictImportableSources */ ImmutableList.of()),
-        Label.parseAbsoluteUnchecked("//foo:bar"),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
         Exports.USE,
@@ -300,9 +298,8 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* transitiveProtoSources */ ImmutableList.of(),
             /* publicImportProtoSources */ ImmutableList.of(),
             /* strictImportableSources */ ImmutableList.of()),
-        Label.parseAbsoluteUnchecked("//foo:bar"),
         ImmutableList.of(out),
-        "flavour",
+        "dontcare",
         Exports.DO_NOT_USE,
         Services.DISALLOW);
 
@@ -312,18 +309,19 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
     assertThat(cmdLine.arguments()).containsAtLeast("--disallow_services", "--foo", "--bar");
   }
 
-  @Test
-  public void outReplacementAreLazilyEvaluated() throws Exception {
-    final boolean[] hasBeenCalled = new boolean[1];
-    hasBeenCalled[0] = false;
-    CharSequence outReplacement =
-        new OnDemandString() {
+  private static class InterceptOnDemandString extends OnDemandString implements StarlarkValue {
+    boolean hasBeenCalled;
+
           @Override
           public String toString() {
-            hasBeenCalled[0] = true;
+      hasBeenCalled = true;
             return "mu";
           }
-        };
+  }
+
+  @Test
+  public void outReplacementAreLazilyEvaluated() throws Exception {
+    InterceptOnDemandString outReplacement = new InterceptOnDemandString();
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:%s",
@@ -342,7 +340,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* transitiveProtoSources */ ImmutableList.of(),
             /* publicImportProtoSources */ ImmutableList.of(),
             /* strictImportableSources */ ImmutableList.of()),
-        Label.parseAbsoluteUnchecked("//foo:bar"),
         ImmutableList.of(out),
         "flavour",
         Exports.DO_NOT_USE,
@@ -351,10 +348,10 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
     CommandLine cmdLine =
         paramFileCommandLineForAction(
             (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
-    assertThat(hasBeenCalled[0]).isFalse();
+    assertThat(outReplacement.hasBeenCalled).isFalse();
 
     cmdLine.arguments();
-    assertThat(hasBeenCalled[0]).isTrue();
+    assertThat(outReplacement.hasBeenCalled).isTrue();
   }
 
   /**
@@ -365,14 +362,14 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
   public void exceptionIfSameName() throws Exception {
     ProtoLangToolchainProvider toolchain1 =
         ProtoLangToolchainProvider.create(
-            "dontcare",
+            "dontcare=%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
     ProtoLangToolchainProvider toolchain2 =
         ProtoLangToolchainProvider.create(
-            "dontcare",
+            "dontcare=%s",
             /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
@@ -394,9 +391,8 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         /* transitiveProtoSources */ ImmutableList.of(),
                         /* publicImportProtoSources */ ImmutableList.of(),
                         /* strictImportableSources */ ImmutableList.of()),
-                    Label.parseAbsoluteUnchecked("//foo:bar"),
                     ImmutableList.of(out),
-                    "flavour",
+                    "dontcare",
                     Exports.DO_NOT_USE,
                     Services.ALLOW));
 
@@ -512,17 +508,12 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
 
     assertThat(
             new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
-                .buildResourceSet(NestedSetBuilder.emptySet(STABLE_ORDER)))
+                .buildResourceSet(OS.DARWIN, 0))
         .isEqualTo(ResourceSet.createWithRamCpu(25, 1));
 
     assertThat(
             new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
-                .buildResourceSet(
-                    NestedSetBuilder.wrap(
-                        STABLE_ORDER,
-                        ImmutableList.of(
-                            artifact("//:dont-care", "protoc-gen-javalite.exe"),
-                            artifact("//:dont-care-2", "protoc-gen-javalite-2.exe")))))
+                .buildResourceSet(OS.LINUX, 2))
         .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
   }
 }

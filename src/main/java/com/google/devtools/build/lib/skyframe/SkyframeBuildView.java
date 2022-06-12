@@ -458,7 +458,7 @@ public final class SkyframeBuildView {
               .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
-      if (checkForActionConflicts && shouldCheckForConflicts(newKeys)) {
+      if (shouldCheckForConflicts(checkForActionConflicts, newKeys)) {
         largestTopLevelKeySetCheckedForConflicts = newKeys;
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
@@ -757,7 +757,14 @@ public final class SkyframeBuildView {
         detailedExitCode);
   }
 
-  private boolean shouldCheckForConflicts(ImmutableSet<SkyKey> newKeys) {
+  private boolean shouldCheckForConflicts(
+      boolean specifiedValueInRequest, ImmutableSet<SkyKey> newKeys) {
+    if (!specifiedValueInRequest) {
+      // A build request by default enables action conflict checking, except for some cases e.g.
+      // cquery.
+      return false;
+    }
+
     if (someActionLookupValueEvaluated) {
       // A top-level target was added and may introduce a conflict, or a top-level target was
       // recomputed and may introduce or resolve a conflict.

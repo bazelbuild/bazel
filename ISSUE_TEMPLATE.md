@@ -1,6 +1,8 @@
-> ATTENTION! Please read and follow:
-> - if this is a _question_ about how to build / test / query / deploy using Bazel, or a _discussion starter_, send it to bazel-discuss@googlegroups.com
-> - if this is a _bug_ or _feature request_, fill the form below as best as you can.
+<!--
+ATTENTION! Please read and follow:
+- if this is a _question_ about how to build / test / query / deploy using Bazel, or a _discussion starter_, send it to bazel-discuss@googlegroups.com
+- if this is a _bug_ or _feature request_, fill the form below as best as you can.
+-->
 
 ### Description of the problem / feature request:
 
@@ -32,15 +34,17 @@
 
 ###  Have you found anything relevant by searching the web?
 
-> Replace these lines with your answer.
->
-> Places to look:
-> - StackOverflow: http://stackoverflow.com/questions/tagged/bazel
-> - GitHub issues: https://github.com/bazelbuild/bazel/issues
-> - email threads on https://groups.google.com/forum/#!forum/bazel-discuss
+> Replace this line with your answer.
+
+<!--
+Places to look:
+ - StackOverflow: http://stackoverflow.com/questions/tagged/bazel
+ - GitHub issues: https://github.com/bazelbuild/bazel/issues
+ - email threads on https://groups.google.com/forum/#!forum/bazel-discuss
+-->
 
 ### Any other information, logs, or outputs that you want to share?
 
-> Replace these lines with your answer.
->
-> If the files are large, upload as attachment or provide link.
+> Replace this line with your answer.
+
+<!-- If the files are large, upload as attachment or provide link. -->

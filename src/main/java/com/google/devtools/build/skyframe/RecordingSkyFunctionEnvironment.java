@@ -20,10 +20,11 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An environment that can observe the deps requested through getValue(s) calls. */
-public class RecordingSkyFunctionEnvironment implements Environment {
+public final class RecordingSkyFunctionEnvironment implements Environment {
 
   private final Environment delegate;
   private final Consumer<SkyKey> skyKeyReceiver;
@@ -380,8 +381,8 @@ public class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
-    return delegate.inErrorBubblingForTesting();
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
   }
 
   @Nullable
@@ -396,6 +397,11 @@ public class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    delegate.registerDependencies(keys);
+  }
+
+  @Override
   public void dependOnFuture(ListenableFuture<?> future) {
     delegate.dependOnFuture(future);
   }
@@ -403,5 +409,10 @@ public class RecordingSkyFunctionEnvironment implements Environment {
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return delegate.getState(stateSupplier);
   }
 }

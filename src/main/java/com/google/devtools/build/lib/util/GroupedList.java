@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 import java.util.AbstractCollection;
@@ -305,7 +306,7 @@ public final class GroupedList<T> implements Iterable<List<T>> {
     return false;
   }
 
-  @AutoCodec @AutoCodec.VisibleForSerialization @Compressed
+  @SerializationConstant @AutoCodec.VisibleForSerialization @Compressed
   static final Object EMPTY_LIST = new Object();
 
   public @Compressed Object compress() {
@@ -320,8 +321,8 @@ public final class GroupedList<T> implements Iterable<List<T>> {
   }
 
   @SuppressWarnings("unchecked")
-  public Set<T> toSet() {
-    ImmutableSet.Builder<T> builder = ImmutableSet.builderWithExpectedSize(numElements());
+  public ImmutableSet<T> toSet() {
+    ImmutableSet.Builder<T> builder = ImmutableSet.builderWithExpectedSize(size);
     for (Object obj : elements) {
       if (obj instanceof List) {
         builder.addAll((List<T>) obj);

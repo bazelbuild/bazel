@@ -216,11 +216,6 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     artifactSkyKeyToSkyValue.put(skyKey, skyValue);
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /** Mainly used for error bubbling when evaluating direct/transitive children. */
   private static final class ArtifactNestedSetFunctionException extends SkyFunctionException {
 

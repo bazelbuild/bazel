@@ -275,9 +275,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public void lockOutputFiles() throws InterruptedException {
+    public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
+        throws InterruptedException {
       if (stopConcurrentSpawns != null) {
-        stopConcurrentSpawns.stop();
+        stopConcurrentSpawns.stop(exitCode, errorMessage, outErr);
       }
     }
 

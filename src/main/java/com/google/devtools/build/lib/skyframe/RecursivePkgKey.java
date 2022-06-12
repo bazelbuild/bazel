@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Objects;
@@ -33,7 +32,6 @@ import java.util.Objects;
  * equal to {@code rootedPath} or that are not beneath {@code rootedPath}.
  */
 @ThreadSafe
-@AutoCodec
 public class RecursivePkgKey {
   private final RepositoryName repositoryName;
   private final RootedPath rootedPath;
@@ -44,7 +42,6 @@ public class RecursivePkgKey {
       RootedPath rootedPath,
       ImmutableSet<PathFragment> excludedPaths) {
     PathFragment.checkAllPathsAreUnder(excludedPaths, rootedPath.getRootRelativePath());
-    Preconditions.checkState(!repositoryName.isDefault());
     this.repositoryName = repositoryName;
     this.rootedPath = Preconditions.checkNotNull(rootedPath);
     this.excludedPaths = Preconditions.checkNotNull(excludedPaths);

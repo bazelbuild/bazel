@@ -155,15 +155,14 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
 
   @Test
   public void testSkyframeExpandTestSuites() throws Exception {
+    assertExpandedSuitesSkyframe(Sets.newHashSet(test1, test2), ImmutableSet.of(test1, test2));
+    assertExpandedSuitesSkyframe(Sets.newHashSet(test1, test2), ImmutableSet.of(suite));
     assertExpandedSuitesSkyframe(
-        Sets.newHashSet(test1, test2), ImmutableSet.<Target>of(test1, test2));
-    assertExpandedSuitesSkyframe(Sets.newHashSet(test1, test2), ImmutableSet.<Target>of(suite));
-    assertExpandedSuitesSkyframe(
-        Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1, suite, test1b));
+        Sets.newHashSet(test1, test2, test1b), ImmutableSet.of(test1, suite, test1b));
     // The large test if returned as filtered from the test_suite rule, but should still be in the
     // result set as it's explicitly added.
     assertExpandedSuitesSkyframe(
-        Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
+        Sets.newHashSet(test1, test2, test1b), ImmutableSet.of(test1b, suite));
   }
 
   @Test
@@ -191,7 +190,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
             .setEventHandler(reporter)
             .build();
     EvaluationResult<TestsForTargetPatternValue> result =
-        getSkyframeExecutor().getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+        getSkyframeExecutor().getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
     ResolvedTargets<Label> actual = result.get(key).getLabels();
     assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expectedLabels);

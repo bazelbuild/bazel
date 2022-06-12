@@ -73,12 +73,6 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
     return new TopLevelAspectsValue(result.values());
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static Collection<AspectKey> getTopLevelAspectsKeys(
       ImmutableList<AspectDetails> aspectsDetails, ConfiguredTargetKey topLevelTargetKey) {
     Map<AspectDescriptor, AspectKey> result = new HashMap<>();

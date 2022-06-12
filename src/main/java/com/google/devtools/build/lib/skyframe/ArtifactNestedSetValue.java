@@ -23,11 +23,4 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 @Immutable
 @ThreadSafe
-public final class ArtifactNestedSetValue implements SkyValue {
-
-  @Override
-  public boolean dataIsShareable() {
-    // This is just a promise that data is available in memory. Not meant for cross-server sharing.
-    return false;
-  }
-}
+public final class ArtifactNestedSetValue implements SkyValue {}

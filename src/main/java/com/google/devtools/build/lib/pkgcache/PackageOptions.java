@@ -225,13 +225,9 @@ public class PackageOptions extends OptionsBase {
   }
 
   public ImmutableSet<PackageIdentifier> getDeletedPackages() {
-    if (deletedPackages == null || deletedPackages.isEmpty()) {
+    if (deletedPackages == null) {
       return ImmutableSet.of();
     }
-    ImmutableSet.Builder<PackageIdentifier> newDeletedPackages = ImmutableSet.builder();
-    for (PackageIdentifier pkg : deletedPackages) {
-      newDeletedPackages.add(pkg.makeAbsolute());
-    }
-    return newDeletedPackages.build();
+    return ImmutableSet.copyOf(deletedPackages);
   }
 }

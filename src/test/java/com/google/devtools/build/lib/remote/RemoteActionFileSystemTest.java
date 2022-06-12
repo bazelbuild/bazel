@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -41,26 +41,21 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 /** Tests for {@link RemoteActionFileSystem} */
 @RunWith(JUnit4.class)
-public class RemoteActionFileSystemTest {
+public final class RemoteActionFileSystemTest {
 
   private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
-  @Mock private RemoteActionInputFetcher inputFetcher;
-  private FileSystem fs;
-  private Path execRoot;
-  private ArtifactRoot outputRoot;
+  private final RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
+  private final FileSystem fs = new InMemoryFileSystem(HASH_FUNCTION);
+  private final Path execRoot = fs.getPath("/exec");
+  private final ArtifactRoot outputRoot =
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
 
   @Before
-  public void setUp() throws IOException {
-    MockitoAnnotations.initMocks(this);
-    fs = new InMemoryFileSystem(new JavaClock(), HASH_FUNCTION);
-    execRoot = fs.getPath("/exec");
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+  public void createOutputRoot() throws IOException {
     outputRoot.getRoot().asPath().createDirectoryAndParents();
   }
 
@@ -188,8 +183,7 @@ public class RemoteActionFileSystemTest {
     // Caution: there's a race condition between stating the file and computing the
     // digest. We need to stat first, since we're using the stat to detect changes.
     // We follow symlinks here to be consistent with getDigest.
-    inputs.putWithNoDepOwner(
-        a, FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW), true));
+    inputs.putWithNoDepOwner(a, FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW)));
     return a;
   }
 }

@@ -50,7 +50,7 @@ public interface JavaProtoCommonApi<
       FileT sourceJar,
       String protoToolchainAttr,
       String flavour)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "has_proto_sources",

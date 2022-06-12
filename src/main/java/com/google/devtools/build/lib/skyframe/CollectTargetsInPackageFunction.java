@@ -67,10 +67,4 @@ class CollectTargetsInPackageFunction implements SkyFunction {
           return TransitiveTraversalValue.key(target.getLabel());
         }
       };
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -58,5 +59,22 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
             Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat(((Dict) myInfo.getValue("test_env")).get("TEST_ENV_VAR")).isEqualTo("my_value");
+  }
+
+  @Test
+  public void testIsToolConfigurationIsBlocked() throws Exception {
+    scratch.file(
+        "example/BUILD", "load(':rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+
+    scratch.file(
+        "example/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.configuration.is_tool_configuration()",
+        "  return [DefaultInfo()]",
+        "custom_rule = rule(implementation = _impl)");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
+    assertThat(e).hasMessageThat().contains("private API only for use in builtins");
   }
 }

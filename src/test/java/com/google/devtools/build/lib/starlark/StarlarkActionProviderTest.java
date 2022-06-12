@@ -75,7 +75,6 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
     ActionAnalysisMetadata action = actions.get(0);
     assertThat(action.getMnemonic()).isEqualTo("Genrule");
     assertThat(action).isInstanceOf(AbstractAction.class);
-    assertThat(((AbstractAction) action).getExecutionInfo()).isNotNull();
   }
 
   @Test

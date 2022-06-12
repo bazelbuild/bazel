@@ -67,10 +67,7 @@ java_test(
     name = "JavaInfoTest",
     srcs = ["JavaInfoTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

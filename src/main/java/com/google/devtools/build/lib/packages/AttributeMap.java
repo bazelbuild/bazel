@@ -142,6 +142,8 @@ public interface AttributeMap {
   // a more generic interface.
   String getPackageDefaultHdrsCheck();
 
+  boolean isPackageDefaultHdrsCheckSet();
+
   Boolean getPackageDefaultTestOnly();
 
   String getPackageDefaultDeprecation();

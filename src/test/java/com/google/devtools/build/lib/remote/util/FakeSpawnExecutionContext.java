@@ -107,7 +107,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public void lockOutputFiles() {
+  public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr) {
     lockOutputFilesCalled = true;
   }
 

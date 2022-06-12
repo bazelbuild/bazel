@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -68,6 +69,7 @@ import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -151,7 +153,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
-      @Nullable final Credentials creds)
+      @Nullable final Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
     return new HttpCacheClient(
         NioEventLoopGroup::new,
@@ -163,6 +166,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
         extraHttpHeaders,
         digestUtil,
         creds,
+        authAndTlsOptions,
         null);
   }
 
@@ -174,7 +178,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
-      @Nullable final Credentials creds)
+      @Nullable final Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
 
     if (KQueue.isAvailable()) {
@@ -188,6 +193,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           extraHttpHeaders,
           digestUtil,
           creds,
+          authAndTlsOptions,
           domainSocketAddress);
     } else if (Epoll.isAvailable()) {
       return new HttpCacheClient(
@@ -200,6 +206,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           extraHttpHeaders,
           digestUtil,
           creds,
+          authAndTlsOptions,
           domainSocketAddress);
     } else {
       throw new Exception("Unix domain sockets are unsupported on this platform");
@@ -216,6 +223,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
       @Nullable final Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions,
       @Nullable SocketAddress socketAddress)
       throws Exception {
     useTls = uri.getScheme().equals("https");
@@ -236,15 +244,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       socketAddress = new InetSocketAddress(uri.getHost(), uri.getPort());
     }
 
-    final SslContext sslCtx;
-    if (useTls) {
-      // OpenSsl gives us a > 2x speed improvement on fast networks, but requires netty tcnative
-      // to be there which is not available on all platforms and environments.
-      SslProvider sslProvider = OpenSsl.isAvailable() ? SslProvider.OPENSSL : SslProvider.JDK;
-      sslCtx = SslContextBuilder.forClient().sslProvider(sslProvider).build();
-    } else {
-      sslCtx = null;
-    }
+    final SslContext sslCtx = useTls ? createSSLContext(authAndTlsOptions) : null;
     final int port = uri.getPort();
     final String hostname = uri.getHost();
     this.eventLoop = newEventLoopGroup.apply(2);
@@ -269,6 +269,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
             if (sslCtx != null) {
               SSLEngine engine = sslCtx.newEngine(ch.alloc(), hostname, port);
               engine.setUseClientMode(true);
+              if (authAndTlsOptions.tlsClientCertificate != null
+                  && authAndTlsOptions.tlsClientKey != null) {
+                engine.setNeedClientAuth(true);
+              }
               p.addFirst("ssl-handler", new SslHandler(engine));
             }
           }
@@ -772,5 +776,29 @@ public final class HttpCacheClient implements RemoteCacheClient {
         creds.refresh();
       }
     }
+  }
+
+  private static SslContext createSSLContext(AuthAndTLSOptions authAndTlsOptions)
+      throws IOException {
+    // OpenSsl gives us a > 2x speed improvement on fast networks, but requires netty tcnative
+    // to be there which is not available on all platforms and environments.
+    SslProvider sslProvider = OpenSsl.isAvailable() ? SslProvider.OPENSSL : SslProvider.JDK;
+    SslContextBuilder sslContextBuilder = SslContextBuilder.forClient().sslProvider(sslProvider);
+
+    // Root CA certificate
+    if (authAndTlsOptions.tlsCertificate != null) {
+      sslContextBuilder =
+          sslContextBuilder.trustManager(new File(authAndTlsOptions.tlsCertificate));
+    }
+
+    // Optional client TLS authentication
+    if (authAndTlsOptions.tlsClientCertificate != null && authAndTlsOptions.tlsClientKey != null) {
+      sslContextBuilder =
+          sslContextBuilder.keyManager(
+              new File(authAndTlsOptions.tlsClientCertificate),
+              new File(authAndTlsOptions.tlsClientKey));
+    }
+
+    return sslContextBuilder.build();
   }
 }

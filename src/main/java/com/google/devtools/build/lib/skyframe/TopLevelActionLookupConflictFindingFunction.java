@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -66,10 +65,8 @@ class TopLevelActionLookupConflictFindingFunction implements SkyFunction {
     return Iterables.transform(keys, k -> Key.create(k, topLevelArtifactContext));
   }
 
-  @AutoCodec
   @AutoValue
   abstract static class Key implements CompletionFunction.TopLevelActionLookupKey {
-    @AutoCodec.Instantiator
     static Key create(
         ActionLookupKey actionLookupKey, TopLevelArtifactContext topLevelArtifactContext) {
       return new AutoValue_TopLevelActionLookupConflictFindingFunction_Key(

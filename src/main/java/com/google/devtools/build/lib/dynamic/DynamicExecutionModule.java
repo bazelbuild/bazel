@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.HashMap;
 import java.util.List;
@@ -133,10 +135,16 @@ public class DynamicExecutionModule extends BlazeModule {
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
       throws AbruptExitException {
+    DynamicExecutionOptions options = env.getOptions().getOptions(DynamicExecutionOptions.class);
+    com.google.devtools.build.lib.exec.ExecutionOptions execOptions =
+        env.getOptions().getOptions(com.google.devtools.build.lib.exec.ExecutionOptions.class);
     registerSpawnStrategies(
         registryBuilder,
-        env.getOptions().getOptions(DynamicExecutionOptions.class),
-        env.getReporter());
+        options,
+        env.getReporter(),
+        options.cpuLimited
+            ? (int) execOptions.localCpuResources
+            : env.getOptions().getOptions(BuildRequestOptions.class).jobs);
   }
 
   // CommandEnvironment is difficult to access in tests, so use this method for testing.
@@ -144,7 +152,8 @@ public class DynamicExecutionModule extends BlazeModule {
   final void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder,
       DynamicExecutionOptions options,
-      Reporter reporter)
+      Reporter reporter,
+      int numCpus)
       throws AbruptExitException {
     if (!options.internalSpawnScheduler) {
       return;
@@ -156,7 +165,9 @@ public class DynamicExecutionModule extends BlazeModule {
             options,
             this::getExecutionPolicy,
             this::getPostProcessingSpawnForLocalExecution,
-            firstBuild);
+            firstBuild,
+            numCpus,
+            this::canIgnoreFailure);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
     registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
     registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));
@@ -207,6 +218,30 @@ public class DynamicExecutionModule extends BlazeModule {
    */
   protected Optional<Spawn> getPostProcessingSpawnForLocalExecution(Spawn spawn) {
     return Optional.empty();
+  }
+
+  /**
+   * If true, the failure passed in can be ignored in one branch to allow the other branch to finish
+   * it instead. This can e.g. allow ignoring remote execution timeouts or local-only permission
+   * failures.
+   *
+   * @param spawn The spawn being executed.
+   * @param exitCode The exit code from executing the spawn
+   * @param errorMessage Error messages returned from executing the spawn
+   * @param outErr The location of the stdout and stderr from the spawn.
+   * @param isLocal True if this is the locally-executed branch.
+   * @return True if this failure is one that we want to allow the other branch to succeed at, even
+   *     though this branch failed already.
+   */
+  protected boolean canIgnoreFailure(
+      Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal) {
+    return false;
+  }
+
+  @FunctionalInterface
+  interface IgnoreFailureCheck {
+    boolean canIgnoreFailure(
+        Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal);
   }
 
   @Subscribe

@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Prepares for analysis - creates the top-level configurations and evaluates the transitions needed
@@ -313,12 +312,6 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       }
     }
     return builder;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

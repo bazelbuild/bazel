@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import org.junit.Before;
@@ -88,7 +89,7 @@ public class WorkerModuleTest {
   }
 
   @Test
-  public void buildStarting_noRestartOnSandboxChanges() throws IOException, AbruptExitException {
+  public void buildStarting_noRestartOnSandboxChange() throws IOException, AbruptExitException {
     WorkerModule module = new WorkerModule();
     WorkerOptions options = WorkerOptions.DEFAULTS;
     when(request.getOptions(WorkerOptions.class)).thenReturn(options);
@@ -113,7 +114,7 @@ public class WorkerModuleTest {
 
   @Test
   public void buildStarting_workersDestroyedOnRestart()
-      throws IOException, AbruptExitException, InterruptedException {
+      throws IOException, AbruptExitException, InterruptedException, OptionsParsingException {
     WorkerModule module = new WorkerModule();
     WorkerOptions options = WorkerOptions.DEFAULTS;
     options.workerVerbose = true;
