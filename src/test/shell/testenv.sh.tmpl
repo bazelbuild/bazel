@@ -325,6 +325,7 @@ EOF
         "remotejdk18_win_arm64_for_testing"
         "rules_cc"
         "rules_java"
+        "rules_license"
         "rules_proto"
         "rules_python"
     )
@@ -543,6 +544,14 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 EOF
 }
 
+function add_rules_license_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_license}
+EOF
+}
+
 function add_rules_proto_to_workspace() {
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -563,6 +572,7 @@ workspace(name = "$2")
 EOF
   add_rules_cc_to_workspace "WORKSPACE"
   add_rules_java_to_workspace "WORKSPACE"
+  add_rules_license_to_workspace "WORKSPACE"
   add_rules_proto_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace

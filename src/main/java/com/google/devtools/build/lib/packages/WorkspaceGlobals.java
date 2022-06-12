@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -102,12 +103,21 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     builder.addRepositoryMappingEntry(
         RepositoryName.MAIN, RepositoryName.createUnvalidated(name), RepositoryName.MAIN);
     parseManagedDirectories(
+        thread.getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_MANAGE_DIRECTORIES),
         Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
   }
 
   private void parseManagedDirectories(
-      Map<String, ?> managedDirectories) // <String, Sequence<String>>
+      boolean disabled, Map<String, ?> managedDirectories) // <String, Sequence<String>>
       throws EvalException {
+    if (disabled && !managedDirectories.isEmpty()) {
+      throw Starlark.errorf(
+          "managed_directories is disabled. Pass the "
+              + "--noincompatible_disable_managed_directories command line option to temporarily "
+              + "re-enable it. For more information, see "
+              + "https://github.com/bazelbuild/bazel/issues/15463");
+    }
+
     Map<PathFragment, String> nonNormalizedPathsMap = Maps.newHashMap();
     for (Map.Entry<String, ?> entry : managedDirectories.entrySet()) {
       RepositoryName repositoryName = createRepositoryName(entry.getKey());

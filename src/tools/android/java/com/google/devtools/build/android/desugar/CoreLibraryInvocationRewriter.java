@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -33,7 +34,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
   private final CoreLibrarySupport support;
 
   public CoreLibraryInvocationRewriter(ClassVisitor cv, CoreLibrarySupport support) {
-    super(Opcodes.ASM8, cv);
+    super(Opcodes.ASM9, cv);
     this.support = support;
   }
 
@@ -47,7 +48,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
   private class CoreLibraryMethodInvocationRewriter extends MethodVisitor {
 
     public CoreLibraryMethodInvocationRewriter(MethodVisitor mv) {
-      super(Opcodes.ASM8, mv);
+      super(Opcodes.ASM9, mv);
     }
 
     @Override

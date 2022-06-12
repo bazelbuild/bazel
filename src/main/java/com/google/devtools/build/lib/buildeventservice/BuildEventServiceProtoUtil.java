@@ -168,6 +168,7 @@ public final class BuildEventServiceProtoUtil {
     switch (lifecycleEvent.getEventCase()) {
       case BUILD_ENQUEUED:
       case INVOCATION_ATTEMPT_STARTED:
+      case BUILD_FINISHED:
         builder.addAllNotificationKeywords(getKeywords());
         break;
       default:

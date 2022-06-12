@@ -15,32 +15,35 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Objects;
 
 /**
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
  * the {@link ActionLookupKey} and executing the associated actions.
  */
-public final class BuildDriverKey implements SkyKey {
+public final class BuildDriverKey implements CPUHeavySkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final TestType testType;
   private final boolean strictActionConflictCheck;
   private final boolean explicitlyRequested;
+  private final boolean isTopLevelAspectDriver;
 
   private BuildDriverKey(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
+      boolean isTopLevelAspectDriver,
       TestType testType) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.strictActionConflictCheck = strictActionConflictCheck;
-    this.testType = testType;
     this.explicitlyRequested = explicitlyRequested;
+    this.isTopLevelAspectDriver = isTopLevelAspectDriver;
+    this.testType = testType;
   }
 
   public static BuildDriverKey ofTopLevelAspect(
@@ -53,6 +56,7 @@ public final class BuildDriverKey implements SkyKey {
         topLevelArtifactContext,
         strictActionConflictCheck,
         explicitlyRequested,
+        /*isTopLevelAspectDriver=*/ true,
         TestType.NOT_TEST);
   }
 
@@ -67,6 +71,7 @@ public final class BuildDriverKey implements SkyKey {
         topLevelArtifactContext,
         strictActionConflictCheck,
         explicitlyRequested,
+        /*isTopLevelAspectDriver=*/ false,
         testType);
   }
 
@@ -94,6 +99,10 @@ public final class BuildDriverKey implements SkyKey {
     return explicitlyRequested;
   }
 
+  public boolean isTopLevelAspectDriver() {
+    return isTopLevelAspectDriver;
+  }
+
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.BUILD_DRIVER;
@@ -104,14 +113,22 @@ public final class BuildDriverKey implements SkyKey {
     if (other instanceof BuildDriverKey) {
       BuildDriverKey otherBuildDriverKey = (BuildDriverKey) other;
       return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
-          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext);
+          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext)
+          && testType.equals(otherBuildDriverKey.testType)
+          && strictActionConflictCheck == otherBuildDriverKey.strictActionConflictCheck
+          && explicitlyRequested == otherBuildDriverKey.explicitlyRequested;
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(actionLookupKey, topLevelArtifactContext);
+    return Objects.hash(
+        actionLookupKey,
+        topLevelArtifactContext,
+        testType,
+        strictActionConflictCheck,
+        explicitlyRequested);
   }
 
   @Override

@@ -245,7 +245,7 @@ public class BuildTool {
               if (buildCompleted) {
                 getReporter().handle(Event.progress("Building complete."));
               }
-            BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
+              BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
               buildResultPrinter.showBuildResult(
                   request,
                   result,

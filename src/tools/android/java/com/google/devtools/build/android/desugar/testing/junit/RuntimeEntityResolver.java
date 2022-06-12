@@ -38,6 +38,7 @@ import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext;
+import org.objectweb.asm.Opcodes;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
@@ -65,7 +66,6 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
@@ -475,7 +475,7 @@ final class RuntimeEntityResolver {
       if (jarEntry != null) {
         try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM8);
+          ClassNode classNode = new ClassNode(Opcodes.ASM9);
           cr.accept(classNode, 0);
           return classNode;
         }
@@ -528,7 +528,7 @@ final class RuntimeEntityResolver {
       for (JarEntry jarEntry : classFileJarEntries) {
         try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM8);
+          ClassNode classNode = new ClassNode(Opcodes.ASM9);
           cr.accept(classNode, SKIP_CODE | SKIP_DEBUG | SKIP_FRAMES);
           majorVersions.put(classNode.name, classNode.version);
         }

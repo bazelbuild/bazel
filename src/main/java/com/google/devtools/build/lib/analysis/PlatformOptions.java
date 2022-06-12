@@ -225,16 +225,6 @@ public class PlatformOptions extends FragmentOptions {
               + " 'test'.")
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
-  @Option(
-      name = "incompatible_override_toolchain_transition",
-      defaultValue = "true",
-      deprecationWarning = "This is now always set, please remove this flag.",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "Deprecated, this is no longer in use and should be removed.")
-  public boolean overrideToolchainTransition;
-
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();

@@ -18,18 +18,8 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 
 cc_common = _builtins.toplevel.cc_common
 
-def _get_proto_attrs():
-    return {}
-
-def _get_proto_fragments():
-    return []
-
 def _get_proto_aspects():
     return []
-
-# buildifier: disable=unused-variable
-def _get_cc_files_provider(cc_files):
-    return None
 
 def _get_proto_cc_files(dep):
     return dep[DefaultInfo].files.to_list()
@@ -198,8 +188,5 @@ semantics = struct(
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
     get_proto_cc_files = _get_proto_cc_files,
-    get_cc_files_provider = _get_cc_files_provider,
     get_proto_aspects = _get_proto_aspects,
-    get_proto_fragments = _get_proto_fragments,
-    get_proto_attrs = _get_proto_attrs,
 )

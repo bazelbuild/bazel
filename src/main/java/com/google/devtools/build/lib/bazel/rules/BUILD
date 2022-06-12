@@ -126,13 +126,15 @@ genrule(
 # 1. bazel build tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_zip
 # 2. Copy and rename the zip file with a new version locally.
 # 3. Upload the file under https://mirror.bazel.build/bazel_coverage_output_generator/releases.
-# 4. Update //distdir_deps.bzl to point to the new release.
+# 4. Update //distdir_deps.bzl and //tools/test/extensions.bzl to point to the new release.
 gen_workspace_stanza(
     name = "workspace_with_coverage_output_generator",
     out = "coverage.WORKSPACE",
     preamble = """
         load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+        load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
     """,
     repos = ["remote_coverage_tools"],
+    use_maybe = 1,
     visibility = ["//:__pkg__"],
 )

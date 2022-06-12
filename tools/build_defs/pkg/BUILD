@@ -83,7 +83,6 @@ genrule(
     ownername = "titi.tata",
     package_dir = "/",
     strip_prefix = ".",
-    symlinks = {"usr/bin/java": "/path/to/bin/java"},
 ) for ext in [
     "",
     ".gz",

@@ -571,6 +571,15 @@ public final class AndroidRuleClasses {
           <code>en_XA</code> and/or <code>ar_XB</code> pseudo-locales.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, STRING_LIST))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(min_sdk_version) -->
+          The minSdkVersion. This must match the minSdkVersion specified in the AndroidManifest.xml.
+          If set, will be used for dex/desugaring.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("min_sdk_version", INTEGER)
+                  .undocumented("experimental")
+                  .value(StarlarkInt.of(0))
+                  .nonconfigurable("AspectParameters don't support configurations."))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(shrink_resources) -->
           Whether to perform resource shrinking. Resources that are not used by the binary will be
           removed from the APK. This is only supported for rules using local resources (i.e. the

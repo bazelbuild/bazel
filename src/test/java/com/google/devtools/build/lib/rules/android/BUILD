@@ -14,6 +14,7 @@ filegroup(
 
 java_test(
     name = "AarImportTest",
+    timeout = "long",
     srcs = ["AarImportTest.java"],
     deps = [
         ":AndroidBuildViewTestCase",

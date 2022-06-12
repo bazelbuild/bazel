@@ -53,7 +53,7 @@ public interface QueryableGraph {
    */
   Map<SkyKey, ? extends NodeEntry> getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-          throws InterruptedException;
+      throws InterruptedException;
 
   /**
    * A version of {@link #getBatch} that returns an {@link InterruptibleSupplier} to possibly
@@ -152,6 +152,12 @@ public interface QueryableGraph {
 
     /** The node is being looked up merely to see if it is done or not. */
     DONE_CHECKING,
+
+    /**
+     * The node is being looked up so that it can be {@linkplain
+     * ThinNodeEntry.DirtyType#FORCE_REBUILD force rebuilt} by rewinding.
+     */
+    REWINDING,
 
     /**
      * The node is being looked up to service {@link WalkableGraph#getValue},

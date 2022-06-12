@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -25,23 +26,30 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 
 /**
  * Abstract implementation of {@link ActionInputPrefetcher} which implements the orchestration of
@@ -60,16 +68,45 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.tempPathGenerator = tempPathGenerator;
   }
 
-  protected abstract boolean shouldDownloadInput(
-      ActionInput input, @Nullable FileArtifactValue metadata);
+  public void startBuild(EventHandler eventHandler) throws AbruptExitException {
+    Path tempDir = tempPathGenerator.getTempDir();
+    if (tempDir.exists()) {
+      eventHandler.handle(Event.warn("Found stale downloads from previous build, deleting..."));
+      try {
+        tempDir.deleteTree();
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage(
+                        String.format("Failed to delete stale downloads: %s", e.getMessage()))
+                    .setRemoteExecution(
+                        RemoteExecution.newBuilder()
+                            .setCode(Code.DOWNLOADED_INPUTS_DELETION_FAILURE))
+                    .build()));
+      }
+    }
+  }
+
+  public void finalizeBuild() {
+    Path tempDir = tempPathGenerator.getTempDir();
+    try {
+      tempDir.deleteTree();
+    } catch (IOException ignored) {
+      // Intentionally left empty.
+    }
+  }
+
+  protected abstract boolean shouldDownloadFile(Path path, FileArtifactValue metadata);
 
   /**
-   * Downloads the {@code input} to the given path via the metadata.
+   * Downloads file to the given path via its metadata.
    *
-   * @param path the destination which the input should be written to.
+   * @param tempPath the temporary path which the input should be written to.
    */
-  protected abstract ListenableFuture<Void> downloadInput(
-      Path path, ActionInput input, FileArtifactValue metadata) throws IOException;
+  protected abstract ListenableFuture<Void> doDownloadFile(
+      Path tempPath, FileArtifactValue metadata) throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
 
@@ -104,34 +141,37 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private Completable prefetchInput(MetadataProvider metadataProvider, ActionInput input)
       throws IOException {
+    if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+      return Completable.complete();
+    }
+
     if (input instanceof VirtualActionInput) {
       prefetchVirtualActionInput((VirtualActionInput) input);
       return Completable.complete();
     }
 
-    FileArtifactValue metadata = metadataProvider.getMetadata(input);
-    if (!shouldDownloadInput(input, metadata)) {
-      return Completable.complete();
-    }
-
     Path path = execRoot.getRelative(input.getExecPath());
-    return downloadFileIfNot(path, (p) -> downloadInput(p, input, metadata));
+    FileArtifactValue metadata = metadataProvider.getMetadata(input);
+    return downloadFileRx(path, metadata);
   }
 
   /**
-   * Downloads file into the {@code path} with given downloader.
+   * Downloads file into the {@code path} with its metadata.
    *
    * <p>The file will be written into a temporary file and moved to the final destination after the
    * download finished.
    */
-  protected Completable downloadFileIfNot(
-      Path path, Function<Path, ListenableFuture<Void>> downloader) {
+  public Completable downloadFileRx(Path path, FileArtifactValue metadata) {
+    if (!shouldDownloadFile(path, metadata)) {
+      return Completable.complete();
+    }
+
     AtomicBoolean completed = new AtomicBoolean(false);
     Completable download =
         Completable.using(
             tempPathGenerator::generateTempPath,
             tempPath ->
-                toCompletable(() -> downloader.apply(tempPath), directExecutor())
+                toCompletable(() -> doDownloadFile(tempPath, metadata), directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(tempPath, path);
@@ -146,6 +186,28 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             // disposed.
             /* eager= */ false);
     return downloadCache.executeIfNot(path, download);
+  }
+
+  /**
+   * Downloads file into the {@code path} with its metadata.
+   *
+   * <p>The file will be written into a temporary file and moved to the final destination after the
+   * download finished.
+   */
+  public ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata) {
+    return toListenableFuture(downloadFileRx(path, metadata));
+  }
+
+  /**
+   * Download file to the {@code path} with given metadata. Blocking await for the download to
+   * complete.
+   *
+   * <p>The file will be written into a temporary file and moved to the final destination after the
+   * download finished.
+   */
+  public void downloadFile(Path path, FileArtifactValue metadata)
+      throws IOException, InterruptedException {
+    getFromFuture(downloadFileAsync(path, metadata));
   }
 
   private void finalizeDownload(Path tmpPath, Path path) throws IOException {
@@ -164,16 +226,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  ImmutableSet<Path> downloadedFiles() {
+  public ImmutableSet<Path> downloadedFiles() {
     return downloadCache.getFinishedTasks();
   }
 
-  ImmutableSet<Path> downloadsInProgress() {
+  public ImmutableSet<Path> downloadsInProgress() {
     return downloadCache.getInProgressTasks();
   }
 
   @VisibleForTesting
-  AsyncTaskCache.NoResult<Path> getDownloadCache() {
+  public AsyncTaskCache.NoResult<Path> getDownloadCache() {
     return downloadCache;
   }
 }

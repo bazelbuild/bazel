@@ -52,7 +52,8 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A Skyframe function that evaluates the {@code @_builtins} pseudo-repository and reports the
- * values exported by {@link #EXPORTS_ENTRYPOINT}.
+ * values exported by {@link #EXPORTS_ENTRYPOINT}. The {@code @_builtins} pseudo-repository shares a
+ * repo mapping with the {@code @bazel_tools} repository.
  *
  * <p>The process of "builtins injection" refers to evaluating this Skyfunction and applying its
  * result to {@link BzlLoadFunction}'s computation. See also the <a

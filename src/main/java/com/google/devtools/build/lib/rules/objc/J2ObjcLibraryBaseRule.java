@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -115,12 +114,7 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
                         return null;
                       }
                     }))
-        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-        // optional.
-        .addToolchainTypes(
-            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
-                .mandatory(true)
-                .build())
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 
@@ -134,25 +128,3 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = j2objc_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
-
-<p> This rule uses <a href="https://github.com/google/j2objc">J2ObjC</a> to translate Java source
-files to Objective-C, which then can be used used as dependencies of objc_library and objc_binary
-rules. Detailed information about J2ObjC itself can be found at  <a href="http://j2objc.org">the
-J2ObjC site</a>
-</p>
-<p>Custom J2ObjC transpilation flags can be specified using the build flag
-<code>--j2objc_translation_flags</code> in the command line.
-</p>
-<p>Please note that the translated files included in a j2objc_library target will be
-compiled using the default compilation configuration, same configuration as for the sources of an
-objc_library rule with no compilation options specified in attributes.
-</p>
-<p>Plus, generated code is de-duplicated at target level, not source level. If you have two
-different Java targets that include the same Java source files, you may see a duplicate symbol error
-at link time. The correct way to resolve this issue is to move the shared Java source files into a
-separate common target that can be depended upon.
-</p>
-
-
-<!-- #END_BLAZE_RULE -->*/

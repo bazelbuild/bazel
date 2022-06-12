@@ -921,19 +921,6 @@ public final class RemoteModule extends BlazeModule {
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
       Path tempDir = env.getActionTempsDirectory().getChild("remote");
-      try {
-        if (tempDir.exists()
-            && (!tempDir.isDirectory() || !tempDir.getDirectoryEntries().isEmpty())) {
-          env.getReporter()
-              .handle(Event.warn("Found incomplete downloads from previous build, deleting..."));
-          tempDir.deleteTree();
-        }
-      } catch (IOException e) {
-        throw createExitException(
-            e.getMessage(),
-            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
-            Code.DOWNLOADED_INPUTS_DELETION_FAILURE);
-      }
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getBuildRequestId(),

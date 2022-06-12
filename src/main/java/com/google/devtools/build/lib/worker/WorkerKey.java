@@ -64,7 +64,7 @@ public final class WorkerKey {
   /** The format of the worker protocol sent to and read from the worker. */
   private final WorkerProtocolFormat protocolFormat;
 
-  WorkerKey(
+  public WorkerKey(
       ImmutableList<String> args,
       ImmutableMap<String, String> env,
       Path execRoot,

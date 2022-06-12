@@ -638,7 +638,7 @@ attrs.update(semantics.get_interface_deps_allowed_attr())
 cc_library = rule(
     implementation = _cc_library_impl,
     attrs = attrs,
-    toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
+    toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
     incompatible_use_toolchain_transition = True,
     provides = [CcInfo],

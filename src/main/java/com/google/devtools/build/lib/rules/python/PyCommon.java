@@ -207,7 +207,6 @@ public final class PyCommon {
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
     this.runtimeFromToolchain = initRuntimeFromToolchain(ruleContext, this.version);
     validatePythonVersionAttr();
-    validateLegacyProviderNotUsedIfDisabled();
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -244,17 +243,28 @@ public final class PyCommon {
   /**
    * Gathers transitive .py files from {@code deps} (not including this target's {@code srcs} and
    * adds them to {@code builder}.
+   *
+   * <p>If a target has the PyInfo provider, the value from that provider is used. Otherwise, we
+   * fall back on collecting .py source files from the target's filesToBuild.
    */
+  // TODO(bazel-team): Eliminate the fallback behavior by returning an appropriate py provider from
+  // the relevant rules.
   private static void collectTransitivePythonSourcesFromDeps(
       RuleContext ruleContext, NestedSetBuilder<Artifact> builder) {
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-      try {
-        builder.addTransitive(PyProviderUtils.getTransitiveSources(dep));
-      } catch (EvalException e) {
-        // Either the provider type or field type is bad.
-        ruleContext.attributeError(
-            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+      NestedSet<Artifact> sources;
+      if (dep.get(PyInfo.PROVIDER) != null) {
+        sources = dep.get(PyInfo.PROVIDER).getTransitiveSourcesSet();
+      } else {
+        sources =
+            NestedSetBuilder.<Artifact>compileOrder()
+                .addAll(
+                    FileType.filter(
+                        dep.getProvider(FileProvider.class).getFilesToBuild().toList(),
+                        PyRuleClasses.PYTHON_SOURCE))
+                .build();
       }
+      builder.addTransitive(sources);
     }
   }
 
@@ -308,34 +318,42 @@ public final class PyCommon {
       targets = ruleContext.getPrerequisites("deps");
     }
     for (TransitiveInfoCollection target : targets) {
-      try {
-        if (PyProviderUtils.getUsesSharedLibraries(target)) {
+      if (target.get(PyInfo.PROVIDER) != null) {
+        if (target.get(PyInfo.PROVIDER).getUsesSharedLibraries()) {
           return true;
         }
-      } catch (EvalException e) {
-        ruleContext.ruleError(String.format("In dep '%s': %s", target.getLabel(), e.getMessage()));
+      } else if (FileType.contains(
+          target.getProvider(FileProvider.class).getFilesToBuild().toList(),
+          CppFileTypes.SHARED_LIBRARY)) {
+        return true;
       }
     }
     return false;
   }
 
+  /**
+   * Returns the transitive import paths of a target.
+   *
+   * <p>For targets with the PyInfo provider, the value from that provider is used. Otherwise, we
+   * default to an empty set.
+   */
   private static NestedSet<String> initImports(RuleContext ruleContext, PythonSemantics semantics) {
     NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
     builder.addAll(semantics.getImports(ruleContext));
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-      try {
-        NestedSet<String> imports = PyProviderUtils.getImports(dep);
-        if (!builder.getOrder().isCompatible(imports.getOrder())) {
-          // TODO(brandjon): We should make order an invariant of the Python provider, and move this
-          // check into PyInfo/PyStructUtils.
-          ruleContext.ruleError(
-              getOrderErrorMessage(PyStructUtils.IMPORTS, builder.getOrder(), imports.getOrder()));
-        } else {
-          builder.addTransitive(imports);
-        }
-      } catch (EvalException e) {
-        ruleContext.attributeError(
-            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+      NestedSet<String> imports;
+      if (dep.get(PyInfo.PROVIDER) != null) {
+        imports = dep.get(PyInfo.PROVIDER).getImportsSet();
+      } else {
+        imports = NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
+      }
+      if (!builder.getOrder().isCompatible(imports.getOrder())) {
+        // TODO(brandjon): We should make order an invariant of the Python provider, and move this
+        // check into PyInfo.
+        ruleContext.ruleError(
+            getOrderErrorMessage("imports", builder.getOrder(), imports.getOrder()));
+      } else {
+        builder.addTransitive(imports);
       }
     }
     return builder.build();
@@ -350,14 +368,9 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY2 || sourcesVersion == PythonVersion.PY2ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-      try {
-        if (PyProviderUtils.getHasPy2OnlySources(dep)) {
-          return true;
-        }
-      } catch (EvalException e) {
-        ruleContext.attributeError(
-            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+    for (PyInfo depInfo : ruleContext.getPrerequisites("deps", PyInfo.PROVIDER)) {
+      if (depInfo.getHasPy2OnlySources()) {
+        return true;
       }
     }
     return false;
@@ -372,14 +385,9 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-      try {
-        if (PyProviderUtils.getHasPy3OnlySources(dep)) {
-          return true;
-        }
-      } catch (EvalException e) {
-        ruleContext.attributeError(
-            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+    for (PyInfo depInfo : ruleContext.getPrerequisites("deps", PyInfo.PROVIDER)) {
+      if (depInfo.getHasPy3OnlySources()) {
+        return true;
       }
     }
     return false;
@@ -520,27 +528,6 @@ public final class PyCommon {
       ruleContext.attributeError(
           PYTHON_VERSION_ATTRIBUTE,
           String.format("'%s' is not a valid value. Expected either 'PY2' or 'PY3'", attrValue));
-    }
-  }
-
-  /**
-   * Reports an attribute error if a target in {@code deps} passes the legacy "py" provider but this
-   * is disallowed by the configuration.
-   */
-  private void validateLegacyProviderNotUsedIfDisabled() {
-    if (!ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider()) {
-      return;
-    }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-      if (PyProviderUtils.hasLegacyProvider(dep)) {
-        ruleContext.attributeError(
-            "deps",
-            String.format(
-                "In dep '%s': The legacy 'py' provider is disallowed. Migrate to the PyInfo "
-                    + "provider instead. You can temporarily disable this failure with "
-                    + "--incompatible_disallow_legacy_py_provider=false.",
-                dep.getLabel()));
-      }
     }
   }
 
@@ -752,7 +739,9 @@ public final class PyCommon {
     addPyExtraActionPseudoAction();
   }
 
-  /** @return an artifact next to the executable file with a given suffix. */
+  /**
+   * @return an artifact next to the executable file with a given suffix.
+   */
   private Artifact getArtifactWithExtension(Artifact executable, String extension) {
     // On Windows, the Python executable has .exe extension on Windows,
     // On Linux, the Python executable has no extension.
@@ -793,21 +782,20 @@ public final class PyCommon {
   }
 
   /**
-   * Adds a PyInfo or legacy "py" provider.
+   * Adds a PyInfo provider.
    *
    * <p>This is a public method because some rules just want a PyInfo provider without the other
    * things py_library needs.
    */
   public void addPyInfoProvider(RuleConfiguredTargetBuilder builder) {
-    boolean createLegacyPyProvider =
-        !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
-    PyProviderUtils.builder(createLegacyPyProvider)
-        .setTransitiveSources(transitivePythonSources)
-        .setUsesSharedLibraries(usesSharedLibraries)
-        .setImports(imports)
-        .setHasPy2OnlySources(hasPy2OnlySources)
-        .setHasPy3OnlySources(hasPy3OnlySources)
-        .buildAndAddToTarget(builder);
+    builder.addNativeDeclaredProvider(
+        PyInfo.builder()
+            .setTransitiveSources(transitivePythonSources)
+            .setUsesSharedLibraries(usesSharedLibraries)
+            .setImports(imports)
+            .setHasPy2OnlySources(hasPy2OnlySources)
+            .setHasPy3OnlySources(hasPy3OnlySources)
+            .build());
   }
 
   public void addCommonTransitiveInfoProviders(

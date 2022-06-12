@@ -668,7 +668,7 @@ public class Package {
     try {
       label = Label.create(packageIdentifier, targetName);
     } catch (LabelSyntaxException e) {
-      throw new IllegalArgumentException(targetName);
+      throw new IllegalArgumentException(targetName, e);
     }
 
     if (succinctTargetNotFoundErrors) {
@@ -1577,8 +1577,8 @@ public class Package {
         try {
           return addInputFile(createLabel(targetName), location);
         } catch (LabelSyntaxException e) {
-          throw new IllegalArgumentException("FileTarget in package " + pkg.getName()
-                                             + " has illegal name: " + targetName);
+          throw new IllegalArgumentException(
+              "FileTarget in package " + pkg.getName() + " has illegal name: " + targetName, e);
         }
       } else if (existing instanceof InputFile) {
         return (InputFile) existing; // idempotent

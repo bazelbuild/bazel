@@ -23,7 +23,8 @@ public class ExclusiveTestBuildDriverValue extends BuildDriverValue {
 
   ExclusiveTestBuildDriverValue(
       SkyValue wrappedSkyValue, ConfiguredTarget exclusiveTestConfiguredTarget) {
-    super(wrappedSkyValue);
+    // If an exclusive test was run at all, it wasn't skipped.
+    super(wrappedSkyValue, /*skipped=*/ false);
     this.exclusiveTestConfiguredTarget = exclusiveTestConfiguredTarget;
   }
 

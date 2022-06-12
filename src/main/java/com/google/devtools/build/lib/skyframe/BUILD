@@ -590,6 +590,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
@@ -896,6 +897,7 @@ java_library(
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
@@ -2134,6 +2136,7 @@ java_library(
     deps = [
         ":package_value",
         ":repository_mapping_value",
+        ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",

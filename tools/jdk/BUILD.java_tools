@@ -51,11 +51,6 @@ filegroup(
 )
 
 filegroup(
-    name = "Turbine",
-    srcs = ["java_tools/turbine_deploy.jar"],
-)
-
-filegroup(
     name = "TurbineDirect",
     srcs = ["java_tools/turbine_direct_binary_deploy.jar"],
 )

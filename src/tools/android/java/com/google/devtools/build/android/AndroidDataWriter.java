@@ -385,16 +385,16 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
 
     @Override
+    public Attribute attribute(String name) {
+      return attribute(null, name);
+    }
+
+    @Override
     public StringValuesResourceDefinition closeTag() {
       // Make sure we close this later.
       writer.tagStack.push(tagName);
       writer.mapper.add("<" + tagName + Joiner.on("").join(attributes) + ">");
       return writer;
-    }
-
-    @Override
-    public Attribute attribute(String name) {
-      return attribute(null, name);
     }
 
     private Attribute createAttribute(String prefix, String name, boolean optional) {

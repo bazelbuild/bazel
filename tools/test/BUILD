@@ -115,6 +115,7 @@ filegroup(
         "generate-xml.sh",
         "collect_coverage.sh",
         "collect_cc_coverage.sh",
+        "extensions.bzl",
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "tw",
@@ -125,4 +126,9 @@ filegroup(
         ],
     }),
     visibility = ["//tools:__pkg__"],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = ["extensions.bzl"],
 )

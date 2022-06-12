@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -103,12 +102,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("test_class", STRING))
-        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-        // optional.
-        .addToolchainTypes(
-            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
-                .mandatory(true)
-                .build())
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 

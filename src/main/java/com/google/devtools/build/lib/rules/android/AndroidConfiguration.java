@@ -329,19 +329,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public List<Label> androidPlatforms;
 
     @Option(
-        name = "default_android_platform",
-        converter = LabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        defaultValue = "null",
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "Sets the platform that is used by default when --android_platforms is not set.")
-    public Label defaultAndroidPlatform;
-
-    @Option(
         name = "fat_apk_hwasan",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -544,9 +531,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "use_workers_with_dexbuilder",
-        // TODO(b/226226799): Set this back to true once
-        // https://github.com/bazelbuild/bazel/issues/10241 is addressed
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.EXECUTION},
         help = "Whether dexbuilder supports being run in local worker mode.")

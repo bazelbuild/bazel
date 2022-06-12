@@ -225,16 +225,6 @@ alias(
 )
 
 alias(
-    name = "turbine",
-    actual = "@remote_java_tools//:Turbine",
-)
-
-alias(
-    name = "turbine_deploy.jar",
-    actual = "@remote_java_tools//:Turbine",
-)
-
-alias(
     name = "turbine_direct",
     actual = "@remote_java_tools//:TurbineDirect",
 )

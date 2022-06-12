@@ -58,8 +58,8 @@ class OptionProcessorTest : public ::testing::Test {
     }
   }
 
-  void FailedSplitStartupOptionsTest(const std::vector<std::string>& args,
-                                     const std::string& expected_error) const {
+  void FailedSplitCommandLineTest(const std::vector<std::string>& args,
+                                  const std::string& expected_error) const {
     std::string error;
     const std::unique_ptr<CommandLine> result =
         option_processor_->SplitCommandLine(args, &error);
@@ -67,8 +67,8 @@ class OptionProcessorTest : public ::testing::Test {
     ASSERT_EQ(nullptr, result);
   }
 
-  void SuccessfulSplitStartupOptionsTest(const std::vector<std::string>& args,
-                                         const CommandLine& expected) const {
+  void SuccessfulSplitCommandLineTest(const std::vector<std::string>& args,
+                                      const CommandLine& expected) const {
     std::string error;
     const std::unique_ptr<CommandLine> result =
         option_processor_->SplitCommandLine(args, &error);
@@ -233,113 +233,99 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithEmptyArgs) {
-  FailedSplitStartupOptionsTest(
-      {},
-      "Unable to split command line, args is empty");
+  FailedSplitCommandLineTest({}, "Unable to split command line, args is empty");
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithAllParams) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"bazel", "--ignore_all_rc_files", "build", "--bar", ":mytarget"},
-      CommandLine("bazel",
-                  {"--ignore_all_rc_files"},
-                  "build",
+      CommandLine("bazel", {"--ignore_all_rc_files"}, "build",
                   {"--bar", ":mytarget"}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithAbsolutePathToBinary) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"mybazel", "build", ":mytarget"},
       CommandLine("mybazel", {}, "build", {":mytarget"}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithUnaryStartupWithEquals) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"bazel", "--bazelrc=foo", "build", ":mytarget"},
       CommandLine("bazel", {"--bazelrc=foo"}, "build", {":mytarget"}));
 }
 
 TEST_F(OptionProcessorTest,
        SplitCommandLineWithUnaryStartupWithoutEquals) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"bazel", "--bazelrc", "foo", "build", ":mytarget"},
       CommandLine("bazel", {"--bazelrc=foo"}, "build", {":mytarget"}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithIncompleteUnaryOption) {
-  FailedSplitStartupOptionsTest(
+  FailedSplitCommandLineTest(
       {"bazel", "--bazelrc"},
       "Startup option '--bazelrc' expects a value.\n"
-          "Usage: '--bazelrc=somevalue' or '--bazelrc somevalue'.\n"
-          "  For more info, run 'bazel help startup_options'.");
+      "Usage: '--bazelrc=somevalue' or '--bazelrc somevalue'.\n"
+      "  For more info, run 'bazel help startup_options'.");
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithMultipleStartup) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"bazel", "--bazelrc", "foo", "--ignore_all_rc_files", "build",
        ":mytarget"},
-      CommandLine("bazel",
-                  {"--bazelrc=foo", "--ignore_all_rc_files"},
-                  "build",
+      CommandLine("bazel", {"--bazelrc=foo", "--ignore_all_rc_files"}, "build",
                   {":mytarget"}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithNoStartupArgs) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"bazel", "build", ":mytarget"},
       CommandLine("bazel", {}, "build", {":mytarget"}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithNoCommandArgs) {
-  SuccessfulSplitStartupOptionsTest(
-      {"bazel", "build"},
-      CommandLine("bazel", {}, "build", {}));
+  SuccessfulSplitCommandLineTest({"bazel", "build"},
+                                 CommandLine("bazel", {}, "build", {}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithBlazeHelp) {
-  SuccessfulSplitStartupOptionsTest(
-      {"bazel", "help"},
-      CommandLine("bazel", {}, "help", {}));
+  SuccessfulSplitCommandLineTest({"bazel", "help"},
+                                 CommandLine("bazel", {}, "help", {}));
 
-  SuccessfulSplitStartupOptionsTest(
-      {"bazel", "-h"},
-      CommandLine("bazel", {}, "-h", {}));
+  SuccessfulSplitCommandLineTest({"bazel", "-h"},
+                                 CommandLine("bazel", {}, "-h", {}));
 
-  SuccessfulSplitStartupOptionsTest(
-      {"bazel", "-help"},
-      CommandLine("bazel", {}, "-help", {}));
+  SuccessfulSplitCommandLineTest({"bazel", "-help"},
+                                 CommandLine("bazel", {}, "-help", {}));
 
-  SuccessfulSplitStartupOptionsTest(
-      {"bazel", "--help"},
-      CommandLine("bazel", {}, "--help", {}));
+  SuccessfulSplitCommandLineTest({"bazel", "--help"},
+                                 CommandLine("bazel", {}, "--help", {}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithBlazeVersion) {
-  SuccessfulSplitStartupOptionsTest(
-      {"bazel", "version"},
-      CommandLine("bazel", {}, "version", {}));
+  SuccessfulSplitCommandLineTest({"bazel", "version"},
+                                 CommandLine("bazel", {}, "version", {}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithMultipleCommandArgs) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"bazel", "build", "--foo", "-s", ":mytarget"},
       CommandLine("bazel", {}, "build", {"--foo", "-s", ":mytarget"}));
 }
 
 TEST_F(OptionProcessorTest,
        SplitCommandLineFailsWithDashDashInStartupArgs) {
-  FailedSplitStartupOptionsTest(
+  FailedSplitCommandLineTest(
       {"bazel", "--"},
       "Unknown startup option: '--'.\n"
-          "  For more info, run 'bazel help startup_options'.");
+      "  For more info, run 'bazel help startup_options'.");
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithDashDash) {
-  SuccessfulSplitStartupOptionsTest(
+  SuccessfulSplitCommandLineTest(
       {"bazel", "--ignore_all_rc_files", "build", "--b", "--", ":mytarget"},
-      CommandLine("bazel",
-                  {"--ignore_all_rc_files"},
-                  "build",
+      CommandLine("bazel", {"--ignore_all_rc_files"}, "build",
                   {"--b", "--", ":mytarget"}));
 }
 
@@ -408,10 +394,10 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithSymbolicLink) {
 
 TEST_F(OptionProcessorTest,
        SplitCommandLineFailsWithDeprecatedOptionInStartupArgs) {
-  FailedSplitStartupOptionsTest(
+  FailedSplitCommandLineTest(
       {"bazel", "--nomaster_bazelrc"},
       "Unknown startup option: '--nomaster_bazelrc'.\n"
-          "  For more info, run 'bazel help startup_options'.");
+      "  For more info, run 'bazel help startup_options'.");
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 

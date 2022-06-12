@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.desugar.io;
 
 import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.Opcodes;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
@@ -87,7 +88,7 @@ public class HeaderClassLoader extends ClassLoader {
     private String internalName;
 
     public NonPrimitiveFieldCollector() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -131,7 +132,7 @@ public class HeaderClassLoader extends ClassLoader {
     private final ImmutableList<FieldInfo> interfaceFields;
 
     public CodeStubber(ClassVisitor cv, ImmutableList<FieldInfo> interfaceFields) {
-      super(Opcodes.ASM8, cv);
+      super(Opcodes.ASM9, cv);
       this.interfaceFields = interfaceFields;
     }
 
@@ -177,7 +178,7 @@ public class HeaderClassLoader extends ClassLoader {
 
     public InterfaceInitializerEraser(
         MethodVisitor mv, String internalName, ImmutableList<FieldInfo> interfaceFields) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       dest = mv;
       this.interfaceFields = interfaceFields;
     }
@@ -208,7 +209,7 @@ public class HeaderClassLoader extends ClassLoader {
     private boolean hasCode = false;
 
     public BodyStubber(MethodVisitor mv) {
-      super(Opcodes.ASM8, mv);
+      super(Opcodes.ASM9, mv);
     }
 
     @Override

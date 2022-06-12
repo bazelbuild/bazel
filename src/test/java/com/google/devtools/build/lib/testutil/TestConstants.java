@@ -132,9 +132,6 @@ public class TestConstants {
           "--target_platform_fallback=@bazel_tools//platforms:default_target",
           "--platforms=@bazel_tools//platforms:default_target",
           "--host_platform=@bazel_tools//platforms:default_host",
-          // TODO(#7903): Remove once our own tests are migrated.
-          "--incompatible_py3_is_default=false",
-          "--incompatible_py2_outputs_are_suffixed=false",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 

@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -716,8 +715,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // this. Note that in-memory and filesystem outputs aren't necessarily mutually exclusive.
     Path fsPath = actionExecutionContext.getInputPath(outputDepsProto);
     if (fsPath.exists()) {
+      // Make sure to clear the output store cache if it has an entry from before the rewrite.
+      actionExecutionContext.getMetadataHandler().resetOutputs(ImmutableList.of(outputDepsProto));
       fsPath.setWritable(true);
-      FileSystemUtils.writeContent(fsPath, fullOutputDeps.toByteArray());
+      try (var outputStream = fsPath.getOutputStream()) {
+        fullOutputDeps.writeTo(outputStream);
+      }
     }
 
     return fullOutputDeps;

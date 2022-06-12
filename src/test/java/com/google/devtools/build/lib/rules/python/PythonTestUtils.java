@@ -29,10 +29,6 @@ public class PythonTestUtils {
    * <p>Marking test cases that depend on the default Python version helps to diagnose failures. It
    * also helps guard against accidentally making the test spuriously pass, e.g. if the expected
    * value becomes the same as the default value..
-   *
-   * <p>Although the hard-coded default in {@link PythonOptions} has been flipped to PY3, we
-   * override this back to PY2 in our analysis-time tests and some of our integration tests. These
-   * tests will need to be ported in the future.
    */
   public static void assumesDefaultIsPY2() {
     // No-op.

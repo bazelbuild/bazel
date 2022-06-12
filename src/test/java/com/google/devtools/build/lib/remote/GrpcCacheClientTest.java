@@ -75,6 +75,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -209,7 +210,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         });
     byte[] data = new byte[20];
     Digest digest = DIGEST_UTIL.compute(data);
-    AtomicBoolean closed = new AtomicBoolean();
+    CountDownLatch latch = new CountDownLatch(1);
     Chunker chunker =
         new Chunker(
             () ->
@@ -218,7 +219,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
                   @Override
                   public void close() throws IOException {
                     super.close();
-                    closed.set(true);
+                    latch.countDown();
                   }
                 },
             data.length,
@@ -231,7 +232,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     // assert
     assertThat(Status.fromThrowable(t.getCause()).getCode()).isEqualTo(Status.Code.DATA_LOSS);
-    assertThat(closed.get()).isTrue();
+    latch.await();
   }
 
   @Test

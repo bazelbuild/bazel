@@ -74,7 +74,8 @@ public final class ArtifactFunction implements SkyFunction {
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
   private final XattrProvider xattrProvider;
 
-  static final class MissingArtifactValue implements SkyValue {
+  /** A {@link SkyValue} representing a missing input file. */
+  public static final class MissingArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
 
     private MissingArtifactValue(Artifact missingArtifact) {
@@ -550,8 +551,8 @@ public final class ArtifactFunction implements SkyFunction {
           .toString();
     }
   }
-
-  static final class SourceArtifactException extends Exception implements DetailedException {
+  /** An {@link Exception} thrown representing a source input {@link IOException}. */
+  public static final class SourceArtifactException extends Exception implements DetailedException {
     private final DetailedExitCode detailedExitCode;
 
     private SourceArtifactException(DetailedExitCode detailedExitCode, Exception e) {

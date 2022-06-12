@@ -506,7 +506,20 @@ public class CppOptions extends FragmentOptions {
       category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The layout file for propeller code layout optimizations.")
+      help =
+          "Use Propeller profile information to optimize the build target."
+              + "A propeller profile must consist of at least one of two files, a cc profile "
+              + "and a ld profile.  This flag accepts a build label which must refer to "
+              + "the propeller profile input files. For example, the BUILD file that "
+              + "defines the label, in a/b/BUILD:"
+              + "propeller_optimize("
+              + "    name = \"propeller_profile\","
+              + "    cc_profile = \"propeller_cc_profile.txt\","
+              + "    ld_profile = \"propeller_ld_profile.txt\","
+              + ")"
+              + "An exports_files directive may have to be added to the corresponding package "
+              + "to make these files visible to Bazel. The option must be used as: "
+              + "--propeller_optimize=//a/b:propeller_profile")
   public Label propellerOptimizeLabel;
 
   public Label getPropellerOptimizeLabel() {

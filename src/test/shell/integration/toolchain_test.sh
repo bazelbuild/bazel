@@ -143,6 +143,7 @@ ${aspect_name} = aspect(
     implementation = _impl,
     attrs = {},
     toolchains = ['//${pkg}/toolchain:${toolchain_name}'],
+    apply_to_generating_rules = True,
 )
 EOF
 }
@@ -727,8 +728,7 @@ EOF
   bazel build \
     --aspects //${pkg}/toolchain:aspect_use_toolchain.bzl%use_toolchain \
     "//${pkg}/demo:use.log" &> $TEST_log || fail "Build failed"
-  # TODO(b/232128775): Re-enable once aspect toolchain merging is fixed.
-  #expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from test_toolchain"'
+  expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from test_toolchain"'
 }
 
 function test_toolchain_use_in_aspect_non_required_toolchain {

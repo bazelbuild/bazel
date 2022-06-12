@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
 import java.util.List;
@@ -43,12 +44,30 @@ public final class JavaGenJarsProvider
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
 
+  private static final JavaGenJarsProvider EMPTY =
+      new JavaGenJarsProvider(
+          /* usesAnnotationProcessing= */ false,
+          /* genClassJar= */ null,
+          /* genSourceJar= */ null,
+          /* processorClasspath= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* processorClassNames= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* transitiveGenClassJars= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* transitiveGenSourceJars= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+
   public static JavaGenJarsProvider create(
       boolean usesAnnotationProcessing,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
       JavaPluginInfo plugins,
       List<JavaGenJarsProvider> transitiveJavaGenJars) {
+    if (!usesAnnotationProcessing
+        && genClassJar == null
+        && genSourceJar == null
+        && plugins.isEmpty()
+        && transitiveJavaGenJars.isEmpty()) {
+      return EMPTY;
+    }
+
     NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
 
@@ -174,5 +193,13 @@ public final class JavaGenJarsProvider
   @Override
   public ImmutableList<String> getProcessorClassNames() {
     return processorClassNames.toList();
+  }
+
+  public boolean isEmpty() {
+    return !usesAnnotationProcessing
+        && genClassJar == null
+        && genSourceJar == null
+        && transitiveGenClassJars.isEmpty()
+        && transitiveGenSourceJars.isEmpty();
   }
 }

@@ -108,6 +108,7 @@ public final class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
         context()
             .bazel()
             .withEnv("DEBUG_ID", String.valueOf(currentDebugId))
+            .withFlags("--noincompatible_disable_managed_directories")
             .withFlags(
                 "--watchfs=" + watchFs, "--track_incremental_state=" + trackIncrementalState);
     if (DEBUG) {

@@ -14,7 +14,6 @@
 
 """objc_library Starlark implementation replacing native"""
 
-load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
@@ -254,6 +253,6 @@ objc_library = rule(
     ),
     fragments = ["objc", "apple", "cpp"],
     cfg = apple_crosstool_transition,
-    toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
+    toolchains = cc_helper.use_cpp_toolchain(),
     incompatible_use_toolchain_transition = True,
 )

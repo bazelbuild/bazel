@@ -119,7 +119,7 @@ final class LabelParser {
 
     private static void validateRepoName(@Nullable String repo) throws LabelSyntaxException {
       if (repo != null) {
-        RepositoryName.validate('@' + repo);
+        RepositoryName.validate(repo);
       }
     }
 
