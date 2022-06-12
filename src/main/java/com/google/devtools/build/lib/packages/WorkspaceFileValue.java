@@ -102,7 +102,7 @@ public class WorkspaceFileValue implements SkyValue {
   private final ImmutableMap<String, Object> bindings;
   private final ImmutableMap<String, Module> loadedModules;
   private final ImmutableMap<String, Integer> loadToChunkMap;
-  private final ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+  private final ImmutableMap<RepositoryName, ImmutableMap<String, RepositoryName>>
       repositoryMapping;
   // Mapping of the relative paths of the incrementally updated managed directories
   // to the managing external repositories
@@ -221,8 +221,7 @@ public class WorkspaceFileValue implements SkyValue {
     return loadToChunkMap;
   }
 
-  public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
-      getRepositoryMapping() {
+  public ImmutableMap<RepositoryName, ImmutableMap<String, RepositoryName>> getRepositoryMapping() {
     return repositoryMapping;
   }
 

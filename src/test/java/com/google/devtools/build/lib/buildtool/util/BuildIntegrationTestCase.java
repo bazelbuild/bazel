@@ -457,10 +457,13 @@ public abstract class BuildIntegrationTestCase {
     };
   }
 
-  // There should be one getSpawnModule at a time, as we lack infrastructure to decide from
-  // which Module to take the SpawnActionContext for specific actions.
-  protected BlazeModule getSpawnModule() {
-    return new StandaloneModule();
+  /**
+   * Returns modules necessary for configuring spawn strategies.
+   *
+   * <p>These modules are registered <em>before</em> {@link #getStrategyModule}.
+   */
+  protected ImmutableList<BlazeModule> getSpawnModules() {
+    return ImmutableList.of(new StandaloneModule());
   }
 
   /** Gets a module containing rules (by default, using the TestRuleClassProvider) */
@@ -514,11 +517,12 @@ public abstract class BuildIntegrationTestCase {
             .setBugReporter(bugReporter)
             .setStartupOptionsProvider(startupOptionsParser)
             .addBlazeModule(connectivityModule)
-            .addBlazeModule(getMockBazelRepositoryModule())
-            .addBlazeModule(getSpawnModule())
-            .addBlazeModule(getBuildInfoModule())
-            .addBlazeModule(getRulesModule())
-            .addBlazeModule(getStrategyModule());
+            .addBlazeModule(getMockBazelRepositoryModule());
+    getSpawnModules().forEach(builder::addBlazeModule);
+    builder
+        .addBlazeModule(getBuildInfoModule())
+        .addBlazeModule(getRulesModule())
+        .addBlazeModule(getStrategyModule());
 
     if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
       // Add in modules implicitly added in internal integration test case.

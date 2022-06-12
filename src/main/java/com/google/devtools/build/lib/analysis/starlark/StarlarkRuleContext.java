@@ -1018,7 +1018,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
                 String.class,
                 String.class,
                 "execution_requirements"));
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+    // TODO(b/234923262): Take exec_group into consideration instead of using the default
+    // exec_group.
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
 
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(

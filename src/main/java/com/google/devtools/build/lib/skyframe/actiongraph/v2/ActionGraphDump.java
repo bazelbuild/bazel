@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -64,6 +65,7 @@ public class ActionGraphDump {
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
   private final boolean includeParamFiles;
+  private final boolean includeFileWriteContents;
   private final AqueryOutputHandler aqueryOutputHandler;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
@@ -74,6 +76,7 @@ public class ActionGraphDump {
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
       boolean deduplicateDepsets,
+      boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
@@ -82,6 +85,7 @@ public class ActionGraphDump {
         actionFilters,
         includeParamFiles,
         deduplicateDepsets,
+        includeFileWriteContents,
         aqueryOutputHandler);
   }
 
@@ -92,12 +96,14 @@ public class ActionGraphDump {
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
       boolean deduplicateDepsets,
+      boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
+    this.includeFileWriteContents = includeFileWriteContents;
     this.aqueryOutputHandler = aqueryOutputHandler;
 
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
@@ -175,6 +181,11 @@ public class ActionGraphDump {
     if (includeActionCmdLine && action instanceof CommandAction) {
       CommandAction commandAction = (CommandAction) action;
       actionBuilder.addAllArguments(commandAction.getArguments());
+    }
+
+    if (includeFileWriteContents && action instanceof FileWriteAction) {
+      FileWriteAction fileWriteAction = (FileWriteAction) action;
+      actionBuilder.setFileContents(fileWriteAction.getFileContents());
     }
 
     // Include the content of param files in output.

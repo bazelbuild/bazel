@@ -67,9 +67,8 @@ public class TargetPatternUtil {
 
     if (env.valuesMissing()) {
       if (valuesMissing != env.valuesMissing()) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "Some value from " + targetPatternKeys + " was missing, this should never happen"));
+        BugReport.logUnexpected(
+            "Some value from '%s' was missing, this should never happen", targetPatternKeys);
       }
       return null;
     }

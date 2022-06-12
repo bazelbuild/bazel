@@ -207,7 +207,7 @@ config_setting(
 )
 ```
 
-Behavior is the same as for [built-in flags](#built-in-flags). See [here](https://github.com/bazelbuild/examples/tree/HEAD/rules/starlark_configurations/select_on_build_setting){: .external}
+Behavior is the same as for [built-in flags](#built-in-flags). See [here](https://github.com/bazelbuild/examples/tree/HEAD/configurations/select_on_build_setting){: .external}
 for a working example.
 
 [`--define`](/reference/command-line-reference#flag--define)

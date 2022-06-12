@@ -462,7 +462,7 @@ public class BuildEventStreamer {
     }
 
     if (event instanceof BuildStartingEvent) {
-      BuildRequest buildRequest = ((BuildStartingEvent) event).getRequest();
+      BuildRequest buildRequest = ((BuildStartingEvent) event).request();
       isTestCommand =
           "test".equals(buildRequest.getCommandName())
               || "coverage".equals(buildRequest.getCommandName());

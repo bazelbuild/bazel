@@ -25,6 +25,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import java.io.File;
 import java.io.IOException;
@@ -109,7 +110,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), "foorepo", reporter))
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setRepoName("foorepo")
@@ -123,7 +126,9 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
-    assertThat(registry.getRepoSpec(createModuleKey("bar", "2.0"), "barrepo", reporter))
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("bar", "2.0"), RepositoryName.create("barrepo"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setRepoName("barrepo")
@@ -156,7 +161,9 @@ public class IndexRegistryTest extends FoundationTestCase {
         "}");
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), "foorepo", reporter))
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setRepoName("foorepo")
@@ -190,6 +197,8 @@ public class IndexRegistryTest extends FoundationTestCase {
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
     assertThrows(
         IOException.class,
-        () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), "foorepo", reporter));
+        () ->
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter));
   }
 }

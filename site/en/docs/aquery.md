@@ -133,6 +133,16 @@ Include the content of the param files used in the command (potentially large).
 
 Warning: Enabling this flag will automatically enable the `--include_commandline` flag.
 
+#### `--include_file_write_contents, default=false` {:#include-file-write-contents}
+
+Include file contents for the `actions.write()` action. The file contents is
+returned in the `file_contents` field with `--output=`xxx`proto`.
+With `--output=text`, the output has
+```
+FileWriteContents: [<base64-encoded file contents>]
+```
+line
+
 #### `--skyframe_state, default=false` {:#skyframe-state}
 
 Without performing extra analysis, dump the Action Graph from Skyframe.

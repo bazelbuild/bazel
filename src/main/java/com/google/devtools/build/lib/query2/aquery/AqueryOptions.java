@@ -59,6 +59,14 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean includeParamFiles;
 
   @Option(
+      name = "include_file_write_contents",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Include the file contents for the FileWrite action (potentially large). ")
+  public boolean includeFileWriteContents;
+
+  @Option(
       name = "skyframe_state",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,

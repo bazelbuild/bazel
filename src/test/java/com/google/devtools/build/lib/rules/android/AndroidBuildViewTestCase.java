@@ -416,7 +416,9 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     Action dexAction =
         actionsTestUtil()
             .getActionForArtifactEndingWith(
-                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "classes.dex");
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "classes.dex.zip");
+    dexAction =
+        actionsTestUtil().getActionForArtifactEndingWith(dexAction.getInputs(), "classes.dex.zip");
     Artifact trimmedJar = getFirstArtifactEndingWith(dexAction.getInputs(), artifact);
     assertWithMessage("Dex should be built from jar trimmed with Proguard.")
         .that(trimmedJar)

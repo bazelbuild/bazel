@@ -13,18 +13,15 @@
 // limitations under the License.
 #include "tools/cpp/build_info_translation_helper.h"
 
-#include <fstream>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "third_party/absl/strings/str_split.h"
 
 namespace bazel {
 namespace tools {
 namespace cpp {
-
-absl::Status BuildInfoTranslationHelper::ParseFile(
+const absl::Status BuildInfoTranslationHelper::ParseFile(
     const std::string &file_path,
     std::unordered_map<std::string, std::string> &file_map) {
   std::ifstream file_reader(file_path);
@@ -35,6 +32,7 @@ absl::Status BuildInfoTranslationHelper::ParseFile(
   std::string line;
   // Split the line on the first separator, in case there is
   // no separator found return a non-zero exit code.
+  constexpr static char kKeyValueSeparator[] = " ";
   while (std::getline(file_reader, line)) {
     if (absl::StrContains(line, kKeyValueSeparator)) {
       std::vector<std::string> key_and_value =
@@ -56,12 +54,12 @@ absl::Status BuildInfoTranslationHelper::ParseFile(
   return absl::Status(absl::StatusCode::kOk, "");
 }
 
-absl::Status BuildInfoTranslationHelper::ParseInfoFile(
+const absl::Status BuildInfoTranslationHelper::ParseInfoFile(
     std::unordered_map<std::string, std::string> &file_map) {
   return BuildInfoTranslationHelper::ParseFile(info_file_path_, file_map);
 }
 
-absl::Status BuildInfoTranslationHelper::ParseVersionFile(
+const absl::Status BuildInfoTranslationHelper::ParseVersionFile(
     std::unordered_map<std::string, std::string> &file_map) {
   return BuildInfoTranslationHelper::ParseFile(version_file_path_, file_map);
 }

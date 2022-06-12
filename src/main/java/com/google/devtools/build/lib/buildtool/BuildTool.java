@@ -165,7 +165,7 @@ public class BuildTool {
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
-        env.getEventBus().post(new BuildStartingEvent(env, request));
+        env.getEventBus().post(BuildStartingEvent.create(env, request));
       }
       logger.atInfo().log("Build identifier: %s", request.getId());
 
@@ -437,6 +437,7 @@ public class BuildTool {
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
               /* deduplicateDepsets= */ true,
+              /* includeFileWriteContents */ false,
               aqueryOutputHandler);
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }

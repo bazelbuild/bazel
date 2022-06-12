@@ -225,10 +225,8 @@ public class WorkspaceFactoryTest {
   private void assertMapping(
       WorkspaceFactoryTestHelper helper, String repo, String local, String global)
       throws Exception {
-    RepositoryName localRepoName = RepositoryName.create(local);
-    RepositoryName globalRepoName = RepositoryName.create(global);
     assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(repo)))
-        .containsEntry(localRepoName, globalRepoName);
+        .containsEntry(local, RepositoryName.create(global));
   }
 
 }

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -58,8 +59,9 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
     // through RepositoryDelegatorFunction again. This isn't a normally a problem, but since we
     // always refetch "local" (aka "always fetch") repos, this could be an unnecessary performance
     // hit.
-    ImmutableMap.Builder<String, Package> canonicalRepoNameToPackage = ImmutableMap.builder();
-    ImmutableMap.Builder<String, ModuleExtensionId> canonicalRepoNameToExtensionId =
+    ImmutableMap.Builder<RepositoryName, Package> canonicalRepoNameToPackage =
+        ImmutableMap.builder();
+    ImmutableMap.Builder<RepositoryName, ModuleExtensionId> canonicalRepoNameToExtensionId =
         ImmutableMap.builder();
     ImmutableListMultimap.Builder<ModuleExtensionId, String> extensionIdToRepoInternalNames =
         ImmutableListMultimap.builder();
@@ -75,11 +77,12 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
       String repoPrefix =
           bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId) + '.';
       for (Map.Entry<String, Package> entry : generatedRepos.entrySet()) {
-            String canonicalRepoName = repoPrefix + entry.getKey();
-            canonicalRepoNameToPackage.put(canonicalRepoName, entry.getValue());
-            canonicalRepoNameToExtensionId.put(canonicalRepoName, extensionId);
-          }
-          extensionIdToRepoInternalNames.putAll(extensionId, generatedRepos.keySet());
+        RepositoryName canonicalRepoName =
+            RepositoryName.createUnvalidated(repoPrefix + entry.getKey());
+        canonicalRepoNameToPackage.put(canonicalRepoName, entry.getValue());
+        canonicalRepoNameToExtensionId.put(canonicalRepoName, extensionId);
+      }
+      extensionIdToRepoInternalNames.putAll(extensionId, generatedRepos.keySet());
     }
     return ModuleExtensionResolutionValue.create(
         canonicalRepoNameToPackage.buildOrThrow(),

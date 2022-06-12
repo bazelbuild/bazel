@@ -81,6 +81,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 
 /**
  * A wrapper for {@link BlazeRuntime} for testing purposes that makes it possible to exercise (most)
@@ -184,9 +185,9 @@ public class BlazeRuntimeWrapper {
 
   private void enforceTestInvocationPolicy(OptionsParser parser) {
     InvocationPolicyEnforcer optionsPolicyEnforcer =
-        new InvocationPolicyEnforcer(runtime.getModuleInvocationPolicy());
+        new InvocationPolicyEnforcer(runtime.getModuleInvocationPolicy(), Level.FINE);
     try {
-      optionsPolicyEnforcer.enforce(parser);
+      optionsPolicyEnforcer.enforce(parser, /*command=*/ null);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }

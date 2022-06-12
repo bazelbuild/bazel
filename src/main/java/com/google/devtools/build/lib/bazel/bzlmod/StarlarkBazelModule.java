@@ -92,10 +92,9 @@ public class StarlarkBazelModule implements StarlarkValue {
    * Creates a label pointing to the root package of the repo with the given canonical repo name.
    * This label can be used to anchor (relativize) labels with no "@foo" part.
    */
-  static Label createModuleRootLabel(String canonicalRepoName) {
+  static Label createModuleRootLabel(RepositoryName canonicalRepoName) {
     return Label.createUnvalidated(
-        PackageIdentifier.create(
-            RepositoryName.createUnvalidated(canonicalRepoName), PathFragment.EMPTY_FRAGMENT),
+        PackageIdentifier.create(canonicalRepoName, PathFragment.EMPTY_FRAGMENT),
         "unused_dummy_target_name");
   }
 

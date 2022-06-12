@@ -536,9 +536,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     return attributes.build();
   }
 
-  private static ImmutableList<Label> parseExecCompatibleWith(
+  private static ImmutableSet<Label> parseExecCompatibleWith(
       Sequence<?> inputs, StarlarkThread thread) throws EvalException {
-    ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
+    ImmutableSet.Builder<Label> parsedLabels = new ImmutableSet.Builder<>();
     LabelConverter converter = LabelConverter.forThread(thread);
     for (String input : Sequence.cast(inputs, String.class, "exec_compatible_with")) {
       try {
@@ -566,6 +566,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       boolean useToolchainTransition,
       String doc,
       Boolean applyToGeneratingRules,
+      Sequence<?> rawExecCompatibleWith,
+      Object rawExecGroups,
       StarlarkThread thread)
       throws EvalException {
     ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
@@ -655,6 +657,24 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
     }
 
+    ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
+    if (!rawExecCompatibleWith.isEmpty()) {
+      execCompatibleWith = parseExecCompatibleWith(rawExecCompatibleWith, thread);
+    }
+
+    ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    if (rawExecGroups != Starlark.NONE) {
+      execGroups =
+          ImmutableMap.copyOf(
+              Dict.cast(rawExecGroups, String.class, ExecGroup.class, "exec_group"));
+      for (String group : execGroups.keySet()) {
+        // TODO(b/151742236): document this in the param documentation.
+        if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
+          throw Starlark.errorf("Exec group name '%s' is not a valid name.", group);
+        }
+      }
+    }
+
     return new StarlarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -669,7 +689,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
         parseToolchainTypes(toolchains, thread),
-        applyToGeneratingRules);
+        applyToGeneratingRules,
+        execCompatibleWith,
+        execGroups);
   }
 
   /**
@@ -965,8 +987,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     ImmutableSet<ToolchainTypeRequirement> toolchainTypes = parseToolchainTypes(toolchains, thread);
-    ImmutableSet<Label> constraints =
-        ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
+    ImmutableSet<Label> constraints = parseExecCompatibleWith(execCompatibleWith, thread);
     return ExecGroup.builder()
         .toolchainTypes(toolchainTypes)
         .execCompatibleWith(constraints)

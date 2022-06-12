@@ -909,11 +909,13 @@ public abstract class TargetPattern {
           throw new TargetParsingException(
               "Couldn't find package in target " + pattern, TargetPatterns.Code.PACKAGE_NOT_FOUND);
         }
+        String repoPart = pattern.substring(1, pkgStart);
         try {
-          repository = repoMapping.get(RepositoryName.create(pattern.substring(1, pkgStart)));
+          RepositoryName.validate(repoPart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }
+        repository = repoMapping.get(repoPart);
         if (!repository.isVisible()) {
           throw new TargetParsingException(
               String.format(

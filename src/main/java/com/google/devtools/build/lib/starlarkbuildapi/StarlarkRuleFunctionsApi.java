@@ -642,7 +642,31 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "a target `beta`. Suppose `beta` has a target `charlie` as one of its "
                     + "`deps`. If `apply_to_generating_rules=True` for the aspect, then the aspect "
                     + "will propagate through `alpha`, `beta`, and `charlie`. If False, then the "
-                    + "aspect will propagate only to `alpha`. </p><p>False by default.</p>")
+                    + "aspect will propagate only to `alpha`. </p><p>False by default.</p>"),
+        @Param(
+            name = EXEC_COMPATIBLE_WITH_PARAM,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc =
+                "A list of constraints on the execution platform that apply to all instances of"
+                    + " this aspect."),
+        @Param(
+            name = "exec_groups",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            doc =
+                "Dict of execution group name (string) to <a"
+                    + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
+                    + " allows aspects to run actions on multiple execution platforms within a"
+                    + " single instance. See <a href='${link exec-groups}'>execution groups"
+                    + " documentation</a> for more info.")
       },
       useStarlarkThread = true)
   StarlarkAspectApi aspect(
@@ -659,6 +683,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       boolean useToolchainTransition,
       String doc,
       Boolean applyToGeneratingRules,
+      Sequence<?> execCompatibleWith,
+      Object execGroups,
       StarlarkThread thread)
       throws EvalException;
 

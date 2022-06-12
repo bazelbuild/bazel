@@ -385,7 +385,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private void checkForConcurrentModifications(SpawnExecutionContext context)
       throws IOException, ForbiddenActionInputException {
-    for (ActionInput input : (context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values())) {
+    for (ActionInput input : context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values()) {
       if (input instanceof VirtualActionInput) {
         continue;
       }

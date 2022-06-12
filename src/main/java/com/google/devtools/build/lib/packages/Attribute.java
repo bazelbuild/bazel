@@ -769,7 +769,9 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> allowedFileTypes(FileTypeSet allowedFileTypes) {
       Preconditions.checkState(
-          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
+          type.getLabelClass() == LabelClass.DEPENDENCY
+              || type.getLabelClass() == LabelClass.GENQUERY_SCOPE_REFERENCE,
+          "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedFileTypesForLabels = Preconditions.checkNotNull(allowedFileTypes);
       return this;

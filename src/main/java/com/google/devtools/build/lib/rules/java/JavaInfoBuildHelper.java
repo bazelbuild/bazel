@@ -154,6 +154,13 @@ final class JavaInfoBuildHelper {
     javaInfoBuilder.addProvider(
         JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries));
 
+    javaInfoBuilder.addProvider(
+        JavaModuleFlagsProvider.class,
+        JavaModuleFlagsProvider.merge(
+            JavaInfo.streamProviders(
+                    concat(compileTimeDeps, exports), JavaModuleFlagsProvider.class)
+                .collect(toImmutableList())));
+
     return javaInfoBuilder.build();
   }
 

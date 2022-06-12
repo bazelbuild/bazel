@@ -16,20 +16,21 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Optional;
 
 /** A fake {@link BzlmodRepoRuleHelper} */
 public final class FakeBzlmodRepoRuleHelper implements BzlmodRepoRuleHelper {
 
-  private final ImmutableMap<String, RepoSpec> repoSpecs;
+  private final ImmutableMap<RepositoryName, RepoSpec> repoSpecs;
 
-  FakeBzlmodRepoRuleHelper(ImmutableMap<String, RepoSpec> repoSpecs) {
+  FakeBzlmodRepoRuleHelper(ImmutableMap<RepositoryName, RepoSpec> repoSpecs) {
     this.repoSpecs = repoSpecs;
   }
 
   @Override
-  public Optional<RepoSpec> getRepoSpec(Environment env, String repositoryName) {
+  public Optional<RepoSpec> getRepoSpec(Environment env, RepositoryName repositoryName) {
     return Optional.ofNullable(repoSpecs.get(repositoryName));
   }
 }

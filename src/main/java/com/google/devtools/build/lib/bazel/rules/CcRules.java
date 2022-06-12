@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Rules for C++ support in Bazel.
@@ -63,6 +64,7 @@ public class CcRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
     builder.addConfigurationFragment(CppConfiguration.class);
+    builder.addStarlarkAccessibleTopLevels("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBuildInfoFactory(new CppBuildInfo());
 
     builder.addNativeAspectClass(graphNodeAspect);

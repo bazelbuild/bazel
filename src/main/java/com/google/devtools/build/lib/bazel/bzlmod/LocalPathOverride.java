@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** Specifies that a module should be retrieved from a local directory. */
 @AutoValue
@@ -30,10 +31,10 @@ public abstract class LocalPathOverride implements NonRegistryOverride {
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
-  public RepoSpec getRepoSpec(String repoName) {
+  public RepoSpec getRepoSpec(RepositoryName repoName) {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
-        .setAttributes(ImmutableMap.of("name", repoName, "path", getPath()))
+        .setAttributes(ImmutableMap.of("name", repoName.getName(), "path", getPath()))
         .build();
   }
 }

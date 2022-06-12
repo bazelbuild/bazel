@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -168,10 +169,13 @@ public class BazelRuleClassProvider {
 
   private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
 
-  public static final Function<BuildOptions, PathFragment> SHELL_EXECUTABLE =
-      (BuildOptions options) ->
-          ShellConfiguration.determineShellExecutable(
-              OS.getCurrent(), options.get(ShellConfiguration.Options.class), FALLBACK_SHELL);
+  public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLE =
+      ImmutableMap.<OS, PathFragment>builder()
+          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
+          .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.UNKNOWN, FALLBACK_SHELL)
+          .buildOrThrow();
 
   /**
    * {@link BuildConfigurationFunction} constructs {@link BuildOptions} out of the options required
@@ -183,11 +187,40 @@ public class BazelRuleClassProvider {
     public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
   }
 
+  @Nullable
+  public static PathFragment getDefaultPathFromOptions(ShellConfiguration.Options options) {
+    if (options.shellExecutable != null) {
+      return options.shellExecutable;
+    }
+
+    // Honor BAZEL_SH env variable for backwards compatibility.
+    String path = System.getenv("BAZEL_SH");
+    if (path != null) {
+      return PathFragment.create(path);
+    }
+    return null;
+  }
+
+  @VisibleForTesting
+  static PathFragment getShellExecutableForOs(OS os, ShellConfiguration.Options options) {
+    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
+    // which may be different for remote execution. For now, this can be overridden with
+    // --shell_executable, so at least there's a workaround.
+    return getDefaultPathFromOptions(options) != null
+        ? getDefaultPathFromOptions(options)
+        : SHELL_EXECUTABLE.getOrDefault(os, FALLBACK_SHELL);
+  }
+
   public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
       (BuildOptions options) -> {
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
         OS os = OS.getCurrent();
-        PathFragment shellExecutable = SHELL_EXECUTABLE.apply(options);
+        // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
+        // which may be different for remote execution. For now, this can be overridden with
+        // --shell_executable, so at least there's a workaround.
+        PathFragment shellExecutable =
+            getShellExecutableForOs(os, options.get(ShellConfiguration.Options.class));
+
         TreeMap<String, String> env = new TreeMap<>();
 
         // All entries in the builder that have a value of null inherit the value from the client
@@ -257,7 +290,8 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          ShellConfiguration.injectShellExecutableFinder(SHELL_EXECUTABLE);
+          ShellConfiguration.injectShellExecutableFinder(
+              BazelRuleClassProvider::getDefaultPathFromOptions, SHELL_EXECUTABLE);
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
