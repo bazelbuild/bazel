@@ -78,7 +78,6 @@ genrule(
     build_tar = ":build_tar",
     extension = "tar%s" % ext,
     mode = "0644",
-    modes = {"usr/titi": "0755"},
     owner = "42.24",
     ownername = "titi.tata",
     package_dir = "/",

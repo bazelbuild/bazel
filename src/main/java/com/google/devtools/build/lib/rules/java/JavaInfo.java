@@ -142,6 +142,9 @@ public final class JavaInfo extends NativeInfo
       javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
 
+    ImmutableList<JavaModuleFlagsProvider> javaModuleFlagsProviderProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaModuleFlagsProvider.class);
+
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .addProvider(
@@ -157,7 +160,10 @@ public final class JavaInfo extends NativeInfo
             // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
             // TODO(iirina): merge or remove JavaCompilationInfoProvider
             .setRuntimeJars(runtimeJars.build().toList())
-            .setJavaConstraints(javaConstraints.build().toList());
+            .setJavaConstraints(javaConstraints.build().toList())
+            .addProvider(
+                JavaModuleFlagsProvider.class,
+                JavaModuleFlagsProvider.merge(javaModuleFlagsProviderProviders));
 
     return javaInfoBuilder.build();
   }

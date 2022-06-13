@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -66,6 +67,10 @@ final class JavaModuleFlagsProvider implements TransitiveInfoProvider, JavaModul
       new JavaModuleFlagsProvider(
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+
+  public static JavaModuleFlagsProvider merge(Collection<JavaModuleFlagsProvider> providers) {
+    return create(ImmutableList.of(), ImmutableList.of(), providers.stream());
+  }
 
   public static JavaModuleFlagsProvider create(
       List<String> addExports, List<String> addOpens, Stream<JavaModuleFlagsProvider> transitive) {

@@ -100,6 +100,31 @@ java_library(
 )
 
 java_library(
+    name = "controllable_action_strategy_module",
+    srcs = ["ControllableActionStrategyModule.java"],
+    deps = [
+        ":spawn_controller",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "spawn_controller",
+    srcs = ["SpawnController.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "test_interrupting_bug_reporter",
     srcs = ["TestInterruptingBugReporter.java"],
     deps = [

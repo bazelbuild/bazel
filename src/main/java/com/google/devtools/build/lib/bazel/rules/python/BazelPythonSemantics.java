@@ -237,8 +237,9 @@ public class BazelPythonSemantics implements PythonSemantics {
     if (buildPythonZip) {
       Artifact zipFile = common.getPythonZipArtifact(executable);
 
+      // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
       if (OS.getCurrent() != OS.WINDOWS) {
-        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        PathFragment shExecutable = ShToolchain.getPathForHost(ruleContext.getConfiguration());
         String pythonExecutableName = "python3";
         // NOTE: keep the following line intact to support nix builds
         String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;

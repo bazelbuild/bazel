@@ -150,14 +150,6 @@ def _create_debug_packager_actions(ctx, cc_toolchain, dwp_output, dwo_files):
         outputs = packager["outputs"],
     )
 
-def _is_stamping_enabled(ctx):
-    if ctx.configuration.is_tool_configuration():
-        return 0
-    stamp = 0
-    if hasattr(ctx.attr, "stamp"):
-        stamp = ctx.attr.stamp
-    return stamp
-
 def _get_non_data_deps(ctx):
     return ctx.attr.srcs + ctx.attr.deps
 
@@ -528,7 +520,7 @@ def _create_transitive_linking_actions(
         cc_toolchain = cc_toolchain,
         compilation_outputs = cc_compilation_outputs_with_only_objects,
         grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
-        stamp = _is_stamping_enabled(ctx),
+        stamp = cc_helper.is_stamping_enabled(ctx),
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
         name = ctx.label.name,
@@ -730,7 +722,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     # cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
     # output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
     cc_linking_outputs = None
-    if link_compile_output_separately and (len(cc_compilation_outputs.objects) != 0 or len(cc_compilation_outputs.pic_objects) != 0):
+    if link_compile_output_separately and not cc_helper.is_compilation_outputs_empty(cc_compilation_outputs):
         (linking_context, cc_linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
@@ -739,7 +731,7 @@ def cc_binary_impl(ctx, additional_linkopts):
             name = ctx.label.name,
             grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
             linking_contexts = cc_helper.get_linking_contexts_from_deps([_malloc_for_target(ctx, cpp_config)]) + cc_helper.get_linking_contexts_from_deps(ctx.attr.deps),
-            stamp = _is_stamping_enabled(ctx),
+            stamp = cc_helper.is_stamping_enabled(ctx),
             alwayslink = True,
         )
 

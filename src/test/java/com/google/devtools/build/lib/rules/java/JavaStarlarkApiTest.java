@@ -3262,6 +3262,31 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(artifacts)).containsExactly("build-info-redacted.properties");
   }
 
+  @Test
+  public void mergeAddExports() throws Exception {
+    scratch.file(
+        "foo/custom_library.bzl",
+        "def _impl(ctx):",
+        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
+        "  return [java_provider]",
+        "custom_library = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        "  implementation = _impl",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_library.bzl', 'custom_library')",
+        "custom_library(name = 'custom', deps = [':a'])",
+        "java_library(name = 'a', srcs = ['java/A.java'], add_exports = ['java.base/java.lang'])");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
+    JavaModuleFlagsProvider provider =
+        JavaInfo.getProvider(JavaModuleFlagsProvider.class, myRuleTarget);
+    assertThat(provider.toFlags()).containsExactly("--add-exports=java.base/java.lang=ALL-UNNAMED");
+  }
+
   private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {
     return getConfiguredTarget(label).get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
   }

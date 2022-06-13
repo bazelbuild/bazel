@@ -388,7 +388,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     pySupport().setup(config);
-    ShellConfiguration.injectShellExecutableFinder(BazelRuleClassProvider.SHELL_EXECUTABLE);
+    ShellConfiguration.injectShellExecutableFinder(
+        BazelRuleClassProvider::getDefaultPathFromOptions, BazelRuleClassProvider.SHELL_EXECUTABLE);
   }
 
   /** Contents of {@code //tools/android/emulator/BUILD.tools}. */

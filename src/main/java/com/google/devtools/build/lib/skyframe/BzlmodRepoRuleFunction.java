@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -79,7 +80,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       return null;
     }
 
-    String repositoryName = ((BzlmodRepoRuleValue.Key) skyKey).argument();
+    RepositoryName repositoryName = ((BzlmodRepoRuleValue.Key) skyKey).argument();
 
     // Look for the repo from Bazel module generated repos.
     try {
@@ -102,7 +103,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     }
     Package pkg = extensionResolution.getCanonicalRepoNameToPackage().get(repositoryName);
     if (pkg != null) {
-      return new BzlmodRepoRuleValue(pkg, repositoryName);
+      return new BzlmodRepoRuleValue(pkg, repositoryName.getName());
     }
 
     return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;

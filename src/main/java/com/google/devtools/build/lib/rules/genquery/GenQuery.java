@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -191,7 +192,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           executeQuery(
               ruleContext,
               queryOptions,
-              ruleContext.attributes().get("scope", BuildType.LABEL_LIST),
+              ruleContext.attributes().get("scope", BuildType.GENQUERY_SCOPE_TYPE_LIST),
               query,
               outputArtifact.getPath().getFileSystem().getDigestFunction().getHashFunction());
     }

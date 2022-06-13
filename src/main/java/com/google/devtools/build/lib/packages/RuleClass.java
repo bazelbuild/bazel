@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -2122,10 +2121,9 @@ public class RuleClass {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             rule,
-            pkgBuilder.getRepositoryMapping(),
+            pkgBuilder.getLabelConverter(),
             attributeValues,
             pkgBuilder.getListInterner(),
-            pkgBuilder.getConvertedLabelsInPackage(),
             eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
@@ -2145,10 +2143,9 @@ public class RuleClass {
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
       Rule rule,
-      RepositoryMapping repositoryMapping,
+      LabelConverter labelConverter,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
-      Map<String, Label> convertedLabelsInPackage,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -2181,13 +2178,7 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(
-                  rule,
-                  attr,
-                  attributeValue,
-                  repositoryMapping,
-                  listInterner,
-                  convertedLabelsInPackage);
+              convertFromBuildLangType(rule, attr, attributeValue, labelConverter, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2483,18 +2474,15 @@ public class RuleClass {
       Rule rule,
       Attribute attr,
       Object buildLangValue,
-      RepositoryMapping repositoryMapping,
-      Interner<ImmutableList<?>> listInterner,
-      Map<String, Label> convertedLabelsInPackage)
+      LabelConverter labelConverter,
+      Interner<ImmutableList<?>> listInterner)
       throws ConversionException {
-    LabelConverter context =
-        new LabelConverter(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),
             buildLangValue,
             new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-            context);
+            labelConverter);
 
     if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
       throw new ConversionException(

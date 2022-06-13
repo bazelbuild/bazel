@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.genquery;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -45,7 +45,7 @@ public final class GenQueryRule implements RuleDefinition {
         The scope of the query. The query is not allowed to touch targets outside the transitive
         closure of these targets.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("scope", LABEL_LIST).mandatory().legacyAllowAnyFileType())
+        .add(attr("scope", GENQUERY_SCOPE_TYPE_LIST).mandatory().legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(strict) -->
         If true, targets whose queries escape the transitive closure of their scopes will fail to
         build. If false, Bazel will print a warning and skip whatever query path led it outside of

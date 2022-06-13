@@ -75,6 +75,28 @@ public final class BuildType {
   /** The type of a list of {@linkplain #NODEP_LABEL labels} that do not cause dependencies. */
   @SerializationConstant
   public static final ListType<Label> NODEP_LABEL_LIST = ListType.create(NODEP_LABEL);
+
+  /**
+   * This is a label type that causes dependencies, but the dependencies are NOT to be configured.
+   * Does not say anything about whether the attribute of this type is itself configurable.
+   *
+   * <p>Without a special type to handle genquery.scope, configuring a genquery target ends up
+   * configuring the transitive closure of genquery.scope. Since genquery rule implementation loads
+   * the deps through TransitiveTargetFunction, it doesn't need them to be configured. Preventing
+   * the dependencies of scope from being configured, lets us save some resources.
+   */
+  @SerializationConstant
+  public static final Type<Label> GENQUERY_SCOPE_TYPE =
+      new LabelType(LabelClass.GENQUERY_SCOPE_REFERENCE);
+
+  /**
+   * This is a label type that causes dependencies, but the dependencies are NOT to be configured.
+   * Does not say anything about whether the attribute of this type is itself configurable.
+   */
+  @SerializationConstant
+  public static final ListType<Label> GENQUERY_SCOPE_TYPE_LIST =
+      ListType.create(GENQUERY_SCOPE_TYPE);
+
   /**
    * The type of a license. Like Label, licenses aren't first-class, but they're important enough to
    * justify early syntax error detection.
@@ -397,13 +419,13 @@ public final class BuildType {
 
         LabelConverter converter = (LabelConverter) context;
         Label result = converter.convert(value);
-        if (!result.getPackageIdentifier().equals(converter.getBase().getPackageIdentifier())) {
+        if (!result.getPackageIdentifier().equals(converter.getBasePackage())) {
           throw new ConversionException("label '" + value + "' is not in the current package");
         }
         return result;
       } catch (LabelSyntaxException e) {
         throw new ConversionException(
-            "illegal output file name '" + value + "' in rule " + context + ": " + e.getMessage());
+            "illegal output file name '" + value + "': " + e.getMessage());
       }
     }
   }

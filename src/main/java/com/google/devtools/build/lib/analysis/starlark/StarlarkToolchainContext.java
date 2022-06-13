@@ -87,7 +87,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
       return ((ToolchainTypeInfo) key).typeLabel();
     } else if (key instanceof String) {
       try {
-        LabelConverter converter = LabelConverter.forThread(starlarkThread);
+        LabelConverter converter = LabelConverter.forBzlEvaluatingThread(starlarkThread);
         return converter.convert((String) key);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf("Unable to parse toolchain label '%s': %s", key, e.getMessage());

@@ -1120,6 +1120,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
   }
 
+  /** Returns the configurations in which the given label has already been configured. */
+  protected Set<BuildConfigurationKey> getKnownConfigurations(String label) throws Exception {
+    Label parsed = Label.parseAbsoluteUnchecked(label);
+    Set<BuildConfigurationKey> cts = new HashSet<>();
+    for (Map.Entry<SkyKey, SkyValue> e :
+        skyframeExecutor.getEvaluator().getDoneValues().entrySet()) {
+      if (!(e.getKey() instanceof ConfiguredTargetKey)) {
+        continue;
+      }
+      ConfiguredTargetKey ctKey = (ConfiguredTargetKey) e.getKey();
+      if (parsed.equals(ctKey.getLabel())) {
+        cts.add(ctKey.getConfigurationKey());
+      }
+    }
+    return cts;
+  }
+
   /**
    * Returns the {@link ConfiguredAspect} with the given label. For example: {@code
    * //my:base_target%my_aspect}.
@@ -2026,6 +2043,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected void useLoadingOptions(String... options) throws OptionsParsingException {
     customLoadingOptions = Options.parse(LoadingOptions.class, options).getOptions();
+  }
+
+  protected AnalysisResult update(String target, int loadingPhaseThreads, boolean doAnalysis)
+      throws Exception {
+    return update(
+        ImmutableList.of(target),
+        ImmutableList.of(),
+        /*keepGoing=*/ true, // value doesn't matter since we have only one target.
+        loadingPhaseThreads,
+        doAnalysis,
+        new EventBus());
   }
 
   protected AnalysisResult update(

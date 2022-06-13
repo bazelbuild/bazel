@@ -246,10 +246,10 @@ public class BazelRepositoryModule extends BlazeModule {
             //   - The canonical name "local_config_platform" is hardcoded in Bazel code.
             //     See {@link PlatformOptions}
             "local_config_platform",
-            (String repoName) ->
+            (RepositoryName repoName) ->
                 RepoSpec.builder()
                     .setRuleClassName("local_config_platform")
-                    .setAttributes(ImmutableMap.of("name", repoName))
+                    .setAttributes(ImmutableMap.of("name", repoName.getName()))
                     .build());
     builder
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)

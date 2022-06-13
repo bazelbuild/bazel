@@ -54,6 +54,7 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
   public void prepareOutputServiceMock()
       throws BuildFailedException, AbruptExitException, InterruptedException, IOException {
     when(outputService.actionFileSystemType()).thenReturn(ActionFileSystemType.DISABLED);
+    when(outputService.getFilesSystemName()).thenReturn("fileSystemName");
     when(outputService.startBuild(any(), any(), anyBoolean()))
         .thenReturn(ModifiedFileSet.EVERYTHING_MODIFIED);
   }

@@ -241,7 +241,7 @@ public class RunCommand implements BlazeCommand  {
         }
       }
 
-      PathFragment shellExecutable = ShToolchain.getPath(configuration);
+      PathFragment shellExecutable = ShToolchain.getPathForHost(configuration);
       if (shellExecutable.isEmpty()) {
         throw new NoShellFoundException();
       }
@@ -535,7 +535,7 @@ public class RunCommand implements BlazeCommand  {
               configuration.checksum(),
               /* executionPlatformAsLabelString= */ null);
 
-      PathFragment shExecutable = ShToolchain.getPath(configuration);
+      PathFragment shExecutable = ShToolchain.getPathForHost(configuration);
       if (shExecutable.isEmpty()) {
         return reportAndCreateFailureResult(
             env,
@@ -587,7 +587,7 @@ public class RunCommand implements BlazeCommand  {
         isBinary = false;
       }
     } else {
-      PathFragment shExecutable = ShToolchain.getPath(configuration);
+      PathFragment shExecutable = ShToolchain.getPathForHost(configuration);
       if (shExecutable.isEmpty()) {
         return reportAndCreateFailureResult(
             env,

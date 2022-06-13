@@ -1220,7 +1220,6 @@ public final class SkyframeActionExecutor {
             /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
-            actionFileSystemType().inMemoryFileSystem(),
             actionException,
             fileOutErr,
             ErrorTiming.AFTER_EXECUTION);
@@ -1233,7 +1232,6 @@ public final class SkyframeActionExecutor {
             /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
-            actionFileSystemType().inMemoryFileSystem(),
             new ActionExecutionException(
                 exception,
                 action,
@@ -1260,7 +1258,6 @@ public final class SkyframeActionExecutor {
           primaryOutputMetadata,
           action,
           actionResult,
-          actionFileSystemType().inMemoryFileSystem(),
           null,
           fileOutErr,
           ErrorTiming.NO_ERROR);
@@ -1413,7 +1410,6 @@ public final class SkyframeActionExecutor {
         /*primaryOutputMetadata=*/ null,
         action,
         null,
-        actionFileSystemType().inMemoryFileSystem(),
         e,
         outErrBuffer,
         errorTiming);
@@ -1694,7 +1690,6 @@ public final class SkyframeActionExecutor {
       @Nullable FileArtifactValue primaryOutputMetadata,
       Action action,
       @Nullable ActionResult actionResult,
-      boolean isInMemoryFs,
       ActionExecutionException exception,
       FileOutErr outErr,
       ErrorTiming errorTiming) {
@@ -1726,8 +1721,7 @@ public final class SkyframeActionExecutor {
             stdout,
             stderr,
             logs,
-            errorTiming,
-            isInMemoryFs));
+            errorTiming));
   }
 
   /** An object supplying data for action execution progress reporting. */

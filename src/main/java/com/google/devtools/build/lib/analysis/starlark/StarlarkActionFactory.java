@@ -48,11 +48,13 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -440,6 +442,24 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return context.getStarlarkSemantics();
   }
 
+  private void verifyExecGroup(Object execGroupUnchecked, RuleContext ctx) throws EvalException {
+    String execGroup = (String) execGroupUnchecked;
+    if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
+        || !ctx.hasToolchainContext(execGroup)) {
+      throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
+    }
+  }
+
+  private PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
+      throws EvalException {
+    if (execGroupUnchecked == Starlark.NONE) {
+      return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    } else {
+      verifyExecGroup(execGroupUnchecked, ctx);
+      return ctx.getExecutionPlatform((String) execGroupUnchecked);
+    }
+  }
+
   @Override
   public void runShell(
       Sequence<?> outputs,
@@ -464,11 +484,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     buildCommandLine(builder, arguments);
 
     if (commandUnchecked instanceof String) {
-      Map<String, String> executionInfo =
+      ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
       String command = (String) commandUnchecked;
-      PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+      PathFragment shExecutable =
+          ShToolchain.getPathOrError(getExecutionPlatform(execGroupUnchecked, ruleContext));
       BashCommandConstructor constructor =
           CommandHelper.buildBashCommandConstructor(
               executionInfo, shExecutable, helperScriptSuffix);
@@ -662,13 +683,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    if (execGroupUnchecked != Starlark.NONE) {
-      String execGroup = (String) execGroupUnchecked;
-      if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
-          || !ruleContext.hasToolchainContext(execGroup)) {
-        throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
-      }
-      builder.setExecGroup(execGroup);
+    if (execGroupUnchecked == Starlark.NONE) {
+      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    } else {
+      verifyExecGroup(execGroupUnchecked, ruleContext);
+      builder.setExecGroup((String) execGroupUnchecked);
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {

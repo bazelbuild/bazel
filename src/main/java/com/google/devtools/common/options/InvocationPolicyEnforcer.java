@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -52,30 +53,19 @@ public final class InvocationPolicyEnforcer {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final String INVOCATION_POLICY_SOURCE = "Invocation policy";
-  @Nullable private final InvocationPolicy invocationPolicy;
+  private final InvocationPolicy invocationPolicy;
   private final Level loglevel;
 
   /**
    * Creates an InvocationPolicyEnforcer that enforces the given policy.
    *
-   * @param invocationPolicy the policy to enforce. A null policy means this enforcer will do
-   *     nothing in calls to enforce().
-   */
-  public InvocationPolicyEnforcer(@Nullable InvocationPolicy invocationPolicy) {
-    this(invocationPolicy, Level.FINE);
-  }
-
-  /**
-   * Creates an InvocationPolicyEnforcer that enforces the given policy.
-   *
-   * @param invocationPolicy the policy to enforce. A null policy means this enforcer will do
-   *     nothing in calls to enforce().
+   * @param invocationPolicy the policy to enforce.
    * @param loglevel the level at which to log informational statements. Warnings and errors will
    *     still be logged at the appropriate level.
    */
-  public InvocationPolicyEnforcer(@Nullable InvocationPolicy invocationPolicy, Level loglevel) {
-    this.invocationPolicy = invocationPolicy;
-    this.loglevel = loglevel;
+  public InvocationPolicyEnforcer(InvocationPolicy invocationPolicy, Level loglevel) {
+    this.invocationPolicy = Preconditions.checkNotNull(invocationPolicy);
+    this.loglevel = Preconditions.checkNotNull(loglevel);
   }
 
   private static final class FlagPolicyWithContext {
@@ -91,33 +81,18 @@ public final class InvocationPolicyEnforcer {
     }
   }
 
-  @Nullable
-  public InvocationPolicy getInvocationPolicy() {
-    return invocationPolicy;
-  }
-
   /**
-   * Applies this OptionsPolicyEnforcer's policy to the given OptionsParser for all blaze commands.
+   * Applies this instance's policy to the provided options parser.
    *
    * @param parser The OptionsParser to enforce policy on.
-   * @throws OptionsParsingException if any flag policy is invalid.
-   */
-  public void enforce(OptionsParser parser) throws OptionsParsingException {
-    enforce(parser, null);
-  }
-
-  /**
-   * Applies this OptionsPolicyEnforcer's policy to the given OptionsParser.
-   *
-   * @param parser The OptionsParser to enforce policy on.
-   * @param command The current blaze command, for flag policies that apply to only specific
-   *     commands. Such policies will be enforced only if they contain this command or a command
-   *     they inherit from
+   * @param command The blaze command to enforce the policy for, or null to apply all policies
+   *     regardless of command. Flag policies that apply to specific commands will be enforced only
+   *     if they contain this command or a command it inherits from.
    * @throws OptionsParsingException if any flag policy is invalid.
    */
   public void enforce(OptionsParser parser, @Nullable String command)
       throws OptionsParsingException {
-    if (invocationPolicy == null || invocationPolicy.getFlagPoliciesCount() == 0) {
+    if (invocationPolicy.getFlagPoliciesCount() == 0) {
       return;
     }
 
@@ -203,8 +178,7 @@ public final class InvocationPolicyEnforcer {
   }
 
   private static boolean policyApplies(FlagPolicy policy, ImmutableSet<String> applicableCommands) {
-    // Skip the flag policy if it doesn't apply to this command. If the commands list is empty,
-    // then the policy applies to all commands.
+    // If the commands list is empty, then the policy applies to all commands.
     if (policy.getCommandsList().isEmpty() || applicableCommands.isEmpty()) {
       return true;
     }
@@ -232,7 +206,10 @@ public final class InvocationPolicyEnforcer {
    * <p>Expands any policies on expansion flags.
    */
   private static ImmutableList<FlagPolicyWithContext> getEffectivePolicies(
-      InvocationPolicy invocationPolicy, OptionsParser parser, String command, Level loglevel)
+      InvocationPolicy invocationPolicy,
+      OptionsParser parser,
+      @Nullable String command,
+      Level loglevel)
       throws OptionsParsingException {
     if (invocationPolicy == null) {
       return ImmutableList.of();

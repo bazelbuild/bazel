@@ -221,12 +221,11 @@ public class Package {
   private Set<License.DistributionType> defaultDistributionSet;
 
   /**
-   * The map from each repository to that repository's remappings map.
-   * This is only used in the //external package, it is an empty map for all other packages.
-   * For example, an entry of {"@foo" : {"@x", "@y"}} indicates that, within repository foo,
-   * "@x" should be remapped to "@y".
+   * The map from each repository to that repository's remappings map. This is only used in the
+   * //external package, it is an empty map for all other packages. For example, an entry of {"@foo"
+   * : {"@x", "@y"}} indicates that, within repository foo, "@x" should be remapped to "@y".
    */
-  private ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+  private ImmutableMap<RepositoryName, ImmutableMap<String, RepositoryName>>
       externalPackageRepositoryMappings;
 
   /**
@@ -287,25 +286,15 @@ public class Package {
   /**
    * Returns the repository mapping for the requested external repository.
    *
-   * @throws UnsupportedOperationException if called from a package other than
-   *     the //external package
+   * @throws UnsupportedOperationException if called from a package other than the //external
+   *     package
    */
-  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
-      RepositoryName repository) {
+  public ImmutableMap<String, RepositoryName> getRepositoryMapping(RepositoryName repository) {
     if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException("Can only access the external package repository"
           + "mappings from the //external package");
     }
-
-    // We are passed a repository name as seen from the main repository, not necessarily
-    // a canonical repository name. So, we first have to find the canonical name for the
-    // repository in question before we can look up the mapping for it.
-    RepositoryName actualRepositoryName =
-        externalPackageRepositoryMappings
-            .getOrDefault(RepositoryName.MAIN, ImmutableMap.of())
-            .getOrDefault(repository, repository);
-
-    return externalPackageRepositoryMappings.getOrDefault(actualRepositoryName, ImmutableMap.of());
+    return externalPackageRepositoryMappings.getOrDefault(repository, ImmutableMap.of());
   }
 
   /** Get the repository mapping for this package. */
@@ -319,7 +308,7 @@ public class Package {
    * @throws UnsupportedOperationException if called from a package other than the //external
    *     package
    */
-  ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+  ImmutableMap<RepositoryName, ImmutableMap<String, RepositoryName>>
       getExternalPackageRepositoryMappings() {
     if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException(
@@ -467,7 +456,7 @@ public class Package {
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
-    ImmutableMap.Builder<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+    ImmutableMap.Builder<RepositoryName, ImmutableMap<String, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
     if (!builder.externalPackageRepositoryMappings.isEmpty() && !builder.isWorkspace()) {
       // 'repo_mapping' should only be used in the //external package, i.e. should only appear
@@ -854,13 +843,14 @@ public class Package {
       PackageSettings helper,
       RootedPath workspacePath,
       String workspaceName,
+      RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return new Builder(
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             workspaceName,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-            RepositoryMapping.ALWAYS_FALLBACK)
+            mainRepoMapping)
         .setFilename(workspacePath);
   }
 
@@ -885,9 +875,6 @@ public class Package {
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
   public static class Builder {
-
-    static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
-        ImmutableMap.of();
 
     /** Defines configuration to control the runtime behavior of {@link Package}s. */
     public interface PackageSettings {
@@ -935,7 +922,7 @@ public class Package {
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
-    private final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
+    private final HashMap<RepositoryName, HashMap<String, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
     /**
      * The map of repository reassignments for BUILD packages loaded within external repositories.
@@ -943,6 +930,8 @@ public class Package {
      * workspace.
      */
     private final RepositoryMapping repositoryMapping;
+    /** Converts label literals to Label objects within this package. */
+    private final LabelConverter labelConverter;
 
     private RootedPath filename = null;
     private Label buildFileLabel = null;
@@ -1017,8 +1006,6 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
-    private final HashMap<String, Label> convertedLabelsInPackage = new HashMap<>();
-
     private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
 
     private final TestSuiteImplicitTestsAccumulator testSuiteImplicitTestsAccumulator =
@@ -1073,6 +1060,7 @@ public class Package {
       this.pkg = new Package(id, workspaceName, packageSettings.succinctTargetNotFoundErrors());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
+      this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
@@ -1092,30 +1080,30 @@ public class Package {
     }
 
     /**
-     * Updates the externalPackageRepositoryMappings entry for {@code repoWithin}. Adds new
-     * entry from {@code localName} to {@code mappedName} in {@code repoWithin}'s map.
+     * Updates the externalPackageRepositoryMappings entry for {@code repoWithin}. Adds new entry
+     * from {@code localName} to {@code mappedName} in {@code repoWithin}'s map.
      *
      * @param repoWithin the RepositoryName within which the mapping should apply
-     * @param localName the RepositoryName that actually appears in the WORKSPACE and BUILD files
-     *    in the {@code repoWithin} repository
+     * @param localName the name that actually appears in the WORKSPACE and BUILD files in the
+     *     {@code repoWithin} repository
      * @param mappedName the RepositoryName by which localName should be referenced
      */
     Builder addRepositoryMappingEntry(
-        RepositoryName repoWithin, RepositoryName localName, RepositoryName mappedName) {
-      HashMap<RepositoryName, RepositoryName> mapping =
-          externalPackageRepositoryMappings
-              .computeIfAbsent(repoWithin, (RepositoryName k) -> new HashMap<>());
+        RepositoryName repoWithin, String localName, RepositoryName mappedName) {
+      HashMap<String, RepositoryName> mapping =
+          externalPackageRepositoryMappings.computeIfAbsent(
+              repoWithin, (RepositoryName k) -> new HashMap<>());
       mapping.put(localName, mappedName);
       return this;
     }
 
     /** Adds all the mappings from a given {@link Package}. */
     Builder addRepositoryMappings(Package aPackage) {
-      ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
-          repositoryMappings = aPackage.externalPackageRepositoryMappings;
-      for (Map.Entry<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> repositoryName :
+      ImmutableMap<RepositoryName, ImmutableMap<String, RepositoryName>> repositoryMappings =
+          aPackage.externalPackageRepositoryMappings;
+      for (Map.Entry<RepositoryName, ImmutableMap<String, RepositoryName>> repositoryName :
           repositoryMappings.entrySet()) {
-        for (Map.Entry<RepositoryName, RepositoryName> repositoryNameRepositoryNameEntry :
+        for (Map.Entry<String, RepositoryName> repositoryNameRepositoryNameEntry :
             repositoryName.getValue().entrySet()) {
           addRepositoryMappingEntry(
               repositoryName.getKey(),
@@ -1126,17 +1114,12 @@ public class Package {
       return this;
     }
 
-    /** Get the repository mapping for this package */
-    RepositoryMapping getRepositoryMapping() {
-      return this.repositoryMapping;
+    LabelConverter getLabelConverter() {
+      return labelConverter;
     }
 
     Interner<ImmutableList<?>> getListInterner() {
       return listInterner;
-    }
-
-    HashMap<String, Label> getConvertedLabelsInPackage() {
-      return convertedLabelsInPackage;
     }
 
     /** Sets the name of this package's BUILD file. */
@@ -1163,7 +1146,7 @@ public class Package {
      * the main workspace to the canonical main name '@').
      */
     RepositoryMapping getRepositoryMappingFor(RepositoryName name) {
-      Map<RepositoryName, RepositoryName> mapping = externalPackageRepositoryMappings.get(name);
+      Map<String, RepositoryName> mapping = externalPackageRepositoryMappings.get(name);
       if (mapping == null) {
         return RepositoryMapping.ALWAYS_FALLBACK;
       } else {
@@ -1526,7 +1509,7 @@ public class Package {
      * Returns a lightweight snapshot view of the names of all rule targets belonging to this
      * package at the time of this call.
      *
-     * @throws IllegalStateException if this method is called after {@link beforeBuild} has been
+     * @throws IllegalStateException if this method is called after {@link #beforeBuild} has been
      *     called.
      */
     Map<String, Rule> getRulesSnapshotView() {

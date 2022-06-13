@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
@@ -127,7 +128,8 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler)
+  public RepoSpec getRepoSpec(
+      ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     Optional<BazelRegistryJson> bazelRegistryJson =
         grabJson(
@@ -184,7 +186,7 @@ public class IndexRegistry implements Registry {
     }
 
     return new ArchiveRepoSpecBuilder()
-        .setRepoName(repoName)
+        .setRepoName(repoName.getName())
         .setUrls(urls.build())
         .setIntegrity(sourceJson.get().integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))

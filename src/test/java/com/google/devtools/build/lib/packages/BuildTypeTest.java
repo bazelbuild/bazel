@@ -38,7 +38,7 @@ public final class BuildTypeTest {
 
   private final Label currentRule = Label.parseAbsoluteUnchecked("//quux:baz");
   private final LabelConverter labelConversionContext =
-      new LabelConverter(currentRule, RepositoryMapping.ALWAYS_FALLBACK);
+      new LabelConverter(currentRule.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK);
 
   @Test
   public void testKeepsDictOrdering() throws Exception {

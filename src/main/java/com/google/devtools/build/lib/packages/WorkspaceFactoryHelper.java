@@ -105,7 +105,7 @@ public class WorkspaceFactoryHelper {
       // is not valid.
       builder.addRepositoryMappingEntry(
           RepositoryName.create(externalRepoName),
-          RepositoryName.create(builder.getPackageWorkspaceName()),
+          builder.getPackageWorkspaceName(),
           RepositoryName.MAIN);
     }
   }
@@ -128,15 +128,26 @@ public class WorkspaceFactoryHelper {
         // prefixed with an @.
         if (!e.getKey().startsWith("@")) {
           throw new LabelSyntaxException(
-              "invalid repository name '" + e.getKey() + "': repo names must start with '@'");
+              "invalid repository name '"
+                  + e.getKey()
+                  + "': repo names used in the repo_mapping attribute must start with '@'");
         }
         if (!e.getValue().startsWith("@")) {
           throw new LabelSyntaxException(
-              "invalid repository name '" + e.getValue() + "': repo names must start with '@'");
+              "invalid repository name '"
+                  + e.getValue()
+                  + "': repo names used in the repo_mapping attribute must start with '@'");
+        }
+        if (!WorkspaceGlobals.isLegalWorkspaceName(e.getKey().substring(1))) {
+          throw new LabelSyntaxException(
+              "invalid repository name '"
+                  + e.getKey().substring(1)
+                  + "': must start with a letter and contain only letters, digits, '.', '-', or"
+                  + " '_'");
         }
         builder.addRepositoryMappingEntry(
             RepositoryName.create(externalRepoName),
-            RepositoryName.create(e.getKey().substring(1)),
+            e.getKey().substring(1),
             RepositoryName.create(e.getValue().substring(1)));
       }
     }

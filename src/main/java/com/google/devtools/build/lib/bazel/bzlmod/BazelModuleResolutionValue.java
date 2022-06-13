@@ -39,7 +39,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
   public static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> depGraph,
       ImmutableMap<ModuleKey, Module> unprunedDepGraph,
-      ImmutableMap<String, ModuleKey> canonicalRepoNameLookup,
+      ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
       ImmutableMap<String, ModuleKey> moduleNameLookup,
       ImmutableList<AbridgedModule> abridgedModules,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
@@ -69,7 +69,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
   public abstract ImmutableMap<ModuleKey, Module> getUnprunedDepGraph();
 
   /** A mapping from a canonical repo name to the key of the module backing it. */
-  public abstract ImmutableMap<String, ModuleKey> getCanonicalRepoNameLookup();
+  public abstract ImmutableMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
 
   /**
    * A mapping from a plain module name to the key of the module. Does not include the root module,
@@ -100,7 +100,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
    * module deps and module extensions.
    */
   public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> e :
         getExtensionUsagesTable().column(key).entrySet()) {
       ModuleExtensionId extensionId = e.getKey();
@@ -108,9 +108,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
       for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
         String canonicalRepoName =
             getExtensionUniqueNames().get(extensionId) + "." + entry.getValue();
-        mapping.put(
-            RepositoryName.createUnvalidated(entry.getKey()),
-            RepositoryName.createUnvalidated(canonicalRepoName));
+        mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
       }
     }
     return getDepGraph()
