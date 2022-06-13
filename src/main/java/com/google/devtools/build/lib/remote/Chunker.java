@@ -144,17 +144,17 @@ public class Chunker {
   }
 
   /**
-   * Seek to an offset, if necessary resetting or initializing
+   * Seek to an offset in the source stream.
    *
-   * <p>May close open resources in order to seek to an earlier offset.
+   * <p>May close and reopen resources in order to seek to an earlier offset.
    */
   public void seek(long toOffset) throws IOException {
-    if (toOffset < offset) {
+    if (initialized && toOffset >= offset && !compressed) {
+      ByteStreams.skipFully(data, toOffset - offset);
+    } else {
       reset();
+      initialize(toOffset);
     }
-    maybeInitialize();
-    ByteStreams.skipFully(data, toOffset - offset);
-    offset = toOffset;
     if (data.finished()) {
       close();
     }
@@ -247,18 +247,26 @@ public class Chunker {
     if (initialized) {
       return;
     }
+    initialize(0);
+  }
+
+  private void initialize(long srcPos) throws IOException {
+    checkState(!initialized);
     checkState(data == null);
     checkState(offset == 0);
     checkState(chunkCache == null);
     try {
+      var src = dataSupplier.get();
+      ByteStreams.skipFully(src, srcPos);
       data =
           compressed
-              ? new ChunkerInputStream(new ZstdCompressingInputStream(dataSupplier.get()))
-              : new ChunkerInputStream(dataSupplier.get());
+              ? new ChunkerInputStream(new ZstdCompressingInputStream(src))
+              : new ChunkerInputStream(src);
     } catch (RuntimeException e) {
       Throwables.propagateIfPossible(e.getCause(), IOException.class);
       throw e;
     }
+    offset = srcPos;
     initialized = true;
   }
 
