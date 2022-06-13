@@ -31,4 +31,10 @@ public interface ExecutionInfoApi extends StructApi {
       doc = "A dict indicating special execution requirements, such as hardware platforms.",
       structField = true)
   ImmutableMap<String, String> getExecutionInfo();
+
+  @StarlarkMethod(
+      name = "exec_group",
+      doc = "The name of the exec group that is used to execute the test.",
+      structField = true)
+  String getExecGroup();
 }

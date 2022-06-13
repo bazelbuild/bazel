@@ -25,9 +25,9 @@ import net.starlark.java.eval.StarlarkList;
 public class StarlarkTestingModule implements TestingModuleApi {
 
   @Override
-  public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */)
+  public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */, String execGroup)
       throws EvalException {
-    return new ExecutionInfo(Dict.cast(requirements, String.class, String.class, "requirements"));
+    return new ExecutionInfo(Dict.cast(requirements, String.class, String.class, "requirements"), execGroup);
   }
 
   @Override
