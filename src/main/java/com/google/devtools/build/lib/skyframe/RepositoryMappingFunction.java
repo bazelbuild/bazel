@@ -97,6 +97,12 @@ public class RepositoryMappingFunction implements SkyFunction {
         return RepositoryMappingValue.withMapping(
             computeForBazelModuleRepo(repositoryName, bazelModuleResolutionValue)
                 .get()
+                // We need to map the workspace name to the main repo (without this, it would map to
+                // itself, which is a local_repository with path="." -- this is very problematic).
+                // See https://github.com/bazelbuild/bazel/issues/15657 for more info.
+                .withAdditionalMappings(
+                    ImmutableMap.of(
+                        externalPackageValue.getPackage().getWorkspaceName(), RepositoryName.MAIN))
                 .withAdditionalMappings(additionalMappings));
       }
 

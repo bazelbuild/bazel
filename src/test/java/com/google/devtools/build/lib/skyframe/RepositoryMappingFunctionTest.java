@@ -166,9 +166,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingForRootModule(
                 ImmutableMap.of(
-                    "", RepositoryName.create(""),
-                    "A", RepositoryName.create(""),
-                    "com_foo_bar_b", RepositoryName.create("@B.1.0")),
+                    "",
+                    RepositoryName.MAIN,
+                    "A",
+                    RepositoryName.MAIN,
+                    TestConstants.WORKSPACE_NAME,
+                    RepositoryName.MAIN,
+                    "com_foo_bar_b",
+                    RepositoryName.create("@B.1.0")),
                 name));
   }
 
@@ -248,10 +253,16 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingForRootModule(
                 ImmutableMap.of(
-                    "", RepositoryName.create(""),
-                    "A", RepositoryName.create(""),
-                    "B1", RepositoryName.create("@B.1.0"),
-                    "B2", RepositoryName.create("@B.2.0")),
+                    "",
+                    RepositoryName.MAIN,
+                    "A",
+                    RepositoryName.MAIN,
+                    TestConstants.WORKSPACE_NAME,
+                    RepositoryName.MAIN,
+                    "B1",
+                    RepositoryName.create("@B.1.0"),
+                    "B2",
+                    RepositoryName.create("@B.2.0")),
                 name));
   }
 
@@ -457,7 +468,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     "", RepositoryName.MAIN,
                     "A", RepositoryName.MAIN,
                     "B", RepositoryName.create("@B.1.0"),
-                    "root", RepositoryName.create("root"),
+                    "root", RepositoryName.MAIN,
                     "ws_repo", RepositoryName.create("ws_repo")),
                 RepositoryName.MAIN));
   }
