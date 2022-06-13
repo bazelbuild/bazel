@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
@@ -35,8 +38,8 @@ class DisabledDataBindingV1Context implements DataBindingContext {
       RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {}
 
   @Override
-  public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
-    return ImmutableList.of();
+  public NestedSet<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override

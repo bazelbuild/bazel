@@ -98,7 +98,7 @@ public class JavaHeaderCompileActionBuilder {
   private final ImmutableList.Builder<String> javacOptsBuilder = ImmutableList.builder();
   private JavaPluginData plugins = JavaPluginData.empty();
 
-  private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
+  private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
   private boolean enableHeaderCompilerDirect = true;
@@ -228,7 +228,7 @@ public class JavaHeaderCompileActionBuilder {
 
   /** Sets additional inputs, e.g. for databinding support. */
   public JavaHeaderCompileActionBuilder setAdditionalInputs(
-      ImmutableList<Artifact> additionalInputs) {
+      NestedSet<Artifact> additionalInputs) {
     checkNotNull(additionalInputs, "additionalInputs must not be null");
     this.additionalInputs = additionalInputs;
     return this;
@@ -320,7 +320,7 @@ public class JavaHeaderCompileActionBuilder {
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder =
         NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(additionalInputs)
+            .addTransitive(additionalInputs)
             .addTransitive(bootclasspathEntries)
             .addAll(sourceJars)
             .addAll(sourceFiles)

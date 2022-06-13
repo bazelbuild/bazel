@@ -350,7 +350,7 @@ final class JavaInfoBuildHelper {
             JavaInfo.streamProviders(concat(deps, exports), JavaGenJarsProvider.class)
                 .filter(not(JavaGenJarsProvider::isEmpty))
                 .collect(toImmutableList()),
-            ImmutableList.copyOf(annotationProcessorAdditionalInputs));
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);

@@ -151,7 +151,7 @@ class DataBindingV2Context implements DataBindingContext {
   }
 
   @Override
-  public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
+  public NestedSet<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
 
     if (isBinary) {
 
@@ -181,22 +181,25 @@ class DataBindingV2Context implements DataBindingContext {
       }
     }
 
-    ImmutableList.Builder<Artifact> dataBindingJavaInputs = ImmutableList.builder();
+    NestedSetBuilder<Artifact> dataBindingJavaInputs = NestedSetBuilder.stableOrder();
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       dataBindingJavaInputs.add(getLayoutInfoFile());
       dataBindingJavaInputs.add(getClassInfoFile(ruleContext));
     }
 
-    for (Artifact transitiveBRFile : getTransitiveBRFiles(ruleContext)) {
+    dataBindingJavaInputs.addTransitive(getTransitiveBRFiles(ruleContext));
+    for (Artifact transitiveBRFile : getTransitiveBRFiles(ruleContext).toList()) {
       dataBindingJavaInputs.add(
           DataBinding.symlinkDepsMetadataIntoOutputTree(ruleContext, transitiveBRFile));
     }
 
+    dataBindingJavaInputs.addTransitive(getDirectSetterStoreFiles(ruleContext));
     for (Artifact directSetterStoreFile : getDirectSetterStoreFiles(ruleContext).toList()) {
       dataBindingJavaInputs.add(
           DataBinding.symlinkDepsMetadataIntoOutputTree(ruleContext, directSetterStoreFile));
     }
 
+    dataBindingJavaInputs.addTransitive(getDirectClassInfo(ruleContext));
     for (Artifact classInfo : getDirectClassInfo(ruleContext).toList()) {
       dataBindingJavaInputs.add(
           DataBinding.symlinkDepsMetadataIntoOutputTree(ruleContext, classInfo));
@@ -205,15 +208,15 @@ class DataBindingV2Context implements DataBindingContext {
     return dataBindingJavaInputs.build();
   }
 
-  private static ImmutableList<Artifact> getTransitiveBRFiles(RuleContext context) {
-    ImmutableList.Builder<Artifact> brFiles = ImmutableList.builder();
+  private static NestedSet<Artifact> getTransitiveBRFiles(RuleContext context) {
+    NestedSetBuilder<Artifact> brFiles = NestedSetBuilder.stableOrder();
     if (context.attributes().has("deps", BuildType.LABEL_LIST)) {
 
       Iterable<DataBindingV2Provider> providers =
           context.getPrerequisites("deps", DataBindingV2Provider.PROVIDER);
 
       for (DataBindingV2Provider provider : providers) {
-        brFiles.addAll(provider.getTransitiveBRFiles().toList());
+        brFiles.addTransitive(provider.getTransitiveBRFiles());
       }
     }
     return brFiles.build();

@@ -164,7 +164,7 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
-  private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
+  private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private Artifact genSourceOutput;
   private JavaCompileOutputs<Artifact> outputs;
   private JavaClasspathMode classpathMode;
@@ -220,7 +220,7 @@ public final class JavaCompileActionBuilder {
         .addTransitive(toolchain.getJavaRuntime().javaBaseInputs())
         .addTransitive(bootClassPath.bootclasspath())
         .addAll(sourcePathEntries)
-        .addAll(additionalInputs)
+        .addTransitive(additionalInputs)
         .addTransitive(bootClassPath.systemInputs());
     if (coverageArtifact != null) {
       mandatoryInputsBuilder.add(coverageArtifact);
@@ -503,7 +503,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setAdditionalInputs(ImmutableList<Artifact> additionalInputs) {
+  public JavaCompileActionBuilder setAdditionalInputs(NestedSet<Artifact> additionalInputs) {
     checkNotNull(additionalInputs, "additionalInputs must not be null");
     this.additionalInputs = additionalInputs;
     return this;

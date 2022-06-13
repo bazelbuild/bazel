@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
@@ -88,13 +90,14 @@ final class DataBindingV1Context implements DataBindingContext {
   }
 
   @Override
-  public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
+  public NestedSet<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
 
-    ImmutableList.Builder<Artifact> dataBindingJavaInputs = ImmutableList.builder();
+    NestedSetBuilder<Artifact> dataBindingJavaInputs = NestedSetBuilder.stableOrder();
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       dataBindingJavaInputs.add(DataBinding.getLayoutInfoFile(actionConstructionContext));
     }
 
+    dataBindingJavaInputs.addAll(DataBinding.getTransitiveMetadata(ruleContext, "deps"));
     for (Artifact dataBindingDepMetadata : DataBinding.getTransitiveMetadata(ruleContext, "deps")) {
       dataBindingJavaInputs.add(
           DataBinding.symlinkDepsMetadataIntoOutputTree(ruleContext, dataBindingDepMetadata));

@@ -195,7 +195,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     }
 
     // Databinding metadata that the databinding annotation processor reads.
-    ImmutableList<Artifact> additionalJavaInputsFromDatabinding =
+    NestedSet<Artifact> additionalJavaInputsFromDatabinding =
         resourceApk.asDataBindingContext().processDeps(ruleContext, /* isBinary= */ true);
 
     JavaCompilationHelper helper =
@@ -601,7 +601,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       JavaSemantics javaSemantics,
       JavaCommon javaCommon,
       JavaTargetAttributes.Builder javaTargetAttributesBuilder,
-      ImmutableList<Artifact> additionalArtifacts)
+      NestedSet<Artifact> additionalArtifacts)
       throws RuleErrorException {
     JavaCompilationHelper javaCompilationHelper =
         new JavaCompilationHelper(

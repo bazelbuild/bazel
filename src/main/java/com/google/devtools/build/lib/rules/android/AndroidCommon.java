@@ -515,17 +515,17 @@ public class AndroidCommon {
       jarsProducedForRuntime.add(resourceApk.getResourceJavaClassJar());
     }
 
-    ImmutableList<Artifact> additionalJavaInputsFromDatabinding = null;
+    NestedSet<Artifact> additionalJavaInputsFromDatabinding = null;
     if (shouldCompileJavaSrcs) {
       // Databinding metadata that the databinding annotation processor reads.
       additionalJavaInputsFromDatabinding =
           resourceApk.asDataBindingContext().processDeps(ruleContext, isBinary);
     } else {
-      ImmutableList.Builder<Artifact> outputs = ImmutableList.<Artifact>builder();
+      NestedSetBuilder<Artifact> outputs = NestedSetBuilder.stableOrder();
       DataBindingV2Provider p =
           ruleContext.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
-      outputs.addAll(p.getSetterStores().toList());
-      outputs.addAll(p.getTransitiveBRFiles().toList());
+      outputs.addTransitive(p.getSetterStores());
+      outputs.addTransitive(p.getTransitiveBRFiles());
       additionalJavaInputsFromDatabinding = outputs.build();
     }
 
@@ -615,7 +615,7 @@ public class AndroidCommon {
   private JavaCompilationHelper initAttributes(
       JavaTargetAttributes.Builder attributes,
       JavaSemantics semantics,
-      ImmutableList<Artifact> additionalArtifacts) {
+      NestedSet<Artifact> additionalArtifacts) {
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
             ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);

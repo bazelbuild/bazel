@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
@@ -79,7 +80,7 @@ public interface DataBindingContext {
    * @return the deps' metadata outputs. These need to be staged as compilation inputs to the
    *     current rule.
    */
-  ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary);
+  NestedSet<Artifact> processDeps(RuleContext ruleContext, boolean isBinary);
 
   /**
    * Creates and adds the generated Java source for data binding annotation processor to read and

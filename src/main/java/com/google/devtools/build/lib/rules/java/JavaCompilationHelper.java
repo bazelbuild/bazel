@@ -70,7 +70,7 @@ public final class JavaCompilationHelper {
   private final List<Artifact> translations = new ArrayList<>();
   private boolean translationsFrozen;
   private final JavaSemantics semantics;
-  private final ImmutableList<Artifact> additionalInputsForDatabinding;
+  private final NestedSet<Artifact> additionalInputsForDatabinding;
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
   private boolean enableJspecify = true;
@@ -82,7 +82,7 @@ public final class JavaCompilationHelper {
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      ImmutableList<Artifact> additionalInputsForDatabinding) {
+      NestedSet<Artifact> additionalInputsForDatabinding) {
     this.ruleContext = ruleContext;
     this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
     this.attributes = attributes;
@@ -104,7 +104,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        /* additionalInputsForDatabinding= */ ImmutableList.of());
+        /* additionalInputsForDatabinding= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   public JavaCompilationHelper(
@@ -112,7 +112,7 @@ public final class JavaCompilationHelper {
       JavaSemantics semantics,
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
-      ImmutableList<Artifact> additionalInputsForDatabinding) {
+      NestedSet<Artifact> additionalInputsForDatabinding) {
     this(
         ruleContext,
         semantics,
@@ -646,8 +646,7 @@ public final class JavaCompilationHelper {
     checkNotNull(resourceJar, "resource jar output must not be null");
     JavaTargetAttributes attributes = getAttributes();
     new ResourceJarActionBuilder()
-        .setAdditionalInputs(
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputsForDatabinding))
+        .setAdditionalInputs(additionalInputsForDatabinding)
         .setJavaToolchain(javaToolchain)
         .setOutputJar(resourceJar)
         .setResources(attributes.getResources())
