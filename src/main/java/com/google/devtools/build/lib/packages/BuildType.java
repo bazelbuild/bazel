@@ -419,13 +419,13 @@ public final class BuildType {
 
         LabelConverter converter = (LabelConverter) context;
         Label result = converter.convert(value);
-        if (!result.getPackageIdentifier().equals(converter.getBase().getPackageIdentifier())) {
+        if (!result.getPackageIdentifier().equals(converter.getBasePackage())) {
           throw new ConversionException("label '" + value + "' is not in the current package");
         }
         return result;
       } catch (LabelSyntaxException e) {
         throw new ConversionException(
-            "illegal output file name '" + value + "' in rule " + context + ": " + e.getMessage());
+            "illegal output file name '" + value + "': " + e.getMessage());
       }
     }
   }

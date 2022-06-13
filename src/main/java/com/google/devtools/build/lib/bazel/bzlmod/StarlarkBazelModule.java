@@ -18,10 +18,8 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -89,16 +87,6 @@ public class StarlarkBazelModule implements StarlarkValue {
   }
 
   /**
-   * Creates a label pointing to the root package of the repo with the given canonical repo name.
-   * This label can be used to anchor (relativize) labels with no "@foo" part.
-   */
-  static Label createModuleRootLabel(RepositoryName canonicalRepoName) {
-    return Label.createUnvalidated(
-        PackageIdentifier.create(canonicalRepoName, PathFragment.EMPTY_FRAGMENT),
-        "unused_dummy_target_name");
-  }
-
-  /**
    * Creates a new {@link StarlarkBazelModule} object representing the given {@link AbridgedModule},
    * with its scope limited to the given {@link ModuleExtension}. It'll be populated with the tags
    * present in the given {@link ModuleExtensionUsage}. Any labels present in tags will be converted
@@ -111,7 +99,9 @@ public class StarlarkBazelModule implements StarlarkValue {
       @Nullable ModuleExtensionUsage usage)
       throws ExternalDepsException {
     LabelConverter labelConverter =
-        new LabelConverter(createModuleRootLabel(module.getCanonicalRepoName()), repoMapping);
+        new LabelConverter(
+            PackageIdentifier.create(module.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
+            repoMapping);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
     for (String tagClassName : extension.getTagClasses().keySet()) {

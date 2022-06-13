@@ -876,9 +876,6 @@ public class Package {
    */
   public static class Builder {
 
-    static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
-        ImmutableMap.of();
-
     /** Defines configuration to control the runtime behavior of {@link Package}s. */
     public interface PackageSettings {
       /**
@@ -933,6 +930,8 @@ public class Package {
      * workspace.
      */
     private final RepositoryMapping repositoryMapping;
+    /** Converts label literals to Label objects within this package. */
+    private final LabelConverter labelConverter;
 
     private RootedPath filename = null;
     private Label buildFileLabel = null;
@@ -1007,8 +1006,6 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
-    private final HashMap<String, Label> convertedLabelsInPackage = new HashMap<>();
-
     private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
 
     private final TestSuiteImplicitTestsAccumulator testSuiteImplicitTestsAccumulator =
@@ -1063,6 +1060,7 @@ public class Package {
       this.pkg = new Package(id, workspaceName, packageSettings.succinctTargetNotFoundErrors());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
+      this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
@@ -1116,17 +1114,12 @@ public class Package {
       return this;
     }
 
-    /** Get the repository mapping for this package */
-    RepositoryMapping getRepositoryMapping() {
-      return this.repositoryMapping;
+    LabelConverter getLabelConverter() {
+      return labelConverter;
     }
 
     Interner<ImmutableList<?>> getListInterner() {
       return listInterner;
-    }
-
-    HashMap<String, Label> getConvertedLabelsInPackage() {
-      return convertedLabelsInPackage;
     }
 
     /** Sets the name of this package's BUILD file. */
@@ -1516,7 +1509,7 @@ public class Package {
      * Returns a lightweight snapshot view of the names of all rule targets belonging to this
      * package at the time of this call.
      *
-     * @throws IllegalStateException if this method is called after {@link beforeBuild} has been
+     * @throws IllegalStateException if this method is called after {@link #beforeBuild} has been
      *     called.
      */
     Map<String, Rule> getRulesSnapshotView() {

@@ -137,7 +137,6 @@ public class WorkspaceFactory {
               BazelStarlarkContext.Phase.WORKSPACE,
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
               /*analysisRuleLabel=*/ null,
               /*networkAllowlistForTests=*/ null)

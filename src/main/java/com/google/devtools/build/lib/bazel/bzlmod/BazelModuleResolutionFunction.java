@@ -27,11 +27,13 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -133,7 +135,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     for (Module module : depGraph.values()) {
       LabelConverter labelConverter =
           new LabelConverter(
-              StarlarkBazelModule.createModuleRootLabel(module.getCanonicalRepoName()),
+              PackageIdentifier.create(module.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
               module.getRepoMappingWithBazelDepsOnly());
       for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
         try {

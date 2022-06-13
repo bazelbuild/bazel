@@ -17,10 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
-import java.util.HashMap;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,30 +28,18 @@ import org.junit.runners.JUnit4;
 /** Test of {@link LabelConverter}. */
 @RunWith(JUnit4.class)
 public class LabelConverterTest {
-  private final Label currentRule = Label.parseAbsoluteUnchecked("//quux:baz");
 
   @Test
-  public void testLabelWithRemapping() throws Exception {
-    LabelConverter context =
+  public void convertLabel() throws Exception {
+    PackageIdentifier basePackage = PackageIdentifier.create("quux", PathFragment.create("baz"));
+    LabelConverter converter =
         new LabelConverter(
-            currentRule,
+            basePackage,
             RepositoryMapping.createAllowingFallback(
-                ImmutableMap.of("orig_repo", RepositoryName.create("new_repo"))),
-            /* labelCache= */ new HashMap<>());
-    Label label = BuildType.LABEL.convert("@orig_repo//foo:bar", null, context);
-    assertThat(label)
-        .isEquivalentAccordingToCompareTo(
-            Label.parseAbsolute("@new_repo//foo:bar", ImmutableMap.of()));
-  }
-
-  @Test
-  public void testLabelConversionContextCaches() throws ConversionException {
-    LabelConverter labelConverter =
-        new LabelConverter(
-            currentRule, RepositoryMapping.ALWAYS_FALLBACK, /* labelCache= */ new HashMap<>());
-
-    assertThat(labelConverter.getLabelCache()).doesNotContainKey("//some:label");
-    BuildType.LABEL.convert("//some:label", "doesntmatter", labelConverter);
-    assertThat(labelConverter.getLabelCache()).containsKey("//some:label");
+                ImmutableMap.of("orig_repo", RepositoryName.create("new_repo"))));
+    assertThat(converter.convert("@orig_repo//foo:bar"))
+        .isEqualTo(Label.parseCanonical("@new_repo//foo:bar"));
+    assertThat(converter.convert("//foo:bar")).isEqualTo(Label.parseCanonical("@quux//foo:bar"));
+    assertThat(converter.convert(":bar")).isEqualTo(Label.parseCanonical("@quux//baz:bar"));
   }
 }

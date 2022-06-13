@@ -14,54 +14,46 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.HashMap;
 import java.util.Map;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkThread;
 
-/** Class which can evaluate a label with repository remappings. */
+/**
+ * Converts a label literal string into a {@link Label} object, using the appropriate base package
+ * and repo mapping.
+ */
 public class LabelConverter {
 
-  public static LabelConverter forThread(StarlarkThread thread) {
+  /**
+   * Returns a label converter for the given thread, which MUST be evaluating a .bzl file. It uses
+   * the package containing the .bzl file as the base package, and the repo mapping of the repo
+   * containing the .bzl file.
+   */
+  public static LabelConverter forBzlEvaluatingThread(StarlarkThread thread) {
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
     return new LabelConverter(
-        moduleContext.label(),
-        moduleContext.repoMapping(),
-        bazelStarlarkContext.getConvertedLabelsInPackage());
+        moduleContext.label().getPackageIdentifier(), moduleContext.repoMapping());
   }
 
-  public static LabelConverter forModuleContext(BazelModuleContext moduleContext) {
-    return new LabelConverter(moduleContext.label(), moduleContext.repoMapping());
-  }
-
-  private final Label base;
+  private final PackageIdentifier base;
   private final RepositoryMapping repositoryMapping;
-  private final Map<String, Label> labelCache;
+  private final Map<String, Label> labelCache = new HashMap<>();
 
-  public LabelConverter(Label base, RepositoryMapping repositoryMapping) {
-    this(
-        base,
-        repositoryMapping,
-        // Only cache labels seen by this converter.
-        new HashMap<>());
-  }
-
-  public LabelConverter(
-      Label base, RepositoryMapping repositoryMapping, Map<String, Label> labelCache) {
+  /** Creates a label converter using the given base package and repo mapping. */
+  public LabelConverter(PackageIdentifier base, RepositoryMapping repositoryMapping) {
     this.base = base;
     this.repositoryMapping = repositoryMapping;
-    this.labelCache = labelCache;
   }
 
-  /** Returns the base label that relative labels will be resolved against. */
-  Label getBase() {
+  /** Returns the base package identifier that relative labels will be resolved against. */
+  PackageIdentifier getBasePackage() {
     return base;
   }
 
@@ -73,15 +65,10 @@ public class LabelConverter {
     // label-strings across all their attribute values.
     Label converted = labelCache.get(input);
     if (converted == null) {
-      converted = base.getRelativeWithRemapping(input, repositoryMapping);
+      converted = Label.parseWithPackageContext(input, base, repositoryMapping);
       labelCache.put(input, converted);
     }
     return converted;
-  }
-
-  @VisibleForTesting
-  Map<String, Label> getLabelCache() {
-    return labelCache;
   }
 
   @Override

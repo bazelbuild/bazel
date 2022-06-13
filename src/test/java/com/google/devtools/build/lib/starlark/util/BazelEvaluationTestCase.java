@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -129,7 +128,6 @@ public final class BazelEvaluationTestCase {
             BazelStarlarkContext.Phase.LOADING,
             TestConstants.TOOLS_REPOSITORY,
             /*fragmentNameToClass=*/ null,
-            /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(new Object()),
             /*analysisRuleLabel=*/ null,
             /*networkAllowlistForTests=*/ null) // dummy value for tests
