@@ -257,7 +257,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       repoMapping = RepositoryMapping.ALWAYS_FALLBACK;
     } else {
       repoMapping = RepositoryMapping.createAllowingFallback(
-          prevValue.getRepositoryMapping().get(RepositoryName.MAIN));
+          prevValue.getRepositoryMapping().getOrDefault(RepositoryName.MAIN, ImmutableMap.of()));
     }
 
     Package.Builder builder =
