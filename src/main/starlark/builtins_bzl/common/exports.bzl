@@ -53,7 +53,7 @@ exported_rules = {
     "+cc_shared_library_permissions": cc_shared_library_permissions,
     "+cc_binary": cc_binary,
     "-cc_test": cc_test,
-    "-cc_library": cc_library,
+    "+cc_library": cc_library,
 }
 
 # A list of Starlark functions callable from native rules implementation.
