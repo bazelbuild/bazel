@@ -353,8 +353,9 @@ public class ByteStreamUploaderTest {
 
     uploader.uploadBlob(context, digest, chunker);
 
-    // This test should not have triggered any retries.
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+    // This test triggers one retry.
+    Mockito.verify(mockBackoff, Mockito.times(1))
+        .nextDelayMillis(any(StatusRuntimeException.class));
     Mockito.verify(mockBackoff, Mockito.times(1)).getRetryAttempts();
   }
 
@@ -476,8 +477,8 @@ public class ByteStreamUploaderTest {
 
     uploader.uploadBlob(context, digest, chunker);
 
-    // This test should not have triggered any retries.
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+    // This test triggers one retry.
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
     Mockito.verify(mockBackoff, Mockito.times(1)).getRetryAttempts();
   }
 
@@ -703,7 +704,7 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
-  public void incorrectCommittedSizeDoesNotFailsIncompleteUpload() throws Exception {
+  public void incorrectCommittedSizeDoesNotFailIncompleteUpload() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
