@@ -843,13 +843,14 @@ public class Package {
       PackageSettings helper,
       RootedPath workspacePath,
       String workspaceName,
+      RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return new Builder(
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             workspaceName,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-            RepositoryMapping.ALWAYS_FALLBACK)
+            mainRepoMapping)
         .setFilename(workspacePath);
   }
 
