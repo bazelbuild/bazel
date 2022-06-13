@@ -344,7 +344,7 @@ public class BuildRequestOptions extends OptionsBase {
   // To be made a no-op and deleted once new symlink behavior is battle-tested.
   @Option(
       name = "use_top_level_targets_for_symlinks",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
