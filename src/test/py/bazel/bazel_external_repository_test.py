@@ -449,8 +449,8 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
 
     exit_code, _, stderr = self.RunBazel(
-      args=['build', '@debug//:all'],
-      env_add={'FOO': 'bar'},
+      args=['build', '@debug//:all', '--repo_env=FOO'],
+      env_add={'FOO': 'bar'}
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('FOO bar', os.linesep.join(stderr))
