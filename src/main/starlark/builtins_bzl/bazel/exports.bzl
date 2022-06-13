@@ -22,6 +22,6 @@ exported_toplevels = {}
 exported_rules = {
     "java_library": java_library,
     "java_plugin": java_plugin,
-    "+java_proto_library": java_proto_library,
+    "-java_proto_library": java_proto_library,
 }
 exported_to_java = {}
