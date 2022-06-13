@@ -445,9 +445,12 @@ public final class PackageFactory {
 
   @VisibleForTesting // exposed to WorkspaceFileFunction and BzlmodRepoRuleFunction
   public Package.Builder newExternalPackageBuilder(
-      RootedPath workspacePath, String workspaceName, StarlarkSemantics starlarkSemantics) {
+      RootedPath workspacePath,
+      String workspaceName,
+      RepositoryMapping mainRepoMapping,
+      StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
-        packageSettings, workspacePath, workspaceName, starlarkSemantics);
+        packageSettings, workspacePath, workspaceName, mainRepoMapping, starlarkSemantics);
   }
 
   // This function is public only for the benefit of skyframe.PackageFunction,
