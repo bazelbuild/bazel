@@ -106,18 +106,6 @@ public interface GoWrapCcHelperApi<
       CcInfoT ccInfo);
 
   @StarlarkMethod(
-      name = "go_cc_link_params_provider",
-      doc = "",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "linking_context", positional = false, named = true),
-      })
-  public GoCcLinkParamsInfoApi getGoCcLinkParamsProvider(
-      StarlarkRuleContextT ruleContext, CcLinkingContextT ccLinkingContext)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
       name = "create_go_compile_actions",
       doc = "",
       documented = false,
