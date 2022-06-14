@@ -280,17 +280,6 @@ public class Chunker {
       return this;
     }
 
-    @VisibleForTesting
-    protected final Builder setInputSupplier(Supplier<InputStream> inputStream) {
-      this.inputStream = inputStream;
-      return this;
-    }
-
-    public Builder setCompressed(boolean compressed) {
-      this.compressed = compressed;
-      return this;
-    }
-
     public Builder setInput(long size, InputStream in) {
       checkState(inputStream == null);
       checkNotNull(in);
@@ -335,6 +324,17 @@ public class Chunker {
               }
             };
       }
+      return this;
+    }
+
+    @VisibleForTesting
+    protected final Builder setInputSupplier(Supplier<InputStream> inputStream) {
+      this.inputStream = inputStream;
+      return this;
+    }
+
+    public Builder setCompressed(boolean compressed) {
+      this.compressed = compressed;
       return this;
     }
 

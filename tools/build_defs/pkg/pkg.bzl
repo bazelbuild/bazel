@@ -77,11 +77,6 @@ def _pkg_tar_impl(ctx):
             fail("Each input must describe exactly one file.", attr = "files")
         file_inputs += target_files
         args += ["--file=%s=%s" % (_quote(target_files[0].path), f_dest_path)]
-    if ctx.attr.modes:
-        args += [
-            "--modes=%s=%s" % (_quote(key), ctx.attr.modes[key])
-            for key in ctx.attr.modes
-        ]
     if ctx.attr.extension:
         dotPos = ctx.attr.extension.find(".")
         if dotPos > 0:
@@ -112,7 +107,6 @@ _real_pkg_tar = rule(
         "srcs": attr.label_list(allow_files = True),
         "files": attr.label_keyed_string_dict(allow_files = True),
         "mode": attr.string(default = "0555"),
-        "modes": attr.string_dict(),
         "mtime": attr.int(default = -1),
         "portable_mtime": attr.bool(default = True),
         "out": attr.output(),

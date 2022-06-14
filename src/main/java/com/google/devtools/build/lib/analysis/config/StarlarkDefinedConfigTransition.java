@@ -350,7 +350,6 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
                 Phase.ANALYSIS,
                 /*toolsRepository=*/ null,
                 /*fragmentNameToClass=*/ null,
-                /*convertedLabelsInPackage=*/ new HashMap<>(),
                 dummySymbolGenerator,
                 parentLabel,
                 /*networkAllowlistForTests=*/ null);

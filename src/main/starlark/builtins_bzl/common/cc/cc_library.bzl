@@ -606,6 +606,7 @@ attrs = {
         flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
     ),
     "win_def_file": attr.label(allow_single_file = [".def"]),
+    "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_stl": semantics.get_stl(),
     "_grep_includes": attr.label(
         allow_files = True,
@@ -616,7 +617,6 @@ attrs = {
     "_def_parser": semantics.get_def_parser(),
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
 }
-attrs.update(semantics.get_licenses_attr())
 attrs.update(semantics.get_distribs_attr())
 attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
 attrs.update(semantics.get_interface_deps_allowed_attr())

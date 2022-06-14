@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -74,6 +76,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -782,6 +785,71 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
                 "/libapp.jar_desugared.jar"));
     assertThat(args).contains("--min_sdk_version");
     assertThat(args).contains("28");
+  }
+
+  @Test
+  public void testSimpleAndroidBinary_multipleMinSdkVersionOnSameLibrary() throws Exception {
+    scratch.overwriteFile(
+        "java/android/BUILD",
+        "android_binary(name = 'app1',",
+        "               srcs = ['A.java'],",
+        "               deps = ['lib'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = glob(['res/**']),",
+        "              )",
+        "android_binary(name = 'app2',",
+        "               srcs = ['B.java'],",
+        "               deps = ['lib'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = glob(['res/**']),",
+        "               min_sdk_version = 28,",
+        "              )",
+        "android_library(name = 'lib',",
+        "                srcs = ['C.java'])");
+    AnalysisResult result =
+        update(
+            ImmutableList.of("//java/android:app1", "//java/android:app2"),
+            /* keepGoing= */ true,
+            /* loadingPhaseThreads= */ 1,
+            /* doAnalysis= */ true,
+            eventBus);
+
+    ImmutableMap<String, ConfiguredTarget> targets =
+        result.getTargetsToBuild().stream()
+            .collect(toImmutableMap(ct -> ct.getLabel().toString(), Function.identity()));
+
+    ConfiguredTarget app1 = targets.get("//java/android:app1");
+    ConfiguredTarget app2 = targets.get("//java/android:app2");
+
+    // The "lib" target is built twice: once with the default minsdk from app1, and again with
+    // min_sdk_version = 28 from app2.
+
+    List<String> libDesugarNoMinSdkArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(app1)),
+                "/liblib.jar_desugared.jar"));
+    assertThat(libDesugarNoMinSdkArgs).doesNotContain("--min_sdk_version");
+
+    List<String> libDexNoMinSdkArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(app1)), "/liblib.jar.dex.zip"));
+    assertThat(libDexNoMinSdkArgs).doesNotContain("--min_sdk_version");
+
+    List<String> libDesugarWithMinSdkArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(app2)),
+                "/liblib.jar_minsdk=28_desugared.jar"));
+    assertThat(libDesugarWithMinSdkArgs).containsAtLeast("--min_sdk_version", "28").inOrder();
+
+    List<String> libDexWithMinSdkArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(app2)),
+                "liblib.jar--min_sdk_version=28.dex.zip"));
+    assertThat(libDexWithMinSdkArgs).containsAtLeast("--min_sdk_version", "28").inOrder();
   }
 
   // regression test for #3169099

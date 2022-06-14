@@ -42,15 +42,6 @@ flags.DEFINE_string('directory', None,
 flags.DEFINE_string('compression', None,
                     'Compression (`gz` or `bz2`), default is none.')
 
-flags.DEFINE_multi_string(
-    'modes', None,
-    'Specific mode to apply to specific file (from the file argument),'
-    ' e.g., path/to/file=0455.')
-
-flags.DEFINE_multi_string(
-    'owners', None, 'Specify the numeric owners of individual files, '
-    'e.g. path/to/file=0.0.')
-
 flags.DEFINE_string(
     'owner', '0.0', 'Specify the numeric default owner of all files,'
     ' e.g., 0.0')
@@ -180,13 +171,6 @@ def main(unused_argv):
     default_mode = int(FLAGS.mode, 8)
 
   mode_map = {}
-  if FLAGS.modes:
-    for filemode in FLAGS.modes:
-      (f, mode) = unquote_and_split(filemode, '=')
-      if f[0] == '/':
-        f = f[1:]
-      mode_map[f] = int(mode, 8)
-
   default_ownername = ('', '')
   if FLAGS.owner_name:
     default_ownername = FLAGS.owner_name.split('.', 1)
@@ -194,13 +178,6 @@ def main(unused_argv):
   default_ids = FLAGS.owner.split('.', 1)
   default_ids = (int(default_ids[0]), int(default_ids[1]))
   ids_map = {}
-  if FLAGS.owners:
-    for file_owner in FLAGS.owners:
-      (f, owner) = unquote_and_split(file_owner, '=')
-      (user, group) = owner.split('.', 1)
-      if f[0] == '/':
-        f = f[1:]
-      ids_map[f] = (int(user), int(group))
 
   # Add objects to the tar file
   with TarFile(FLAGS.output, FLAGS.directory, FLAGS.compression,

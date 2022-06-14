@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import java.util.HashMap;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -60,7 +59,6 @@ public final class BazelStarlarkContext
   @Nullable private final RepositoryName toolsRepository;
   // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
-  private final HashMap<String, Label> convertedLabelsInPackage;
   private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist
@@ -73,12 +71,9 @@ public final class BazelStarlarkContext
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class for loading phase threads, null for
    *     other threads.
-   * @param convertedLabelsInPackage a mutable map from String to Label, used during package loading
-   *     of a single package.
    * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
    *     compared using reference equality.
    * @param analysisRuleLabel is the label of the rule for an analysis phase (rule or aspect
-   *     'implementation') thread, or null for all other threads.
    */
   // TODO(adonovan): clearly demarcate which fields are defined in which kinds of threads (loading,
   // analysis, workspace, implicit outputs, computed defaults, etc), perhaps by splitting these into
@@ -91,14 +86,12 @@ public final class BazelStarlarkContext
       Phase phase,
       @Nullable RepositoryName toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
-      HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
       @Nullable Label analysisRuleLabel,
       @Nullable Label networkAllowlistForTests) {
     this.phase = Preconditions.checkNotNull(phase);
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
-    this.convertedLabelsInPackage = convertedLabelsInPackage;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
     this.networkAllowlistForTests = networkAllowlistForTests;
@@ -115,16 +108,6 @@ public final class BazelStarlarkContext
   @Nullable
   public ImmutableMap<String, Class<?>> getFragmentNameToClass() {
     return fragmentNameToClass;
-  }
-
-  /**
-   * Returns a String -> Label map of all the Strings that have already been converted to Labels
-   * during package loading of the current package.
-   *
-   * <p>This is used for a performance optimization during package loading, and unused otherwise.
-   */
-  public HashMap<String, Label> getConvertedLabelsInPackage() {
-    return convertedLabelsInPackage;
   }
 
   public SymbolGenerator<?> getSymbolGenerator() {

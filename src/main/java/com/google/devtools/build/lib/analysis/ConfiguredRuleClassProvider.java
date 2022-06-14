@@ -875,7 +875,6 @@ public /*final*/ class ConfiguredRuleClassProvider
             BazelStarlarkContext.Phase.LOADING,
             toolsRepository,
             configurationFragmentMap,
-            /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(fileLabel),
             /*analysisRuleLabel=*/ null,
             networkAllowlistForTests)

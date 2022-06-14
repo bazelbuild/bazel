@@ -272,15 +272,19 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
+      String minSdkFilenamePart = minSdkVersion > 0 ? "--min_sdk_version=" + minSdkVersion : "";
       for (Artifact jar : runtimeJars) {
         for (Set<String> incrementalDexopts : aspectDexopts) {
           // Since we're potentially dexing the same jar multiple times with different flags, we
           // need to write unique artifacts for each flag combination. Here, it is convenient to
           // distinguish them by putting the flags that were used for creating the artifacts into
-          // their filenames.
+          // their filenames. Since min_sdk_version is a parameter to the aspect from the
+          // android_binary target that the aspect originates from, it's handled separately so that
+          // the correct min sdk value is used.
           String uniqueFilename =
               (basenameClash ? jar.getRootRelativePathString() : jar.getFilename())
                   + Joiner.on("").join(incrementalDexopts)
+                  + minSdkFilenamePart
                   + ".dex.zip";
           Artifact dexArchive =
               createDexArchiveAction(
@@ -486,6 +490,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> compileTimeClasspath,
       int minSdkVersion) {
+
+    String minSdkFilenamePart = minSdkVersion > 0 ? "_minsdk=" + minSdkVersion : "";
     return createDesugarAction(
         ruleContext,
         ASPECT_DESUGAR_PREREQ,
@@ -496,6 +502,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
         AndroidBinary.getDxArtifact(
             ruleContext,
             (disambiguateBasenames ? jar.getRootRelativePathString() : jar.getFilename())
+                + minSdkFilenamePart
                 + "_desugared.jar"));
   }
 
