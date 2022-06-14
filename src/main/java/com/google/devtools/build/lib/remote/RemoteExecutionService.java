@@ -145,6 +145,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -172,6 +175,8 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
+  private final boolean shouldForceDownloads;
+  private final Predicate<String> shouldForceDownloadPredicate;
 
   public RemoteExecutionService(
       Executor executor,
@@ -213,6 +218,19 @@ public class RemoteExecutionService {
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
+
+    String regex = remoteOptions.remoteDownloadRegex;
+    // TODO(bazel-team): Consider adding a warning or more validation if the experimentalForceDownloadsRegex is used
+    // without RemoteOutputsMode.MINIMAL
+    this.shouldForceDownloads =
+            !regex.isEmpty()
+                    && (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
+                    || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL);
+    Pattern pattern = Pattern.compile(regex);
+    this.shouldForceDownloadPredicate = path -> {
+      Matcher m = pattern.matcher(path);
+      return m.matches();
+    };
   }
 
   static Command buildCommand(
@@ -1047,16 +1065,10 @@ public class RemoteExecutionService {
             /* exitCode = */ result.getExitCode(),
             hasFilesToDownload(action.spawn.getOutputFiles(), filesToDownload));
 
-    if (downloadOutputs) {
-      for (FileMetadata file : metadata.files()) {
-        downloadsBuilder.add(downloadFile(action, file));
-      }
+    ImmutableList.Builder<ListenableFuture<FileMetadata>> forcedDownloadsBuilder = ImmutableList.builder();
 
-      for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        for (FileMetadata file : entry.getValue().files()) {
-          downloadsBuilder.add(downloadFile(action, file));
-        }
-      }
+    if (downloadOutputs) {
+      downloadsBuilder.addAll(buildFilesToDownload(metadata, action));
     } else {
       checkState(
           result.getExitCode() == 0,
@@ -1066,6 +1078,9 @@ public class RemoteExecutionService {
         throw new IOException(
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
+      }
+      if (shouldForceDownloads) {
+        forcedDownloadsBuilder.addAll(buildFilesToDownloadWithPredicate(metadata, action, shouldForceDownloadPredicate));
       }
     }
 
@@ -1086,9 +1101,22 @@ public class RemoteExecutionService {
       throw e;
     }
 
+    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = forcedDownloadsBuilder.build();
+    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
+      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
+    } catch (Exception e) {
+      captureCorruptedOutputs(e);
+      deletePartialDownloadedOutputs(result, tmpOutErr, e);
+      throw e;
+    }
+
     FileOutErr.dump(tmpOutErr, outErr);
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
+
+    if (!forcedDownloads.isEmpty()) {
+      moveOutputsToFinalLocation(forcedDownloads);
+    }
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
     // strategy.
@@ -1145,6 +1173,35 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
+          ActionResultMetadata metadata, RemoteAction action) {
+    Predicate<String> alwaysTrue = unused -> true;
+    return buildFilesToDownloadWithPredicate(metadata, action, alwaysTrue);
+  }
+
+  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithPredicate(
+          ActionResultMetadata metadata, RemoteAction action, Predicate<String> predicate) {
+    HashSet<PathFragment> queuedFilePaths = new HashSet<>();
+    ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
+    for (FileMetadata file : metadata.files()) {
+      PathFragment filePath = file.path().asFragment();
+      if (queuedFilePaths.add(filePath) && predicate.test(file.path.toString())) {
+        builder.add(downloadFile(action, file));
+      }
+    }
+
+    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      for (FileMetadata file : entry.getValue().files()) {
+        PathFragment filePath = file.path().asFragment();
+        if (queuedFilePaths.add(filePath) && predicate.test(file.path.toString())) {
+          builder.add(downloadFile(action, file));
+        }
+      }
+    }
+
+    return builder.build();
   }
 
   private static String prettyPrint(ActionInput actionInput) {
