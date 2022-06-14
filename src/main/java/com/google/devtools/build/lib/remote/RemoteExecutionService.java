@@ -223,11 +223,10 @@ public class RemoteExecutionService {
 
     String regex = remoteOptions.remoteDownloadRegex;
     // TODO(bazel-team): Consider adding a warning or more validation if the experimentalForceDownloadsRegex is used
-    // without RemoteOutputsMode.MINIMAL or RemoteOutputsMode.TOPLEVEL
+    // without RemoteOutputsMode.MINIMAL
     this.shouldForceDownloads =
             !regex.isEmpty()
-                    && (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
-                    || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL);
+                    && remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL;
     Pattern pattern = Pattern.compile(regex);
     this.shouldForceDownloadPredicate = path -> {
       Matcher m = pattern.matcher(path);
@@ -1039,21 +1038,20 @@ public class RemoteExecutionService {
             /* exitCode = */ result.getExitCode(),
             hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
 
-    ImmutableList.Builder<ListenableFuture<FileMetadata>> forcedDownloadsBuilder = ImmutableList.builder();
     if (downloadOutputs) {
       downloadsBuilder.addAll(buildFilesToDownload(metadata, action));
     } else {
       checkState(
-              result.getExitCode() == 0,
-              "injecting remote metadata is only supported for successful actions (exit code 0).");
+          result.getExitCode() == 0,
+          "injecting remote metadata is only supported for successful actions (exit code 0).");
 
       if (!metadata.symlinks().isEmpty()) {
         throw new IOException(
-                "Symlinks in action outputs are not yet supported by "
-                        + "--experimental_remote_download_outputs=minimal");
+            "Symlinks in action outputs are not yet supported by "
+                + "--experimental_remote_download_outputs=minimal");
       }
       if (shouldForceDownloads) {
-        forcedDownloadsBuilder.addAll(buildFilesToDownloadWithPredicate(metadata, action, shouldForceDownloadPredicate));
+        downloadsBuilder.addAll(buildFilesToDownloadWithPredicate(metadata, action, shouldForceDownloadPredicate));
       }
     }
 
@@ -1074,15 +1072,6 @@ public class RemoteExecutionService {
       throw e;
     }
 
-    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = forcedDownloadsBuilder.build();
-    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
-      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(result, tmpOutErr, e);
-      throw e;
-    }
-
     FileOutErr.dump(tmpOutErr, outErr);
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
@@ -1093,10 +1082,6 @@ public class RemoteExecutionService {
     // Will these be properly garbage-collected if the above throws an exception?
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
-
-    if (!forcedDownloads.isEmpty()) {
-      moveOutputsToFinalLocation(forcedDownloads);
-    }
 
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads);
@@ -1114,6 +1099,8 @@ public class RemoteExecutionService {
       // Create the symbolic links after all downloads are finished, because dangling symlinks
       // might not be supported on all platforms
       createSymlinks(symlinks);
+    } else if (!downloads.isEmpty()) {
+      moveOutputsToFinalLocation(downloads);
     } else {
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;
@@ -1153,13 +1140,13 @@ public class RemoteExecutionService {
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
-          ActionResultMetadata metadata, com.google.devtools.build.lib.remote.RemoteAction action) {
+          ActionResultMetadata metadata, RemoteAction action) {
     Predicate<String> alwaysTrue = unused -> true;
     return buildFilesToDownloadWithPredicate(metadata, action, alwaysTrue);
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithPredicate(
-          ActionResultMetadata metadata, com.google.devtools.build.lib.remote.RemoteAction action, Predicate<String> predicate) {
+          ActionResultMetadata metadata, RemoteAction action, Predicate<String> predicate) {
     HashSet<PathFragment> queuedFilePaths = new HashSet<>();
     ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
     for (FileMetadata file : metadata.files()) {
