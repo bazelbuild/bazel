@@ -1574,6 +1574,7 @@ public class ByteStreamUploaderTest {
         private HashCode digestHash;
         private byte[] receivedData;
         private long nextOffset;
+        private boolean failed;
 
         @Override
         public void onNext(WriteRequest writeRequest) {
@@ -1594,6 +1595,7 @@ public class ByteStreamUploaderTest {
           if (shouldFail) {
             uploadsFailedOnce.add(digestHash);
             response.onError(Status.INTERNAL.asException());
+            failed = true;
             return;
           }
 
@@ -1612,6 +1614,9 @@ public class ByteStreamUploaderTest {
 
         @Override
         public void onCompleted() {
+          if (failed) {
+            return;
+          }
           byte[] expectedBlob = blobsByHash.get(digestHash);
           assertThat(receivedData).isEqualTo(expectedBlob);
 
