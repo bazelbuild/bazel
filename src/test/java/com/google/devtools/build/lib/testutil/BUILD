@@ -125,6 +125,19 @@ java_library(
 )
 
 java_library(
+    name = "spawn_input_utils",
+    srcs = ["SpawnInputUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "test_interrupting_bug_reporter",
     srcs = ["TestInterruptingBugReporter.java"],
     deps = [
