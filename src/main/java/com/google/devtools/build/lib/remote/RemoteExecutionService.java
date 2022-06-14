@@ -221,10 +221,13 @@ public class RemoteExecutionService {
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
 
-    String regex = remoteOptions.experimentalForceDownloadsRegex;
+    String regex = remoteOptions.remoteDownloadRegex;
     // TODO(bazel-team): Consider adding a warning or more validation if the experimentalForceDownloadsRegex is used
-    // without RemoteOutputsMode.MINIMAL
-    this.shouldForceDownloads = !regex.isEmpty() && remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL;
+    // without RemoteOutputsMode.MINIMAL or RemoteOutputsMode.TOPLEVEL
+    this.shouldForceDownloads =
+            !regex.isEmpty()
+                    && (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
+                    || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL);
     Pattern pattern = Pattern.compile(regex);
     this.shouldForceDownloadPredicate = path -> {
       Matcher m = pattern.matcher(path);
@@ -1041,13 +1044,13 @@ public class RemoteExecutionService {
       downloadsBuilder.addAll(buildFilesToDownload(metadata, action));
     } else {
       checkState(
-          result.getExitCode() == 0,
-          "injecting remote metadata is only supported for successful actions (exit code 0).");
+              result.getExitCode() == 0,
+              "injecting remote metadata is only supported for successful actions (exit code 0).");
 
       if (!metadata.symlinks().isEmpty()) {
         throw new IOException(
-            "Symlinks in action outputs are not yet supported by "
-                + "--experimental_remote_download_outputs=minimal");
+                "Symlinks in action outputs are not yet supported by "
+                        + "--experimental_remote_download_outputs=minimal");
       }
       if (shouldForceDownloads) {
         forcedDownloadsBuilder.addAll(buildFilesToDownloadWithPredicate(metadata, action, shouldForceDownloadPredicate));
@@ -1150,13 +1153,13 @@ public class RemoteExecutionService {
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
-          ActionResultMetadata metadata, RemoteAction action) {
+          ActionResultMetadata metadata, com.google.devtools.build.lib.remote.RemoteAction action) {
     Predicate<String> alwaysTrue = unused -> true;
     return buildFilesToDownloadWithPredicate(metadata, action, alwaysTrue);
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithPredicate(
-          ActionResultMetadata metadata, RemoteAction action, Predicate<String> predicate) {
+          ActionResultMetadata metadata, com.google.devtools.build.lib.remote.RemoteAction action, Predicate<String> predicate) {
     HashSet<PathFragment> queuedFilePaths = new HashSet<>();
     ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
     for (FileMetadata file : metadata.files()) {
