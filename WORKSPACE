@@ -607,9 +607,9 @@ load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
 
 rules_sass_dependencies()
 
-load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
 
-node_repositories()
+build_bazel_rules_nodejs_dependencies()
 
 load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 
