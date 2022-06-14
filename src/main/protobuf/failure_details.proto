@@ -147,6 +147,7 @@ message FailureDetail {
     StarlarkLoading starlark_loading = 179;
     ExternalDeps external_deps = 181;
     DiffAwareness diff_awareness = 182;
+    ModqueryCommand modquery_command = 183;
   }
 
   reserved 102; // For internal use
@@ -1270,6 +1271,17 @@ message DiffAwareness {
   enum Code {
     DIFF_AWARENESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     DIFF_STAT_FAILED = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message ModqueryCommand {
+  enum Code {
+    MODQUERY_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MISSING_ARGUMENTS = 1 [(metadata) = { exit_code: 2 }];
+    TOO_MANY_ARGUMENTS = 2 [(metadata) = { exit_code: 2 }];
+    INVALID_ARGUMENTS = 3 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
