@@ -226,7 +226,8 @@ public class RemoteExecutionService {
     // without RemoteOutputsMode.MINIMAL
     this.shouldForceDownloads =
             !regex.isEmpty()
-                    && remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL;
+                    && (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
+                    || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL);
     Pattern pattern = Pattern.compile(regex);
     this.shouldForceDownloadPredicate = path -> {
       Matcher m = pattern.matcher(path);
@@ -1038,6 +1039,8 @@ public class RemoteExecutionService {
             /* exitCode = */ result.getExitCode(),
             hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
 
+    ImmutableList.Builder<ListenableFuture<FileMetadata>> forcedDownloadsBuilder = ImmutableList.builder();
+
     if (downloadOutputs) {
       downloadsBuilder.addAll(buildFilesToDownload(metadata, action));
     } else {
@@ -1051,7 +1054,7 @@ public class RemoteExecutionService {
                 + "--experimental_remote_download_outputs=minimal");
       }
       if (shouldForceDownloads) {
-        downloadsBuilder.addAll(buildFilesToDownloadWithPredicate(metadata, action, shouldForceDownloadPredicate));
+        forcedDownloadsBuilder.addAll(buildFilesToDownloadWithPredicate(metadata, action, shouldForceDownloadPredicate));
       }
     }
 
@@ -1072,6 +1075,15 @@ public class RemoteExecutionService {
       throw e;
     }
 
+    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = forcedDownloadsBuilder.build();
+    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
+      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
+    } catch (Exception e) {
+      captureCorruptedOutputs(e);
+      deletePartialDownloadedOutputs(result, tmpOutErr, e);
+      throw e;
+    }
+
     FileOutErr.dump(tmpOutErr, outErr);
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
@@ -1082,6 +1094,10 @@ public class RemoteExecutionService {
     // Will these be properly garbage-collected if the above throws an exception?
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
+
+    if (!forcedDownloads.isEmpty()) {
+      moveOutputsToFinalLocation(forcedDownloads);
+    }
 
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads);
@@ -1099,8 +1115,6 @@ public class RemoteExecutionService {
       // Create the symbolic links after all downloads are finished, because dangling symlinks
       // might not be supported on all platforms
       createSymlinks(symlinks);
-    } else if (!downloads.isEmpty()) {
-      moveOutputsToFinalLocation(downloads);
     } else {
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;

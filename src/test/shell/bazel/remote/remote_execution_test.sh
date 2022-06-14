@@ -3347,7 +3347,7 @@ EOF
   expect_log "2 processes: 1 internal, 1 remote"
 }
 
-function test_forced_downloads() {
+function test_remote_download_regex() {
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
@@ -3388,7 +3388,7 @@ EOF
   bazel clean && bazel test \
         --remote_executor=grpc://localhost:${worker_port} \
         --remote_download_minimal \
-        --experimental_force_downloads_regex=".*" \
+        --experimental_remote_download_regex=".*" \
         //a:test >& $TEST_log || fail "Failed to build"
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
@@ -3397,7 +3397,7 @@ EOF
   bazel clean && bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
-    --experimental_force_downloads_regex=".*jar$" \
+    --experimental_remote_download_regex=".*jar$" \
     //a:test >& $TEST_log || fail "Failed to build"
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
