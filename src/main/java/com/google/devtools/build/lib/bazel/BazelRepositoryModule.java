@@ -229,8 +229,7 @@ public class BazelRepositoryModule extends BlazeModule {
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(new HttpDownloader(), clientEnvironmentSupplier);
     singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(
-            runtime.getPackageFactory(), directories, clientEnvironmentSupplier, downloadManager);
+        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
 
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(

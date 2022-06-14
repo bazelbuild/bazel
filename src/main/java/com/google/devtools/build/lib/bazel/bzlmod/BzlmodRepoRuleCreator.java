@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
@@ -44,7 +44,8 @@ public final class BzlmodRepoRuleCreator {
 
   /** Creates a repo rule instance from the given parameters. */
   public static Rule createRule(
-      PackageFactory packageFactory,
+      PackageIdentifier basePackageId,
+      RepositoryMapping repoMapping,
       BlazeDirectories directories,
       StarlarkSemantics semantics,
       ExtendedEventHandler eventHandler,
@@ -58,13 +59,13 @@ public final class BzlmodRepoRuleCreator {
     // sense. We should migrate away from this implementation so that we don't refer to any build
     // rule specific things in repository rule.
     Package.Builder packageBuilder =
-        packageFactory.newExternalPackageBuilder(
+        Package.newExternalPackageBuilderForBzlmod(
             RootedPath.toRootedPath(
                 Root.fromPath(directories.getWorkspace()),
                 LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
-            "dummy_name",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            semantics);
+            semantics,
+            basePackageId,
+            repoMapping);
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
     ImmutableList<CallStackEntry> callStack =

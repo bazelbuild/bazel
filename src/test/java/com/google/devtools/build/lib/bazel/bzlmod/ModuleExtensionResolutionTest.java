@@ -148,8 +148,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
     SingleExtensionEvalFunction singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(
-            packageFactory, directories, ImmutableMap::of, downloadManager);
+        new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager);
     StarlarkRepositoryFunction starlarkRepositoryFunction =
         new StarlarkRepositoryFunction(downloadManager);
 
@@ -231,7 +230,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
-                        packageFactory,
                         ruleClassProvider,
                         directories,
                         new BzlmodRepoRuleHelperImpl()))
@@ -670,7 +668,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
-  public void labels_constructedInModuleExtension() throws Exception {
+  public void labels_constructedInModuleExtension_readInModuleExtension() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='ext',version='1.0')",
@@ -724,6 +722,57 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("requirements: get up at 6am. go to bed at 11pm.");
+  }
+
+  @Test
+  public void labels_constructedInModuleExtensionAsString_passedOnToRepoRule() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "use_repo(ext,'ext_repo')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext_repo//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("@foo.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("@foo.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("@foo.1.0/requirements.txt").getPathString(), "get up at 6am.");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("@ext.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("@ext.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("@ext.1.0/defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "  content = ctx.read(ctx.attr.file).strip()",
+        "  ctx.file('data.bzl', 'data='+json.encode(content))",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl, attrs={'file':attr.label()})",
+        "",
+        "def _ext_impl(ctx):",
+        // The label literal on the following line should be interpreted using ext.1.0's repo
+        // mapping.
+        "  data_repo(name='ext_repo',file='@foo//:requirements.txt')",
+        "ext=module_extension(implementation=_ext_impl)");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("get up at 6am.");
   }
 
   /** Tests that a complex-typed attribute (here, string_list_dict) behaves well on a tag. */

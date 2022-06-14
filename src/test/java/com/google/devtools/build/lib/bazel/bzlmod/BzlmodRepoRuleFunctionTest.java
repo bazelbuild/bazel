@@ -138,7 +138,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
-                        pkgFactory, ruleClassProvider, directories, getFakeBzlmodRepoRuleHelper()))
+                        ruleClassProvider, directories, getFakeBzlmodRepoRuleHelper()))
                 .put(
                     SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
                     new LocalRepositoryLookupFunction(
