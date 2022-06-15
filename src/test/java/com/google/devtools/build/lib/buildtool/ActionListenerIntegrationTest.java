@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -439,22 +440,20 @@ public class ActionListenerIntegrationTest extends BuildIntegrationTestCase {
     write("nobuild/BUILD",
         "java_library(name= 'javalib',",
         "             srcs=[])");
-    try {
-      createOptionsParser().parse("--experimental_action_listener='this is \\not\\ a valid label'");
-      Assert.fail("expected failure");
-    } catch (OptionsParsingException ope) {
-      assertThat(ope)
-          .hasMessageThat()
-          .isEqualTo(
-              String.format(
-                  "While parsing option %s='%s': invalid package name ''%s'': "
-                      + "package names may contain "
-                      + "A-Z, a-z, 0-9, or any of ' !\"#$%%&'()*+,-./;<=>?[]^_`{|}~' "
-                      + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')",
-                  "--experimental_action_listener",
-                  "this is \\not\\ a valid label",
-                  "this is \\not\\ a valid label"));
-    }
+    addOptions("--experimental_action_listener='this is \\not\\ a valid label'");
+    OptionsParsingException expected =
+        assertThrows(OptionsParsingException.class, () -> buildTarget("//nobuild:javalib"));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            String.format(
+                "While parsing option %s='%s': invalid package name ''%s'': "
+                    + "package names may contain "
+                    + "A-Z, a-z, 0-9, or any of ' !\"#$%%&'()*+,-./;<=>?[]^_`{|}~' "
+                    + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')",
+                "--experimental_action_listener",
+                "this is \\not\\ a valid label",
+                "this is \\not\\ a valid label"));
   }
 
   /**
