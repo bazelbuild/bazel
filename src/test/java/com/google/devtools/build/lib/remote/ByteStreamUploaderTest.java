@@ -69,6 +69,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -373,23 +374,18 @@ public class ByteStreamUploaderTest {
             retrier,
             /*maximumOpenFiles=*/ -1);
 
-    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    int chunkSize = 1024;
+    int skipSize = chunkSize + 1;
+    byte[] blob = new byte[chunkSize * 2 + 1];
     new Random().nextBytes(blob);
 
     Chunker chunker =
-        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(CHUNK_SIZE).build();
+        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(chunkSize).build();
     Digest digest = DIGEST_UTIL.compute(blob);
 
-    while (chunker.hasNext()) {
-      chunker.next();
-    }
-    long expectedSize = chunker.getOffset();
-    chunker.reset();
-
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
     serviceRegistry.addService(
         new ByteStreamImplBase() {
-
-          byte[] receivedData = new byte[(int) expectedSize];
           String receivedResourceName = null;
           boolean receivedComplete = false;
           long nextOffset = 0;
@@ -414,21 +410,21 @@ public class ByteStreamUploaderTest {
                   assertThat(resourceName).isEmpty();
                 }
 
-                assertThat(writeRequest.getWriteOffset()).isEqualTo(nextOffset);
-
-                ByteString data = writeRequest.getData();
-
-                System.arraycopy(
-                    data.toByteArray(), 0, receivedData, (int) nextOffset, data.size());
-
-                nextOffset += data.size();
-                receivedComplete = expectedSize == nextOffset;
-                assertThat(writeRequest.getFinishWrite()).isEqualTo(receivedComplete);
-
                 if (initialOffset == 0) {
                   streamObserver.onError(Status.DEADLINE_EXCEEDED.asException());
                   mustQueryWriteStatus = true;
-                  initialOffset = nextOffset;
+                  initialOffset = skipSize;
+                  nextOffset = initialOffset;
+                } else {
+                  ByteString data = writeRequest.getData();
+                  try {
+                    data.writeTo(output);
+                  } catch (IOException e) {
+                    streamObserver.onError(e);
+                    return;
+                  }
+                  nextOffset += data.size();
+                  receivedComplete = writeRequest.getFinishWrite();
                 }
               }
 
@@ -439,10 +435,6 @@ public class ByteStreamUploaderTest {
 
               @Override
               public void onCompleted() {
-                assertThat(nextOffset).isEqualTo(expectedSize);
-                byte[] decompressed = Zstd.decompress(receivedData, blob.length);
-                assertThat(decompressed).isEqualTo(blob);
-
                 WriteResponse response =
                     WriteResponse.newBuilder().setCommittedSize(nextOffset).build();
                 streamObserver.onNext(response);
@@ -460,7 +452,7 @@ public class ByteStreamUploaderTest {
             if (receivedResourceName != null && receivedResourceName.equals(resourceName)) {
               assertThat(mustQueryWriteStatus).isTrue();
               mustQueryWriteStatus = false;
-              committedSize = nextOffset;
+              committedSize = receivedComplete ? blob.length : skipSize;
               complete = receivedComplete;
             } else {
               committedSize = 0;
@@ -476,6 +468,9 @@ public class ByteStreamUploaderTest {
         });
 
     uploader.uploadBlob(context, digest, chunker);
+    byte[] decompressed = Zstd.decompress(output.toByteArray(), blob.length - skipSize);
+    assertThat(Arrays.equals(decompressed, 0, decompressed.length, blob, skipSize, blob.length))
+        .isTrue();
 
     // This test triggers one retry.
     Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
