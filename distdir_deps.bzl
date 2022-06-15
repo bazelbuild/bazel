@@ -126,12 +126,17 @@ DIST_DEPS = {
         ],
     },
     "com_github_grpc_grpc": {
-        "archive": "v1.46.3.tar.gz",
-        "sha256": "d6cbf22cb5007af71b61c6be316a79397469c58c82a942552a62e708bce60964",
-        "strip_prefix": "grpc-1.46.3",
+        "archive": "v1.41.0.tar.gz",
+        "sha256": "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
+        "strip_prefix": "grpc-1.41.0",
         "urls": [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.46.3.tar.gz",
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/refs/tags/v1.46.3.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.41.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.41.0.tar.gz",
+        ],
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party/grpc:grpc_1.41.0.patch",
+            "//third_party/grpc:grpc_1.41.0.win_arm64.patch",
         ],
         "used_in": [
             "additional_distfiles",
