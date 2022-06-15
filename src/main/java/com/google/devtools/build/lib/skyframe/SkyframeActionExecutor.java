@@ -390,6 +390,9 @@ public final class SkyframeActionExecutor {
       actionExecutionState.obsolete(actionLookupData, buildActionMap, ownerlessArtifactWrapper);
     }
     completedAndResetActions.add(ownerlessArtifactWrapper);
+    if (!actionFileSystemType().inMemoryFileSystem()) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
+    }
   }
 
   @Nullable
@@ -411,6 +414,9 @@ public final class SkyframeActionExecutor {
     }
     if (!lostDiscoveredInputs.isEmpty()) {
       lostDiscoveredInputsMap.put(ownerlessArtifactWrapper, lostDiscoveredInputs);
+    }
+    if (!actionFileSystemType().inMemoryFileSystem()) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
     }
   }
 
