@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ExecutionMessagePrintMode;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -270,7 +271,17 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
             FileOutErr outErr = context.getFileOutErr();
             String message = result.getMessage();
-            if (!result.success() && !message.isEmpty()) {
+            boolean printMessage =
+                ((!result.success()
+                            && remoteOptions.remotePrintExecutionMessages
+                                == ExecutionMessagePrintMode.FAILURE)
+                        || (result.success()
+                            && remoteOptions.remotePrintExecutionMessages
+                                == ExecutionMessagePrintMode.SUCCESS)
+                        || remoteOptions.remotePrintExecutionMessages
+                            == ExecutionMessagePrintMode.ALL)
+                    && !message.isEmpty();
+            if (printMessage) {
               outErr.printErr(message + "\n");
             }
 

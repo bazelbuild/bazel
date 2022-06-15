@@ -602,6 +602,19 @@ public final class RemoteOptions extends OptionsBase {
               + "and multiple workspaces are placed at the same path.")
   public String remoteOutputServiceOutputBaseId;
 
+  @Option(
+      name = "remote_print_execution_messages",
+      defaultValue = "failure",
+      converter = ExecutionMessagePrintMode.Converter.class,
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Choose when to print remote execution messages. Valid values are `failure`, "
+              + "to print only on failures, `success` to print only on successes and "
+              + "`all` to print always.")
+  public ExecutionMessagePrintMode remotePrintExecutionMessages;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
@@ -670,5 +683,19 @@ public final class RemoteOptions extends OptionsBase {
         .setMessage(message)
         .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /** An enum for specifying different modes for printing remote execution messages. */
+  public enum ExecutionMessagePrintMode {
+    FAILURE, // Print execution messages only on failure
+    SUCCESS, // Print execution messages only on success
+    ALL; // Print execution messages always
+
+    /** Converts to {@link ExecutionMessagePrintMode}. */
+    public static class Converter extends EnumConverter<ExecutionMessagePrintMode> {
+      public Converter() {
+        super(ExecutionMessagePrintMode.class, "execution message print mode");
+      }
+    }
   }
 }
