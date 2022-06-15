@@ -83,6 +83,14 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   ImmutableList<String> getConlyopts() throws EvalException;
 
   @StarlarkMethod(
+      name = "objccopts",
+      structField = true,
+      doc =
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--objccopt}\">"
+              + "<code>--objccopt</code></a> option.")
+  ImmutableList<String> getObjcopts() throws EvalException;
+
+  @StarlarkMethod(
       name = "linkopts",
       structField = true,
       doc =

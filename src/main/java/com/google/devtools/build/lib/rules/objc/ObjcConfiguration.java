@@ -67,6 +67,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
+    CppOptions cppOptions = buildOptions.get(CppOptions.class);
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
@@ -76,7 +77,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.tvosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion);
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
-    this.copts = ImmutableList.copyOf(objcOptions.copts);
+    this.copts = ImmutableList.copyOf(cppOptions.objcoptList);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;

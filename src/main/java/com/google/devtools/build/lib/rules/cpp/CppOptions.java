@@ -294,6 +294,15 @@ public class CppOptions extends FragmentOptions {
   public List<String> conlyoptList;
 
   @Option(
+      name = "objccopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Additional options to pass to gcc when compiling Objective C/C++ source files.")
+  public List<String> objcoptList;
+
+  @Option(
       name = "linkopt",
       defaultValue = "null",
       allowMultiple = true,
