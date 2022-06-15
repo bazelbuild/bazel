@@ -142,19 +142,6 @@ public class CompilationSupport implements StarlarkValue {
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
 
-  private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
-
-  private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
-
-  private static final ImmutableList<String> OBJC_ACTIONS =
-      ImmutableList.of(
-          "objc-compile",
-          "objc++-compile",
-          "objc-archive",
-          "objc-fully-link",
-          "objc-executable",
-          "objc++-executable");
-
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite("$xcrunwrapper");
@@ -170,34 +157,6 @@ public class CompilationSupport implements StarlarkValue {
               FileTypeSet.of(ObjcRuleClasses.NON_CPP_SOURCES, ObjcRuleClasses.CPP_SOURCES, HEADERS))
           .withSourceAttributes("srcs", "non_arc_srcs", "hdrs")
           .withDependencyAttributes("deps", "data", "binary", "xctest_app");
-
-  private FeatureConfiguration getFeatureConfiguration(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      CppSemantics cppSemantics) {
-    ImmutableSet.Builder<String> activatedCrosstoolSelectables =
-        ImmutableSet.<String>builder().addAll(ruleContext.getFeatures()).addAll(OBJC_ACTIONS);
-
-    if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
-      activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
-    }
-    if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
-      activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
-    }
-
-    ImmutableSet.Builder<String> disabledFeatures =
-        ImmutableSet.<String>builder().addAll(ruleContext.getDisabledFeatures());
-
-    return CcCommon.configureFeaturesOrReportRuleError(
-        ruleContext,
-        buildConfiguration,
-        activatedCrosstoolSelectables.build(),
-        disabledFeatures.build(),
-        Language.OBJC,
-        ccToolchain,
-        cppSemantics);
-  }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
@@ -562,7 +521,14 @@ public class CompilationSupport implements StarlarkValue {
 
     Artifact binaryToLink = getBinaryToLink();
     FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, cppSemantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext,
+            buildConfiguration,
+            ruleContext.getFeatures(),
+            ruleContext.getDisabledFeatures(),
+            Language.OBJC,
+            toolchain,
+            cppSemantics);
 
     Label binaryLabel = null;
     try {

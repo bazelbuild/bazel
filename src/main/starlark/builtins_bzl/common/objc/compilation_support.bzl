@@ -111,23 +111,10 @@ def _build_common_variables(
     )
 
 def _build_feature_configuration(common_variables, for_swift_module_map, support_parse_headers):
-    activated_crosstool_selectables = []
     ctx = common_variables.ctx
-    OBJC_ACTIONS = [
-        "objc-compile",
-        "objc++-compile",
-        "objc-archive",
-        "objc-fully-link",
-        "objc-executable",
-        "objc++-executable",
-    ]
-    activated_crosstool_selectables.extend(ctx.features)
-    activated_crosstool_selectables.extend(OBJC_ACTIONS)
-    if common_variables.objc_config.should_strip_binary:
-        activated_crosstool_selectables.append("dead_strip")
 
-    if common_variables.objc_config.generate_linkmap:
-        activated_crosstool_selectables.append("generate_linkmap")
+    enabled_features = []
+    enabled_features.extend(ctx.features)
 
     disabled_features = []
     disabled_features.extend(ctx.disabled_features)
@@ -141,18 +128,18 @@ def _build_feature_configuration(common_variables, for_swift_module_map, support
         disabled_features.append("parse_headers")
 
     if for_swift_module_map:
-        activated_crosstool_selectables.append("module_maps")
-        activated_crosstool_selectables.append("compile_all_modules")
-        activated_crosstool_selectables.append("only_doth_headers_in_module_maps")
-        activated_crosstool_selectables.append("exclude_private_headers_in_module_maps")
-        activated_crosstool_selectables.append("module_map_without_extern_module")
+        enabled_features.append("module_maps")
+        enabled_features.append("compile_all_modules")
+        enabled_features.append("only_doth_headers_in_module_maps")
+        enabled_features.append("exclude_private_headers_in_module_maps")
+        enabled_features.append("module_map_without_extern_module")
         disabled_features.append("generate_submodules")
 
     return cc_common.configure_features(
         ctx = common_variables.ctx,
         cc_toolchain = common_variables.toolchain,
         language = "objc",
-        requested_features = activated_crosstool_selectables,
+        requested_features = enabled_features,
         unsupported_features = disabled_features,
     )
 

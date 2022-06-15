@@ -53,11 +53,14 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final String watchosSimulatorDevice;
   private final DottedVersion tvosSimulatorVersion;
   private final String tvosSimulatorDevice;
+  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
+  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
   private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
   private final ImmutableList<String> fastbuildOptions;
+  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
   private final boolean enableBinaryStripping;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
@@ -75,12 +78,12 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.watchosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion);
     this.tvosSimulatorDevice = objcOptions.tvosSimulatorDevice;
     this.tvosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion);
-    this.generateLinkmap = objcOptions.generateLinkmap;
+    this.generateLinkmap = cppOptions.objcGenerateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(cppOptions.objcoptList);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
-    this.enableBinaryStripping = objcOptions.enableBinaryStripping;
+    this.enableBinaryStripping = cppOptions.objcEnableBinaryStripping;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;

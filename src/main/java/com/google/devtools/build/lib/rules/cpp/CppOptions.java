@@ -958,6 +958,25 @@ public class CppOptions extends FragmentOptions {
   public boolean appleEnableAutoDsymDbg;
 
   @Option(
+      name = "objc_generate_linkmap",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Specifies whether to generate a linkmap file.")
+  public boolean objcGenerateLinkmap;
+
+  @Option(
+      name = "objc_enable_binary_stripping",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
+              + "strippings will be performed if both this flag and --compilation_mode=opt are "
+              + "specified.")
+  public boolean objcEnableBinaryStripping;
+
+  @Option(
       name = "experimental_starlark_cc_import",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,

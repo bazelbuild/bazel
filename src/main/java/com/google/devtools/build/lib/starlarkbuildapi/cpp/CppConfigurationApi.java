@@ -164,6 +164,18 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       structField = true)
   boolean appleGenerateDsym();
 
+  @StarlarkMethod(
+      name = "objc_generate_linkmap",
+      doc = "(Apple-only) Whether to generate linkmap artifacts.",
+      structField = true)
+  boolean objcGenerateLinkmap();
+
+  @StarlarkMethod(
+      name = "objc_should_strip_binary",
+      structField = true,
+      doc = "(Apple-only) whether to perform symbol and dead-code strippings on linked binaries.")
+  boolean objcShouldStripBinary();
+
   @StarlarkMethod(name = "strip_opts", documented = false, useStarlarkThread = true)
   Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException;
 

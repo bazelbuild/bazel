@@ -155,6 +155,15 @@ public final class CcCommon implements StarlarkValue {
           .addAll(ALL_OTHER_ACTIONS)
           .build();
 
+  public static final ImmutableSet<String> OBJC_ACTIONS =
+      ImmutableSet.of(
+          CppActionNames.OBJC_COMPILE,
+          CppActionNames.OBJCPP_COMPILE,
+          CppActionNames.OBJC_ARCHIVE,
+          CppActionNames.OBJC_FULLY_LINK,
+          CppActionNames.OBJC_EXECUTABLE,
+          CppActionNames.OBJCPP_EXECUTABLE);
+
   /** An enum for the list of supported languages. */
   public enum Language {
     CPP("c++"),
@@ -1031,6 +1040,12 @@ public final class CcCommon implements StarlarkValue {
 
     if (language == Language.OBJC || language == Language.OBJCPP) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.LANG_OBJC);
+      if (cppConfiguration.objcGenerateLinkmap()) {
+        allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_LINKMAP_FEATURE_NAME);
+      }
+      if (cppConfiguration.objcShouldStripBinary()) {
+        allRequestedFeaturesBuilder.add(CppRuleClasses.DEAD_STRIP_FEATURE_NAME);
+      }
     }
 
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
@@ -1058,6 +1073,10 @@ public final class CcCommon implements StarlarkValue {
             .addAll(requestedFeatures)
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
             .addAll(cppConfiguration.getAppleBitcodeMode().getFeatureNames());
+
+    if (language == Language.OBJC || language == Language.OBJCPP) {
+      allFeatures.addAll(OBJC_ACTIONS);
+    }
 
     if (!cppConfiguration.dontEnableHostNonhost()) {
       if (toolchain.isToolConfiguration()) {
