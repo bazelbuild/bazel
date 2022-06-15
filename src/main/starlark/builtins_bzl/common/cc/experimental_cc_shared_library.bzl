@@ -522,6 +522,12 @@ def _cc_shared_library_impl(ctx):
     else:
         library.append(linking_outputs.library_to_link.dynamic_library)
 
+    interface_library = []
+    if linking_outputs.library_to_link.resolved_symlink_interface_library != None:
+        interface_library.append(linking_outputs.library_to_link.resolved_symlink_interface_library)
+    elif linking_outputs.library_to_link.interface_library != None:
+        interface_library.append(linking_outputs.library_to_link.interface_library)
+
     return [
         DefaultInfo(
             files = depset(library),
@@ -529,6 +535,7 @@ def _cc_shared_library_impl(ctx):
         ),
         OutputGroupInfo(
             main_shared_library_output = depset(library),
+            interface_library = depset(interface_library),
             rule_impl_debug_files = depset(direct = debug_files, transitive = transitive_debug_files),
         ),
         CcSharedLibraryInfo(

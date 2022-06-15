@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -54,7 +54,6 @@ import net.starlark.java.syntax.Location;
  * and returns the generated repos.
  */
 public class SingleExtensionEvalFunction implements SkyFunction {
-  private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final DownloadManager downloadManager;
@@ -64,11 +63,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor = null;
 
   public SingleExtensionEvalFunction(
-      PackageFactory packageFactory,
       BlazeDirectories directories,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       DownloadManager downloadManager) {
-    this.packageFactory = packageFactory;
     this.directories = directories;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.downloadManager = downloadManager;
@@ -155,7 +152,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
             usagesValue.getExtensionUniqueName() + ".",
-            packageFactory,
+            extensionId.getBzlFileLabel().getPackageIdentifier(),
+            BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
             directories,
             env.getListener());
     try (Mutability mu =

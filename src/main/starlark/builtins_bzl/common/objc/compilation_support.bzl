@@ -242,7 +242,6 @@ def _validate_attributes(common_variables):
 def _get_compile_rule_copts(common_variables):
     attributes = common_variables.compilation_attributes
     copts = []
-    copts.extend(common_variables.objc_config.copts)
     copts.extend(attributes.copts)
 
     if attributes.enable_modules and common_variables.ctx.attr.module_map == None:

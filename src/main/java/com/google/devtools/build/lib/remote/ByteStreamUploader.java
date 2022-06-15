@@ -336,36 +336,12 @@ class ByteStreamUploader {
               }
               if (committedSize > lastCommittedOffset) {
                 // We have made progress on this upload in the last request. Reset the backoff so
-                // that
-                // this request has a full deck of retries
+                // that this request has a full deck of retries
                 progressiveBackoff.reset();
               }
             }
             lastCommittedOffset = committedSize;
-            try {
-              chunker.seek(committedSize);
-            } catch (IOException e) {
-              try {
-                chunker.reset();
-              } catch (IOException resetException) {
-                e.addSuppressed(resetException);
-              }
-              String tooManyOpenFilesError = "Too many open files";
-              if (Ascii.toLowerCase(e.getMessage())
-                  .contains(Ascii.toLowerCase(tooManyOpenFilesError))) {
-                String newMessage =
-                    "An IOException was thrown because the process opened too"
-                        + " many files. We recommend setting"
-                        + " --bep_maximum_open_remote_upload_files flag to a"
-                        + " number lower than your system default (run 'ulimit"
-                        + " -a' for *nix-based operating systems). Original"
-                        + " error message: "
-                        + e.getMessage();
-                return Futures.immediateFailedFuture(new IOException(newMessage, e));
-              }
-              return Futures.immediateFailedFuture(e);
-            }
-            return upload();
+            return upload(committedSize);
           },
           MoreExecutors.directExecutor());
     }
@@ -415,12 +391,14 @@ class ByteStreamUploader {
           MoreExecutors.directExecutor());
     }
 
-    private ListenableFuture<Long> upload() {
+    private ListenableFuture<Long> upload(long pos) {
       return channel.withChannelFuture(
           channel -> {
             SettableFuture<Long> uploadResult = SettableFuture.create();
             grpcContext.run(
-                () -> bsAsyncStub(channel).write(new Writer(resourceName, chunker, uploadResult)));
+                () ->
+                    bsAsyncStub(channel)
+                        .write(new Writer(resourceName, chunker, pos, uploadResult)));
             return uploadResult;
           });
     }
@@ -434,15 +412,18 @@ class ByteStreamUploader {
   private static final class Writer
       implements ClientResponseObserver<WriteRequest, WriteResponse>, Runnable {
     private final Chunker chunker;
+    private final long pos;
     private final String resourceName;
     private final SettableFuture<Long> uploadResult;
     private long committedSize = -1;
     private ClientCallStreamObserver<WriteRequest> requestObserver;
     private boolean first = true;
 
-    private Writer(String resourceName, Chunker chunker, SettableFuture<Long> uploadResult) {
+    private Writer(
+        String resourceName, Chunker chunker, long pos, SettableFuture<Long> uploadResult) {
       this.resourceName = resourceName;
       this.chunker = chunker;
+      this.pos = pos;
       this.uploadResult = uploadResult;
     }
 
@@ -459,6 +440,15 @@ class ByteStreamUploader {
         return;
       }
       while (requestObserver.isReady()) {
+        WriteRequest.Builder request = WriteRequest.newBuilder();
+        if (first) {
+          first = false;
+          if (!seekChunker()) {
+            return;
+          }
+          // Resource name only needs to be set on the first write for each file.
+          request.setResourceName(resourceName);
+        }
         Chunker.Chunk chunk;
         try {
           chunk = chunker.next();
@@ -467,22 +457,43 @@ class ByteStreamUploader {
           return;
         }
         boolean isLastChunk = !chunker.hasNext();
-        WriteRequest.Builder request =
-            WriteRequest.newBuilder()
+        requestObserver.onNext(
+            request
                 .setData(chunk.getData())
                 .setWriteOffset(chunk.getOffset())
-                .setFinishWrite(isLastChunk);
-        if (first) {
-          first = false;
-          // Resource name only needs to be set on the first write for each file.
-          request.setResourceName(resourceName);
-        }
-        requestObserver.onNext(request.build());
+                .setFinishWrite(isLastChunk)
+                .build());
         if (isLastChunk) {
           requestObserver.onCompleted();
           return;
         }
       }
+    }
+
+    private boolean seekChunker() {
+      try {
+        chunker.seek(pos);
+      } catch (IOException e) {
+        try {
+          chunker.reset();
+        } catch (IOException resetException) {
+          e.addSuppressed(resetException);
+        }
+        String tooManyOpenFilesError = "Too many open files";
+        if (Ascii.toLowerCase(e.getMessage()).contains(Ascii.toLowerCase(tooManyOpenFilesError))) {
+          String newMessage =
+              "An IOException was thrown because the process opened too many files. We recommend"
+                  + " setting --bep_maximum_open_remote_upload_files flag to a number lower than"
+                  + " your system default (run 'ulimit -a' for *nix-based operating systems)."
+                  + " Original error message: "
+                  + e.getMessage();
+          e = new IOException(newMessage, e);
+        }
+        uploadResult.setException(e);
+        requestObserver.cancel("failed to seek chunk", e);
+        return false;
+      }
+      return true;
     }
 
     @Override

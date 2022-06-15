@@ -41,7 +41,6 @@ public abstract class SandboxedSpawnRunnerTestCase extends BuildIntegrationTestC
   protected CommandEnvironment getCommandEnvironmentWithExecutionStatisticsOptionEnabled(
       String workspaceName) throws Exception {
     runtimeWrapper.addOptions("--experimental_collect_local_sandbox_action_metrics");
-    runtimeWrapper.initializeOptionsParser();
     CommandEnvironment env = runtimeWrapper.newCommand();
     env.setWorkspaceName(workspaceName);
     env.getLocalResourceManager().setAvailableResources(LocalHostCapacity.getLocalHostCapacity());

@@ -497,7 +497,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     assertThat(
             artifactsToStrings(getOutputGroup(hello, CcLibrary.DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME)))
-        .containsExactly("bin hello/hello_9a9972c34e.dll", "bin hello/hello.if.lib");
+        .containsExactly("bin hello/hello_5e918d2.dll", "bin hello/hello.if.lib");
   }
 
   @Test
