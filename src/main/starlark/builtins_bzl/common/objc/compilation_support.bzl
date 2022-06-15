@@ -123,7 +123,6 @@ def _build_feature_configuration(common_variables, for_swift_module_map, support
     ]
     activated_crosstool_selectables.extend(ctx.features)
     activated_crosstool_selectables.extend(OBJC_ACTIONS)
-    activated_crosstool_selectables.append("lang_objc")
     if common_variables.objc_config.should_strip_binary:
         activated_crosstool_selectables.append("dead_strip")
 
@@ -152,6 +151,7 @@ def _build_feature_configuration(common_variables, for_swift_module_map, support
     return cc_common.configure_features(
         ctx = common_variables.ctx,
         cc_toolchain = common_variables.toolchain,
+        language = "objc",
         requested_features = activated_crosstool_selectables,
         unsupported_features = disabled_features,
     )

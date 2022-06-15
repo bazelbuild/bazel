@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -399,6 +400,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             requestedFeaturesBuilder.build(),
             /* unsupportedFeatures= */ disabledFeaturesBuilder.build(),
+            Language.CPP,
             ccToolchain,
             semantics);
 

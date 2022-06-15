@@ -155,6 +155,23 @@ public final class CcCommon implements StarlarkValue {
           .addAll(ALL_OTHER_ACTIONS)
           .build();
 
+  /** An enum for the list of supported languages. */
+  public enum Language {
+    CPP("c++"),
+    OBJC("objc"),
+    OBJCPP("objc++");
+
+    private final String representation;
+
+    Language(String representation) {
+      this.representation = representation;
+    }
+
+    public String getRepresentation() {
+      return representation;
+    }
+  }
+
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
   private static final String SYSROOT_FLAG = "--sysroot=";
 
@@ -919,11 +936,15 @@ public final class CcCommon implements StarlarkValue {
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeaturesOrReportRuleError(
-      RuleContext ruleContext, CcToolchainProvider toolchain, CppSemantics semantics) {
+      RuleContext ruleContext,
+      Language language,
+      CcToolchainProvider toolchain,
+      CppSemantics semantics) {
     return configureFeaturesOrReportRuleError(
         ruleContext,
         /* requestedFeatures= */ ruleContext.getFeatures(),
         /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+        language,
         toolchain,
         semantics);
   }
@@ -937,6 +958,7 @@ public final class CcCommon implements StarlarkValue {
       RuleContext ruleContext,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
     return configureFeaturesOrReportRuleError(
@@ -944,6 +966,7 @@ public final class CcCommon implements StarlarkValue {
         ruleContext.getConfiguration(),
         requestedFeatures,
         unsupportedFeatures,
+        language,
         toolchain,
         cppSemantics);
   }
@@ -953,6 +976,7 @@ public final class CcCommon implements StarlarkValue {
       BuildConfigurationValue buildConfiguration,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
     cppSemantics.validateLayeringCheckFeatures(
@@ -961,6 +985,7 @@ public final class CcCommon implements StarlarkValue {
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
           unsupportedFeatures,
+          language,
           toolchain,
           buildConfiguration.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
@@ -972,6 +997,7 @@ public final class CcCommon implements StarlarkValue {
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration)
       throws EvalException {
@@ -984,7 +1010,8 @@ public final class CcCommon implements StarlarkValue {
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
     }
 
-    if (!requestedFeatures.contains(CppRuleClasses.LANG_OBJC)
+    if (language != Language.OBJC
+        && language != Language.OBJCPP
         && toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
@@ -1000,6 +1027,10 @@ public final class CcCommon implements StarlarkValue {
       allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
     } else {
       allRequestedFeaturesBuilder.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
+    }
+
+    if (language == Language.OBJC || language == Language.OBJCPP) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.LANG_OBJC);
     }
 
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
@@ -1215,6 +1246,7 @@ public final class CcCommon implements StarlarkValue {
           configureFeaturesOrThrowEvalException(
               ruleContext.getFeatures(),
               ruleContext.getDisabledFeatures(),
+              Language.CPP,
               toolchainProvider,
               cppConfiguration);
     } catch (EvalException e) {

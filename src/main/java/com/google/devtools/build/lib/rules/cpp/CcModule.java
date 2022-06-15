@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
@@ -131,23 +132,6 @@ public abstract class CcModule
       ImmutableList.of(
           "bazel_internal/test_rules/cc", "rust/private");
 
-  /** Enum for strings coming in from Starlark representing languages */
-  protected enum Language {
-    CPP("c++"),
-    OBJC("objc"),
-    OBJCPP("objc++");
-
-    private final String representation;
-
-    Language(String representation) {
-      this.representation = representation;
-    }
-
-    public String getRepresentation() {
-      return representation;
-    }
-  }
-
   public abstract CppSemantics getSemantics();
 
   public abstract CppSemantics getSemantics(Language language);
@@ -160,11 +144,21 @@ public abstract class CcModule
   @Override
   public FeatureConfigurationForStarlark configureFeatures(
       Object ruleContextOrNone,
-      CcToolchainProvider toolchain, // <String> expected
+      CcToolchainProvider toolchain,
+      Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures)
+      Sequence<?> unsupportedFeatures) // <String> expected
       throws EvalException {
     StarlarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, StarlarkRuleContext.class);
+
+    String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
+    Language language = parseLanguage(languageString);
+    // TODO(236152224): Remove the following when all Starlark objc configure_features have the
+    // chance to migrate to using the language parameter.
+    if (requestedFeatures.contains(CppRuleClasses.LANG_OBJC)) {
+      language = Language.OBJC;
+    }
+
     ImmutableSet<String> requestedFeaturesSet =
         ImmutableSet.copyOf(Sequence.cast(requestedFeatures, String.class, "requested_features"));
     ImmutableSet<String> unsupportedFeaturesSet =
@@ -194,8 +188,7 @@ public abstract class CcModule
       // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
       // flipped.
       buildOptions = ruleContext.getConfiguration().getOptions();
-      getSemantics(
-              requestedFeatures.contains(CppRuleClasses.LANG_OBJC) ? Language.OBJC : Language.CPP)
+      getSemantics(language)
           .validateLayeringCheckFeatures(
               ruleContext.getRuleContext(),
               ruleContext.getAspectDescriptor(),
@@ -204,7 +197,7 @@ public abstract class CcModule
     }
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
-            requestedFeaturesSet, unsupportedFeaturesSet, toolchain, cppConfiguration),
+            requestedFeaturesSet, unsupportedFeaturesSet, language, toolchain, cppConfiguration),
         cppConfiguration,
         buildOptions);
   }

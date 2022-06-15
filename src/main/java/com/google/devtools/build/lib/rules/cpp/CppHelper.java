@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -290,7 +291,8 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext, Language.CPP, defaultToolchain, semantics);
 
     return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
@@ -307,7 +309,8 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext, Language.CPP, defaultToolchain, semantics);
     try {
       return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {

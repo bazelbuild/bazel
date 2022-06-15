@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -81,7 +82,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -177,10 +177,7 @@ public class CompilationSupport implements StarlarkValue {
       BuildConfigurationValue configuration,
       CppSemantics cppSemantics) {
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
-        ImmutableSet.<String>builder()
-            .addAll(ruleContext.getFeatures())
-            .addAll(OBJC_ACTIONS)
-            .add(CppRuleClasses.LANG_OBJC);
+        ImmutableSet.<String>builder().addAll(ruleContext.getFeatures()).addAll(OBJC_ACTIONS);
 
     if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
       activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
@@ -197,6 +194,7 @@ public class CompilationSupport implements StarlarkValue {
         buildConfiguration,
         activatedCrosstoolSelectables.build(),
         disabledFeatures.build(),
+        Language.OBJC,
         ccToolchain,
         cppSemantics);
   }
