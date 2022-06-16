@@ -76,16 +76,6 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testObjcopts() throws Exception {
-    writeRuleReturning("ctx.fragments.cpp.objccopts");
-    useConfiguration("--objccopt=-wololoo");
-
-    @SuppressWarnings("unchecked")
-    Sequence<String> result = (Sequence<String>) getConfiguredTarget("//foo:bar").get("result");
-    assertThat(result).containsExactly("-wololoo");
-  }
-
-  @Test
   public void testLinkopts() throws Exception {
     writeRuleReturning("ctx.fragments.cpp.linkopts");
     useConfiguration("--linkopt=-wololoo");

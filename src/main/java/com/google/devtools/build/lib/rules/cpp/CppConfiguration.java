@@ -172,7 +172,6 @@ public final class CppConfiguration extends Fragment
 
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
-  private final ImmutableList<String> objcopts;
 
   private final ImmutableList<String> linkopts;
   private final ImmutableList<String> ltoindexOptions;
@@ -279,7 +278,6 @@ public final class CppConfiguration extends Fragment
     this.conlyopts = ImmutableList.copyOf(cppOptions.conlyoptList);
     this.copts = ImmutableList.copyOf(cppOptions.coptList);
     this.cxxopts = ImmutableList.copyOf(cppOptions.cxxoptList);
-    this.objcopts = ImmutableList.copyOf(cppOptions.objcoptList);
     this.linkopts = linkoptsBuilder.build();
     this.ltoindexOptions = ImmutableList.copyOf(cppOptions.ltoindexoptList);
     this.ltobackendOptions = ImmutableList.copyOf(cppOptions.ltobackendoptList);
@@ -540,12 +538,6 @@ public final class CppConfiguration extends Fragment
   @Override
   public ImmutableList<String> getConlyopts() {
     return conlyopts;
-  }
-
-  /** Returns flags passed to Bazel by --objccopt option. */
-  @Override
-  public ImmutableList<String> getObjcopts() {
-    return objcopts;
   }
 
   /** Returns flags passed to Bazel by --linkopt option. */

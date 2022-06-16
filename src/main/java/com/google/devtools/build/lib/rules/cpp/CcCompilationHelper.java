@@ -1617,11 +1617,6 @@ public final class CcCompilationHelper {
       flagsBuilder.addAll(config.getCxxopts());
     }
 
-    if (CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
-        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
-      flagsBuilder.addAll(config.getObjcopts());
-    }
-
     return flagsBuilder.build();
   }
 

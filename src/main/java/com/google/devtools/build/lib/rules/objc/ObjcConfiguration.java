@@ -80,7 +80,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.tvosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion);
     this.generateLinkmap = cppOptions.objcGenerateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
-    this.copts = ImmutableList.copyOf(cppOptions.objcoptList);
+    this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = cppOptions.objcEnableBinaryStripping;

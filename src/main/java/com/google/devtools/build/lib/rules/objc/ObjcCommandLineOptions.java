@@ -89,6 +89,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String tvosSimulatorDevice;
 
   @Option(
+      name = "objccopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Additional options to pass to Objective C compilation.")
+  public List<String> copts;
+
+  @Option(
     name = "ios_memleaks",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.TESTING,
