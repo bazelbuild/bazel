@@ -35,4 +35,4 @@ build --java_language_version=11
 build --tool_java_language_version=11
 
 # User-specific .bazelrc
-try-import user.bazelrc
+try-import %workspace%/user.bazelrc
