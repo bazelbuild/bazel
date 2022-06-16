@@ -527,6 +527,8 @@ def _cc_shared_library_impl(ctx):
         interface_library.append(linking_outputs.library_to_link.resolved_symlink_interface_library)
     elif linking_outputs.library_to_link.interface_library != None:
         interface_library.append(linking_outputs.library_to_link.interface_library)
+    else:
+        interface_library = library
 
     return [
         DefaultInfo(
