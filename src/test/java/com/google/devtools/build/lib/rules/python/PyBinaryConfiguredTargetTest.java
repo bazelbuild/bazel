@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -50,6 +51,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void python2WithPy3SrcsVersionDependency() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     declareBinDependingOnLibWithVersions("PY2", "PY3");
     assertThat(getPyExecutableDeferredError("//pkg:bin"))
         .startsWith(
@@ -59,6 +61,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void python2WithPy3OnlySrcsVersionDependency() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
     assertThat(getPyExecutableDeferredError("//pkg:bin"))
         .contains("being built for Python 2 but (transitively) includes Python 3-only sources");
@@ -66,6 +69,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void python3WithPy2OnlySrcsVersionDependency_NewSemantics() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");
     assertThat(getPyExecutableDeferredError("//pkg:bin"))
         .contains("being built for Python 3 but (transitively) includes Python 2-only sources");
@@ -140,10 +144,11 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
-    checkError("pkg2", "bar",
+    checkError(
+        "pkg2",
+        "bar",
         // error:
-        "default main file name 'bar.py' matches multiple files.  Perhaps specify an explicit file "
-            + "with 'main' attribute?  Matches were: 'pkg2/bar.py' and 'pkg1/bar.py'",
+        Pattern.compile(".*bar.py.*matches multiple.*"),
         // build file:
         "py_binary(",
         "    name = 'bar',",
@@ -156,10 +161,11 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
-    checkError("pkg2", "foo",
+    checkError(
+        "pkg2",
+        "foo",
         // error:
-        "file name 'bar.py' specified by 'main' attribute matches multiple files: e.g., "
-            + "'pkg2/bar.py' and 'pkg1/bar.py'",
+        Pattern.compile(".*bar.py.*matches multiple.*"),
         // build file:
         "py_binary(",
         "    name = 'foo',",

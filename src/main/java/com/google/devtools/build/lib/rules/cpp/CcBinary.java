@@ -170,6 +170,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return ccCompilationOutputs;
     }
 
+    @VisibleForTesting
+    public CcCompilationOutputs getCcCompilationOutputsForTesting() {
+      return ccCompilationOutputs;
+    }
+
     @StarlarkMethod(name = "compilation_outputs", documented = false, useStarlarkThread = true)
     public CcCompilationOutputs getCcCompilationOutputsStarlark(StarlarkThread thread)
         throws EvalException {

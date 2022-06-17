@@ -1434,7 +1434,6 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  assert_contains "PYTHON_BINARY = '%python_binary%'" output
   assert_contains "{%python_binary%:" output
 
   bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \

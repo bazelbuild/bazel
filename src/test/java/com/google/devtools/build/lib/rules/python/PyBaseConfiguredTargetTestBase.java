@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -42,11 +43,11 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void badSrcsVersionValue() throws Exception {
-    checkError("pkg", "foo",
+    checkError(
+        "pkg",
+        "foo",
         // error:
-        "invalid value in 'srcs_version' attribute: "
-            + "has to be one of 'PY2', 'PY3', 'PY2AND3', 'PY2ONLY' "
-            + "or 'PY3ONLY' instead of 'doesnotexist'",
+        Pattern.compile(".*invalid value.*srcs_version.*"),
         // build file:
         ruleName + "(",
         "    name = 'foo',",
