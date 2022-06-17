@@ -88,6 +88,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     try (ResourceHandle ignored =
         resourceManager.acquireResources(
             owner,
+            spawn.getMnemonic(),
             spawn.getLocalResources(),
             context.speculating() ? ResourcePriority.DYNAMIC_STANDALONE : ResourcePriority.LOCAL)) {
       context.report(SpawnExecutingEvent.create(getName()));

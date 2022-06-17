@@ -389,6 +389,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         try (ResourceHandleWithWorker handle =
             resourceManager.acquireWorkerResources(
                 owner,
+                spawn.getMnemonic(),
                 spawn.getLocalResources(),
                 key,
                 context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
@@ -421,6 +422,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         try (ResourceHandle handle =
             resourceManager.acquireResources(
                 owner,
+                spawn.getMnemonic(),
                 spawn.getLocalResources(),
                 context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
           // We acquired a worker and resources -- mark that as queuing time.
