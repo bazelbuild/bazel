@@ -165,7 +165,7 @@ def get_versioned_content(path, version):
   Returns:
     The content of the given file, with rewritten links.
   """
-  with open(path, "rt") as f:
+  with open(path, "rt", encoding="utf-8") as f:
     content = f.read()
 
   return rewriter.rewrite_links(path, content, version)
