@@ -15,16 +15,16 @@ exports_files(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"], exclude=["**/BUILD"]),
+    srcs = glob(["**"]),
     visibility = [
-        "//:__pkg__",
+        "//site:__pkg__",
         "//scripts/docs:__pkg__",
     ],
 )
 
 pkg_tar(
     name = "docs",
-    srcs = [":srcs"],
+    srcs = glob(["**"], exclude=["**/BUILD"]),
     strip_prefix = "/site/en",
     visibility = ["//scripts/docs:__pkg__"],
 )

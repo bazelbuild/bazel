@@ -11,7 +11,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib:reference-docs.zip",
     ],
     cmd = "$(location :create_release_docs)" +
-          " --version=" + BUILD_SCM_REV_CMD + 
+          " --version=" + BUILD_SCM_REV_CMD +
           " --toc_path=$(location :new_toc.yaml)" +
           " --narrative_docs_path=$(location //site/en:docs)" +
           " --reference_docs_path=$(location //src/main/java/com/google/devtools/build/lib:reference-docs.zip)" +
@@ -64,6 +64,12 @@ py_test(
         ":rewriter",
         "//third_party/py/abseil",
     ],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//scripts:__pkg__"],
 )
 
 filegroup(

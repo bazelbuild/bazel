@@ -35,7 +35,6 @@ filegroup(
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
-        "//site/en:srcs",
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",

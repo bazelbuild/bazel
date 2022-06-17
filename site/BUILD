@@ -7,6 +7,6 @@ exports_files(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//site/en:srcs"],
     visibility = ["//:__pkg__"],
 )
