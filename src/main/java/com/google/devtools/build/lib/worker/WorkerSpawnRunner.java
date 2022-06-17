@@ -373,11 +373,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 spawn.getLocalResources().getCpuUsage(),
                 spawn.getLocalResources().getLocalTestCount(),
                 key);
-
         // Worker doesn't automatically return to pool after closing of the handle.
         try (ResourceHandle handle =
             resourceManager.acquireResources(
                 owner,
+                spawn.getMnemonic(),
                 resourceSet,
                 context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
           workerOwner.setWorker(handle.getWorker());
@@ -409,6 +409,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         try (ResourceHandle handle =
             resourceManager.acquireResources(
                 owner,
+                spawn.getMnemonic(),
                 spawn.getLocalResources(),
                 context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
           // We acquired a worker and resources -- mark that as queuing time.

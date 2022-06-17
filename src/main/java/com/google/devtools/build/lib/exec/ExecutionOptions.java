@@ -339,6 +339,20 @@ public class ExecutionOptions extends OptionsBase {
   public boolean localMemoryEstimate;
 
   @Option(
+          name = "mnemonic_resource_override",
+          allowMultiple = true,
+          converter = Converters.AssignmentConverter.class,
+          defaultValue = "null",
+          documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+          effectTags = {OptionEffectTag.EXECUTION},
+          help = "Explicitly sets an estimate for the amount of RAM (in MB) and CPU threads a "
+                  + "specific task may consume. Must be specified as [name=value] where the value "
+                  + "is 2 integers separated by a comma. The first integer represents the RAM and "
+                  + "the second represents the CPU. This option may be used multiple times."
+  )
+  public List<Map.Entry<String, String>> mnemonic_resource_override;
+
+  @Option(
       name = "local_test_jobs",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TESTING,
