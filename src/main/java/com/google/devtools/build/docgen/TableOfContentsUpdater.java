@@ -26,6 +26,7 @@ import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 import com.google.devtools.common.options.OptionsParser;
 
+/** The main class for the TOC contents updater. */
 public class TableOfContentsUpdater {
     private final static String VERSION_ROOT = "/versions/";
 
@@ -81,11 +82,11 @@ public class TableOfContentsUpdater {
         if (toc == null) {
             throw new IllegalStateException("Missing 'toc' element.");
         }
-        
+
         Map<String, String> newEntry = new HashMap<>();
         newEntry.put("path", String.format("%s%s", VERSION_ROOT, version));
         newEntry.put("label", version);
-        
+
         toc.add(0, newEntry);
         while (toc.size() > maxReleases) {
             toc.remove(toc.size() - 1);
