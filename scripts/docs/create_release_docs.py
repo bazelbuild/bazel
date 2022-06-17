@@ -72,7 +72,7 @@ def validate_flag(name):
 
 def create_docs_tree(version, toc_path, narrative_docs_path,
                      reference_docs_path):
-  """Creates a directory tree containing the Bazel version.
+  """Creates a directory tree containing the docs for the Bazel version.
 
   Args:
     version: Version of this Bazel release.
@@ -132,9 +132,8 @@ def build_archive(version, root_dir, toc_path, output_path):
   """Builds a documentation archive for the given Bazel release.
 
   This function reads all documentation files from the tree rooted in root_dir,
-  fixes all links to that they point at versioned files, then builds a zip
-  archive
-  of all files.
+  fixes all links so that they point at versioned files, then builds a zip
+  archive of all files.
 
   Args:
     version: Version of the Bazel release whose documentation is being built.
@@ -173,6 +172,7 @@ def get_versioned_content(path, version):
 
 def main(unused_argv):
   version = validate_flag("version")
+  output_path = validate_flag("output_path")
   root_dir, toc_path = create_docs_tree(
       version=version,
       toc_path=validate_flag("toc_path"),
@@ -184,7 +184,7 @@ def main(unused_argv):
       version=version,
       root_dir=root_dir,
       toc_path=toc_path,
-      output_path=validate_flag("output_path"),
+      output_path=output_path,
   )
 
 
