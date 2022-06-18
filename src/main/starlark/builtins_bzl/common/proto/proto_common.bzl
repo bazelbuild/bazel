@@ -26,6 +26,7 @@ def _Iimport_path_equals_fullpath(proto_source):
 
 def _compile(
         actions,
+        proto_info,
         proto_lang_toolchain_info,
         generated_files,
         plugin_output = None,
@@ -33,9 +34,7 @@ def _compile(
         additional_tools = [],
         additional_inputs = depset(),
         resource_set = None,
-        experimental_progress_message = None,
-        proto_info = None,
-        proto_library_target = None):
+        experimental_progress_message = None):
     """Creates proto compile action for compiling *.proto files to language specific sources.
 
     Args:
@@ -58,12 +57,7 @@ def _compile(
         the callback.
       experimental_progress_message: Overrides progres_message from the toolchain.
         Don't use this parameter. It's only intended for the transition.
-      proto_library_target:  (Target) Deprecated: use proto_info instead.
-        Exactly one need to be set: `proto_info` or `proto_library_target`.
     """
-    if not proto_info:
-        proto_info = proto_library_target[_builtins.toplevel.ProtoInfo]
-
     args = actions.args()
     args.use_param_file(param_file_arg = "@%s")
     args.set_param_file_format("multiline")
