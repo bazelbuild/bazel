@@ -54,10 +54,10 @@ def _bazel_java_proto_aspect_impl(target, ctx):
         source_jar = ctx.actions.declare_file(ctx.label.name + "-speed-src.jar")
         proto_common.compile(
             ctx.actions,
+            target[ProtoInfo],
             proto_toolchain_info,
             [source_jar],
             source_jar,
-            proto_info = target[ProtoInfo],
         )
 
     # Compile Java sources (or just merge if there aren't any)

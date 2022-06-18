@@ -185,6 +185,7 @@ public class ProtoCommon {
         compile,
         ImmutableList.of(
             /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput,
@@ -195,8 +196,7 @@ public class ProtoCommon {
                 : Depset.of(
                     Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs)),
             /* resource_set */ resourceSet == null ? Starlark.NONE : resourceSet,
-            /* experimental_progress_message */ progressMessage,
-            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER)),
+            /* experimental_progress_message */ progressMessage),
         ImmutableMap.of());
   }
 
@@ -215,14 +215,13 @@ public class ProtoCommon {
         compile,
         ImmutableList.of(
             /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput),
         ImmutableMap.of(
             "experimental_progress_message",
-            progressMessage,
-            "proto_info",
-            protoTarget.get(ProtoInfo.PROVIDER)));
+            progressMessage));
   }
 
   public static boolean shouldGenerateCode(
