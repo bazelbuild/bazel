@@ -348,20 +348,27 @@ EOF
 }
 
 function test_symlink_created_from_spawn() {
-  if "$is_windows"; then
-    # TODO(#10298): Support unresolved symlinks on Windows.
-    return 0
-  fi
-
   mkdir -p a
+  cat > a/MakeSymlink.java <<'EOF'
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+public class MakeSymlink {
+  public static void main(String[] args) throws IOException {
+    Files.createSymbolicLink(Paths.get(args[0]), Paths.get(args[1]));
+  }
+}
+EOF
+
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
     symlink = ctx.actions.declare_symlink(ctx.label.name + ".link")
     output = ctx.actions.declare_file(ctx.label.name + ".file")
-    ctx.actions.run_shell(
+    ctx.actions.run(
         outputs = [symlink],
+        executable = ctx.executable._make_symlink,
+        arguments = [symlink.path, ctx.attr.link_target],
         inputs = depset([]),
-        command = "ln -s " + ctx.attr.link_target + " " + symlink.path,
     )
     ctx.actions.run_shell(
         outputs = [output],
@@ -370,25 +377,35 @@ def _a_impl(ctx):
     )
     return DefaultInfo(files = depset([output]))
 
-a = rule(implementation = _a_impl, attrs = {"link_target": attr.string()})
+a = rule(
+    implementation = _a_impl,
+    attrs = {
+        "link_target": attr.string(),
+        "_make_symlink": attr.label(
+            default = ":MakeSymlink",
+            executable = True,
+            cfg = "exec",
+        )
+    }
+)
 EOF
 
   cat > a/BUILD <<'EOF'
 load(":a.bzl", "a")
 
-a(name="a", link_target="/somewhere/over/the/rainbow")
+java_binary(
+    name = "MakeSymlink",
+    srcs = ["MakeSymlink.java"],
+    main_class = "MakeSymlink",
+)
+a(name="a", link_target="somewhere/over/the/rainbow")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
-  assert_contains "input link is /somewhere/over/the/rainbow" bazel-bin/a/a.file
+  bazel --windows_enable_symlinks build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
+  assert_contains "input link is somewhere/over/the/rainbow" bazel-bin/a/a.file
 }
 
 function test_dangling_symlink_created_from_symlink_action() {
-  if "$is_windows"; then
-    # TODO(#10298): Support unresolved symlinks on Windows.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
@@ -411,11 +428,11 @@ EOF
   cat > a/BUILD <<'EOF'
 load(":a.bzl", "a")
 
-a(name="a", link_target="/somewhere/in/my/heart")
+a(name="a", link_target="somewhere/in/my/heart")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
-  assert_contains "input link is /somewhere/in/my/heart" bazel-bin/a/a.file
+  bazel --windows_enable_symlinks build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
+  assert_contains "input link is .*[/\\]somewhere/in/my/heart" bazel-bin/a/a.file
 }
 
 function test_symlink_created_from_symlink_action() {
