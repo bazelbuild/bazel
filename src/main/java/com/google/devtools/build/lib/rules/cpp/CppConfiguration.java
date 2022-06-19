@@ -859,6 +859,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.objcGenerateDotdFiles;
   }
 
+  @Override
+  public boolean objcGenerateLinkmap() {
+    return cppOptions.objcGenerateLinkmap;
+  }
+
+  public boolean objcEnableBinaryStripping() {
+    return cppOptions.objcEnableBinaryStripping;
+  }
+
   @StarlarkMethod(
       name = "experimental_cc_interface_deps",
       documented = false,
@@ -966,5 +975,10 @@ public final class CppConfiguration extends Fragment
   @Override
   public AppleBitcodeMode getAppleBitcodeMode() {
     return appleBitcodeMode;
+  }
+
+  @Override
+  public boolean objcShouldStripBinary() {
+    return objcEnableBinaryStripping() && getCompilationMode() == CompilationMode.OPT;
   }
 }

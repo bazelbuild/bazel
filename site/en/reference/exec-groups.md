@@ -18,7 +18,7 @@ Being able to define groups of actions also helps alleviate the usage of action
 mnemonics as a proxy for specifying actions. Mnemonics are not guaranteed to be
 unique and can only reference a single action. This is especially helpful in
 allocating extra resources to specific memory and processing intensive actions
-like linking in c++ builds without over-allocating to less demanding tasks.
+like linking in C++ builds without over-allocating to less demanding tasks.
 
 ## Defining execution groups {:#defining-exec-groups}
 

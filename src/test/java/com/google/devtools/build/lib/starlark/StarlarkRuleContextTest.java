@@ -1675,11 +1675,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(filenames).isInstanceOf(Sequence.class);
     Sequence<?> filenamesList = (Sequence) filenames;
     assertThat(filenamesList).containsAtLeast("test/lib.py", "test/lib2.py");
-    Object emptyFilenames =
-        ev.eval("ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
-    assertThat(emptyFilenames).isInstanceOf(Sequence.class);
-    Sequence<?> emptyFilenamesList = (Sequence) emptyFilenames;
-    assertThat(emptyFilenamesList).containsExactly("test/__init__.py");
 
     setRuleContext(createRuleContext("//test:foo_with_init"));
     Object noEmptyFilenames =

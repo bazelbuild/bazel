@@ -63,11 +63,10 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
   }
 
   /** Outputs the current action graph from Skyframe. */
-  public BlazeCommandResult dumpActionGraphFromSkyframe(
-      CommandEnvironment env, BuildRequest request) {
+  public BlazeCommandResult dumpActionGraphFromSkyframe(CommandEnvironment env) {
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
-      AqueryOptions aqueryOptions = request.getOptions(AqueryOptions.class);
+      AqueryOptions aqueryOptions = env.getOptions().getOptions(AqueryOptions.class);
 
       PrintStream printStream =
           queryRuntimeHelper.getOutputStreamForQueryOutput() == null

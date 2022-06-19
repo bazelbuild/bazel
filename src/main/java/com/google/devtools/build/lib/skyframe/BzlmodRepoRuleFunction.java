@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -54,18 +53,27 @@ import net.starlark.java.syntax.Location;
  */
 public final class BzlmodRepoRuleFunction implements SkyFunction {
 
-  private final PackageFactory packageFactory;
   private final RuleClassProvider ruleClassProvider;
   private final BlazeDirectories directories;
   private final BzlmodRepoRuleHelper bzlmodRepoRuleHelper;
-  private static final PackageIdentifier ROOT_PACKAGE = PackageIdentifier.createInMainRepo("");
+  /**
+   * An empty repo mapping anchored to the main repo.
+   *
+   * <p>None of the labels present in RepoSpecs can point to any repo other than the main repo
+   * or @bazel_tools, because at this point we don't know how any other repo is defined yet. The
+   * RepoSpecs processed by this class can only contain labels from the MODULE.bazel file (from
+   * overrides). In the future, they might contain labels from the lockfile, but those will need to
+   * be canonical label literals, which bypass repo mapping anyway.
+   */
+  private static final RepositoryMapping EMPTY_MAIN_REPO_MAPPING =
+      RepositoryMapping.create(
+          ImmutableMap.of("", RepositoryName.MAIN, "bazel_tools", RepositoryName.BAZEL_TOOLS),
+          RepositoryName.MAIN);
 
   public BzlmodRepoRuleFunction(
-      PackageFactory packageFactory,
       RuleClassProvider ruleClassProvider,
       BlazeDirectories directories,
       BzlmodRepoRuleHelper bzlmodRepoRuleHelper) {
-    this.packageFactory = packageFactory;
     this.ruleClassProvider = ruleClassProvider;
     this.directories = directories;
     this.bzlmodRepoRuleHelper = bzlmodRepoRuleHelper;
@@ -131,7 +139,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     try {
       Rule rule =
           BzlmodRepoRuleCreator.createRule(
-              packageFactory,
+              PackageIdentifier.EMPTY_PACKAGE_ID,
+              EMPTY_MAIN_REPO_MAPPING,
               directories,
               starlarkSemantics,
               env.getListener(),
@@ -156,13 +165,13 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
         BzlLoadFunction.getLoadLabels(
             env.getListener(),
             programLoads,
-            ROOT_PACKAGE,
-            /*repoMapping=*/ RepositoryMapping.ALWAYS_FALLBACK);
+            PackageIdentifier.EMPTY_PACKAGE_ID,
+            EMPTY_MAIN_REPO_MAPPING);
     if (loadLabels == null) {
       NoSuchPackageException e =
           PackageFunction.PackageFunctionException.builder()
               .setType(PackageFunction.PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
-              .setPackageIdentifier(ROOT_PACKAGE)
+              .setPackageIdentifier(PackageIdentifier.EMPTY_PACKAGE_ID)
               .setMessage("malformed load statements")
               .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
               .buildCause();
@@ -175,7 +184,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
     // Load the .bzl module.
     try {
-      return PackageFunction.loadBzlModules(env, ROOT_PACKAGE, programLoads, keys, null);
+      return PackageFunction.loadBzlModules(
+          env, PackageIdentifier.EMPTY_PACKAGE_ID, programLoads, keys, null);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }

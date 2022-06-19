@@ -108,7 +108,6 @@ class OutputJar {
   // Write bytes to the output file, return true on success.
   bool WriteBytes(const void *buffer, size_t count);
 
-
   Options *options_;
   struct EntryInfo {
     EntryInfo(Combiner *combiner, int index = -1)

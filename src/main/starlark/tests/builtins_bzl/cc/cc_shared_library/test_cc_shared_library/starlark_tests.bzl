@@ -171,3 +171,24 @@ runfiles_test = analysistest.make(
         "is_linux": attr.bool(),
     },
 )
+
+def _interface_library_output_group_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    if not ctx.attr.is_windows:
+        return analysistest.end(env)
+
+    target_under_test = analysistest.target_under_test(env)
+    actual_files = []
+    for interface_library in target_under_test[OutputGroupInfo].interface_library.to_list():
+        actual_files.append(interface_library.basename)
+    expected_files = ["foo_so.if.lib"]
+    asserts.equals(env, expected_files, actual_files)
+
+    return analysistest.end(env)
+
+interface_library_output_group_test = analysistest.make(
+    _interface_library_output_group_test_impl,
+    attrs = {
+        "is_windows": attr.bool(),
+    },
+)

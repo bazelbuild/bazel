@@ -470,6 +470,12 @@ public class CppRuleClasses {
    */
   public static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
+  /** A feature to indicate whether to generate linkmap. For Apple platform only. */
+  public static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
+
+  /** A feature to indicate whether to do linker deadstrip. For Apple platform only. */
+  public static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
+
   /**
    * A feature which indicates that this target is a test (rather than a binary). This can be used
    * to select test-only options.

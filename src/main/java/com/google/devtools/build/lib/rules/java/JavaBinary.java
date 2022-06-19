@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -181,6 +182,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                   .add(JAVA_LAUNCHER_LINK)
                   .build(),
               /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+              Language.CPP,
               ccToolchain,
               cppConfiguration);
     } catch (EvalException e) {

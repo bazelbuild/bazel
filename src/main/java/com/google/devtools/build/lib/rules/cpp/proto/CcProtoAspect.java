@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
@@ -298,14 +299,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       } else {
         unsupportedFeatures.add(CppRuleClasses.HEADER_MODULES);
       }
-      FeatureConfiguration featureConfiguration =
-          CcCommon.configureFeaturesOrReportRuleError(
-              ruleContext,
-              requestedFeatures.build(),
-              unsupportedFeatures.build(),
-              ccToolchain(ruleContext),
-              cppSemantics);
-      return featureConfiguration;
+      return CcCommon.configureFeaturesOrReportRuleError(
+          ruleContext,
+          requestedFeatures.build(),
+          unsupportedFeatures.build(),
+          Language.CPP,
+          ccToolchain(ruleContext),
+          cppSemantics);
     }
 
     private CcCompilationHelper initializeCompilationHelper(

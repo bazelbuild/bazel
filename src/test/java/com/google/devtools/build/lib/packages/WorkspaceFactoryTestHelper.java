@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -36,7 +35,6 @@ import net.starlark.java.syntax.StarlarkFile;
 /** Parses a WORKSPACE file with the given content. */
 // TODO(adonovan): delete this junk class.
 final class WorkspaceFactoryTestHelper {
-
   private final Root root;
   private Package.Builder builder;
   private StarlarkSemantics starlarkSemantics;
@@ -69,7 +67,6 @@ final class WorkspaceFactoryTestHelper {
             DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFilePath),
             "",
-            RepositoryMapping.ALWAYS_FALLBACK,
             StarlarkSemantics.DEFAULT);
     WorkspaceFactory factory =
         new WorkspaceFactory(

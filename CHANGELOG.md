@@ -1,3 +1,22 @@
+## Release 6.0.0-pre.20220608.2 (2022-06-15)
+
+```
+Baseline: 4f5e325e337957ebea139dc52a00027acbbb572f
+
+Cherry picks:
+
+   + 442155f19f2c2764839327c8be3d3ab70edf1910:
+     Automated rollback of commit
+     a0a0d09debd090fbe74bba59b5d6d3107aaf97e9.
+```
+
+Important changes:
+
+  - Aspects can now define and use exec groups using the same API as
+    rules.
+
+This release contains contributions from many people at Google, as well as Kaiqin Chen.
+
 ## Release 6.0.0-pre.20220601.1 (2022-06-10)
 
 ```

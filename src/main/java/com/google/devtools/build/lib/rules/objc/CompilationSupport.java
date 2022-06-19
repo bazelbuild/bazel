@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -72,6 +70,7 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -83,14 +82,12 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -145,19 +142,6 @@ public class CompilationSupport implements StarlarkValue {
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
 
-  private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
-
-  private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
-
-  private static final ImmutableList<String> OBJC_ACTIONS =
-      ImmutableList.of(
-          "objc-compile",
-          "objc++-compile",
-          "objc-archive",
-          "objc-fully-link",
-          "objc-executable",
-          "objc++-executable");
-
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite("$xcrunwrapper");
@@ -173,42 +157,6 @@ public class CompilationSupport implements StarlarkValue {
               FileTypeSet.of(ObjcRuleClasses.NON_CPP_SOURCES, ObjcRuleClasses.CPP_SOURCES, HEADERS))
           .withSourceAttributes("srcs", "non_arc_srcs", "hdrs")
           .withDependencyAttributes("deps", "data", "binary", "xctest_app");
-
-  private FeatureConfiguration getFeatureConfiguration(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      CppSemantics cppSemantics) {
-    ImmutableSet.Builder<String> activatedCrosstoolSelectables =
-        ImmutableSet.<String>builder()
-            .addAll(ruleContext.getFeatures())
-            .addAll(OBJC_ACTIONS)
-            .add(CppRuleClasses.LANG_OBJC);
-
-    if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
-      activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
-    }
-    if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
-      activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
-    }
-
-    ImmutableSet.Builder<String> disabledFeatures =
-        ImmutableSet.<String>builder().addAll(ruleContext.getDisabledFeatures());
-    if (disableParseHeaders) {
-      disabledFeatures.add(CppRuleClasses.PARSE_HEADERS);
-    }
-    if (disableLayeringCheck) {
-      disabledFeatures.add(CppRuleClasses.LAYERING_CHECK);
-    }
-
-    return CcCommon.configureFeaturesOrReportRuleError(
-        ruleContext,
-        buildConfiguration,
-        activatedCrosstoolSelectables.build(),
-        disabledFeatures.build(),
-        ccToolchain,
-        cppSemantics);
-  }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
@@ -292,8 +240,6 @@ public class CompilationSupport implements StarlarkValue {
   private final CompilationAttributes attributes;
   private final IntermediateArtifacts intermediateArtifacts;
   private final CcToolchainProvider toolchain;
-  private final boolean disableLayeringCheck;
-  private final boolean disableParseHeaders;
   private Optional<CcCompilationContext> ccCompilationContext;
 
   @StarlarkMethod(name = "compilation_context", documented = false, structField = true)
@@ -321,9 +267,7 @@ public class CompilationSupport implements StarlarkValue {
       CppSemantics cppSemantics,
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes,
-      CcToolchainProvider toolchain,
-      boolean disableLayeringCheck,
-      boolean disableParseHeaders)
+      CcToolchainProvider toolchain)
       throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
@@ -333,8 +277,6 @@ public class CompilationSupport implements StarlarkValue {
     this.attributes = compilationAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
     this.ccCompilationContext = Optional.absent();
-    this.disableLayeringCheck = disableLayeringCheck;
-    this.disableParseHeaders = disableParseHeaders;
     if (toolchain == null
         && (ruleContext
                 .attributes()
@@ -358,8 +300,6 @@ public class CompilationSupport implements StarlarkValue {
     private IntermediateArtifacts intermediateArtifacts;
     private CompilationAttributes compilationAttributes;
     private CcToolchainProvider toolchain;
-    private boolean disableLayeringCheck = false;
-    private boolean disableParseHeaders = false;
 
     public Builder(RuleContext ruleContext, CppSemantics cppSemantics) {
       this.ruleContext = ruleContext;
@@ -381,18 +321,6 @@ public class CompilationSupport implements StarlarkValue {
     /** Sets {@link CompilationAttributes} for the calling target. */
     public Builder setCompilationAttributes(CompilationAttributes compilationAttributes) {
       this.compilationAttributes = compilationAttributes;
-      return this;
-    }
-
-    /** Sets that this {@link CompilationSupport} will disable layering check. */
-    public Builder disableLayeringCheck() {
-      this.disableLayeringCheck = true;
-      return this;
-    }
-
-    /** Sets that this {@link CompilationSupport} will disable parse headers. */
-    public Builder disableParseHeaders() {
-      this.disableParseHeaders = true;
       return this;
     }
 
@@ -428,9 +356,7 @@ public class CompilationSupport implements StarlarkValue {
           cppSemantics,
           intermediateArtifacts,
           compilationAttributes,
-          toolchain,
-          disableLayeringCheck,
-          disableParseHeaders);
+          toolchain);
     }
   }
 
@@ -595,7 +521,14 @@ public class CompilationSupport implements StarlarkValue {
 
     Artifact binaryToLink = getBinaryToLink();
     FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, cppSemantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext,
+            buildConfiguration,
+            ruleContext.getFeatures(),
+            ruleContext.getDisabledFeatures(),
+            Language.OBJC,
+            toolchain,
+            cppSemantics);
 
     Label binaryLabel = null;
     try {
@@ -730,68 +663,6 @@ public class CompilationSupport implements StarlarkValue {
             objList,
             objFilesToLinkParam.build(),
             ParameterFile.ParameterFileType.UNQUOTED));
-    return this;
-  }
-
-  /**
-   * Registers an action to create an archive artifact by fully (statically) linking all transitive
-   * dependencies of this rule.
-   *
-   * @param objcProvider provides all compiling and linking information to create this artifact
-   * @param outputArchive the output artifact for this action
-   * @return this {@link CompilationSupport} instance
-   */
-  CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider, Artifact outputArchive)
-      throws InterruptedException, RuleErrorException {
-    checkNotNull(toolchain);
-    checkNotNull(toolchain.getFdoContext());
-
-    ObjcVariablesExtension extension =
-        new ObjcVariablesExtension.Builder()
-            .setRuleContext(ruleContext)
-            .setObjcProvider(objcProvider)
-            .setConfiguration(buildConfiguration)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setFullyLinkArchive(outputArchive)
-            .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
-            .build();
-
-    Label archiveLabel = null;
-    try {
-      archiveLabel =
-          Label.create(
-              ruleContext.getLabel().getPackageIdentifier(),
-              FileSystemUtils.removeExtension(outputArchive.getFilename()));
-    } catch (LabelSyntaxException e) {
-      // Formed from existing label, just replacing name with artifact name.
-    }
-
-    new CcLinkingHelper(
-            ruleContext,
-            archiveLabel,
-            ruleContext,
-            ruleContext,
-            cppSemantics,
-            getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, cppSemantics),
-            toolchain,
-            toolchain.getFdoContext(),
-            buildConfiguration,
-            buildConfiguration.getFragment(CppConfiguration.class),
-            ruleContext.getSymbolGenerator(),
-            TargetUtils.getExecutionInfo(
-                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-        .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
-        .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
-        .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
-        .addNonCodeLinkerInputs(objcProvider.getObjcLibraries())
-        .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
-        .addTransitiveAdditionalLinkerInputs(objcProvider.get(IMPORTED_LIBRARY))
-        .setLinkingMode(LinkingMode.STATIC)
-        .setStaticLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-        .setShouldCreateDynamicLibrary(false)
-        .addVariableExtension(extension)
-        .link(CcCompilationOutputs.EMPTY);
-
     return this;
   }
 

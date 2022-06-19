@@ -73,6 +73,14 @@ fi
 #   - Otherwise, put your test in //src/test/shell/bazel. That suite can invoke
 #     actual Python 2 and 3 interpreters.
 
+# Python's import system distinguishes between "regular files" and other files
+# in some cases (e.g. /dev/null). Here, we are trying to verify that a generated
+# __init__.py file passes the isfile() check that the import logic performs and
+# would fail for a "character device" (e.g. symlinked to /dev/null). For more
+# info, see:
+# * https://github.com/bazelbuild/bazel/issues/1458
+# * https://github.com/bazelbuild/bazel/issues/2394
+# * https://bugs.python.org/issue28425
 function test_python_binary_empty_files_in_runfiles_are_regular_files() {
   mkdir -p test/mypackage
   cat > test/BUILD <<'EOF'
@@ -101,11 +109,11 @@ if not os.path.exists(file_to_check):
   print("mypackage/__init__.py does not exist")
   sys.exit(1)
 
-if os.path.islink(file_to_check):
-  print("mypackage/__init__.py is a symlink, expected a regular file")
-  sys.exit(1)
+# Symlinks to regular files are OK.
+realpath = os.path.realpath(file_to_check)
+print("{} realpath is: {}".format(file_to_check, realpath))
 
-if not os.path.isfile(file_to_check):
+if not os.path.isfile(realpath):
   print("mypackage/__init__.py is not a regular file")
   sys.exit(1)
 
@@ -132,10 +140,14 @@ sh_binary(
     data = [':py-tool'],
 )
 EOF
-  bazel build --experimental_build_transitive_python_runfiles :sh-tool
+  # Stamping is disabled so that the invocation doesn't time out. What
+  # happens is Google has stamping enabled by default, which causes the
+  # Starlark rule implementation to run an action, which then tries to run
+  # remotely, but network access is disabled by default, so it times out.
+  bazel build --experimental_build_transitive_python_runfiles --nostamp :sh-tool
   [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
   bazel clean
-  bazel build --noexperimental_build_transitive_python_runfiles :sh-tool
+  bazel build --noexperimental_build_transitive_python_runfiles --nostamp :sh-tool
   [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }
 
