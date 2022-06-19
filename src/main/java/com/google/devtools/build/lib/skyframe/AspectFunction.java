@@ -192,6 +192,9 @@ final class AspectFunction implements SkyFunction {
     ConfiguredTarget associatedTarget = state.initialValues.associatedTarget;
     Target target = state.initialValues.target;
 
+    // If the target is incompatible, then there's not much to do. The intent here is to create an
+    // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated
+    // against this aspect.
     if (associatedTarget.get(IncompatiblePlatformProvider.PROVIDER) != null) {
       return new AspectValue(
           key,

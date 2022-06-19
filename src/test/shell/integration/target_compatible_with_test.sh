@@ -1096,10 +1096,17 @@ basic_rule(
     name = "basic_universal_target",
 )
 
+# An alias to validate that incompatible target skipping works as expected with
+# aliases and aspects.
+alias(
+    name = "aliased_basic_universal_target",
+    actual = ":basic_universal_target",
+)
+
 basic_rule(
     name = "basic_foo3_target",
     deps = [
-        ":basic_universal_target",
+        ":aliased_basic_universal_target",
     ],
     target_compatible_with = [
         ":foo3",
@@ -1117,9 +1124,14 @@ basic_rule(
     ],
 )
 
+alias(
+    name = "aliased_other_basic_target",
+    actual = ":other_basic_target",
+)
+
 rule_with_aspect(
     name = "inspected_foo3_target",
-    inspect = ":other_basic_target",
+    inspect = ":aliased_other_basic_target",
 )
 
 basic_rule(
@@ -1237,12 +1249,13 @@ EOF
   # TODO(#15427): Should use expect_log_once here when the issue is fixed.
   expect_log 'ERROR: Target //target_skipping:twice_inspected_foo3_target is incompatible and cannot be built, but was explicitly requested.'
   expect_log '^Dependency chain:$'
-  expect_log '^    //target_skipping:twice_inspected_foo3_target$'
-  expect_log '^    //target_skipping:previously_inspected_basic_target$'
-  expect_log '^    //target_skipping:inspected_foo3_target$'
-  expect_log '^    //target_skipping:other_basic_target$'
+  expect_log '^    //target_skipping:twice_inspected_foo3_target '
+  expect_log '^    //target_skipping:previously_inspected_basic_target '
+  expect_log '^    //target_skipping:inspected_foo3_target '
+  expect_log '^    //target_skipping:aliased_other_basic_target '
+  expect_log '^    //target_skipping:other_basic_target '
 
-  expect_log "    //target_skipping:basic_foo3_target   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3:"
+  expect_log "    //target_skipping:basic_foo3_target .*  <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3:"
   expect_log 'FAILED: Build did NOT complete successfully'
   expect_not_log "${debug_message1}"
   expect_not_log "${debug_message2}"
