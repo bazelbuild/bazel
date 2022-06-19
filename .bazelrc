@@ -34,5 +34,7 @@ build:bzlmod --experimental_enable_bzlmod
 build --java_language_version=11
 build --tool_java_language_version=11
 
+build --incompatible_strict_action_env
+
 # User-specific .bazelrc
 try-import user.bazelrc
