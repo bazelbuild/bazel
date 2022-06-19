@@ -314,7 +314,7 @@ def Main():
   if runfiles_envkey:
     new_env[runfiles_envkey] = runfiles_envvalue
 
-  # Don’t prepend a potentially unsafe path to sys.path
+  # Don't prepend a potentially unsafe path to sys.path
   # See: https://docs.python.org/3.11/using/cmdline.html#envvar-PYTHONSAFEPATH
   new_env['PYTHONSAFEPATH'] = 'non_empty'
 
