@@ -52,7 +52,7 @@ public abstract class FileSystem {
   /**
    * An exception thrown when attempting to resolve an ordinary file as a symlink.
    */
-  protected static final class NotASymlinkException extends IOException {
+  public static final class NotASymlinkException extends IOException {
     public NotASymlinkException(PathFragment path) {
       super(path.getPathString() + " is not a symlink");
     }

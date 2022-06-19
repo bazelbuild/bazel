@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1537,8 +1538,15 @@ public final class SkyframeActionExecutor {
           if (output.isTreeArtifact()) {
             reportOutputTreeArtifactErrors(action, output, reporter, e);
           } else {
-            // Are all exceptions caught due to missing files?
-            reportMissingOutputFile(action, output, reporter, output.getPath().isSymbolicLink(), e);
+            if (e instanceof NotASymlinkException) {
+              reporter.handle(Event.error(
+                  action.getOwner().getLocation(),
+                  String.format("declared output '%s' is not a symlink", output.prettyPrint())));
+            } else {
+              // Are all other exceptions caught due to missing files?
+              reportMissingOutputFile(action, output, reporter, output.getPath().isSymbolicLink(),
+                  e);
+            }
           }
         }
       }
