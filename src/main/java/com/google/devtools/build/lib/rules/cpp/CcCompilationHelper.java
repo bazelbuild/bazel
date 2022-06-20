@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -1601,7 +1602,7 @@ public final class CcCompilationHelper {
    * into account.
    */
   public static ImmutableList<String> getCoptsFromOptions(
-      CppConfiguration config, String sourceFilename) {
+      CppConfiguration config, CppSemantics semantics, String sourceFilename) {
     ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
 
     flagsBuilder.addAll(config.getCopts());
@@ -1617,12 +1618,20 @@ public final class CcCompilationHelper {
       flagsBuilder.addAll(config.getCxxopts());
     }
 
+    if (CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
+        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)
+        || (CppFileTypes.CPP_HEADER.matches(sourceFilename)
+            && semantics.language() == Language.OBJC)) {
+      flagsBuilder.addAll(config.getObjcopts());
+    }
+
     return flagsBuilder.build();
   }
 
   private ImmutableList<String> getCopts(Artifact sourceFile, Label sourceLabel) {
     ImmutableList.Builder<String> coptsList = ImmutableList.builder();
-    coptsList.addAll(getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()));
+    coptsList.addAll(
+        getCoptsFromOptions(cppConfiguration, semantics, sourceFile.getExecPathString()));
     coptsList.addAll(copts);
     if (sourceFile != null && sourceLabel != null) {
       coptsList.addAll(collectPerFileCopts(sourceFile, sourceLabel));
