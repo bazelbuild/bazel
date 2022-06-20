@@ -404,6 +404,16 @@ def _cc_shared_library_impl(ctx):
     merged_cc_shared_library_info = _merge_cc_shared_library_infos(ctx)
     exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_info)
     for export in ctx.attr.roots:
+        # Do not check for overlap between targets matched by the current
+        # rule's exports_filter and what is in exports_map. A library in roots
+        # will have to be linked in statically into the current rule with 100%
+        # guarantee and it will also have to be exported. Therefore, we must
+        # check it's not already exported by a different shared library. On the
+        # other hand, a library in the transitive closure of the current rule
+        # may be matched by the exports_filter but if it's already exported by
+        # a dynamic_dep then it won't be linked statically (therefore not give
+        # an error either) in the current target. The rule will intentionally
+        # not throw an error in these cases.
         if str(export.label) in exports_map:
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
