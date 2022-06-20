@@ -605,24 +605,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
             .setOwner(owner.getLabel().toString())
             .setId(getKey(actionKeyContext, /*artifactExpander=*/ null))
             .setMnemonic(getMnemonic());
-    Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
-    AspectDescriptor lastAspect = null;
-
-    for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
-      ExtraActionInfo.AspectDescriptor.Builder builder =
-          ExtraActionInfo.AspectDescriptor.newBuilder()
-            .setAspectName(aspectDescriptor.getAspectClass().getName());
-      for (Map.Entry<String, Collection<String>> entry :
-          aspectDescriptor.getParameters().getAttributes().asMap().entrySet()) {
-          builder.putAspectParameters(
-            entry.getKey(),
-            ExtraActionInfo.AspectDescriptor.StringList.newBuilder()
-                .addAllValue(entry.getValue())
-                .build()
-          );
-      }
-      lastAspect = aspectDescriptor;
-    }
+    ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
+    AspectDescriptor lastAspect =
+        aspectDescriptors.isEmpty() ? null : Iterables.getLast(aspectDescriptors);
     if (lastAspect != null) {
       result.setAspectName(lastAspect.getAspectClass().getName());
 
@@ -687,7 +672,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Dict<String, String> getStarlarkSubstitutions() {
+  public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
     return null;
   }
 

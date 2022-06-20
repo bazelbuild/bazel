@@ -348,6 +348,7 @@ java_library(
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
+        ":starlark/template_dict",
         ":target_and_configuration",
         ":template_variable_info",
         ":test/analysis_failure",
@@ -1431,6 +1432,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
@@ -1465,11 +1467,20 @@ java_library(
 )
 
 java_library(
+    name = "template_expansion_exception",
+    srcs = ["actions/TemplateExpansionException.java"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
     name = "actions/template_expansion_action",
     srcs = [
         "actions/LocalTemplateExpansionStrategy.java",
         "actions/TemplateExpansionAction.java",
         "actions/TemplateExpansionContext.java",
+        "actions/TemplateExpansionException.java",
     ],
     deps = [
         ":actions/deterministic_writer",
@@ -1481,6 +1492,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
@@ -2176,6 +2188,18 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "starlark/template_dict",
+    srcs = ["starlark/TemplateDict.java"],
+    deps = [
+        ":actions/substitution",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 

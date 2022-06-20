@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -723,16 +724,30 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             name = "substitutions",
             named = true,
             positional = false,
+            defaultValue = "{}",
             doc = "Substitutions to make when expanding the template."),
         @Param(
             name = "is_executable",
             defaultValue = "False",
             named = true,
             positional = false,
-            doc = "Whether the output file should be executable.")
+            doc = "Whether the output file should be executable."),
+        @Param(
+            name = "computed_substitutions",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = TemplateDictApi.class)},
+            defaultValue = "unbound",
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION,
+            valueWhenDisabled = "unbound",
+            doc = "Substitutions to make when expanding the template.")
       })
   void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      Object computedSubstitutions)
       throws EvalException;
 
   @StarlarkMethod(
@@ -740,4 +755,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)
   CommandLineArgsApi args(StarlarkThread thread);
+
+  @StarlarkMethod(
+      name = "template_dict",
+      doc = "Returns a TemplateDict object for memory-efficient template expansion.")
+  TemplateDictApi templateDict();
 }

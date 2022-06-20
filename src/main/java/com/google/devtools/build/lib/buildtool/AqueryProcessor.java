@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -100,6 +101,10 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
       String message = "Error while parsing command: " + e.getMessage();
       env.getReporter().handle(Event.error(message));
       return getFailureResult(message, Code.COMMAND_LINE_EXPANSION_FAILURE);
+    } catch (TemplateExpansionException e) {
+      String message = "Error while expanding template: " + e.getMessage();
+      env.getReporter().handle(Event.error(message));
+      return getFailureResult(message, Code.TEMPLATE_EXPANSION_FAILURE);
     } catch (IOException e) {
       String message = "Error while emitting output: " + e.getMessage();
       env.getReporter().handle(Event.error(message));

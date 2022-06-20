@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -324,7 +325,7 @@ public class BuildTool {
                 request.getOptions(BuildEventProtocolOptions.class),
                 request.getBuildOptions().aqueryDumpAfterBuildFormat,
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-          } catch (CommandLineExpansionException | IOException e) {
+          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
@@ -391,7 +392,8 @@ public class BuildTool {
       @Nullable BuildEventProtocolOptions besOptions,
       String format,
       @Nullable PathFragment outputFilePathFragment)
-      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException {
+      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException,
+          TemplateExpansionException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
 
     UploadContext streamingContext = null;

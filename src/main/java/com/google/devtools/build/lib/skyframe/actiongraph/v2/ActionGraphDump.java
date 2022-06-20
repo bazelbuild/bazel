@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -48,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Encapsulates necessary functionality to dump the current skyframe state of the action graph to
@@ -127,7 +129,8 @@ public class ActionGraphDump {
   }
 
   private void dumpSingleAction(ConfiguredTarget configuredTarget, ActionAnalysisMetadata action)
-      throws CommandLineExpansionException, InterruptedException, IOException {
+      throws CommandLineExpansionException, InterruptedException, IOException,
+          TemplateExpansionException {
 
     // Store the content of param files.
     if (includeParamFiles && (action instanceof ParameterFileWriteAction)) {
@@ -250,10 +253,14 @@ public class ActionGraphDump {
     if (action instanceof TemplateExpansionAction) {
       actionBuilder.setTemplateContent(((TemplateExpansionAction) action).getTemplate().toString());
       for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
-        actionBuilder.addSubstitutions(
-            AnalysisProtosV2.KeyValuePair.newBuilder()
-                .setKey(substitution.getKey())
-                .setValue(substitution.getValue()));
+        try {
+          actionBuilder.addSubstitutions(
+              AnalysisProtosV2.KeyValuePair.newBuilder()
+                  .setKey(substitution.getKey())
+                  .setValue(substitution.getValue()));
+        } catch (EvalException e) {
+          throw new TemplateExpansionException("Failed to expand template", e);
+        }
       }
     }
 
@@ -261,7 +268,8 @@ public class ActionGraphDump {
   }
 
   public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException, InterruptedException, IOException {
+      throws CommandLineExpansionException, InterruptedException, IOException,
+          TemplateExpansionException {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
@@ -272,7 +280,8 @@ public class ActionGraphDump {
   }
 
   public void dumpConfiguredTarget(RuleConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException, InterruptedException, IOException {
+      throws CommandLineExpansionException, InterruptedException, IOException,
+          TemplateExpansionException {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
