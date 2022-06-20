@@ -146,3 +146,58 @@ def _debug_files_test_impl(ctx):
     return analysistest.end(env)
 
 debug_files_test = analysistest.make(_debug_files_test_impl)
+
+def _runfiles_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    if not ctx.attr.is_linux:
+        return analysistest.end(env)
+
+    target_under_test = analysistest.target_under_test(env)
+    expected_suffixes = [
+        "libfoo_so.so",
+        "libbar_so.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so",
+    ]
+    for runfile in target_under_test[DefaultInfo].default_runfiles.files.to_list():
+        # Ignore Python runfiles
+        if "python" in runfile.path:
+            continue
+        found_suffix = False
+        for expected_suffix in expected_suffixes:
+            if runfile.path.endswith(expected_suffix):
+                found_suffix = True
+                break
+        asserts.true(env, found_suffix, runfile.path + " not found in expected suffixes:\n" + "\n".join(expected_suffixes))
+
+    return analysistest.end(env)
+
+runfiles_test = analysistest.make(
+    _runfiles_test_impl,
+    attrs = {
+        "is_linux": attr.bool(),
+    },
+)
+
+def _interface_library_output_group_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    if not ctx.attr.is_windows:
+        return analysistest.end(env)
+
+    target_under_test = analysistest.target_under_test(env)
+    actual_files = []
+    for interface_library in target_under_test[OutputGroupInfo].interface_library.to_list():
+        actual_files.append(interface_library.basename)
+    expected_files = ["foo_so.if.lib"]
+    asserts.equals(env, expected_files, actual_files)
+
+    return analysistest.end(env)
+
+interface_library_output_group_test = analysistest.make(
+    _interface_library_output_group_test_impl,
+    attrs = {
+        "is_windows": attr.bool(),
+    },
+)
