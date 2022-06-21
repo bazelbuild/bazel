@@ -274,7 +274,7 @@ public class RepositoryOptions extends OptionsBase {
       try {
         return RepositoryOverride.create(RepositoryName.create(pieces[0]), path);
       } catch (LabelSyntaxException e) {
-        throw new OptionsParsingException("Invalid repository name given to override", input);
+        throw new OptionsParsingException("Invalid repository name given to override", input, e);
       }
     }
 
