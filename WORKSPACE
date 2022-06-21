@@ -390,6 +390,10 @@ dist_http_archive(
 )
 
 dist_http_archive(
+    name = "rules_nodejs",
+)
+
+dist_http_archive(
     name = "build_bazel_rules_nodejs",
 )
 
@@ -606,6 +610,10 @@ stardoc_repositories()
 load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
 
 rules_sass_dependencies()
+
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+
+build_bazel_rules_nodejs_dependencies()
 
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
 
