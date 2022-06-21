@@ -252,52 +252,52 @@ public final class ResourceManagerTest {
 
   @Test
   public void testMnemonicResourceOverrideEstimate() throws Exception {
-      rm.setAvailableResources(
-              ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
-
-      int memory = 100;
-      String mnemonicLargeMemory = "largeMemory";
-      String largeRequestMemory = "2000,1";
-      String mnemonicLargeCPU = "largeCPU";
-      String largeRequestCPU = "1,100";
-
-      assertThat(rm.inUse()).isFalse();
-
-      // Given test count is partially acquired:
-      List<Map.Entry<String, String>> mnemonic_resource_override
-              = ImmutableList.of(
-              new AbstractMap.SimpleEntry<String, String>(mnemonicLargeMemory,
-                      largeRequestMemory),
-              new AbstractMap.SimpleEntry<String, String>(mnemonicLargeCPU,
-                      largeRequestCPU)
-      );
-
-      rm.setMnemonicResourceOverride(mnemonic_resource_override);
-
-      // Try to acquire an action that is not registered
-      assertThat(rm.inUse()).isFalse();
-      acquire(memory, 1, 0);
-      assertThat(rm.inUse()).isTrue();
-      release(memory, 1, 0);
-
-      // Try to acquire an action where the override estiamtes that it consumes a lot of memory
-      acquire(memory, 1, 0, largeRequestMemory);
-
-      // Try a parallel action. This should fail because the resource manager gave all its resources
-      // to a large request
-      TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(100, 1, 0)).isNull());
-      thread1.start();
-      thread1.joinAndAssertState(10000);
-
-      release(2000, 1, 0);
-      assertThat(rm.inUse()).isFalse();
-
-      // Ditto for CPU
-      acquire(memory, 1, 0, largeRequestMemory);
-
-      TestThread thread2 = new TestThread(() -> assertThat(acquireNonblocking(100, 1, 0)).isNull());
-      thread2.start();
-      thread2.joinAndAssertState(10000);
+    rm.setAvailableResources(
+            ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
+    
+    int memory = 100;
+    String mnemonicLargeMemory = "largeMemory";
+    String largeRequestMemory = "2000,1";
+    String mnemonicLargeCPU = "largeCPU";
+    String largeRequestCPU = "1,100";
+    
+    assertThat(rm.inUse()).isFalse();
+    
+    // Given test count is partially acquired:
+    List<Map.Entry<String, String>> mnemonic_resource_override
+            = ImmutableList.of(
+            new AbstractMap.SimpleEntry<String, String>(mnemonicLargeMemory,
+                    largeRequestMemory),
+            new AbstractMap.SimpleEntry<String, String>(mnemonicLargeCPU,
+                    largeRequestCPU)
+    );
+    
+    rm.setMnemonicResourceOverride(mnemonic_resource_override);
+    
+    // Try to acquire an action that is not registered
+    assertThat(rm.inUse()).isFalse();
+    acquire(memory, 1, 0);
+    assertThat(rm.inUse()).isTrue();
+    release(memory, 1, 0);
+    
+    // Try to acquire an action where the override estiamtes that it consumes a lot of memory
+    acquire(memory, 1, 0, largeRequestMemory);
+    
+    // Try a parallel action. This should fail because the resource manager gave all its resources
+    // to a large request
+    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(100, 1, 0)).isNull());
+    thread1.start();
+    thread1.joinAndAssertState(10000);
+    
+    release(2000, 1, 0);
+    assertThat(rm.inUse()).isFalse();
+    
+    // Ditto for CPU
+    acquire(memory, 1, 0, largeRequestMemory);
+    
+    TestThread thread2 = new TestThread(() -> assertThat(acquireNonblocking(100, 1, 0)).isNull());
+    thread2.start();
+    thread2.joinAndAssertState(10000);
   }
 
   @Test
