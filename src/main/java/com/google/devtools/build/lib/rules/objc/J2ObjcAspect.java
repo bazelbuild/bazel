@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -78,6 +79,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -640,11 +642,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableList<Artifact> outputHeaderMappingFiles =
         filteredProtoSources.isEmpty()
             ? ImmutableList.of()
-            : ProtoCommon.declareGeneratedFiles(ruleContext, base, ".j2objc.mapping");
+            : getGeneratedOutputs(ruleContext, base, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
         filteredProtoSources.isEmpty()
             ? ImmutableList.of()
-            : ProtoCommon.declareGeneratedFiles(ruleContext, base, ".clsmap.properties");
+            : getGeneratedOutputs(ruleContext, base, ".clsmap.properties");
     ImmutableList<Artifact> outputs =
         ImmutableList.<Artifact>builder()
             .addAll(j2ObjcSource.getObjcSrcs())
@@ -653,14 +655,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addAll(outputClassMappingFiles)
             .build();
 
-    String bindirPath = getProtoOutputRoot(ruleContext).getPathString();
+    String gendirPath = getProtoOutputRoot(ruleContext).getPathString();
 
     ProtoCommon.compile(
         ruleContext,
         base,
         checkNotNull(protoToolchain),
         outputs,
-        bindirPath,
+        gendirPath,
         "Generating j2objc proto_library %{label}");
 
     return new J2ObjcMappingFileProvider(
@@ -780,10 +782,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ruleContext.getTarget().getLabel(),
         protoSources.isEmpty()
             ? ImmutableList.of()
-            : ProtoCommon.declareGeneratedFiles(ruleContext, protoTarget, ".j2objc.pb.m"),
+            : getGeneratedOutputs(ruleContext, protoTarget, ".j2objc.pb.m"),
         protoSources.isEmpty()
             ? ImmutableList.of()
-            : ProtoCommon.declareGeneratedFiles(ruleContext, protoTarget, ".j2objc.pb.h"),
+            : getGeneratedOutputs(ruleContext, protoTarget, ".j2objc.pb.h"),
         objcFileRootExecPath,
         SourceType.PROTO,
         headerSearchPaths,
@@ -792,10 +794,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
     if (ruleContext.getConfiguration().isSiblingRepositoryLayout()) {
-      return ruleContext.getBinFragment();
+      return ruleContext.getGenfilesFragment();
     }
     return ruleContext
-        .getBinFragment()
+        .getGenfilesFragment()
         .getRelative(ruleContext.getLabel().getRepository().getExecPath(false));
   }
 
@@ -898,5 +900,23 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addIncludes(headerSearchPaths)
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
+  }
+
+  public static ImmutableList<Artifact> getGeneratedOutputs(
+      RuleContext ruleContext, ConfiguredTarget target, String extension) {
+    ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
+    ArtifactRoot genfiles = ruleContext.getGenfilesDirectory();
+    for (Artifact src : target.get(ProtoInfo.PROVIDER).getDirectProtoSources()) {
+      PathFragment srcPath =
+          src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
+
+      // Note that two proto_library rules can have the same source file, so this is actually a
+      // shared action. NB: This can probably result in action conflicts if the proto_library rules
+      // are not the same.
+      outputsBuilder.add(
+          ruleContext.getShareableArtifact(
+              FileSystemUtils.replaceExtension(srcPath, extension), genfiles));
+    }
+    return outputsBuilder.build();
   }
 }
