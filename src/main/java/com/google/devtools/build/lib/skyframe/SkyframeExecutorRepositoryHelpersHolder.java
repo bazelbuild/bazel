@@ -20,14 +20,11 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtine
 /** Provides repository-related objects for use by {@link SequencedSkyframeExecutor}. */
 @AutoValue
 public abstract class SkyframeExecutorRepositoryHelpersHolder {
-  public abstract ManagedDirectoriesKnowledge managedDirectoriesKnowledge();
-
   public abstract RepositoryDirectoryDirtinessChecker repositoryDirectoryDirtinessChecker();
 
   public static SkyframeExecutorRepositoryHelpersHolder create(
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
       RepositoryDirectoryDirtinessChecker repositoryDirectoryDirtinessChecker) {
     return new AutoValue_SkyframeExecutorRepositoryHelpersHolder(
-        managedDirectoriesKnowledge, repositoryDirectoryDirtinessChecker);
+        repositoryDirectoryDirtinessChecker);
   }
 }

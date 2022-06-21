@@ -20,7 +20,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
@@ -100,38 +99,15 @@ public class DirtinessCheckerUtils {
 
   static final class MissingDiffDirtinessChecker extends BasicFilesystemDirtinessChecker {
     private final Set<Root> missingDiffPackageRoots;
-    private final ExternalFilesHelper externalFilesHelper;
 
-    MissingDiffDirtinessChecker(
-        Set<Root> missingDiffPackageRoots, ExternalFilesHelper externalFilesHelper) {
+    MissingDiffDirtinessChecker(Set<Root> missingDiffPackageRoots) {
       this.missingDiffPackageRoots = missingDiffPackageRoots;
-      this.externalFilesHelper = externalFilesHelper;
     }
 
     @Override
     public boolean applies(SkyKey key) {
       return super.applies(key)
           && missingDiffPackageRoots.contains(((RootedPath) key.argument()).getRoot());
-    }
-
-    @Override
-    public DirtyResult check(
-        SkyKey key,
-        @Nullable SkyValue oldValue,
-        SyscallCache syscallCache,
-        @Nullable TimestampGranularityMonitor tsgm) {
-      FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) key.argument());
-      if (fileType != FileType.INTERNAL) {
-        if (fileType != FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
-          BugReport.sendBugReport(
-              "File %s had unexpected type %s under one of package roots %s",
-              key, fileType, missingDiffPackageRoots);
-        }
-        DirtyResult result = super.check(key, oldValue, SyscallCache.NO_CACHE, tsgm);
-        // Don't populate Skyframe with new value if it might change.
-        return result.isDirty() ? DirtyResult.dirty() : result;
-      }
-      return super.check(key, oldValue, syscallCache, tsgm);
     }
   }
 
@@ -194,7 +170,6 @@ public class DirtinessCheckerUtils {
         case EXTERNAL:
         case BUNDLED:
           return true;
-        case EXTERNAL_IN_MANAGED_DIRECTORY:
         case EXTERNAL_REPO:
         case OUTPUT:
           return false;

@@ -141,7 +141,6 @@ java_library(
         ":incremental_artifact_conflict_finder",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
-        ":managed_directories_knowledge",
         ":map_as_package_roots",
         ":metadata_consumer_for_metrics",
         ":output_store",
@@ -323,7 +322,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1527,19 +1525,6 @@ java_library(
 )
 
 java_library(
-    name = "managed_directories_knowledge",
-    srcs = ["ManagedDirectoriesKnowledge.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "map_as_package_roots",
     srcs = ["MapAsPackageRoots.java"],
     deps = [
@@ -2257,7 +2242,6 @@ java_library(
     name = "skyframe_executor_repository_helpers_holder",
     srcs = ["SkyframeExecutorRepositoryHelpersHolder.java"],
     deps = [
-        ":managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//third_party:auto_value",
     ],

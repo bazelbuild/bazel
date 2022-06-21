@@ -515,6 +515,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean keepConfigNodes;
+
+    @Option(
+        name = "incompatible_disable_managed_directories",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDisableManagedDirectories;
   }
 
   @Override

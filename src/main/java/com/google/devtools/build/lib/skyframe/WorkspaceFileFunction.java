@@ -250,8 +250,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           /* bindings = */ ImmutableMap.<String, Object>of(),
           workspaceFile,
           /* idx = */ 0, // first fragment
-          /* hasNext = */ false,
-          ImmutableMap.of());
+          /* hasNext = */ false);
     }
 
     // Get the state at the end of the previous chunk.
@@ -354,8 +353,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         parser.getVariableBindings(),
         workspaceFile,
         key.getIndex(),
-        key.getIndex() < chunks.size() - 1,
-        ImmutableMap.copyOf(parser.getManagedDirectories()));
+        key.getIndex() < chunks.size() - 1);
   }
 
   private static StarlarkFile parseWorkspaceFile(

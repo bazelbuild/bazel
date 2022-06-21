@@ -15,15 +15,10 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker.managedDirectoriesExist;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
@@ -39,7 +34,6 @@ import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.NoRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -53,15 +47,12 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -110,9 +101,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private final AtomicBoolean isFetch;
 
   private final BlazeDirectories directories;
-  // Managed directories mappings, pre-calculated and injected by SequencedSkyframeExecutor
-  // before each command.
-  private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   private final ExternalPackageHelper externalPackageHelper;
 
@@ -124,14 +112,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       AtomicBoolean isFetch,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
       ExternalPackageHelper externalPackageHelper) {
     this.handlers = handlers;
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
-    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
     this.externalPackageHelper = externalPackageHelper;
   }
 
@@ -316,27 +302,18 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> managedDirectories =
-        managedDirectoriesKnowledge.getManagedDirectories(repositoryName);
-    DigestWriter digestWriter =
-        new DigestWriter(
-            directories,
-            repositoryName,
-            rule,
-            managedDirectories);
+    DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
 
     // Local repositories are fetched regardless of the marker file because the operation is
     // generally fast and they do not depend on non-local data, so it does not make much sense to
     // try to cache them from across server instances.
     boolean fetchLocalRepositoryAlways = isFetch.get() && handler.isLocal(rule);
-    if (!fetchLocalRepositoryAlways
-        && managedDirectoriesExist(directories.getWorkspace(), managedDirectories)) {
+    if (!fetchLocalRepositoryAlways) {
       // For the non-local repositories, check if they are already up-to-date:
       // 1) unconditional fetching is not enabled, AND
       // 2) unconditional syncing is not enabled or the rule is not a configure rule, AND
       // 3) repository directory exists, AND
-      // 4) marker file correctly describes the current repository state, AND
-      // 5) managed directories, mapped to the repository, exist
+      // 4) marker file correctly describes the current repository state
       if (!needsConfiguring && doNotFetchUnconditionally && repoRoot.exists()) {
         byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (env.valuesMissing()) {
@@ -393,11 +370,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return RepositoryDirectoryValue.builder()
         .setPath(repoRoot)
         .setFetchingDelayed()
-        .setDigest(
-            new Fingerprint()
-                .addIterableStrings(
-                    Iterables.transform(managedDirectories, PathFragment::getPathString))
-                .digestAndReset())
+        .setDigest(new Fingerprint().digestAndReset())
         .build();
   }
 
@@ -535,28 +508,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private static class DigestWriter {
-    private static final String MANAGED_DIRECTORIES_MARKER = "$MANAGED";
     private final Path markerPath;
     private final Rule rule;
     private final Map<String, String> markerData;
     private final String ruleKey;
 
-    DigestWriter(
-        BlazeDirectories directories,
-        RepositoryName repositoryName,
-        Rule rule,
-        ImmutableSet<PathFragment> managedDirectories) {
+    DigestWriter(BlazeDirectories directories, RepositoryName repositoryName, Rule rule) {
       ruleKey = computeRuleKey(rule);
       markerPath = getMarkerPath(directories, repositoryName.getName());
       this.rule = rule;
       markerData = Maps.newHashMap();
-
-      List<PathFragment> directoriesList = Ordering.natural().sortedCopy(managedDirectories);
-      String directoriesString =
-          directoriesList.stream()
-              .map(PathFragment::getPathString)
-              .collect(Collectors.joining(" "));
-      markerData.put(MANAGED_DIRECTORIES_MARKER, directoriesString);
     }
 
     byte[] writeMarkerFile() throws RepositoryFunctionException {
@@ -602,10 +563,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         content = FileSystemUtils.readContent(markerPath, StandardCharsets.UTF_8);
         String markerRuleKey = readMarkerFile(content, markerData);
         boolean verified = false;
-        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)
-            && Objects.equals(
-                markerData.get(MANAGED_DIRECTORIES_MARKER),
-                this.markerData.get(MANAGED_DIRECTORIES_MARKER))) {
+        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
           verified = handler.verifyMarkerData(rule, markerData, env);
           if (env.valuesMissing()) {
             return null;

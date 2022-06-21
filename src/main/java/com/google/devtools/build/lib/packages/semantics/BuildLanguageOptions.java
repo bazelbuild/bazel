@@ -547,15 +547,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "'cfg = \"exec\"' instead.")
   public boolean incompatibleDisableStarlarkHostTransitions;
 
-  @Option(
-      name = "incompatible_disable_managed_directories",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "If set to true, the workspace(managed_directories=) attribute is disabled.")
-  public boolean incompatibleDisableManagedDirectories;
-
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -626,7 +617,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 incompatibleDisableStarlarkHostTransitions)
-            .setBool(INCOMPATIBLE_DISABLE_MANAGE_DIRECTORIES, incompatibleDisableManagedDirectories)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -697,8 +687,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
-  public static final String INCOMPATIBLE_DISABLE_MANAGE_DIRECTORIES =
-      "+incompatible_disable_managed_directories";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

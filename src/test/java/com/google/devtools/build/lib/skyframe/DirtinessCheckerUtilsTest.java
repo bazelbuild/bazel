@@ -20,7 +20,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -49,7 +47,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /** Tests for {@link DirtinessCheckerUtils}. */
@@ -133,39 +130,20 @@ public class DirtinessCheckerUtilsTest {
 
   @Test
   public void skipsSyscallCacheForRepoFile_andDoesntReturnNewValue(
-      @TestParameter boolean externalChecker, @TestParameter boolean managedDirectory) {
+      @TestParameter boolean externalChecker) {
     ExternalFilesHelper externalFilesHelper = this.externalFilesHelper;
-    RootedPath rootedPath;
-    if (managedDirectory) {
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge =
-          mock(ManagedDirectoriesKnowledge.class);
-      externalFilesHelper =
-          ExternalFilesHelper.create(
-              pkgLocator,
-              ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-              directories,
-              managedDirectoriesKnowledge);
-      when(managedDirectoriesKnowledge.getOwnerRepository(ArgumentMatchers.any()))
-          .thenReturn(RepositoryName.MAIN);
-      rootedPath = RootedPath.toRootedPath(srcRoot, PathFragment.create("srcfile"));
-    } else {
-      rootedPath =
-          RootedPath.toRootedPath(
-              Root.fromPath(outputBase),
-              LabelConstants.EXTERNAL_REPOSITORY_LOCATION.getChild("extrepofile"));
-    }
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(
+            Root.fromPath(outputBase),
+            LabelConstants.EXTERNAL_REPOSITORY_LOCATION.getChild("extrepofile"));
     SkyValueDirtinessChecker underTest =
         externalChecker
             ? new DirtinessCheckerUtils.ExternalDirtinessChecker(
-                externalFilesHelper,
-                EnumSet.of(
-                    ExternalFilesHelper.FileType.EXTERNAL_IN_MANAGED_DIRECTORY,
-                    ExternalFilesHelper.FileType.EXTERNAL_REPO))
-            : new DirtinessCheckerUtils.MissingDiffDirtinessChecker(
-                ImmutableSet.of(srcRoot), externalFilesHelper);
+                externalFilesHelper, EnumSet.of(ExternalFilesHelper.FileType.EXTERNAL_REPO))
+            : new DirtinessCheckerUtils.MissingDiffDirtinessChecker(ImmutableSet.of(srcRoot));
 
     boolean shouldCheck = underTest.applies(rootedPath);
-    assertThat(shouldCheck).isEqualTo(externalChecker || managedDirectory);
+    assertThat(shouldCheck).isEqualTo(externalChecker);
 
     Assume.assumeTrue("Missing diff checker doesn't apply to external files", shouldCheck);
 
@@ -190,7 +168,6 @@ public class DirtinessCheckerUtilsTest {
   }
 
   private DirtinessCheckerUtils.MissingDiffDirtinessChecker createMissingDiffChecker() {
-    return new DirtinessCheckerUtils.MissingDiffDirtinessChecker(
-        ImmutableSet.of(srcRoot), externalFilesHelper);
+    return new DirtinessCheckerUtils.MissingDiffDirtinessChecker(ImmutableSet.of(srcRoot));
   }
 }
