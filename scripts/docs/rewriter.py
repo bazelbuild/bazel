@@ -22,7 +22,7 @@ _BASE_URL = "https://bazel.build"
 # We need to use regular expressions here since HTML can be embedded in
 # Markdown and Yaml, thus breaking XML parsers. Moreover, our use case is
 # simple, so regex should work (tm).
-_HTML_LINK_PATTERN = re.compile(r"((href|src)=[\"']({})?)/".format(_BASE_URL))
+_HTML_LINK_PATTERN = re.compile(r"((href|src)\s*=\s*[\"']({})?)/".format(_BASE_URL))
 
 
 def _fix_html_links(content, version):

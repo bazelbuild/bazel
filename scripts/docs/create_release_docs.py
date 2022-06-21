@@ -54,7 +54,7 @@ _ARCHIVE_FUNCTIONS = {".tar": tarfile.open, ".zip": zipfile.ZipFile}
 def validate_flag(name):
   """Ensures that a flag is set, and returns its value (if yes).
 
-  This functions exits with an error if the flag was not set.
+  This function exits with an error if the flag was not set.
 
   Args:
     name: Name of the flag.
