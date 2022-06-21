@@ -78,9 +78,9 @@ def create_docs_tree(version, toc_path, narrative_docs_path,
     version: Version of this Bazel release.
     toc_path: Absolute path to the _toc.yaml file that lists the most recent
       Bazel versions.
-    narrative_docs_path: Abbsolute path of an archive that contains the
+    narrative_docs_path: Absolute path of an archive that contains the
       narrative documentation (can be .zip or .tar).
-    reference_docs_path: Abbsolute path of an archive that contains the
+    reference_docs_path: Absolute path of an archive that contains the
       reference documentation (can be .zip or .tar).
 
   Returns:

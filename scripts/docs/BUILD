@@ -17,7 +17,7 @@ genrule(
           " --reference_docs_path=$(location //src/main/java/com/google/devtools/build/lib:reference-docs.zip)" +
           " --output_path=$(OUTS)",
     outs = [
-      "release_docs.zip",
+        "release_docs.zip",
     ],
     tools = [
         ":create_release_docs",
