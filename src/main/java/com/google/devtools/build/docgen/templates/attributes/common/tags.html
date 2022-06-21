@@ -20,16 +20,14 @@
 </p>
 
 <ul>
-  <li><code>no-sandbox</code> keyword results in the action or test never being
+    <li><code>no-sandbox</code> keyword results in the action or test never being
     sandboxed; it can still be cached or run remotely - use <code>no-cache</code>
     or <code>no-remote</code> to prevent either or both of those.
   </li>
-
   <li><code>no-cache</code> keyword results in the action or test never being
     cached (remotely or locally)
   </li>
-
-  <li><code>no-remote-cache</code> keyword results in the action or test never being
+    <li><code>no-remote-cache</code> keyword results in the action or test never being
     cached remotely (but it may be cached locally; it may also be executed remotely).
     Note: for the purposes of this tag, the disk-cache is considered a local cache, whereas
     the http and gRPC caches are considered remote.
