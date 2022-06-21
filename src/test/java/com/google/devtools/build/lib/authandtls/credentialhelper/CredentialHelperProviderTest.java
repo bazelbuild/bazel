@@ -86,6 +86,34 @@ public class CredentialHelperProviderTest {
         .isTrue();
   }
 
+  private void assertInvalidPattern(String pattern) {
+    Preconditions.checkNotNull(pattern);
+
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                CredentialHelperProvider.builder()
+                    .add(pattern, fileSystem.getPath(DEFAULT_HELPER_PATH)));
+    assertThat(exception).hasMessageThat().contains(pattern);
+  }
+
+  @Test
+  public void invalidPattern() throws Exception {
+    CredentialHelperProvider.Builder provider = CredentialHelperProvider.builder();
+
+    assertInvalidPattern("foo.*.example.com");
+    assertInvalidPattern("*.foo.*.example.com");
+    assertInvalidPattern("*-foo.example.com");
+    assertInvalidPattern("example.*");
+    assertInvalidPattern("*.example.*");
+
+    // Punycode
+    assertInvalidPattern("foo.*.münchen.de");
+    assertInvalidPattern(".*.münchen.de");
+    assertInvalidPattern("foo-*.münchen.de");
+  }
+
   @Test
   public void addNonExecutableDefaultHelper() throws Exception {
     Path helper = fileSystem.getPath("/path/to/non/executable");
@@ -232,36 +260,36 @@ public class CredentialHelperProviderTest {
     assertThat(provider.findCredentialHelper(URI.create("grpcs://example.com/foo")).get().getPath())
         .isEqualTo(exampleComHelper);
     assertThat(
-        provider.findCredentialHelper(URI.create("custom://example.com/foo")).get().getPath())
+            provider.findCredentialHelper(URI.create("custom://example.com/foo")).get().getPath())
         .isEqualTo(exampleComHelper);
 
     assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://subdomain.example.com/bar"))
-            .get()
-            .getPath())
+            provider
+                .findCredentialHelper(URI.create("https://subdomain.example.com/bar"))
+                .get()
+                .getPath())
         .isEqualTo(exampleComWildcardHelper);
     assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://subdomain2.example.com/bar"))
-            .get()
-            .getPath())
+            provider
+                .findCredentialHelper(URI.create("https://subdomain2.example.com/bar"))
+                .get()
+                .getPath())
         .isEqualTo(exampleComWildcardHelper);
     assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://sub.subdomain.example.com/bar"))
-            .get()
-            .getPath())
+            provider
+                .findCredentialHelper(URI.create("https://sub.subdomain.example.com/bar"))
+                .get()
+                .getPath())
         .isEqualTo(exampleComWildcardHelper);
     assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://subdomain.example.com/bar"))
-            .get()
-            .getPath())
+            provider
+                .findCredentialHelper(URI.create("https://subdomain.example.com/bar"))
+                .get()
+                .getPath())
         .isEqualTo(exampleComWildcardHelper);
 
     assertThat(
-        provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
+            provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
         .isEqualTo(defaultHelper);
   }
 
@@ -275,29 +303,69 @@ public class CredentialHelperProviderTest {
             .add("*.sub.example.com", subExampleComWildcardHelper)
             .build();
 
-    assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://example.com/bar"))
-            .get()
-            .getPath())
+    assertThat(provider.findCredentialHelper(URI.create("https://example.com/bar")).get().getPath())
         .isEqualTo(exampleComWildcardHelper);
     assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://foo.example.com/bar"))
-            .get()
-            .getPath())
+            provider
+                .findCredentialHelper(URI.create("https://foo.example.com/bar"))
+                .get()
+                .getPath())
         .isEqualTo(exampleComWildcardHelper);
     assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://sub.example.com/bar"))
-            .get()
-            .getPath())
+            provider
+                .findCredentialHelper(URI.create("https://sub.example.com/bar"))
+                .get()
+                .getPath())
         .isEqualTo(subExampleComWildcardHelper);
     assertThat(
-        provider
-            .findCredentialHelper(URI.create("https://foo.sub.example.com/bar"))
-            .get()
-            .getPath())
+            provider
+                .findCredentialHelper(URI.create("https://foo.sub.example.com/bar"))
+                .get()
+                .getPath())
         .isEqualTo(subExampleComWildcardHelper);
+  }
+
+  @Test
+  public void punycodeMatching() throws Exception {
+    Path defaultHelper = fileSystem.getPath(DEFAULT_HELPER_PATH);
+    Path specificHelper = fileSystem.getPath(EXAMPLE_COM_HELPER_PATH);
+    Path subdomainHelper = fileSystem.getPath(EXAMPLE_COM_HELPER_PATH);
+
+    CredentialHelperProvider provider =
+        CredentialHelperProvider.builder()
+            .add(defaultHelper)
+            .add("münchen.de", specificHelper)
+            .add("*.köln.de", subdomainHelper)
+            .build();
+
+    // münchen.de
+    assertThat(
+            provider.findCredentialHelper(URI.create("http://xn--mnchen-3ya.de")).get().getPath())
+        .isEqualTo(specificHelper);
+    assertThat(
+            provider
+                .findCredentialHelper(URI.create("http://foo.xn--mnchen-3ya.de"))
+                .get()
+                .getPath())
+        .isEqualTo(defaultHelper);
+    assertThat(provider.findCredentialHelper(URI.create("http://muenchen.de")).get().getPath())
+        .isEqualTo(defaultHelper);
+
+    // köln.de
+    assertThat(provider.findCredentialHelper(URI.create("http://xn--kln-sna.de")).get().getPath())
+        .isEqualTo(subdomainHelper);
+    assertThat(
+            provider.findCredentialHelper(URI.create("http://foo.xn--kln-sna.de")).get().getPath())
+        .isEqualTo(subdomainHelper);
+    assertThat(
+            provider.findCredentialHelper(URI.create("http://bar.xn--kln-sna.de")).get().getPath())
+        .isEqualTo(subdomainHelper);
+    assertThat(provider.findCredentialHelper(URI.create("http://koeln.de")).get().getPath())
+        .isEqualTo(defaultHelper);
+
+    // småland.se
+    assertThat(
+            provider.findCredentialHelper(URI.create("http://xn--smland-jua.se")).get().getPath())
+        .isEqualTo(defaultHelper);
   }
 }

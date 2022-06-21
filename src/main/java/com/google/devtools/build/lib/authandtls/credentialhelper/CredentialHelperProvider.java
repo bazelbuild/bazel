@@ -19,10 +19,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.Immutable;
 import java.io.IOException;
+import java.net.IDN;
 import java.net.URI;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * A provider for {@link CredentialHelper}s.
@@ -37,18 +40,18 @@ public final class CredentialHelperProvider {
   private final Optional<Path> defaultHelper;
 
   @SuppressWarnings("Immutable")
-  private final ImmutableMap<String, Path> hosts;
+  private final ImmutableMap<String, Path> hostToHelper;
 
   @SuppressWarnings("Immutable")
-  private final ImmutableMap<String, Path> wildcards;
+  private final ImmutableMap<String, Path> suffixToHelper;
 
   private CredentialHelperProvider(
       Optional<Path> defaultHelper,
-      ImmutableMap<String, Path> hosts,
-      ImmutableMap<String, Path> wildcards) {
+      ImmutableMap<String, Path> hostToHelper,
+      ImmutableMap<String, Path> suffixToHelper) {
     this.defaultHelper = Preconditions.checkNotNull(defaultHelper);
-    this.hosts = Preconditions.checkNotNull(hosts);
-    this.wildcards = Preconditions.checkNotNull(wildcards);
+    this.hostToHelper = Preconditions.checkNotNull(hostToHelper);
+    this.suffixToHelper = Preconditions.checkNotNull(suffixToHelper);
   }
 
   /**
@@ -73,13 +76,13 @@ public final class CredentialHelperProvider {
   private Optional<Path> findHostCredentialHelper(String host) {
     Preconditions.checkNotNull(host);
 
-    return Optional.ofNullable(hosts.get(host));
+    return Optional.ofNullable(hostToHelper.get(host));
   }
 
   private Optional<Path> findWildcardCredentialHelper(String host) {
     Preconditions.checkNotNull(host);
 
-    return Optional.ofNullable(wildcards.get(host))
+    return Optional.ofNullable(suffixToHelper.get(host))
         .or(
             () -> {
               int dot = host.indexOf('.');
@@ -91,16 +94,19 @@ public final class CredentialHelperProvider {
             });
   }
 
-  /** Returns a new bBuilder for a {@link CredentialHelperProvider}. */
+  /** Returns a new builder for a {@link CredentialHelperProvider}. */
   public static Builder builder() {
     return new Builder();
   }
 
   /** Builder for {@link CredentialHelperProvider}. */
   public static final class Builder {
+    private static final Pattern DOMAIN_PATTERN =
+        Pattern.compile("(\\*|[-a-zA-Z0-9]+)(\\.[-a-zA-Z0-9]+)+");
+
     private Optional<Path> defaultHelper = Optional.empty();
-    private Map<String, Path> hosts = new HashMap<>();
-    private Map<String, Path> wildcards = new HashMap<>();
+    private Map<String, Path> hostToHelper = new HashMap<>();
+    private Map<String, Path> suffixToHelper = new HashMap<>();
 
     private void checkHelper(Path path) throws IOException {
       Preconditions.checkNotNull(path);
@@ -134,18 +140,36 @@ public final class CredentialHelperProvider {
       Preconditions.checkNotNull(pattern);
       checkHelper(helper);
 
+      String punycodePattern = toPunycodePattern(pattern);
+      Preconditions.checkArgument(
+          DOMAIN_PATTERN.matcher(punycodePattern).matches(),
+          "Pattern '%s' is not a valid (wildcard) DNS name",
+          pattern);
+
       if (pattern.startsWith("*.")) {
-        wildcards.put(pattern.substring(2), helper);
+        suffixToHelper.put(punycodePattern.substring(2), helper);
       } else {
-        hosts.put(pattern, helper);
+        hostToHelper.put(punycodePattern, helper);
       }
 
       return this;
     }
 
+    /** Converts a pattern to {@link https://en.wikipedia.org/wiki/Punycode}. */
+    private final String toPunycodePattern(String pattern) {
+      Preconditions.checkNotNull(pattern);
+
+      try {
+        return IDN.toASCII(pattern);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            String.format(Locale.US, "Could not convert '%s' to punycode", pattern), e);
+      }
+    }
+
     public CredentialHelperProvider build() {
       return new CredentialHelperProvider(
-          defaultHelper, ImmutableMap.copyOf(hosts), ImmutableMap.copyOf(wildcards));
+          defaultHelper, ImmutableMap.copyOf(hostToHelper), ImmutableMap.copyOf(suffixToHelper));
     }
   }
 }
