@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -74,6 +75,8 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.test.TestStatus.File;
+import com.google.devtools.build.lib.view.test.TestStatus.TestAttempt;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
 import com.google.protobuf.ExtensionRegistry;
@@ -91,6 +94,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+
 
 /**
  * An Action representing a test with the associated environment (runfiles, environment variables,
@@ -366,78 +370,122 @@ public class TestRunnerAction extends AbstractAction
     return outputs;
   }
 
+  public static final class TestOutputInfo {
+    private final String key;
+    private final Path path;
+    private final FileArtifactValue fileArtifactValue;
+
+    public TestOutputInfo(String key, Path path, FileArtifactValue fileArtifactValue) {
+      this.key = key;
+      this.path = path;
+      this.fileArtifactValue = fileArtifactValue;
+    }
+
+    public String getKey() {
+      return key;
+    }
+
+    public Path getPath() {
+      return path;
+    }
+
+    public FileArtifactValue getFileArtifactValue() {
+      return fileArtifactValue;
+    }
+
+  }
+
   /**
    * Returns the list of mappings from file name constants to output files. This method checks the
    * file system for existence of these output files, so it must only be used after test execution.
    */
   // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
-  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(
-      ArtifactPathResolver resolver, Path execRoot) {
-    ImmutableList.Builder<Pair<String, Path>> builder = ImmutableList.builder();
+  public ImmutableList<TestOutputInfo> getTestOutputsMapping(
+      ArtifactPathResolver resolver, Path execRoot,
+      ImmutableMap<Artifact, FileArtifactValue> injectedOutputs) {
+    ImmutableList.Builder<TestOutputInfo> builder = ImmutableList.builder();
     if (resolver.toPath(getTestLog()).exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog())));
+      builder.add(new TestOutputInfo(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog()), null));
     }
     if (getCoverageData() != null && resolver.toPath(getCoverageData()).exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData())));
+      builder.add(new TestOutputInfo(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData()), null));
     }
+
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
+      for (Map.Entry<Artifact, FileArtifactValue> entry : injectedOutputs.entrySet()) {
+        Path artifactPath = resolver.toPath(entry.getKey());
+        if (artifactPath.equals(resolvedPaths.getTestStderr())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.TEST_STDERR, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getXmlOutputPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.TEST_XML, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getSplitLogsPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.SPLIT_LOGS, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getTestWarningsPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.TEST_WARNINGS, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getUndeclaredOutputsZipPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getUndeclaredOutputsManifestPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getUndeclaredOutputsAnnotationsPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getUndeclaredOutputsAnnotationsPbPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS_PB, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getUnusedRunfilesLogPath())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.UNUSED_RUNFILES_LOG, artifactPath, entry.getValue()));
+        } else if (artifactPath.equals(resolvedPaths.getInfrastructureFailureFile())) {
+          builder.add(new TestOutputInfo(TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE, artifactPath, entry.getValue()));
+        }
+      }
       if (resolvedPaths.getTestStderr().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.TEST_STDERR, resolvedPaths.getTestStderr()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.TEST_STDERR, resolvedPaths.getTestStderr(), null));
       }
       if (resolvedPaths.getXmlOutputPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath(), null));
       }
       if (resolvedPaths.getSplitLogsPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath(), null));
       }
       if (resolvedPaths.getTestWarningsPath().exists()) {
-        builder.add(
-            Pair.of(TestFileNameConstants.TEST_WARNINGS, resolvedPaths.getTestWarningsPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.TEST_WARNINGS, resolvedPaths.getTestWarningsPath(), null));
       }
       if (testConfiguration.getZipUndeclaredTestOutputs()
           && resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
-                resolvedPaths.getUndeclaredOutputsZipPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP, resolvedPaths.getUndeclaredOutputsZipPath(), null));
       }
       if (!testConfiguration.getZipUndeclaredTestOutputs()
           && resolvedPaths.getUndeclaredOutputsDir().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_DIR,
-                resolvedPaths.getUndeclaredOutputsDir()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_DIR, resolvedPaths.getUndeclaredOutputsDir(), null));
       }
       if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
-                resolvedPaths.getUndeclaredOutputsManifestPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST, resolvedPaths.getUndeclaredOutputsManifestPath(), null));
       }
       if (resolvedPaths.getUndeclaredOutputsAnnotationsPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
-                resolvedPaths.getUndeclaredOutputsAnnotationsPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS, resolvedPaths.getUndeclaredOutputsAnnotationsPath(), null));
       }
       if (resolvedPaths.getUndeclaredOutputsAnnotationsPbPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS_PB,
-                resolvedPaths.getUndeclaredOutputsAnnotationsPbPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS_PB, resolvedPaths.getUndeclaredOutputsAnnotationsPbPath(), null));
       }
       if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNUSED_RUNFILES_LOG,
-                resolvedPaths.getUnusedRunfilesLogPath()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.UNUSED_RUNFILES_LOG, resolvedPaths.getUnusedRunfilesLogPath(), null));
       }
       if (resolvedPaths.getInfrastructureFailureFile().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
-                resolvedPaths.getInfrastructureFailureFile()));
+        builder.add(new TestOutputInfo(TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE, resolvedPaths.getInfrastructureFailureFile(), null));
+      }
+    }
+    return builder.build();
+  }
+
+  public static ImmutableList<Pair<String, Path>> testResultDataToMapping(Path execRoot, TestResultData data) {
+    ImmutableList.Builder<Pair<String, Path>> builder = ImmutableList.builder();
+    List<TestAttempt> attempts = data.getAttemptsList();
+    if (attempts.size() > 0) {
+      for (File file : attempts.get(attempts.size()-1).getOutputsList()) {
+        Path path = null;
+        if (file.getPath() != null) {
+          path = execRoot.getRelative(file.getPath());
+        }
+        builder.add(new Pair<String, Path>(file.getName(), path));
       }
     }
     return builder.build();

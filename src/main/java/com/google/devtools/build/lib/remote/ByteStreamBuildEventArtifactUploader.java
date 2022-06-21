@@ -372,9 +372,14 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         throw new IllegalStateException(
             String.format("Illegal file reference: '%s'", path.getPathString()));
       }
+      return applyForDigest(digest.getHash(), digest.getSizeBytes());
+    }
+
+    @Override
+    public String applyForDigest(String hash, long sizeBytes) {
       return String.format(
           "bytestream://%s/blobs/%s/%d",
-          remoteServerInstanceName, digest.getHash(), digest.getSizeBytes());
+          remoteServerInstanceName, hash, sizeBytes);
     }
   }
 }

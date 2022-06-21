@@ -25,14 +25,23 @@ import javax.annotation.Nullable;
  */
 public interface PathConverter {
   /** An implementation that throws on every call to {@link #apply(Path)}. */
-  PathConverter NO_CONVERSION =
-      path -> {
-        throw new IllegalStateException(
-            String.format(
-                "Can't convert '%s', as it has not been"
-                    + "declared as a referenced artifact of a build event",
-                path.getPathString()));
-      };
+  PathConverter NO_CONVERSION = new InvalidConverter();
+
+  final class InvalidConverter implements PathConverter {
+    @Override
+    public String apply(Path path) {
+      throw new IllegalStateException(
+        String.format(
+            "Can't convert '%s', as it has not been"
+                + "declared as a referenced artifact of a build event",
+            path.getPathString()));
+    }
+
+    @Override
+    public String applyForDigest(String hash, long sizeBytes) {
+      throw new IllegalStateException("Can't convert remote digest");
+    }
+  }
 
   /** A {@link PathConverter} that returns a path formatted as a URI with a {@code file} scheme. */
   // TODO(ulfjack): Make this a static final field.
@@ -41,6 +50,11 @@ public interface PathConverter {
     public String apply(Path path) {
       Preconditions.checkNotNull(path);
       return pathToUriString(path.getPathString());
+    }
+
+    @Override
+    public String applyForDigest(String hash, long sizeBytes) {
+      throw new IllegalStateException("Can't formulate file:// path for a remote artifact");
     }
 
     /**
@@ -88,4 +102,6 @@ public interface PathConverter {
    */
   @Nullable
   String apply(Path path);
+
+  String applyForDigest(String hash, long sizeBytes);
 }

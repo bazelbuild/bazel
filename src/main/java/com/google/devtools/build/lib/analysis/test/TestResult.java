@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.File;
+import com.google.devtools.build.lib.view.test.TestStatus.PathMetadata;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
 import java.util.List;
@@ -183,7 +185,6 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
    * (e.g., "test.log").
    */
   private Collection<Pair<String, Path>> getFiles() {
-    // TODO(ulfjack): Cache the set of generated files in the TestResultData.
-    return testAction.getTestOutputsMapping(ArtifactPathResolver.forExecRoot(execRoot), execRoot);
+    return testAction.testResultDataToMapping(execRoot, data);
   }
 }

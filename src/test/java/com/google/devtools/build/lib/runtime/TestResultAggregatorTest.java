@@ -251,13 +251,13 @@ public final class TestResultAggregatorTest {
 
   private static TestResult testResult(TestResultData.Builder data, boolean locallyCached) {
     TestRunnerAction mockTestAction = mock(TestRunnerAction.class);
-    when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableList.of());
+    when(mockTestAction.getTestOutputsMapping(any(), any(), any())).thenReturn(ImmutableList.of());
     return new TestResult(mockTestAction, data.build(), locallyCached, /*systemFailure=*/ null);
   }
 
   private static TestResult shardedTestResult(TestResultData.Builder data, int shardNum) {
     TestRunnerAction mockTestAction = mock(TestRunnerAction.class);
-    when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableList.of());
+    when(mockTestAction.getTestOutputsMapping(any(), any(), any())).thenReturn(ImmutableList.of());
     when(mockTestAction.getShardNum()).thenReturn(shardNum);
     return new TestResult(mockTestAction, data.build(), /*cached=*/ false, /*systemFailure=*/ null);
   }

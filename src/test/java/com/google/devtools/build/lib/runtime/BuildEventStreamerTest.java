@@ -129,7 +129,16 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
 
       @Override
       public PathConverter pathConverter() {
-        return Path::toString;
+        return new PathConverter() {
+          @Override
+          public String apply(Path path) {
+            return path.toString();
+          }
+          @Override
+          public String applyForDigest(String hash, long sizeBytes) {
+            throw new IllegalStateException("Can't formulate file:// path for a remote artifact");
+          }
+        };
       }
 
       @Override

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.hash.HashCode;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction.TestOutputInfo;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
@@ -64,13 +66,17 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.File;
+import com.google.devtools.build.lib.view.test.TestStatus.PathMetadata;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import com.google.devtools.build.lib.view.test.TestStatus;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -160,22 +166,18 @@ public class StandaloneTestStrategy extends TestStrategy {
   private ImmutableSet<ActionInput> createSpawnOutputs(TestRunnerAction action) {
     ImmutableSet.Builder<ActionInput> builder = ImmutableSet.builder();
     for (ActionInput output : action.getSpawnOutputs()) {
-      if (output.getExecPath().equals(action.getXmlOutputPath())) {
-        // HACK: Convert type of test.xml from BasicActionInput to DerivedArtifact. We want to
-        // inject metadata of test.xml if it is generated remotely and it's currently only possible
-        // to inject Artifact.
-        builder.add(createArtifactOutput(action, output.getExecPath()));
-      } else {
-        builder.add(output);
-      }
+      // HACK: Convert all outputs from BasicActionInput to DerivedArtifact. We want to
+      // inject metadata of all outputs if it is generated remotely and it's currently only possible
+      // to inject Artifact.
+      builder.add(createArtifactOutput(action, output.getExecPath()));
     }
     return builder.build();
   }
 
-  private static ImmutableList<Pair<String, Path>> renameOutputs(
+  private static ImmutableList<TestOutputInfo> renameOutputs(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
-      ImmutableList<Pair<String, Path>> testOutputs,
+      ImmutableList<TestOutputInfo> testOutputs,
       int attemptId)
       throws IOException {
     // Rename outputs
@@ -189,12 +191,12 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     // Get the normal test output paths, and then update them to use "attempt_N" names, and
     // attemptDir, before adding them to the outputs.
-    ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
-    for (Pair<String, Path> testOutput : testOutputs) {
+    ImmutableList.Builder<TestOutputInfo> testOutputsBuilder = new ImmutableList.Builder<>();
+    for (TestOutputInfo testOutput : testOutputs) {
       // e.g. /testRoot/test.dir/file, an example we follow throughout this loop's comments.
-      Path testOutputPath = testOutput.getSecond();
+      Path testOutputPath = testOutput.getPath();
       Path destinationPath;
-      if (testOutput.getFirst().equals(TestFileNameConstants.TEST_LOG)) {
+      if (testOutput.getKey().equals(TestFileNameConstants.TEST_LOG)) {
         // The rename rules for the test log are different than for all the other files.
         destinationPath = testLog;
       } else {
@@ -214,7 +216,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       // Move to the destination.
       testOutputPath.renameTo(destinationPath);
 
-      testOutputsBuilder.add(Pair.of(testOutput.getFirst(), destinationPath));
+      testOutputsBuilder.add(new TestOutputInfo(testOutput.getKey(), destinationPath, testOutput.getFileArtifactValue()));
     }
     return testOutputsBuilder.build();
   }
@@ -222,16 +224,18 @@ public class StandaloneTestStrategy extends TestStrategy {
   private StandaloneFailedAttemptResult processFailedTestAttempt(
       int attemptId,
       ActionExecutionContext actionExecutionContext,
+      TestMetadataHandler testMetadataHandler,
       TestRunnerAction action,
       StandaloneTestResult result)
       throws IOException {
     return processTestAttempt(
-        attemptId, /*isLastAttempt=*/ false, actionExecutionContext, action, result);
+        attemptId, /*isLastAttempt=*/ false, actionExecutionContext, testMetadataHandler, action, result);
   }
 
   private void finalizeTest(
       TestRunnerAction action,
       ActionExecutionContext actionExecutionContext,
+      TestMetadataHandler testMetadataHandler,
       StandaloneTestResult standaloneTestResult,
       List<FailedAttemptResult> failedAttempts)
       throws IOException {
@@ -239,6 +243,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         failedAttempts.size() + 1,
         /*isLastAttempt=*/ true,
         actionExecutionContext,
+        testMetadataHandler,
         action,
         standaloneTestResult);
 
@@ -263,22 +268,25 @@ public class StandaloneTestStrategy extends TestStrategy {
       int attemptId,
       boolean isLastAttempt,
       ActionExecutionContext actionExecutionContext,
+      TestMetadataHandler testMetadataHandler,
       TestRunnerAction action,
       StandaloneTestResult result)
       throws IOException {
-    ImmutableList<Pair<String, Path>> testOutputs =
-        action.getTestOutputsMapping(
-            actionExecutionContext.getPathResolver(), actionExecutionContext.getExecRoot());
+    ImmutableMap<Artifact, FileArtifactValue> generatedOutputs = testMetadataHandler.getInjectedFiles();
+    ImmutableList<TestOutputInfo> testOutputs = action.getTestOutputsMapping(
+      actionExecutionContext.getPathResolver(), actionExecutionContext.getExecRoot(),
+      generatedOutputs);
+
     if (!isLastAttempt) {
       testOutputs = renameOutputs(actionExecutionContext, action, testOutputs, attemptId);
     }
 
     // Recover the test log path, which may have been renamed, and add it to the data builder.
     Path renamedTestLog = null;
-    for (Pair<String, Path> pair : testOutputs) {
-      if (TestFileNameConstants.TEST_LOG.equals(pair.getFirst())) {
+    for (TestOutputInfo testOutputInfo : testOutputs) {
+      if (TestFileNameConstants.TEST_LOG.equals(testOutputInfo.getKey())) {
         Preconditions.checkState(renamedTestLog == null, "multiple test_log matches");
-        renamedTestLog = pair.getSecond();
+        renamedTestLog = testOutputInfo.getPath();
       }
     }
 
@@ -297,13 +305,31 @@ public class StandaloneTestStrategy extends TestStrategy {
       dataBuilder.addFailedLogs(renamedTestLog.toString());
     }
 
+    TestStatus.TestAttempt.Builder attemptDataBuilder = TestStatus.TestAttempt.newBuilder();
+    ImmutableMap.Builder<String, PathMetadata> fileNameToMetadata = ImmutableMap.builder();
+    for (TestOutputInfo testOutputInfo : testOutputs) {
+      File.Builder fileBuilder = File.newBuilder().setName(testOutputInfo.getKey());
+      if (testOutputInfo.getFileArtifactValue() != null) {
+        PathMetadata md = PathMetadata.newBuilder()
+          .setHash(HashCode.fromBytes(testOutputInfo.getFileArtifactValue().getDigest()).toString())
+          .setSizeBytes(testOutputInfo.getFileArtifactValue().getSize()).build();
+        fileNameToMetadata.put(testOutputInfo.getKey(), md);
+      } else {
+        fileBuilder.setPath(testOutputInfo.getPath().toString());
+      }
+      attemptDataBuilder.addOutputs(fileBuilder.build());
+    }
+    attemptDataBuilder.putAllPathMetadata(fileNameToMetadata.build());
+    dataBuilder.addAttempts(attemptDataBuilder.build());
+
     // Add the test log to the output
     TestResultData data = dataBuilder.build();
+    ImmutableList<Pair<String, Path>> files = action.testResultDataToMapping(actionExecutionContext.getExecRoot(), data);
     actionExecutionContext
         .getEventHandler()
         .post(
             TestAttempt.forExecutedTestResult(
-                action, data, attemptId, testOutputs, result.executionInfo(), isLastAttempt));
+                action, data, attemptId, files, result.executionInfo(), isLastAttempt));
     processTestOutput(actionExecutionContext, data, action.getTestName(), renamedTestLog);
     return new StandaloneFailedAttemptResult(data);
   }
@@ -344,6 +370,12 @@ public class StandaloneTestStrategy extends TestStrategy {
     @Nullable
     @Override
     public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+      Artifact artifact = (Artifact) input;
+      if (!fileInjected(artifact)) {
+        // Optional test outputs may not be injected, and the base metadata handler only
+        // allows retrieving metadata for existing artifacts.
+        return null;
+      }
       return metadataHandler.getMetadata(input);
     }
 
@@ -399,12 +431,17 @@ public class StandaloneTestStrategy extends TestStrategy {
     public boolean fileInjected(Artifact output) {
       return fileMetadataMap.containsKey(output);
     }
+
+    public ImmutableMap<Artifact, FileArtifactValue> getInjectedFiles() {
+      return ImmutableMap.copyOf(fileMetadataMap);
+    }
   }
 
   private TestAttemptContinuation beginTestAttempt(
       TestRunnerAction testAction,
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
+      @Nullable TestMetadataHandler testMetadataHandler,
       Path execRoot)
       throws IOException, InterruptedException {
     ResolvedPaths resolvedPaths = testAction.resolve(execRoot);
@@ -416,15 +453,6 @@ public class StandaloneTestStrategy extends TestStrategy {
       streamed =
           createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
-    }
-
-    // We use TestMetadataHandler here mainly because the one provided by actionExecutionContext
-    // doesn't allow to inject undeclared outputs and test.xml is undeclared by the test action.
-    TestMetadataHandler testMetadataHandler = null;
-    if (actionExecutionContext.getMetadataHandler() != null) {
-      testMetadataHandler =
-          new TestMetadataHandler(
-              actionExecutionContext.getMetadataHandler(), testAction.getOutputs());
     }
 
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
@@ -640,6 +668,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     private final Path tmpDir;
     private final Path workingDirectory;
     private final Path execRoot;
+    private final TestMetadataHandler testMetadataHandler;
 
     StandaloneTestRunnerSpawn(
         TestRunnerAction testAction,
@@ -654,6 +683,11 @@ public class StandaloneTestStrategy extends TestStrategy {
       this.tmpDir = tmpDir;
       this.workingDirectory = workingDirectory;
       this.execRoot = execRoot;
+      // We use TestMetadataHandler here mainly because the one provided by actionExecutionContext
+      // doesn't allow to inject undeclared outputs and test.xml is undeclared by the test action.
+      this.testMetadataHandler =
+          new TestMetadataHandler(
+              actionExecutionContext.getMetadataHandler(), testAction.getOutputs());
     }
 
     @Override
@@ -664,7 +698,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     @Override
     public TestAttemptContinuation beginExecution() throws InterruptedException, IOException {
       prepareFileSystem(testAction, execRoot, tmpDir, workingDirectory);
-      return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
+      return beginTestAttempt(testAction, spawn, actionExecutionContext, testMetadataHandler, execRoot);
     }
 
     @Override
@@ -676,7 +710,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     public FailedAttemptResult finalizeFailedTestAttempt(
         TestAttemptResult testAttemptResult, int attempt) throws IOException {
       return processFailedTestAttempt(
-          attempt, actionExecutionContext, testAction, (StandaloneTestResult) testAttemptResult);
+          attempt, actionExecutionContext, testMetadataHandler, testAction, (StandaloneTestResult) testAttemptResult);
     }
 
     @Override
@@ -684,7 +718,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         TestAttemptResult finalResult, List<FailedAttemptResult> failedAttempts)
         throws IOException {
       StandaloneTestStrategy.this.finalizeTest(
-          testAction, actionExecutionContext, (StandaloneTestResult) finalResult, failedAttempts);
+          testAction, actionExecutionContext, testMetadataHandler, (StandaloneTestResult) finalResult, failedAttempts);
     }
 
     @Override

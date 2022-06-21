@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.runtime.BuildEventStreamerUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.PathMetadata;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
@@ -48,6 +50,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   private final boolean lastAttempt;
   private final Collection<Pair<String, Path>> files;
   private final List<String> testWarnings;
+  private final ImmutableMap<String, PathMetadata> fileNameToMetadata;
   private final long durationMillis;
   private final long startTimeMillis;
   private final BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo;
@@ -69,6 +72,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
       long startTimeMillis,
       long durationMillis,
       Collection<Pair<String, Path>> files,
+      ImmutableMap<String, PathMetadata> fileNameToMetadata,
       List<String> testWarnings,
       boolean lastAttempt) {
     this.testAction = testAction;
@@ -80,6 +84,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     this.startTimeMillis = startTimeMillis;
     this.durationMillis = durationMillis;
     this.files = Preconditions.checkNotNull(files);
+    this.fileNameToMetadata = Preconditions.checkNotNull(fileNameToMetadata);
     this.testWarnings = Preconditions.checkNotNull(testWarnings);
     this.lastAttempt = lastAttempt;
   }
@@ -105,6 +110,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         attemptData.getStartTimeMillisEpoch(),
         attemptData.getRunDurationMillis(),
         files,
+        attemptData.getAttemptsList().size() > 0 ? ImmutableMap.copyOf(attemptData.getAttempts(0).getPathMetadataMap()) : ImmutableMap.of(),
         attemptData.getWarningList(),
         lastAttempt);
   }
@@ -126,6 +132,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         attemptData.getStartTimeMillisEpoch(),
         attemptData.getRunDurationMillis(),
         files,
+        attemptData.getAttemptsList().size() > 0 ? ImmutableMap.copyOf(attemptData.getAttempts(0).getPathMetadataMap()) : ImmutableMap.of(),
         attemptData.getWarningList(),
         lastAttempt);
   }
@@ -230,10 +237,19 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
     for (Pair<String, Path> file : files) {
-      String uri = pathConverter.apply(file.getSecond());
-      if (uri != null) {
-        builder.addTestActionOutput(
+      if (!fileNameToMetadata.containsKey(file.getFirst())) {
+        String uri = pathConverter.apply(file.getSecond());
+        if (uri != null) {
+          builder.addTestActionOutput(
+              BuildEventStreamProtos.File.newBuilder().setName(file.getFirst()).setUri(uri).build());
+        }
+      } else {
+        PathMetadata metadata = fileNameToMetadata.get(file.getFirst());
+        if (metadata != null) {
+          String uri = pathConverter.applyForDigest(metadata.getHash(), metadata.getSizeBytes());
+          builder.addTestActionOutput(
             BuildEventStreamProtos.File.newBuilder().setName(file.getFirst()).setUri(uri).build());
+        }
       }
     }
     return builder.build();

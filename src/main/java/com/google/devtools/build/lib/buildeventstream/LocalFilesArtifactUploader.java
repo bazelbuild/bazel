@@ -72,5 +72,10 @@ public class LocalFilesArtifactUploader extends AbstractReferenceCounted
       }
       return FILE_URI_PATH_CONVERTER.apply(path);
     }
+
+    @Override
+    public String applyForDigest(String hash, long sizeBytes) {
+      throw new IllegalStateException("Can't formulate file:// path for a remote artifact");
+    }
   }
 }

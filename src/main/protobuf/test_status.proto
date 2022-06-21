@@ -70,6 +70,21 @@ message TestCase {
   optional bool run = 8 [default = true];
 };
 
+message PathMetadata {
+  optional string hash = 1;
+  optional int64 size_bytes = 2;
+}
+
+message File {
+  optional string name = 1;
+  optional string path = 2;
+}
+
+message TestAttempt {
+  repeated File outputs = 1;
+  map<string, PathMetadata> path_metadata = 2;
+}
+
 // TestResultData holds the outcome data for a single test action (A
 // single test rule can result in multiple actions due to sharding and
 // runs_per_test settings.)
@@ -111,4 +126,7 @@ message TestResultData {
   // Additional build info
   optional TestCase test_case = 13;
   optional FailedTestCasesStatus failed_status = 14;
+
+  // Detailed info about each attempt.
+  repeated TestAttempt attempts = 17;
 };
