@@ -368,4 +368,20 @@ public class CredentialHelperProviderTest {
             provider.findCredentialHelper(URI.create("http://xn--smland-jua.se")).get().getPath())
         .isEqualTo(defaultHelper);
   }
+
+  @Test
+  public void parentDomain() {
+    assertThat(CredentialHelperProvider.parentDomain("com").isEmpty()).isTrue();
+
+    assertThat(CredentialHelperProvider.parentDomain("foo.example.com").get())
+        .isEqualTo("example.com");
+    assertThat(CredentialHelperProvider.parentDomain("example.com").get()).isEqualTo("com");
+
+    // Punycode URIs (münchen.de).
+    assertThat(CredentialHelperProvider.parentDomain("foo.xn--mnchen-3ya.de").get())
+        .isEqualTo("xn--mnchen-3ya.de");
+    assertThat(CredentialHelperProvider.parentDomain("bar.foo.xn--mnchen-3ya.de").get())
+        .isEqualTo("foo.xn--mnchen-3ya.de");
+    assertThat(CredentialHelperProvider.parentDomain("xn--mnchen-3ya.de").get()).isEqualTo("de");
+  }
 }

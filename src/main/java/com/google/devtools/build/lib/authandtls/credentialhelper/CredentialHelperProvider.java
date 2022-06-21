@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
@@ -85,13 +86,27 @@ public final class CredentialHelperProvider {
     return Optional.ofNullable(suffixToHelper.get(host))
         .or(
             () -> {
-              int dot = host.indexOf('.');
-              if (dot < 0) {
-                // We reached the last segment, end.
+              Optional<String> subdomain = parentDomain(host);
+              if (subdomain.isEmpty()) {
                 return Optional.empty();
               }
-              return findWildcardCredentialHelper(host.substring(dot + 1));
+              return findWildcardCredentialHelper(subdomain.get());
             });
+  }
+
+  /**
+   * Returns the parent domain of the provided domain (e.g., {@code foo.example.com} for {@code
+   * bar.foo.example.com}).
+   */
+  @VisibleForTesting
+  static Optional<String> parentDomain(String domain) {
+    int dot = domain.indexOf('.');
+    if (dot < 0) {
+      // We reached the last segment, end.
+      return Optional.empty();
+    }
+
+    return Optional.of(domain.substring(dot + 1));
   }
 
   /** Returns a new builder for a {@link CredentialHelperProvider}. */
