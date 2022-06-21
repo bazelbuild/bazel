@@ -95,7 +95,7 @@ public final class ResourceManagerTest {
 
   private ResourceHandle acquire(double ram, double cpu, int tests, ResourcePriority priority)
       throws InterruptedException, IOException {
-    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests), priority);
+    return rm.acquireResources(resourceOwner, "", ResourceSet.create(ram, cpu, tests), priority);
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests)
@@ -108,6 +108,7 @@ public final class ResourceManagerTest {
 
     return rm.acquireResources(
         resourceOwner,
+        "",
         ResourceSet.createWithWorkerKey(ram, cpu, tests, createWorkerKey(mnemonic)),
         ResourcePriority.LOCAL);
   }
