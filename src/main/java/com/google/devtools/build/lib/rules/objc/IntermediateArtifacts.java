@@ -137,7 +137,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
    */
   @StarlarkMethod(name = "archive_obj_list", documented = false, structField = true)
   public Artifact archiveObjList() {
-    return appendExtension("-archive.objlist");
+    return appendExtensionInGenfiles("-archive.objlist");
   }
 
   /**
