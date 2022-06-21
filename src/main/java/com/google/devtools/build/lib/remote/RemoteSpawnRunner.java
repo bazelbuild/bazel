@@ -277,6 +277,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             if (!result.success() && !message.isEmpty()) {
               outErr.printErr(message + "\n");
             }
+            maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
             profileAccounting(result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
@@ -444,6 +445,17 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return true;
   }
 
+  private void maybePrintExecutionMessages(
+      SpawnExecutionContext context, String message, boolean success) {
+    FileOutErr outErr = context.getFileOutErr();
+    boolean printMessage =
+        remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
+            && !message.isEmpty();
+    if (printMessage) {
+      outErr.printErr(message + "\n");
+    }
+  }
+
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
@@ -500,10 +512,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
     }
-    return handleError(action, cause);
+    return handleError(action, cause, context);
   }
 
-  private SpawnResult handleError(RemoteAction action, IOException exception)
+  private SpawnResult handleError(
+      RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed =
         BulkTransferException.isOnlyCausedByCacheNotFoundException(exception);
@@ -522,6 +535,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         }
       }
       if (e.isExecutionTimeout()) {
+        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success = */ false);
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)

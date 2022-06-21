@@ -635,4 +635,24 @@ public final class RemoteOptions extends OptionsBase {
         .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
         .build();
   }
+
+  /** An enum for specifying different modes for printing remote execution messages. */
+  public enum ExecutionMessagePrintMode {
+    FAILURE, // Print execution messages only on failure
+    SUCCESS, // Print execution messages only on success
+    ALL; // Print execution messages always
+
+    /** Converts to {@link ExecutionMessagePrintMode}. */
+    public static class Converter extends EnumConverter<ExecutionMessagePrintMode> {
+      public Converter() {
+        super(ExecutionMessagePrintMode.class, "execution message print mode");
+      }
+    }
+
+    public boolean shouldPrintMessages(boolean success) {
+      return ((!success && this == ExecutionMessagePrintMode.FAILURE)
+          || (success && this == ExecutionMessagePrintMode.SUCCESS)
+          || this == ExecutionMessagePrintMode.ALL);
+    }
+  }
 }
