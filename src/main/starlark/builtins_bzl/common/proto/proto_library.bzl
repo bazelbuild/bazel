@@ -17,7 +17,7 @@ Definition of proto_library rule.
 """
 
 load(":common/proto/proto_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", "proto_common")
+load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
 load(":common/paths.bzl", "paths")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
@@ -230,7 +230,6 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
     args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
         args.add("--include_source_info")
-    args.add(descriptor_set, format = "--descriptor_set_out=%s")
 
     strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
     strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
@@ -255,15 +254,22 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
             args.add("--allowed_public_imports=")
         else:
             args.add_joined("--allowed_public_imports", proto_info.public_import_sources(), map_each = _get_import_path, join_with = ":")
-    proto_common.create_proto_compile_action(
-        ctx,
-        proto_info,
-        proto_compiler = ctx.executable._proto_compiler,
+    proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
+        out_replacement_format_flag = "--descriptor_set_out=%s",
         mnemonic = "GenProtoDescriptorSet",
         progress_message = "Generating Descriptor Set proto_library %{label}",
-        outputs = [descriptor_set],
+        proto_compiler = ctx.executable._proto_compiler,
+        protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
+        plugin = None,
+    )
+    proto_common.compile(
+        ctx.actions,
+        proto_lang_toolchain_info,
+        generated_files = [descriptor_set],
+        plugin_output = descriptor_set,
         additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
+        proto_info = proto_info,
     )
 
 proto_library = rule(
