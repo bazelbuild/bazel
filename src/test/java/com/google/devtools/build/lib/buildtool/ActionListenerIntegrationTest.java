@@ -31,8 +31,10 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -48,8 +50,14 @@ import org.junit.runners.JUnit4;
 
 /** Tests the action_listener/extra_action feature. (--experimental_action_listener blaze option) */
 @RunWith(JUnit4.class)
-public class ActionListenerIntegrationTest extends BuildIntegrationTestCase {
-  protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
+public final class ActionListenerIntegrationTest extends BuildIntegrationTestCase {
+
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+
+  @Override
+  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
+    return super.getRuntimeBuilder().addBlazeModule(new IncludeScanningModule());
+  }
 
   private Map<ConfiguredTarget, Iterable<Artifact.DerivedArtifact>> getExtraArtifactMap() {
     Map<ConfiguredTarget, Iterable<Artifact.DerivedArtifact>> result = new LinkedHashMap<>();
@@ -482,5 +490,61 @@ public class ActionListenerIntegrationTest extends BuildIntegrationTestCase {
           .contains(
               String.format("Analysis of target '%s' failed; build aborted", "//nobuild:javalib"));
     }
+  }
+
+  /**
+   * Regression test for b/236308456.
+   *
+   * <p>Actions for {@code :shared1} and {@code :shared2} both produce {@code foo/shared.h}. {@code
+   * :mid} propagates a dependency on the header via {@code :shared1_lib}, while {@code :top}
+   * depends on the header via {@code :shared2_lib}. This leads to the extra action for {@code :top}
+   * discovering two inputs with the same exec path but different owners.
+   */
+  @Test
+  public void extraActionDiscoversBothSharedArtifacts() throws Exception {
+    write(
+        "foo/defs.bzl",
+        "def _shared_header_impl(ctx):",
+        "  header = ctx.actions.declare_file('shared.h')",
+        "  ctx.actions.write(header, '')",
+        "  return DefaultInfo(files = depset([header]))",
+        "",
+        "shared_header = rule(implementation = _shared_header_impl)");
+    write(
+        "foo/BUILD",
+        "load(':defs.bzl', 'shared_header')",
+        "shared_header(name = 'shared1')",
+        "shared_header(name = 'shared2')",
+        "cc_library(name = 'shared1_lib', hdrs = [':shared1'])",
+        "cc_library(name = 'shared2_lib', hdrs = [':shared2'])",
+        "cc_library(name = 'mid', hdrs = ['mid.h'], deps = [':shared1_lib'])",
+        // Order of top's deps matters to reproduce the crash.
+        "cc_library(name = 'top', hdrs = ['top.h'], deps = [':shared2_lib', ':mid'])",
+        "extra_action(",
+        "  name = 'extra',",
+        "  cmd = 'touch $(output $(ACTION_ID).out)',",
+        "  out_templates = ['$(ACTION_ID).out'],",
+        ")",
+        "action_listener(",
+        "  name = 'listener',",
+        "  extra_actions = [':extra'],",
+        "  mnemonics = ['CppCompileHeader']",
+        ")");
+    write("foo/mid.h", "#include \"foo/shared.h\"");
+    write(
+        "foo/top.h",
+        // A system include (<string>) is necessary to reproduce the crash, since otherwise the
+        // shared header would be last in the ActionExecutionFunction#addDiscoveredInputs loop.
+        "#include <string>",
+        "#include \"foo/mid.h\"",
+        "#include \"foo/shared.h\"");
+    addOptions(
+        "--cc_dotd_files",
+        "--features=-use_header_modules",
+        "--features=parse_headers",
+        "--features=cc_include_scanning",
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--experimental_action_listener=//foo:listener");
+    buildTarget("//foo:top");
   }
 }
