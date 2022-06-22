@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.Event;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatt
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
+import com.google.devtools.build.lib.query2.aquery.KeyedConfiguredTargetValue;
 import com.google.devtools.build.lib.query2.engine.ActionFilterFunction;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -54,7 +54,7 @@ import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 
 /** Performs {@code aquery} processing. */
-public final class AqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTargetValue> {
+public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfiguredTargetValue> {
   private final AqueryActionFilter actionFilters;
 
   public AqueryProcessor(@Nullable QueryExpression queryExpression)
@@ -116,7 +116,7 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
   }
 
   @Override
-  protected PostAnalysisQueryEnvironment<ConfiguredTargetValue> getQueryEnvironment(
+  protected PostAnalysisQueryEnvironment<KeyedConfiguredTargetValue> getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
       BuildConfigurationValue hostConfiguration,

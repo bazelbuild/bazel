@@ -68,7 +68,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTargetValue> accessor,
+      TargetAccessor<KeyedConfiguredTargetValue> accessor,
       AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.actionFilters = actionFilters;
@@ -80,13 +80,15 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
+      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
+        ConfiguredTargetValue configuredTargetValue =
+            keyedConfiguredTargetValue.getConfiguredTargetValue();
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
           // We have to include non-rule values in the graph to visit their dependencies, but they
           // don't have any actions to print out.
@@ -97,7 +99,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           writeAction(action, printStream);
         }
         if (options.useAspects) {
-          for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
+          for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
                 writeAction(action, printStream);
