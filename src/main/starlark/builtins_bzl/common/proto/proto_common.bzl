@@ -189,9 +189,10 @@ def _experimental_should_generate_code(
 
 def _declare_generated_files(
         actions,
-        proto_library_target,
-        extension,
-        name_mapper = None):
+        proto_library_target = None,
+        extension = None,
+        name_mapper = None,
+        proto_info = None):
     """Declares generated files with a specific extension.
 
     Use this in lang_proto_library-es when protocol compiler generates files
@@ -202,17 +203,21 @@ def _declare_generated_files(
 
     Args:
       actions: (ActionFactory) Obtained by ctx.actions, used to declare the files.
-      proto_library_target: (Target) The proto_library to generate the files for.
-        Obtained as the `target` parameter from an aspect's implementation.
+      proto_info: (ProtoInfo) The ProtoInfo to declare the files for.
       extension: (str) The extension to use for generated files.
       name_mapper: (str->str) A function mapped over the base filename without
         the extension. Used it to replace characters in the name that
         cause problems in a specific programming language.
+      proto_library_target: (Target) Deprecated: use proto_info instead.
 
     Returns:
       (list[File]) The list of declared files.
     """
-    proto_info = proto_library_target[_builtins.toplevel.ProtoInfo]
+    if not proto_info:
+        proto_info = proto_library_target[_builtins.toplevel.ProtoInfo]
+    if not extension:
+        fail("missing parameter extension")
+
     proto_sources = proto_info.direct_sources
     outputs = []
 
