@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -58,7 +57,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   /**
    * Proxy to the real analysis mock to overwrite {@code #getSkyFunctions(BlazeDirectories)} to
    * inject the StarlarkRepositoryFunction in the list of SkyFunctions. In Bazel, this function is
-   * injected by the corresponding @{code BlazeModule}.
+   * injected by the corresponding {@code BlazeModule}.
    */
   private static class CustomAnalysisMock extends AnalysisMock.Delegate {
     CustomAnalysisMock(AnalysisMock proxied) {
@@ -84,7 +83,6 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
               new AtomicBoolean(true),
               ImmutableMap::of,
               directories,
-              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
               BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
       return ImmutableMap.of(SkyFunctions.REPOSITORY_DIRECTORY, function);
     }

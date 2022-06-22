@@ -234,7 +234,7 @@ public abstract class RepositoryFunction {
   }
 
   /**
-   * Convert to a @{link com.google.devtools.build.lib.skyframe.FileValue} to a String appropriate
+   * Convert to a {@link com.google.devtools.build.lib.actions.FileValue} to a String appropriate
    * for placing in a repository marker file.
    *
    * @param fileValue The value to convert. It must correspond to a regular file.
@@ -524,22 +524,6 @@ public abstract class RepositoryFunction {
     }
     String repositoryName = repositoryPath.getSegment(0);
     env.getValue(RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(repositoryName)));
-  }
-
-  /**
-   * For paths that are under managed directories, we require that the corresponding FileStateValue
-   * or DirectoryListingStateValue is evaluated only after RepositoryDirectoryValue is evaluated.
-   * This way we guarantee that the repository rule is given a chance to update the managed
-   * directory before the files under the managed directory are accessed.
-   *
-   * <p>We do not need to require anything else (comparing to dependencies required for external
-   * repositories files), as overriding external repositories with managed directories is currently
-   * forbidden; also, we do not have do perform special checks for local_repository targets, since
-   * such targets cannot have managed directories by definition.
-   */
-  public static void addManagedDirectoryDependencies(RepositoryName repositoryName, Environment env)
-      throws InterruptedException {
-    env.getValue(RepositoryDirectoryValue.key(repositoryName));
   }
 
   /**

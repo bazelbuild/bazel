@@ -85,7 +85,7 @@ public class EndOfCentralDirectory extends View<EndOfCentralDirectory> {
 
   private EndOfCentralDirectory init(byte[] comment) {
     buffer.putInt(0, SIGNATURE);
-    set(ENDCOM, (short) comment.length);
+    set(ENDCOM, comment.length);
     if (comment.length > 0) {
       buffer.position(SIZE);
       buffer.put(comment);
@@ -106,67 +106,58 @@ public class EndOfCentralDirectory extends View<EndOfCentralDirectory> {
   public static final int SIZE = 22;
 
   /**
-   * For accessing the end of central directory signature, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the end of central directory signature, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<EndOfCentralDirectory> ENDSIG = new IntFieldId<>(0);
 
   /**
-   * For accessing the "this disk number" end of central directory field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "this disk number" end of central directory field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<EndOfCentralDirectory> ENDDSK = new ShortFieldId<>(4);
 
-
   /**
    * For accessing the "central directory start disk" end of central directory field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<EndOfCentralDirectory> ENDDCD = new ShortFieldId<>(6);
 
   /**
    * For accessing the "central directory local records" end of central directory field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<EndOfCentralDirectory> ENDSUB = new ShortFieldId<>(8);
 
   /**
    * For accessing the "central directory total records" end of central directory field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<EndOfCentralDirectory> ENDTOT = new ShortFieldId<>(10);
 
   /**
-   * For accessing the "central directory size" end of central directory field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "central directory size" end of central directory field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<EndOfCentralDirectory> ENDSIZ = new IntFieldId<>(12);
 
   /**
-   * For accessing the "central directory offset" end of central directory field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "central directory offset" end of central directory field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<EndOfCentralDirectory> ENDOFF = new IntFieldId<>(16);
 
   /**
-   * For accessing the "file comment length" end of central directory field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "file comment length" end of central directory field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<EndOfCentralDirectory> ENDCOM = new ShortFieldId<>(20);
 

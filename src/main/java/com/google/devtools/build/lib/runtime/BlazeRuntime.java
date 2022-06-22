@@ -300,7 +300,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  @Nullable
   public InvocationPolicy getModuleInvocationPolicy() {
     return moduleInvocationPolicy;
   }

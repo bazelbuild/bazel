@@ -85,13 +85,13 @@ public final class InvocationPolicyEnforcer {
    * Applies this instance's policy to the provided options parser.
    *
    * @param parser The OptionsParser to enforce policy on.
-   * @param command The blaze command to enforce the policy for, or null to apply all policies
-   *     regardless of command. Flag policies that apply to specific commands will be enforced only
-   *     if they contain this command or a command it inherits from.
+   * @param command The blaze command to enforce the policy for. Flag policies that apply to
+   *     specific commands will be enforced only if they contain this command or a command it
+   *     inherits from.
    * @throws OptionsParsingException if any flag policy is invalid.
    */
-  public void enforce(OptionsParser parser, @Nullable String command)
-      throws OptionsParsingException {
+  public void enforce(OptionsParser parser, String command) throws OptionsParsingException {
+    Preconditions.checkNotNull(command, "command is required");
     if (invocationPolicy.getFlagPoliciesCount() == 0) {
       return;
     }
@@ -179,7 +179,7 @@ public final class InvocationPolicyEnforcer {
 
   private static boolean policyApplies(FlagPolicy policy, ImmutableSet<String> applicableCommands) {
     // If the commands list is empty, then the policy applies to all commands.
-    if (policy.getCommandsList().isEmpty() || applicableCommands.isEmpty()) {
+    if (policy.getCommandsList().isEmpty()) {
       return true;
     }
 
@@ -216,9 +216,10 @@ public final class InvocationPolicyEnforcer {
     }
 
     ImmutableSet<String> commandAndParentCommands =
-        command == null
-            ? ImmutableSet.of()
-            : CommandNameCache.CommandNameCacheInstance.INSTANCE.get(command);
+        Preconditions.checkNotNull(
+            CommandNameCache.CommandNameCacheInstance.INSTANCE.get(command),
+            "Command %s does not exist",
+            command);
 
     // Expand all policies to transfer policies on expansion flags to policies on the child flags.
     List<FlagPolicyWithContext> expandedPolicies = new ArrayList<>();
@@ -619,7 +620,7 @@ public final class InvocationPolicyEnforcer {
 
     private static final class DisallowValueOperation extends FilterValueOperation {
       DisallowValueOperation(Level loglevel) {
-        super("Disalllow", loglevel);
+        super("Disallow", loglevel);
       }
 
       @Override

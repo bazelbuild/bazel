@@ -21,9 +21,6 @@ cc_common = _builtins.toplevel.cc_common
 def _get_proto_aspects():
     return []
 
-def _get_proto_cc_files(dep):
-    return dep[DefaultInfo].files.to_list()
-
 def _should_create_empty_archive():
     return False
 
@@ -187,6 +184,5 @@ semantics = struct(
     should_use_legacy_cc_test = _should_use_legacy_cc_test,
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
-    get_proto_cc_files = _get_proto_cc_files,
     get_proto_aspects = _get_proto_aspects,
 )

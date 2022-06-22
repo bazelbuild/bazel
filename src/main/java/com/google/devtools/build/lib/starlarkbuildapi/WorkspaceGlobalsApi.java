@@ -19,7 +19,6 @@ import com.google.devtools.build.docgen.annot.DocumentMethods;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -62,24 +61,9 @@ public interface WorkspaceGlobalsApi {
                     + "letters, numbers, underscores, dashes, and dots.",
             named = true,
             positional = false),
-        @Param(
-            name = "managed_directories",
-            named = true,
-            positional = false,
-            defaultValue = "{}",
-            doc =
-                "Dict (strings to list of strings) for defining the mappings between external"
-                    + " repositories and relative (to the workspace root) paths to directories"
-                    + " they incrementally update."
-                    + "\nManaged directories must be excluded from the source tree by listing"
-                    + " them (or their parent directories) in the .bazelignore file."),
       },
       useStarlarkThread = true)
-  void workspace(
-      String name,
-      Dict<?, ?> managedDirectories, // <String, Sequence<String>>
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  void workspace(String name, StarlarkThread thread) throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "register_execution_platforms",

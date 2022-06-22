@@ -947,6 +947,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
     host.enableAspectHints = enableAspectHints;
+    host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
     return host;
   }

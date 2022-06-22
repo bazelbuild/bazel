@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -189,8 +191,24 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    // TODO(wyv): check that all used repos have been generated (for better error reporting). Or...
-    //   somehow check it at use time?
+    // Check that all imported repos have been actually generated
+    for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
+      for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
+        if (!threadContext.getGeneratedRepos().containsKey(repoImport.getValue())) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
+                      + " is imported as \"%s\" in the usage at %s",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  repoImport.getValue(),
+                  repoImport.getKey(),
+                  usage.getLocation()),
+              Transience.PERSISTENT);
+        }
+      }
+    }
 
     return SingleExtensionEvalValue.create(threadContext.getGeneratedRepos());
   }

@@ -404,6 +404,16 @@ def _cc_shared_library_impl(ctx):
     merged_cc_shared_library_info = _merge_cc_shared_library_infos(ctx)
     exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_info)
     for export in ctx.attr.roots:
+        # Do not check for overlap between targets matched by the current
+        # rule's exports_filter and what is in exports_map. A library in roots
+        # will have to be linked in statically into the current rule with 100%
+        # guarantee and it will also have to be exported. Therefore, we must
+        # check it's not already exported by a different shared library. On the
+        # other hand, a library in the transitive closure of the current rule
+        # may be matched by the exports_filter but if it's already exported by
+        # a dynamic_dep then it won't be linked statically (therefore not give
+        # an error either) in the current target. The rule will intentionally
+        # not throw an error in these cases.
         if str(export.label) in exports_map:
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
@@ -490,6 +500,11 @@ def _cc_shared_library_impl(ctx):
     runfiles_files = []
     if linking_outputs.library_to_link.resolved_symlink_dynamic_library != None:
         runfiles_files.append(linking_outputs.library_to_link.resolved_symlink_dynamic_library)
+
+    # This is different to cc_binary(linkshared=1). Bazel never handles the
+    # linking implicitly for a cc_binary(linkshared=1) but it does so for a cc_shared_library,
+    # for which it will use the symlink in the solib directory. If we don't add it, a dependent
+    # linked against it would fail.
     runfiles_files.append(linking_outputs.library_to_link.dynamic_library)
     runfiles = ctx.runfiles(
         files = runfiles_files,
@@ -505,8 +520,6 @@ def _cc_shared_library_impl(ctx):
         # an interface library which is valid if the actual library is obtained from the system.
         if precompiled_dynamic_library.dynamic_library != None:
             precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
-        if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
-            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
 
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 

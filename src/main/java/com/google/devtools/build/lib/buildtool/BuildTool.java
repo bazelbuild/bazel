@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -43,6 +44,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -276,13 +281,24 @@ public class BuildTool {
             && executionTool.getTestActionContext().forceParallelTestExecution()) {
           String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
           for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
-            getReporter()
-                .handle(
-                    Event.warn(
-                        test.getLabel()
-                            + " is tagged exclusive, but --test_strategy="
-                            + testStrategy
-                            + " forces parallel test execution."));
+            Rule rule = null;
+            try {
+              rule = (Rule) env.getPackageManager().getTarget(env.getReporter(), test.getLabel());
+            } catch (NoSuchTargetException | NoSuchPackageException e) {
+              env.getReporter()
+                  .handle(
+                      Event.error(
+                          String.format("Could not find target from label %s.", test.getLabel())));
+            }
+            if (TargetUtils.isExclusiveTestRule(rule)) {
+              getReporter()
+                  .handle(
+                      Event.warn(
+                          test.getLabel()
+                              + " is tagged exclusive, but --test_strategy="
+                              + testStrategy
+                              + " forces parallel test execution."));
+            }
           }
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
         }
@@ -324,7 +340,7 @@ public class BuildTool {
                 request.getOptions(BuildEventProtocolOptions.class),
                 request.getBuildOptions().aqueryDumpAfterBuildFormat,
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-          } catch (CommandLineExpansionException | IOException e) {
+          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
@@ -391,7 +407,8 @@ public class BuildTool {
       @Nullable BuildEventProtocolOptions besOptions,
       String format,
       @Nullable PathFragment outputFilePathFragment)
-      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException {
+      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException,
+          TemplateExpansionException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
 
     UploadContext streamingContext = null;

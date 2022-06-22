@@ -18,8 +18,6 @@ import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -30,15 +28,12 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -53,20 +48,15 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   private final boolean allowOverride;
   private final RuleFactory ruleFactory;
-  // Mapping of the relative paths of the incrementally updated managed directories
-  // to the managing external repositories
-  private final TreeMap<PathFragment, RepositoryName> managedDirectoriesMap;
 
   public WorkspaceGlobals(boolean allowOverride, RuleFactory ruleFactory) {
     this.allowOverride = allowOverride;
     this.ruleFactory = ruleFactory;
-    this.managedDirectoriesMap = Maps.newTreeMap();
   }
 
   @Override
   public void workspace(
       String name,
-      Dict<?, ?> managedDirectories, // <String, Object>
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (!allowOverride) {
@@ -101,95 +91,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
     builder.addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
-    parseManagedDirectories(
-        thread.getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_MANAGE_DIRECTORIES),
-        Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
-  }
-
-  private void parseManagedDirectories(
-      boolean disabled, Map<String, ?> managedDirectories) // <String, Sequence<String>>
-      throws EvalException {
-    if (disabled && !managedDirectories.isEmpty()) {
-      throw Starlark.errorf(
-          "managed_directories is disabled. Pass the "
-              + "--noincompatible_disable_managed_directories command line option to temporarily "
-              + "re-enable it. For more information, see "
-              + "https://github.com/bazelbuild/bazel/issues/15463");
-    }
-
-    Map<PathFragment, String> nonNormalizedPathsMap = Maps.newHashMap();
-    for (Map.Entry<String, ?> entry : managedDirectories.entrySet()) {
-      RepositoryName repositoryName = createRepositoryName(entry.getKey());
-      List<PathFragment> paths =
-          getManagedDirectoriesPaths(entry.getValue(), nonNormalizedPathsMap);
-      for (PathFragment dir : paths) {
-        PathFragment floorKey = managedDirectoriesMap.floorKey(dir);
-        if (dir.equals(floorKey)) {
-          throw Starlark.errorf(
-              "managed_directories attribute should not contain multiple"
-                  + " (or duplicate) repository mappings for the same directory ('%s').",
-              nonNormalizedPathsMap.get(dir));
-        }
-        PathFragment ceilingKey = managedDirectoriesMap.ceilingKey(dir);
-        boolean isDescendant = floorKey != null && dir.startsWith(floorKey);
-        if (isDescendant || (ceilingKey != null && ceilingKey.startsWith(dir))) {
-          throw Starlark.errorf(
-              "managed_directories attribute value can not contain nested mappings."
-                  + " '%s' is a descendant of '%s'.",
-              nonNormalizedPathsMap.get(isDescendant ? dir : ceilingKey),
-              nonNormalizedPathsMap.get(isDescendant ? floorKey : dir));
-        }
-        managedDirectoriesMap.put(dir, repositoryName);
-      }
-    }
-  }
-
-  private static RepositoryName createRepositoryName(String key) throws EvalException {
-    if (!key.startsWith("@")) {
-      throw Starlark.errorf(
-          "Cannot parse repository name '%s'. Repository name should start with '@'.", key);
-    }
-    try {
-      return RepositoryName.create(key.substring(1));
-    } catch (LabelSyntaxException e) {
-      throw Starlark.errorf("%s", e);
-    }
-  }
-
-  private static List<PathFragment> getManagedDirectoriesPaths(
-      Object directoriesList, Map<PathFragment, String> nonNormalizedPathsMap)
-      throws EvalException {
-    if (!(directoriesList instanceof Sequence)) {
-      throw Starlark.errorf(
-          "managed_directories attribute value should be of the type attr.string_list_dict(),"
-              + " mapping repository name to the list of managed directories.");
-    }
-    List<PathFragment> result = Lists.newArrayList();
-    for (Object obj : (Sequence) directoriesList) {
-      if (!(obj instanceof String)) {
-        throw Starlark.errorf("Expected managed directory path (as string), but got '%s'.", obj);
-      }
-      String path = ((String) obj).trim();
-      if (path.isEmpty()) {
-        throw Starlark.errorf("Expected managed directory path to be non-empty string.");
-      }
-      PathFragment pathFragment = PathFragment.create(path);
-      if (pathFragment.isAbsolute()) {
-        throw Starlark.errorf(
-            "Expected managed directory path ('%s') to be relative to the workspace root.", path);
-      }
-      if (pathFragment.containsUplevelReferences()) {
-        throw Starlark.errorf(
-            "Expected managed directory path ('%s') to be under the workspace root.", path);
-      }
-      nonNormalizedPathsMap.put(pathFragment, path);
-      result.add(pathFragment);
-    }
-    return result;
-  }
-
-  public Map<PathFragment, RepositoryName> getManagedDirectories() {
-    return managedDirectoriesMap;
   }
 
   private static RepositoryName getRepositoryName(@Nullable Label label) {

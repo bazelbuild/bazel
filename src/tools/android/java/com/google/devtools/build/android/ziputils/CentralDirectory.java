@@ -32,7 +32,7 @@ public class CentralDirectory extends View<CentralDirectory> {
   // Cached map from entry name to directory entry.
   private NavigableMap<String, DirectoryEntry> mapByNameSorted;
   // Cached map from entry file offset to directory entry.
-  private NavigableMap<Integer, DirectoryEntry> mapByOffsetSorted;
+  private NavigableMap<Long, DirectoryEntry> mapByOffsetSorted;
   // Number of directory entries in this view.
   private int count;
   // Parsed or added entries
@@ -54,10 +54,8 @@ public class CentralDirectory extends View<CentralDirectory> {
     return entries;
   }
 
-  /**
-   * Returns a navigable map of directory entries, by zip entry file offset.
-   */
-  public NavigableMap<Integer, DirectoryEntry> mapByOffset() {
+  /** Returns a navigable map of directory entries, by zip entry file offset. */
+  public NavigableMap<Long, DirectoryEntry> mapByOffset() {
     if (entries == null) {
       return null;
     }
@@ -146,7 +144,7 @@ public class CentralDirectory extends View<CentralDirectory> {
     return mapByNameSorted;
   }
 
-  private NavigableMap<Integer, DirectoryEntry> mapEntriesByOffset() {
+  private NavigableMap<Long, DirectoryEntry> mapEntriesByOffset() {
     if (mapByOffsetSorted == null) {
       mapByOffsetSorted = new TreeMap<>();
       for (DirectoryEntry entry : entries) {

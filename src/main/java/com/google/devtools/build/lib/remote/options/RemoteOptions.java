@@ -669,5 +669,11 @@ public final class RemoteOptions extends OptionsBase {
         super(ExecutionMessagePrintMode.class, "execution message print mode");
       }
     }
+
+    public boolean shouldPrintMessages(boolean success) {
+      return ((!success && this == ExecutionMessagePrintMode.FAILURE)
+          || (success && this == ExecutionMessagePrintMode.SUCCESS)
+          || this == ExecutionMessagePrintMode.ALL);
+    }
   }
 }

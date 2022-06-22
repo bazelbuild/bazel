@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
@@ -63,7 +61,6 @@ import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -91,16 +88,12 @@ import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
@@ -113,9 +106,7 @@ import org.mockito.Mockito;
 public class RepositoryDelegatorTest extends FoundationTestCase {
   private Path overrideDirectory;
   private MemoizingEvaluator evaluator;
-  private TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
   private RecordingDifferencer differencer;
-  private TestStarlarkRepositoryFunction testStarlarkRepositoryFunction;
   private Path rootPath;
   private FakeRegistry.Factory registryFactory;
 
@@ -130,21 +121,17 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             rootPath,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    managedDirectoriesKnowledge = new TestManagedDirectoriesKnowledge();
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    testStarlarkRepositoryFunction =
-        new TestStarlarkRepositoryFunction(rootPath, downloader, managedDirectoriesKnowledge);
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
     RepositoryDelegatorFunction delegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
-            testStarlarkRepositoryFunction,
+            new StarlarkRepositoryFunction(downloader),
             /*isFetch=*/ new AtomicBoolean(true),
             /*clientEnvironmentSupplier=*/ ImmutableMap::of,
             directories,
-            managedDirectoriesKnowledge,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
@@ -300,10 +287,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   @Test
   public void testRepositoryDirtinessChecker() throws Exception {
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(new ManualClock());
-    TestManagedDirectoriesKnowledge knowledge = new TestManagedDirectoriesKnowledge();
 
-    RepositoryDirectoryDirtinessChecker checker =
-        new RepositoryDirectoryDirtinessChecker(rootPath, knowledge);
+    RepositoryDirectoryDirtinessChecker checker = new RepositoryDirectoryDirtinessChecker();
     RepositoryName repositoryName = RepositoryName.create("repo");
     RepositoryDirectoryValue.Key key = RepositoryDirectoryValue.key(repositoryName);
 
@@ -324,98 +309,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     assertThat(checker.check(key, fetchDelayed, SyscallCache.NO_CACHE, tsgm).isDirty()).isTrue();
 
-    RepositoryName managedName = RepositoryName.create("managed");
-    RepositoryDirectoryValue.Key managedKey = RepositoryDirectoryValue.key(managedName);
-    SuccessfulRepositoryDirectoryValue withManagedDirectories =
-        RepositoryDirectoryValue.builder()
-            .setPath(rootDirectory.getRelative("c"))
-            .setDigest(new byte[] {1})
-            .build();
-
-    knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), managedName));
-    assertThat(
-            checker
-                .check(managedKey, withManagedDirectories, SyscallCache.NO_CACHE, tsgm)
-                .isDirty())
-        .isTrue();
-
-    Path managedDirectoryM = rootPath.getRelative("m");
-    assertThat(managedDirectoryM.createDirectory()).isTrue();
-
-    assertThat(
-            checker
-                .check(managedKey, withManagedDirectories, SyscallCache.NO_CACHE, tsgm)
-                .isDirty())
-        .isFalse();
-
-    managedDirectoryM.deleteTree();
-    assertThat(
-            checker
-                .check(managedKey, withManagedDirectories, SyscallCache.NO_CACHE, tsgm)
-                .isDirty())
-        .isTrue();
-  }
-
-  @Test
-  public void testManagedDirectoriesCauseRepositoryReFetches() throws Exception {
-    scratch.file(rootPath.getRelative("BUILD").getPathString());
-    scratch.file(
-        rootPath.getRelative("repo_rule.bzl").getPathString(),
-        "def _impl(rctx):",
-        " rctx.file('BUILD', '')",
-        "fictive_repo_rule = repository_rule(implementation = _impl)");
-    scratch.overwriteFile(
-        rootPath.getRelative("WORKSPACE").getPathString(),
-        "workspace(name = 'abc')",
-        "load(':repo_rule.bzl', 'fictive_repo_rule')",
-        "fictive_repo_rule(name = 'repo1')");
-
-    // Managed directories from workspace() attribute will not be parsed by this test, since
-    // we are not calling SequencedSkyframeExecutor.
-    // That's why we will directly fill managed directories value (the corresponding structure
-    // is passed to RepositoryDelegatorFunction during construction).
-    managedDirectoriesKnowledge.setManagedDirectories(
-        ImmutableMap.of(PathFragment.create("dir1"), RepositoryName.create("repo1")));
-
-    loadRepo("repo1");
-
-    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
-    testStarlarkRepositoryFunction.reset();
-
-    loadRepo("repo1");
-    // Nothing changed, fetch does not happen.
-    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isFalse();
-    testStarlarkRepositoryFunction.reset();
-
-    // Delete managed directory, fetch should happen again.
-    Path managedDirectory = rootPath.getRelative("dir1");
-    managedDirectory.deleteTree();
-    loadRepo("repo1");
-    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
-    testStarlarkRepositoryFunction.reset();
-
-    // Change managed directories declaration, fetch should happen.
-    // NB: we are making sure that managed directories exist to check only the declaration changes
-    // were percepted.
-    rootPath.getRelative("dir1").createDirectory();
-    rootPath.getRelative("dir2").createDirectory();
-
-    managedDirectoriesKnowledge.setManagedDirectories(
-        ImmutableMap.of(
-            PathFragment.create("dir1"),
-            RepositoryName.create("repo1"),
-            PathFragment.create("dir2"),
-            RepositoryName.create("repo1")));
-    loadRepo("repo1");
-
-    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
-    testStarlarkRepositoryFunction.reset();
-
-    managedDirectoriesKnowledge.setManagedDirectories(ImmutableMap.of());
-    loadRepo("repo1");
-
-    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
-    testStarlarkRepositoryFunction.reset();
   }
 
   @Test
@@ -581,81 +474,5 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isTrue();
-  }
-
-  private static class TestStarlarkRepositoryFunction extends StarlarkRepositoryFunction {
-    private boolean fetchCalled = false;
-    private final Path workspaceRoot;
-    private final TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
-
-    private TestStarlarkRepositoryFunction(
-        Path workspaceRoot,
-        DownloadManager downloader,
-        TestManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
-      super(downloader);
-      this.workspaceRoot = workspaceRoot;
-      this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
-    }
-
-    public void reset() {
-      fetchCalled = false;
-    }
-
-    private boolean isFetchCalled() {
-      return fetchCalled;
-    }
-
-    @Nullable
-    @Override
-    public RepositoryDirectoryValue.Builder fetch(
-        Rule rule,
-        Path outputDirectory,
-        BlazeDirectories directories,
-        Environment env,
-        Map<String, String> markerData,
-        SkyKey key)
-        throws RepositoryFunctionException, InterruptedException {
-      fetchCalled = true;
-      RepositoryDirectoryValue.Builder builder =
-          super.fetch(rule, outputDirectory, directories, env, markerData, key);
-      ImmutableSet<PathFragment> managedDirectories =
-          managedDirectoriesKnowledge.getManagedDirectories((RepositoryName) key.argument());
-      try {
-        for (PathFragment managedDirectory : managedDirectories) {
-          workspaceRoot.getRelative(managedDirectory).createDirectory();
-        }
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-      }
-      return builder;
-    }
-  }
-
-  private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {
-
-    private ImmutableMap<PathFragment, RepositoryName> map = ImmutableMap.of();
-
-    public void setManagedDirectories(ImmutableMap<PathFragment, RepositoryName> map) {
-      this.map = map;
-    }
-
-    @Nullable
-    @Override
-    public RepositoryName getOwnerRepository(PathFragment relativePathFragment) {
-      return map.get(relativePathFragment);
-    }
-
-    @Override
-    public ImmutableSet<PathFragment> getManagedDirectories(RepositoryName repositoryName) {
-      return map.keySet().stream()
-          .filter(path -> repositoryName.equals(map.get(path)))
-          .collect(toImmutableSet());
-    }
-
-    @Override
-    public boolean workspaceHeaderReloaded(
-        @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue) {
-      throw new IllegalStateException();
-    }
   }
 }

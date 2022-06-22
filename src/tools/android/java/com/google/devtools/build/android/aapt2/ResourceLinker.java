@@ -515,8 +515,8 @@ public class ResourceLinker {
           (in, header, dirEntry, data) -> {
             final String filename = dirEntry.getFilename();
 
-            short how = dirEntry.get(CENHOW);
-            int siz = dirEntry.get(CENSIZ);
+            int how = dirEntry.get(CENHOW);
+            long siz = dirEntry.get(CENSIZ);
             switch (overrideCompression(dirEntry)) {
               case FORCE_DEFLATED:
                 if (how == STORED) {

@@ -102,44 +102,40 @@ public class DataDescriptor extends View<DataDescriptor> {
   public static final int SIZE = 16;
 
   /**
-   * For accessing the data descriptor signature, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the data descriptor signature, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DataDescriptor> EXTSIG = new IntFieldId<>(0);
 
   /**
-   * For accessing the "crc" data descriptor field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "crc" data descriptor field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DataDescriptor> EXTCRC = new IntFieldId<>(4);
 
   /**
-   * For accessing the "compressed size" data descriptor field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "compressed size" data descriptor field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DataDescriptor> EXTSIZ = new IntFieldId<>(8);
 
   /**
-   * For accessing the "uncompressed size" data descriptor field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "uncompressed size" data descriptor field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DataDescriptor> EXTLEN = new IntFieldId<>(12);
 
-
   /**
    * Overrides the generic field getter, to handle optionality of signature.
+   *
    * @see View#get(com.google.devtools.build.android.ziputils.View.IntFieldId).
    */
-  @Override  @SuppressWarnings("unchecked") // safe by specification (FieldId.type()).
-  public int get(IntFieldId<? extends DataDescriptor> item) {
+  @Override
+  public long get(IntFieldId<? extends DataDescriptor> item) {
     int address = hasMarker ? item.address() : (item.address() - 4);
     return address < 0 ? -1 : buffer.getInt(address);
   }

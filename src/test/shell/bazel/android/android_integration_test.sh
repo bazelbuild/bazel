@@ -128,7 +128,7 @@ EOF
 
 }
 
-function test_d8_compiles_hello_android() {
+function test_d8_dexes_hello_android() {
   write_hello_android_files
   setup_android_sdk_support
   cat > java/com/example/hello/BUILD <<'EOF'
@@ -142,6 +142,27 @@ EOF
 
   bazel clean
   bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_d8_dexes_and_desugars_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  # Note: D8 desugaring with persistent workers is not currently supported, so
+  # need to add --strategy=Desugar=sandboxed
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      --define=android_desugaring_tool=d8 \
+      --strategy=Desugar=sandboxed \
       //java/com/example/hello:hello || fail "build failed"
 }
 

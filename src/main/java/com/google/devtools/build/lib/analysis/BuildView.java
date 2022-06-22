@@ -825,7 +825,9 @@ public class BuildView {
       for (ConfiguredTarget configuredTarget : allTestTargets) {
         Target target = labelToTargetMap.get(configuredTarget.getLabel());
         if (target instanceof Rule) {
-          if (isExclusive || TargetUtils.isExclusiveTestRule((Rule) target)) {
+          if (isExclusive
+              || TargetUtils.isExclusiveTestRule((Rule) target)
+              || TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
             targetsToTestExclusive.add(configuredTarget);
           } else {
             targetsToTest.add(configuredTarget);

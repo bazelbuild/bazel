@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
@@ -831,25 +832,43 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   @Override
   public void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      /* TemplateDict */ Object computedSubstitutions)
       throws EvalException {
     context.checkMutable("actions.expand_template");
-    ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
+    // We use a map to check for duplicate keys
+    ImmutableMap.Builder<String, Substitution> substitutionsBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
       // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.
       // In the long term, avoiding ParserInput.fromLatin would be a better approach.
-      substitutionsBuilder.add(
+      substitutionsBuilder.put(
+          substitution.getKey(),
           Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
+    }
+    if (!Starlark.UNBOUND.equals(computedSubstitutions)) {
+      for (Substitution substitution : ((TemplateDict) computedSubstitutions).getAll()) {
+        substitutionsBuilder.put(substitution.getKey(), substitution);
+      }
+    }
+    ImmutableMap<String, Substitution> substitutionMap;
+    try {
+      substitutionMap = substitutionsBuilder.buildOrThrow();
+    } catch (IllegalArgumentException e) {
+      // user added duplicate keys, report the error, but the stack trace is not of use
+      throw Starlark.errorf("%s", e.getMessage());
     }
     TemplateExpansionAction action =
         new TemplateExpansionAction(
             getRuleContext().getActionOwner(),
             (Artifact) template,
             (Artifact) output,
-            substitutionsBuilder.build(),
+            substitutionMap.values().asList(),
             executable);
     registerAction(action);
   }
@@ -867,6 +886,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public Args args(StarlarkThread thread) {
     return Args.newArgs(thread.mutability(), getSemantics());
+  }
+
+  @Override
+  public TemplateDictApi templateDict() {
+    return TemplateDict.newDict();
   }
 
   @Override

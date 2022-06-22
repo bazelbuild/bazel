@@ -34,7 +34,6 @@ java_library(
         ":repository/bind",
         ":repository/bind_rule",
         ":repository/local_repository_rule",
-        ":repository/managed_directories_knowledge_impl",
         ":repository/new_local_repository_function",
         ":repository/new_local_repository_rule",
         ":repository/new_repository_file_handler",
@@ -312,20 +311,6 @@ java_library(
 )
 
 java_library(
-    name = "repository/managed_directories_knowledge_impl",
-    srcs = ["repository/ManagedDirectoriesKnowledgeImpl.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "repository/new_local_repository_function",
     srcs = ["repository/NewLocalRepositoryFunction.java"],
     deps = [
@@ -432,7 +417,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/repository:repository_failed_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
