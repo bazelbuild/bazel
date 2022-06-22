@@ -883,6 +883,17 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean persistentBusyboxTools;
 
     @Option(
+        name = "experimental_persistent_multiplex_busybox_tools",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when multiplex busybox workers are enabled.")
+    public boolean experimentalPersistentMultiplexBusyboxTools;
+
+    @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1007,6 +1018,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
+      host.experimentalPersistentMultiplexBusyboxTools =
+          experimentalPersistentMultiplexBusyboxTools;
 
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
@@ -1052,6 +1065,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingUpdatedArgs;
   private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
+  private final boolean experimentalPersistentMultiplexBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
@@ -1111,6 +1125,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
+    this.experimentalPersistentMultiplexBusyboxTools =
+        options.experimentalPersistentMultiplexBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
@@ -1360,6 +1376,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
+  }
+
+  @Override
+  public boolean persistentMultiplexBusyboxTools() {
+    return experimentalPersistentMultiplexBusyboxTools;
   }
 
   @Override
