@@ -208,6 +208,7 @@ public class ResourceManager {
     localRequests.clear();
     dynamicWorkerRequests.clear();
     dynamicStandaloneRequests.clear();
+    staticResources = null;
   }
 
   /**
@@ -217,15 +218,13 @@ public class ResourceManager {
    */
   public synchronized void setAvailableResources(ResourceSet resources) {
     Preconditions.checkNotNull(resources);
+    resetResourceUsage();
     staticResources = resources;
     availableResources =
         ResourceSet.create(
             staticResources.getMemoryMb(),
             staticResources.getCpuUsage(),
             staticResources.getLocalTestCount());
-    processWaitingThreads(localRequests);
-    processWaitingThreads(dynamicWorkerRequests);
-    processWaitingThreads(dynamicStandaloneRequests);
   }
 
   /**
