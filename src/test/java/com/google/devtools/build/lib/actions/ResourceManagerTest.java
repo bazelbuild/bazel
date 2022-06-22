@@ -53,7 +53,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mock;
-import java.util.AbstractMap
+import java.util.AbstractMap;
 
 /** Tests for {@link ResourceManager}. */
 @RunWith(JUnit4.class)
