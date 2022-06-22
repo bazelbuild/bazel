@@ -35,7 +35,6 @@ java_library(
         "proto/JavaProtoAspectCommon.java",
         "proto/JavaProtoLibrary.java",
         "proto/JavaProtoLibraryAspectProvider.java",
-        "proto/JavaProtoStarlarkCommon.java",
         "proto/JplCcLinkParams.java",
         "proto/ProtoJavacOpts.java",
         "proto/StrictDepsUtils.java",

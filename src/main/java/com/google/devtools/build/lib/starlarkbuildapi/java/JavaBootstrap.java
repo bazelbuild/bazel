@@ -26,19 +26,16 @@ public class JavaBootstrap implements Bootstrap {
   private final JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi;
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
-  private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
 
   public JavaBootstrap(
       JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
       JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi,
-      JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
       ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
     this.javaCommonApi = javaCommonApi;
     this.javaInfoProviderApi = javaInfoProviderApi;
     this.javaPluginInfoProviderApi = javaPluginInfoProviderApi;
-    this.javaProtoCommonApi = javaProtoCommonApi;
     this.proguardSpecProvider = proguardSpecProvider;
   }
 
@@ -47,7 +44,6 @@ public class JavaBootstrap implements Bootstrap {
     builder.put("java_common", javaCommonApi);
     builder.put("JavaInfo", javaInfoProviderApi);
     builder.put("JavaPluginInfo", javaPluginInfoProviderApi);
-    builder.put("java_proto_common", javaProtoCommonApi);
 
     builder.put(
         ProguardSpecProviderApi.NAME,

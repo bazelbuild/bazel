@@ -137,7 +137,6 @@ projects:
     *   [`java_compilation_info`](/rules/lib/java_compilation_info)
     *   [`java_output`](/rules/lib/java_output)
     *   [`java_output_jars`](/rules/lib/java_output_jars)
-    *   [`java_proto_common`](/rules/lib/java_proto_common)
     *   [`JavaRuntimeInfo`](/rules/lib/JavaRuntimeInfo)
     *   [`JavaToolchainInfo`](/rules/lib/JavaToolchainInfo)
 
