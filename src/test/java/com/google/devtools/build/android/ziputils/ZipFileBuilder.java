@@ -57,11 +57,11 @@ class ZipFileBuilder {
   public void create(String filename) throws IOException {
     ZipOut out = new ZipOut(FileSystem.fileSystem().getOutputChannel(filename, false), filename);
     for (FileInfo info : input) {
-      int compressed = info.compressedSize();
-      int uncompressed = info.uncompressedSize();
-      int dirCompressed = info.dirCompressedSize();
-      int dirUncompressed = info.dirUncompressedSize();
-      short flags = info.flags();
+      long compressed = info.compressedSize();
+      long uncompressed = info.uncompressedSize();
+      long dirCompressed = info.dirCompressedSize();
+      long dirUncompressed = info.dirUncompressedSize();
+      int flags = info.flags();
       DirectoryEntry entry = DirectoryEntry.allocate(info.name, info.extra, info.comment);
       out.nextEntry(entry)
           .set(CENOFF, out.fileOffset())
@@ -88,9 +88,9 @@ class ZipFileBuilder {
 
   public static class FileInfo {
     private final String name;
-    private final short method;
-    private final int date;
-    private final int uncompressed;
+    private final int method;
+    private final long date;
+    private final long uncompressed;
     private final byte[] data;
     private final byte[] extra;
     private final String comment;
@@ -114,25 +114,31 @@ class ZipFileBuilder {
       this(filename, DosTime.EPOCHISH.time, STORED, 0, data, null, null);
     }
 
-    public FileInfo(String filename, byte[] data, int uncompressed) {
+    public FileInfo(String filename, byte[] data, long uncompressed) {
       this(filename, DosTime.EPOCHISH.time, DEFLATED, uncompressed, data, null, null);
     }
 
-    public FileInfo(String filename, int dosTime, String content) {
+    public FileInfo(String filename, long dosTime, String content) {
       this(filename, dosTime, STORED, 0,
           (content == null ? EMPTY : content.getBytes(CHARSET)), null, null);
     }
 
-    public FileInfo(String filename, int dosTime, byte[] data) {
+    public FileInfo(String filename, long dosTime, byte[] data) {
       this(filename, dosTime, STORED, 0, data, null, null);
     }
 
-    public FileInfo(String filename, int dosTime, byte[] data, int uncompressed) {
+    public FileInfo(String filename, long dosTime, byte[] data, long uncompressed) {
       this(filename, dosTime, DEFLATED, uncompressed, data, null, null);
     }
 
-    public FileInfo(String filename, int dosTime, short method, int uncompressed,
-        byte[] content, byte[] extra, String comment) {
+    public FileInfo(
+        String filename,
+        long dosTime,
+        int method,
+        long uncompressed,
+        byte[] content,
+        byte[] extra,
+        String comment) {
       this.name = filename;
       this.date = dosTime;
       this.method = method;
@@ -147,23 +153,23 @@ class ZipFileBuilder {
       maskSize = ignore;
     }
 
-    int compressedSize() {
+    long compressedSize() {
       return method != 0 && !maskSize ? data.length : 0;
     }
 
-    int uncompressedSize() {
+    long uncompressedSize() {
       return method == 0 ? data.length : maskSize ? 0 : uncompressed;
     }
 
-    int dirCompressedSize() {
+    long dirCompressedSize() {
       return method == 0 ? 0 : data.length;
     }
 
-    int dirUncompressedSize() {
+    long dirUncompressedSize() {
       return method == 0 ? data.length : uncompressed;
     }
 
-    short flags() {
+    int flags() {
       return method != 0 && uncompressed == 0 ? LocalFileHeader.SIZE_MASKED_FLAG : 0;
     }
   }
