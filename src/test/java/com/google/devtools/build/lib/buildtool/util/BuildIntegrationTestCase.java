@@ -470,7 +470,9 @@ public abstract class BuildIntegrationTestCase {
    * <p>These modules are registered <em>before</em> {@link #getStrategyModule}.
    */
   protected ImmutableList<BlazeModule> getSpawnModules() {
-    return ImmutableList.of(new StandaloneModule());
+    return AnalysisMock.get().isThisBazel()
+        ? ImmutableList.of(new StandaloneModule(), new SandboxModule())
+        : ImmutableList.of(new StandaloneModule());
   }
 
   /** Gets a module containing rules (by default, using the TestRuleClassProvider) */
@@ -532,12 +534,11 @@ public abstract class BuildIntegrationTestCase {
         .addBlazeModule(getRulesModule())
         .addBlazeModule(getStrategyModule());
 
-    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
+    if (AnalysisMock.get().isThisBazel()) {
       // Add in modules implicitly added in internal integration test case.
       builder
           .addBlazeModule(new NoSpawnCacheModule())
           .addBlazeModule(new WorkerModule())
-          .addBlazeModule(new SandboxModule())
           .addBlazeModule(new BazelRepositoryModule());
     }
     return builder;
