@@ -76,7 +76,7 @@ def _proto_library_impl(ctx):
     proto_path, direct_sources = _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix)
     descriptor_set = ctx.actions.declare_file(ctx.label.name + "-descriptor-set.proto.bin")
     proto_info = _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descriptor_set)
-    _write_descriptor_set(ctx, deps, proto_info, descriptor_set)
+    _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set)
 
     # We assume that the proto sources will not have conflicting artifacts
     # with the same root relative path
@@ -193,14 +193,8 @@ def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descripto
     # Layering checks.
     if direct_sources:
         exported_sources = depset(direct = direct_sources)
-        strict_importable_sources = depset(
-            direct = direct_sources,
-            transitive = [dep.exported_sources() for dep in deps],
-        )
     else:
         exported_sources = depset(transitive = [dep.exported_sources() for dep in deps])
-        strict_importable_sources = depset()
-    public_import_protos = depset(transitive = [export.exported_sources() for export in exports])
 
     return native_proto_common.ProtoInfo(
         direct_sources,
@@ -212,14 +206,12 @@ def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descripto
         descriptor_set,
         transitive_descriptor_sets,
         exported_sources,
-        strict_importable_sources,
-        public_import_protos,
     )
 
 def _get_import_path(proto_source):
     return proto_source.import_path()
 
-def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
+def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set):
     """Writes descriptor set."""
     if proto_info.direct_sources == []:
         ctx.actions.write(descriptor_set, "")
@@ -234,7 +226,13 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
     strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
     strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
     if strict_deps:
-        strict_importable_sources = proto_info.strict_importable_sources()
+        if direct_sources:
+            strict_importable_sources = depset(
+                direct = direct_sources,
+                transitive = [dep.exported_sources() for dep in deps],
+            )
+        else:
+            strict_importable_sources = None
         if strict_importable_sources:
             args.add_joined("--direct_dependencies", strict_importable_sources, map_each = _get_import_path, join_with = ":")
             # Example: `--direct_dependencies a.proto:b.proto`
@@ -249,11 +247,12 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
     strict_public_imports_mode = ctx.fragments.proto.strict_public_imports()
     strict_imports = strict_public_imports_mode != "OFF" and strict_public_imports_mode != "DEFAULT"
     if strict_imports:
-        if not proto_info.public_import_sources():
+        public_import_protos = depset(transitive = [export.exported_sources() for export in exports])
+        if not public_import_protos:
             # This line is necessary to trigger the check.
             args.add("--allowed_public_imports=")
         else:
-            args.add_joined("--allowed_public_imports", proto_info.public_import_sources(), map_each = _get_import_path, join_with = ":")
+            args.add_joined("--allowed_public_imports", public_import_protos, map_each = _get_import_path, join_with = ":")
     proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
         out_replacement_format_flag = "--descriptor_set_out=%s",
         mnemonic = "GenProtoDescriptorSet",
