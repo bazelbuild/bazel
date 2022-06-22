@@ -44,10 +44,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -281,24 +277,13 @@ public class BuildTool {
             && executionTool.getTestActionContext().forceParallelTestExecution()) {
           String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
           for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
-            Rule rule = null;
-            try {
-              rule = (Rule) env.getPackageManager().getTarget(env.getReporter(), test.getLabel());
-            } catch (NoSuchTargetException | NoSuchPackageException e) {
-              env.getReporter()
-                  .handle(
-                      Event.error(
-                          String.format("Could not find target from label %s.", test.getLabel())));
-            }
-            if (TargetUtils.isExclusiveTestRule(rule)) {
-              getReporter()
-                  .handle(
-                      Event.warn(
-                          test.getLabel()
-                              + " is tagged exclusive, but --test_strategy="
-                              + testStrategy
-                              + " forces parallel test execution."));
-            }
+            getReporter()
+                .handle(
+                    Event.warn(
+                        test.getLabel()
+                            + " is tagged exclusive, but --test_strategy="
+                            + testStrategy
+                            + " forces parallel test execution."));
           }
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
         }

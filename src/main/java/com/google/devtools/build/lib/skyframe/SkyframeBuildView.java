@@ -920,8 +920,6 @@ public final class SkyframeBuildView {
     if (target instanceof Rule) {
       if (runTestsExclusively || TargetUtils.isExclusiveTestRule((Rule) target)) {
         return TestType.EXCLUSIVE;
-      } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
-        return TestType.EXCLUSIVE_IF_LOCAL;
       } else {
         return TestType.PARALLEL;
       }

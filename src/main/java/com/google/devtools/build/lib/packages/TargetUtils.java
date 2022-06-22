@@ -113,16 +113,6 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns true if test marked as "exclusive-if-local" by the appropriate keyword in the tags
-   * attribute.
-   *
-   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
-   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
-   */
-  public static boolean isExclusiveIfLocalTestRule(Rule rule) {
-    return hasConstraint(rule, "exclusive-if-local");
-  }
-  /**
    * Returns true if test marked as "local" by the appropriate keyword
    * in the tags attribute.
    *

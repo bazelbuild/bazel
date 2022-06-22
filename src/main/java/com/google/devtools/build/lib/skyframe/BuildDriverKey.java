@@ -139,7 +139,6 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   enum TestType {
     NOT_TEST,
     PARALLEL,
-    EXCLUSIVE,
-    EXCLUSIVE_IF_LOCAL
+    EXCLUSIVE
   }
 }

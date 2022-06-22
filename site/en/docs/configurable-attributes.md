@@ -379,6 +379,11 @@ sh_binary(
 )
 ```
 
+Note: Some restrictions apply on what can be combined in the `select`s values:
+ - Duplicate labels can appear in different paths of the same `select`.
+ - Duplicate labels can *not* appear within the same path of a `select`.
+ - Duplicate labels can *not* appear across multiple combined `select`s (no matter what path)
+
 `select` cannot appear inside another `select`. If you need to nest `selects`
 and your attribute takes other targets as values, use an intermediate target:
 
