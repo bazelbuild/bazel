@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:srcs"],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
