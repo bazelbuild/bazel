@@ -451,16 +451,6 @@ def _cc_shared_library_impl(ctx):
     if ctx.attr.shared_lib_name:
         main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
 
-    debug_files = []
-    exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
-
-    link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + link_once_static_libs), output = link_once_static_libs_debug_file)
-
-    debug_files.append(exports_debug_file)
-    debug_files.append(link_once_static_libs_debug_file)
-
     win_def_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
         object_files = []
@@ -525,6 +515,16 @@ def _cc_shared_library_impl(ctx):
 
     for export in ctx.attr.roots:
         exports[str(export.label)] = True
+
+    debug_files = []
+    exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
+    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
+
+    link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
+    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + link_once_static_libs), output = link_once_static_libs_debug_file)
+
+    debug_files.append(exports_debug_file)
+    debug_files.append(link_once_static_libs_debug_file)
 
     if not ctx.fragments.cpp.experimental_link_static_libraries_once():
         link_once_static_libs = []
