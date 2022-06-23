@@ -123,7 +123,7 @@ public class TestLogHelper {
     }
 
     @Override
-    public void write(byte b[], int off, int len) throws IOException {
+    public void write(byte[] b, int off, int len) throws IOException {
       if (seenDelimiter) {
         out.write(b, off, len);
       } else {
