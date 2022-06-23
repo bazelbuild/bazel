@@ -295,37 +295,6 @@ public class ResourceManager {
     return new ResourceHandle(this, owner, resources, latchWithWorker.worker);
   }
 
-  /**
-   * Acquires the given resources if available immediately. Does not block.
-   *
-   * @return a ResourceHandle iff the given resources were locked (all or nothing), null otherwise.
-   */
-  @VisibleForTesting
-  ResourceHandle tryAcquire(ActionExecutionMetadata owner, ResourceSet resources)
-      throws IOException, InterruptedException {
-    Preconditions.checkNotNull(
-        resources, "tryAcquire called with resources == NULL during %s", owner);
-    Preconditions.checkState(
-        !threadHasResources(), "tryAcquire with existing resource lock during %s", owner);
-
-    boolean acquired = false;
-    Worker worker = null;
-
-    synchronized (this) {
-      if (areResourcesAvailable(resources)) {
-        worker = incrementResources(resources);
-        acquired = true;
-      }
-    }
-
-    if (acquired) {
-      threadLocked.set(resources != ResourceSet.ZERO);
-      return new ResourceHandle(this, owner, resources, worker);
-    }
-
-    return null;
-  }
-
   @Nullable
   private Worker incrementResources(ResourceSet resources)
       throws IOException, InterruptedException {

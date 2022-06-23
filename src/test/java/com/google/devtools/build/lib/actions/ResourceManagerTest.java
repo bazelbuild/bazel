@@ -114,11 +114,6 @@ public final class ResourceManagerTest {
         ResourcePriority.LOCAL);
   }
 
-  private ResourceHandle acquireNonblocking(double ram, double cpu, int tests)
-      throws IOException, InterruptedException {
-    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, tests));
-  }
-
   private void release(double ram, double cpu, int tests) throws IOException, InterruptedException {
     rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
   }
@@ -181,8 +176,7 @@ public final class ResourceManagerTest {
 
     // When a request for CPU is made that would slightly overallocate CPU,
     // Then the request succeeds:
-    TestThread thread1 =
-        new TestThread(() -> assertThat(acquireNonblocking(0, 0.6, 0)).isNotNull());
+    TestThread thread1 = new TestThread(() -> assertThat(acquire(0, 0.6, 0)).isNotNull());
     thread1.start();
     thread1.joinAndAssertState(10000);
   }
@@ -199,7 +193,7 @@ public final class ResourceManagerTest {
     TestThread thread1 =
         new TestThread(
             () -> {
-              assertThat(acquireNonblocking(0, 0.99, 0)).isNotNull();
+              acquire(0, 0.99, 0);
               // Cleanup
               release(0, 0.99, 0);
             });
@@ -215,9 +209,10 @@ public final class ResourceManagerTest {
 
     // When a request for a small CPU allocation is made,
     // Then the request fails:
-    TestThread thread2 = new TestThread(() -> assertThat(acquireNonblocking(0, 0.099, 0)).isNull());
+    TestThread thread2 = new TestThread(() -> acquire(0, 0.099, 0));
     thread2.start();
-    thread2.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread2.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
     // Note that this behavior is surprising and probably not intended.
   }
 
@@ -229,10 +224,11 @@ public final class ResourceManagerTest {
     acquire(500, 0, 0);
 
     // When a request for RAM is made that would slightly overallocate RAM,
-    // Then the request fails:
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(600, 0, 0)).isNull());
+    // Then the request fails (got timeout):
+    TestThread thread1 = new TestThread(() -> acquire(600, 0, 0));
     thread1.start();
-    thread1.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test
@@ -244,9 +240,10 @@ public final class ResourceManagerTest {
 
     // When a request for tests is made that would slightly overallocate tests,
     // Then the request fails:
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(0, 0, 2)).isNull());
+    TestThread thread1 = new TestThread(() -> acquire(0, 0, 2));
     thread1.start();
-    thread1.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test
