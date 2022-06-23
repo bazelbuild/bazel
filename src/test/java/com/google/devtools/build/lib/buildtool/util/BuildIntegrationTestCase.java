@@ -244,6 +244,10 @@ public abstract class BuildIntegrationTestCase {
     Thread.setDefaultUncaughtExceptionHandler(oldExceptionHandler);
   }
 
+  public final BlazeRuntimeWrapper getRuntimeWrapper() {
+    return runtimeWrapper;
+  }
+
   /**
    * Creates an uncaught exception handler to be used in {@link
    * Thread#setDefaultUncaughtExceptionHandler}.
@@ -298,8 +302,7 @@ public abstract class BuildIntegrationTestCase {
    *
    * <p>The server is reinitialized so that this change is picked up.
    */
-  protected final void setCustomBugReporterAndReinitialize(BugReporter bugReporter)
-      throws Exception {
+  public final void setCustomBugReporterAndReinitialize(BugReporter bugReporter) throws Exception {
     this.bugReporter = checkNotNull(bugReporter);
     reinitializeAndPreserveOptions();
   }
@@ -365,7 +368,7 @@ public abstract class BuildIntegrationTestCase {
    * <p>{@link BugReport} stores information about crashes in a static variable when running tests.
    * Tests which deliberately cause crashes, need to clear that flag not to taint the environment.
    */
-  protected static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
+  public static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
     assertThrows(expected, BugReport::maybePropagateUnprocessedThrowableIfInTest);
   }
 
@@ -578,7 +581,7 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.resetOptions();
   }
 
-  protected void addOptions(String... args) {
+  public void addOptions(String... args) {
     runtimeWrapper.addOptions(args);
   }
 
@@ -995,10 +998,8 @@ public abstract class BuildIntegrationTestCase {
         .collect(toImmutableList());
   }
 
-  /**
-   * Assertion-checks that the expected error was reported,
-   */
-  protected void assertContainsError(String expectedError) {
+  /** Assertion-checks that the expected error was reported, */
+  public final void assertContainsError(String expectedError) {
     for (Event error : events.errors()) {
       if (error.getMessage().contains(expectedError)) {
         return;

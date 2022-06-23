@@ -67,7 +67,8 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
             options.includeParamFiles,
             options.deduplicateDepsets,
             options.includeFileWriteContents,
-            aqueryOutputHandler);
+            aqueryOutputHandler,
+            eventHandler);
   }
 
   public static AqueryOutputHandler constructAqueryOutputHandler(

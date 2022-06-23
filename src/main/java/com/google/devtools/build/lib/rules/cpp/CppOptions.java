@@ -395,12 +395,12 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Use FDO profile information to optimize compilation. Specify the name "
-              + "of the zip file containing the .gcda file tree, or an afdo file containing "
-              + "an auto profile. This flag also accepts files specified as labels, for "
-              + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
-              + "need to add an exports_files directive to the corresponding package to make "
-              + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file. "
-              + "This flag will be superseded by fdo_profile rule.")
+              + "of a zip file containing a .gcda file tree, an afdo file containing "
+              + "an auto profile, or an LLVM profile file. This flag also accepts files "
+              + "specified as labels (e.g. `//foo/bar:file.afdo` - you may need to add "
+              + "an `exports_files` directive to the corresponding package) and labels "
+              + "pointing to `fdo_profile` targets. This flag will be superseded by the "
+              + "`fdo_profile` rule.")
   public String fdoOptimizeForBuild;
 
   /**

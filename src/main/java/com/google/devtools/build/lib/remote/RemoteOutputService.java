@@ -54,7 +54,7 @@ public class RemoteOutputService implements OutputService {
   @Nullable
   @Override
   public FileSystem createActionFileSystem(
-      FileSystem sourceDelegate,
+      FileSystem delegateFileSystem,
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
@@ -63,7 +63,7 @@ public class RemoteOutputService implements OutputService {
       boolean rewindingEnabled) {
     Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
-        sourceDelegate,
+        delegateFileSystem,
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,

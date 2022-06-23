@@ -483,18 +483,14 @@ public class FdoHelper {
     }
 
     Artifact fdoArtifact = fdoArtifacts.get(0);
-    if (!fdoArtifact.isSourceArtifact()) {
-      ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
-      return null;
-    }
-
     Label fdoLabel = attributes.getFdoOptimize().getLabel();
     if (!fdoLabel
         .getPackageIdentifier()
         .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
         .getRelative(fdoLabel.getName())
         .equals(fdoArtifact.getExecPath())) {
-      ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
+      ruleContext.ruleError(
+          "--fdo_optimize points to a target that is not an input file or an fdo_profile rule");
       return null;
     }
 

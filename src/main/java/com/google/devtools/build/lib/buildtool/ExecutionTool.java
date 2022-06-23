@@ -303,7 +303,7 @@ public class ExecutionTool {
         startLocalOutputBuild();
       }
     }
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -402,7 +402,7 @@ public class ExecutionTool {
       }
     }
 
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }

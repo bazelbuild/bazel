@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
@@ -27,6 +28,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -48,7 +51,13 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -127,9 +136,33 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Override
   public ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
-    Flowable<TransferResult> transfers =
-        Flowable.fromIterable(inputs)
-            .flatMapSingle(input -> toTransferResult(prefetchInput(metadataProvider, input)));
+    Map<SpecialArtifact, List<TreeFileArtifact>> trees = new HashMap<>();
+    List<ActionInput> files = new ArrayList<>();
+    for (ActionInput input : inputs) {
+      if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+        continue;
+      }
+
+      if (input instanceof TreeFileArtifact) {
+        TreeFileArtifact treeFile = (TreeFileArtifact) input;
+        SpecialArtifact treeArtifact = treeFile.getParent();
+        trees.computeIfAbsent(treeArtifact, unusedKey -> new ArrayList<>()).add(treeFile);
+        continue;
+      }
+
+      files.add(input);
+    }
+
+    Flowable<TransferResult> treeDownloads =
+        Flowable.fromIterable(trees.entrySet())
+            .flatMapSingle(
+                entry ->
+                    toTransferResult(
+                        prefetchInputTree(metadataProvider, entry.getKey(), entry.getValue())));
+    Flowable<TransferResult> fileDownloads =
+        Flowable.fromIterable(files)
+            .flatMapSingle(input -> toTransferResult(prefetchInputFile(metadataProvider, input)));
+    Flowable<TransferResult> transfers = Flowable.merge(treeDownloads, fileDownloads);
     Completable prefetch = mergeBulkTransfer(transfers).onErrorResumeNext(this::onErrorResumeNext);
     Completable prefetchWithProfiler =
         Completable.using(
@@ -139,19 +172,96 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return toListenableFuture(prefetchWithProfiler);
   }
 
-  private Completable prefetchInput(MetadataProvider metadataProvider, ActionInput input)
-      throws IOException {
-    if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
-      return Completable.complete();
-    }
+  private Completable prefetchInputTree(
+      MetadataProvider provider, SpecialArtifact tree, List<TreeFileArtifact> treeFiles) {
+    Path treeRoot = execRoot.getRelative(tree.getExecPath());
+    HashMap<TreeFileArtifact, Path> treeFileTmpPathMap = new HashMap<>();
 
+    Flowable<TransferResult> transfers =
+        Flowable.fromIterable(treeFiles)
+            .flatMapSingle(
+                treeFile -> {
+                  Path path = treeRoot.getRelative(treeFile.getParentRelativePath());
+                  FileArtifactValue metadata = provider.getMetadata(treeFile);
+                  if (!shouldDownloadFile(path, metadata)) {
+                    return Single.just(TransferResult.ok());
+                  }
+
+                  Path tempPath = tempPathGenerator.generateTempPath();
+                  treeFileTmpPathMap.put(treeFile, tempPath);
+
+                  return toTransferResult(
+                      toCompletable(() -> doDownloadFile(tempPath, metadata), directExecutor()));
+                });
+
+    AtomicBoolean completed = new AtomicBoolean();
+    Completable download =
+        mergeBulkTransfer(transfers)
+            .doOnComplete(
+                () -> {
+                  HashSet<Path> dirs = new HashSet<>();
+
+                  // Tree root is created by Bazel before action execution, but the permission is
+                  // changed to 0555 afterwards. We need to set it as writable in order to move
+                  // files into it.
+                  treeRoot.setWritable(true);
+                  dirs.add(treeRoot);
+
+                  for (Map.Entry<TreeFileArtifact, Path> entry : treeFileTmpPathMap.entrySet()) {
+                    TreeFileArtifact treeFile = entry.getKey();
+                    Path tempPath = entry.getValue();
+
+                    Path path = treeRoot.getRelative(treeFile.getParentRelativePath());
+                    Path dir = treeRoot;
+                    for (String segment : treeFile.getParentRelativePath().segments()) {
+                      dir = dir.getRelative(segment);
+                      if (dir.equals(path)) {
+                        break;
+                      }
+                      if (dirs.add(dir)) {
+                        dir.createDirectory();
+                        dir.setWritable(true);
+                      }
+                    }
+                    checkState(dir.equals(path));
+                    finalizeDownload(tempPath, path);
+                  }
+
+                  for (Path dir : dirs) {
+                    // Change permission of all directories of a tree artifact to 0555 (files are
+                    // changed inside {@code finalizeDownload}) in order to match the behaviour when
+                    // the tree artifact is generated locally. In that case, permission of all files
+                    // and directories inside a tree artifact is changed to 0555 within {@code
+                    // checkOutputs()}.
+                    dir.chmod(0555);
+                  }
+
+                  completed.set(true);
+                })
+            .doFinally(
+                () -> {
+                  if (!completed.get()) {
+                    for (Map.Entry<TreeFileArtifact, Path> entry : treeFileTmpPathMap.entrySet()) {
+                      deletePartialDownload(entry.getValue());
+                    }
+                  }
+                });
+    return downloadCache.executeIfNot(treeRoot, download);
+  }
+
+  private Completable prefetchInputFile(MetadataProvider metadataProvider, ActionInput input)
+      throws IOException {
     if (input instanceof VirtualActionInput) {
       prefetchVirtualActionInput((VirtualActionInput) input);
       return Completable.complete();
     }
 
-    Path path = execRoot.getRelative(input.getExecPath());
     FileArtifactValue metadata = metadataProvider.getMetadata(input);
+    if (metadata == null) {
+      return Completable.complete();
+    }
+
+    Path path = execRoot.getRelative(input.getExecPath());
     return downloadFileRx(path, metadata);
   }
 
@@ -166,6 +276,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return Completable.complete();
     }
 
+    if (path.isSymbolicLink()) {
+      try {
+        path = path.getRelative(path.readSymbolicLink());
+      } catch (IOException e) {
+        return Completable.error(e);
+      }
+    }
+
+    Path finalPath = path;
+
     AtomicBoolean completed = new AtomicBoolean(false);
     Completable download =
         Completable.using(
@@ -174,7 +294,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 toCompletable(() -> doDownloadFile(tempPath, metadata), directExecutor())
                     .doOnComplete(
                         () -> {
-                          finalizeDownload(tempPath, path);
+                          finalizeDownload(tempPath, finalPath);
                           completed.set(true);
                         }),
             tempPath -> {
