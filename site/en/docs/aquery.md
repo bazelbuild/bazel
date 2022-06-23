@@ -135,7 +135,8 @@ Warning: Enabling this flag will automatically enable the `--include_commandline
 
 #### `--include_file_write_contents, default=false` {:#include-file-write-contents}
 
-Include file contents for the `actions.write()` action. The file contents is
+Include file contents for the `actions.write()` action and the contents of the
+manifest file for the `SourceSymlinkManifest` action The file contents is
 returned in the `file_contents` field with `--output=`xxx`proto`.
 With `--output=text`, the output has
 ```

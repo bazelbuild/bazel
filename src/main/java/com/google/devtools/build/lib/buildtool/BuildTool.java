@@ -440,7 +440,8 @@ public class BuildTool {
               /* includeParamFiles= */ false,
               /* deduplicateDepsets= */ true,
               /* includeFileWriteContents */ false,
-              aqueryOutputHandler);
+              aqueryOutputHandler,
+              getReporter());
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }
   }

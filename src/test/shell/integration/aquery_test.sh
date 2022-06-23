@@ -1633,6 +1633,32 @@ EOF
   assert_contains 'file_contents: "hello world"' output
 }
 
+function test_source_symlink_manifest() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  touch "$pkg/foo.sh"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(name = "foo",
+          srcs = ["foo.sh"],
+)
+EOF
+  bazel aquery --output=textproto --include_file_write_contents \
+     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^file_contents:.*$pkg/foo.sh" output
+
+  bazel aquery --output=text --include_file_write_contents "//$pkg:foo" | \
+    sed -nr '/Mnemonic: SourceSymlinkManifest/,/^ *$/p' >output \
+      2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^ *FileWriteContents: \[.*\]" output
+  # Verify file contents if we can decode base64-encoded data.
+  if which base64 >/dev/null; then
+    sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
+       sh | tee -a "$TEST_log"  | assert_contains "$pkg/foo\.sh" -
+  fi
+}
+
 # TODO(bazel-team): The non-text aquery output formats don't correctly handle
 # non-ASCII fields (input/output paths, environment variables, etc).
 function DISABLED_test_unicode_textproto() {

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
@@ -69,6 +71,7 @@ public class ActionGraphDump {
   private final boolean includeParamFiles;
   private final boolean includeFileWriteContents;
   private final AqueryOutputHandler aqueryOutputHandler;
+  private final ExtendedEventHandler eventHandler;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
@@ -79,7 +82,8 @@ public class ActionGraphDump {
       boolean includeParamFiles,
       boolean deduplicateDepsets,
       boolean includeFileWriteContents,
-      AqueryOutputHandler aqueryOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler,
+      ExtendedEventHandler eventHandler) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
@@ -88,7 +92,8 @@ public class ActionGraphDump {
         includeParamFiles,
         deduplicateDepsets,
         includeFileWriteContents,
-        aqueryOutputHandler);
+        aqueryOutputHandler,
+        eventHandler);
   }
 
   public ActionGraphDump(
@@ -99,7 +104,8 @@ public class ActionGraphDump {
       boolean includeParamFiles,
       boolean deduplicateDepsets,
       boolean includeFileWriteContents,
-      AqueryOutputHandler aqueryOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler,
+      ExtendedEventHandler eventHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
@@ -107,6 +113,7 @@ public class ActionGraphDump {
     this.includeParamFiles = includeParamFiles;
     this.includeFileWriteContents = includeFileWriteContents;
     this.aqueryOutputHandler = aqueryOutputHandler;
+    this.eventHandler = eventHandler;
 
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
@@ -189,6 +196,11 @@ public class ActionGraphDump {
     if (includeFileWriteContents && action instanceof FileWriteAction) {
       FileWriteAction fileWriteAction = (FileWriteAction) action;
       actionBuilder.setFileContents(fileWriteAction.getFileContents());
+    }
+
+    if (includeFileWriteContents && action instanceof SourceManifestAction) {
+      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
+      actionBuilder.setFileContents(sourceManifestAction.getFileContentsAsString(eventHandler));
     }
 
     // Include the content of param files in output.

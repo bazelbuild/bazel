@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -338,7 +339,17 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  FileWriteContents: [")
           .append(
               Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
-          .append("]");
+          .append("]\n");
+    }
+    if (options.includeFileWriteContents && action instanceof SourceManifestAction) {
+      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
+      stringBuilder
+          .append("  FileWriteContents: [")
+          .append(
+              Base64.getEncoder()
+                  .encodeToString(
+                      sourceManifestAction.getFileContentsAsString(eventHandler).getBytes(UTF_8)))
+          .append("]\n");
     }
 
     stringBuilder.append('\n');
