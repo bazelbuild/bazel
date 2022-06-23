@@ -997,7 +997,7 @@ public final class SkyframeActionExecutor {
             statusReporter.updateStatus(event);
           }
           env.getListener().post(event);
-          if (!actionFileSystemType().inMemoryFileSystem()) {
+          if (actionFileSystemType().supportLocalActions()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
@@ -1017,12 +1017,12 @@ public final class SkyframeActionExecutor {
                   null,
                   Code.ACTION_OUTPUTS_DELETION_FAILURE);
             }
-          } else {
+          }
+
+          if (actionFileSystemType().inMemoryFileSystem()) {
             // There's nothing to delete when the action file system is used, but we must ensure
             // that the output directories for stdout and stderr exist.
             setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
-          }
-          if (actionFileSystemType().inMemoryFileSystem()) {
             createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
           } else {
             createOutputDirectories(action);
