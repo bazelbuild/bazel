@@ -150,6 +150,7 @@ cc_autoconf = repository_rule(
         "BAZEL_LINKOPTS",
         "BAZEL_LINKLIBS",
         "BAZEL_LLVM_COV",
+        "BAZEL_LLVM_PROFDATA",
         "BAZEL_PYTHON",
         "BAZEL_SH",
         "BAZEL_TARGET_CPU",

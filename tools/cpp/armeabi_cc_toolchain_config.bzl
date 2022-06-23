@@ -48,6 +48,7 @@ def _impl(ctx):
         tool_path(name = "gcc", path = "/bin/false"),
         tool_path(name = "gcov", path = "/bin/false"),
         tool_path(name = "ld", path = "/bin/false"),
+        tool_path(name = "llvm-profdata", path = "/bin/false"),
         tool_path(name = "nm", path = "/bin/false"),
         tool_path(name = "objcopy", path = "/bin/false"),
         tool_path(name = "objdump", path = "/bin/false"),
