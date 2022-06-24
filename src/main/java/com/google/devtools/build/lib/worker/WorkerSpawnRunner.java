@@ -325,6 +325,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   }
 
   @VisibleForTesting
+  @SuppressWarnings("Finally") // We want to close handle only when we still own the worker.
   WorkResponse execInWorker(
       Spawn spawn,
       WorkerKey key,
@@ -375,11 +376,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 key);
 
         // Worker doesn't automatically return to pool after closing of the handle.
-        try (ResourceHandle handle =
-            resourceManager.acquireResources(
-                owner,
-                resourceSet,
-                context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
+        ResourceHandle handle = null;
+        try {
+          handle =
+              resourceManager.acquireResources(
+                  owner,
+                  resourceSet,
+                  context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
           workerOwner.setWorker(handle.getWorker());
           workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
           request = createWorkRequest(spawn, context, flagFiles, inputFileCache, key);
@@ -388,11 +391,30 @@ final class WorkerSpawnRunner implements SpawnRunner {
           spawnMetrics.setQueueTime(queueStopwatch.elapsed());
           response =
               executeRequest(
-                  spawn, context, inputFiles, outputs, workerOwner, key, request, spawnMetrics);
+                  spawn,
+                  context,
+                  inputFiles,
+                  outputs,
+                  workerOwner,
+                  key,
+                  request,
+                  spawnMetrics,
+                  handle,
+                  true);
         } catch (IOException e) {
           restoreInterrupt(e);
           String message = "IOException while borrowing a worker from the pool:";
           throw createUserExecException(e, message, Code.BORROW_FAILURE);
+        } finally {
+          if (handle != null && workerOwner.getWorker() != null) {
+            try {
+              handle.close();
+            } catch (IOException e) {
+              restoreInterrupt(e);
+              String message = "IOException while returning a worker from the pool:";
+              throw createUserExecException(e, message, Code.BORROW_FAILURE);
+            }
+          }
         }
       } else {
         try (SilentCloseable c =
@@ -415,7 +437,16 @@ final class WorkerSpawnRunner implements SpawnRunner {
           spawnMetrics.setQueueTime(queueStopwatch.elapsed());
           response =
               executeRequest(
-                  spawn, context, inputFiles, outputs, workerOwner, key, request, spawnMetrics);
+                  spawn,
+                  context,
+                  inputFiles,
+                  outputs,
+                  workerOwner,
+                  key,
+                  request,
+                  spawnMetrics,
+                  handle,
+                  false);
         } catch (IOException e) {
           restoreInterrupt(e);
           String message =
@@ -490,7 +521,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkerOwner workerOwner,
       WorkerKey key,
       WorkRequest request,
-      SpawnMetrics.Builder spawnMetrics)
+      SpawnMetrics.Builder spawnMetrics,
+      ResourceHandle handle,
+      boolean workerAsResource)
       throws ExecException, InterruptedException {
     WorkResponse response;
     context.report(SpawnExecutingEvent.create(key.getWorkerTypeName()));
@@ -548,7 +581,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
             key,
             worker,
             request,
-            workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn));
+            workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn),
+            handle,
+            workerAsResource);
         workerOwner.setWorker(null);
       } else if (!context.speculating()) {
         // Non-sandboxed workers interrupted outside of dynamic execution can only mean that
@@ -590,7 +625,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * pool.
    */
   private void finishWorkAsync(
-      WorkerKey key, Worker worker, WorkRequest request, boolean canCancel) {
+      WorkerKey key,
+      Worker worker,
+      WorkRequest request,
+      boolean canCancel,
+      ResourceHandle resourceHandle,
+      boolean workerAsResource) {
     Thread reaper =
         new Thread(
             () -> {
@@ -612,8 +652,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 // be a dangling response that we don't want to keep trying to read, so we destroy
                 // the worker.
                 try {
-                  workers.invalidateObject(key, w);
+                  if (workerAsResource) {
+                    resourceHandle.invalidateAndClose();
+                  } else {
+                    workers.invalidateObject(key, w);
+                  }
                   w = null;
+
                 } catch (IOException | InterruptedException e2) {
                   // The reaper thread can't do anything useful about this.
                 }
