@@ -608,6 +608,17 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the output artifact of an {@link OutputFile} of this target.
+   *
+   * @see #createOutputArtifact()
+   */
+  public Artifact createOutputArtifact(OutputFile out) {
+    PathFragment packageRelativePath =
+        getPackageDirectory().getRelative(PathFragment.create(out.getName()));
+    return internalCreateOutputArtifact(packageRelativePath, out, out.getKind());
+  }
+
+  /**
    * Returns an artifact beneath the root of either the "bin" or "genfiles" tree, whose path is
    * based on the name of this target and the current configuration, with a script suffix
    * appropriate for the current host platform. ({@code .cmd} for Windows, otherwise {@code .sh}).
@@ -625,17 +636,6 @@ public final class RuleContext extends TargetContext
         getPackageDirectory().getRelative(PathFragment.create(target.getName() + fileExtension));
 
     return internalCreateOutputArtifact(rootRelativePath, target, OutputFile.Kind.FILE);
-  }
-
-  /**
-   * Returns the output artifact of an {@link OutputFile} of this target.
-   *
-   * @see #createOutputArtifact()
-   */
-  public Artifact createOutputArtifact(OutputFile out) {
-    PathFragment packageRelativePath =
-        getPackageDirectory().getRelative(PathFragment.create(out.getName()));
-    return internalCreateOutputArtifact(packageRelativePath, out, out.getKind());
   }
 
   /**
@@ -907,6 +907,17 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the declared provider (native and Starlark) for the specified constructor under the
+   * specified attribute of this target in the BUILD file. May return null if there is no
+   * TransitiveInfoCollection under the specified attribute.
+   */
+  @Nullable
+  public <T extends Info> T getPrerequisite(String attributeName, BuiltinProvider<T> starlarkKey) {
+    TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
+    return prerequisite == null ? null : prerequisite.get(starlarkKey);
+  }
+
+  /**
    * Returns the {@link ConfiguredTargetAndData} that feeds ino this target through the specified
    * attribute. Returns null if the attribute is empty.
    */
@@ -1009,17 +1020,6 @@ public final class RuleContext extends TargetContext
   public <T extends Info> List<T> getPrerequisites(
       String attributeName, BuiltinProvider<T> starlarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
-  }
-
-  /**
-   * Returns the declared provider (native and Starlark) for the specified constructor under the
-   * specified attribute of this target in the BUILD file. May return null if there is no
-   * TransitiveInfoCollection under the specified attribute.
-   */
-  @Nullable
-  public <T extends Info> T getPrerequisite(String attributeName, BuiltinProvider<T> starlarkKey) {
-    TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
-    return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
   /**
    * Returns all the providers of the specified type that are listed under the specified attribute
