@@ -19,12 +19,14 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.devtools.build.lib.remote.RemoteCache;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /** A {@link RemoteCache} backed by an {@link DiskCacheClient}. */
@@ -51,6 +53,14 @@ class OnDiskBlobStoreCache extends RemoteCache {
       Path dst = rootLocation.getRelative(file.getName());
       getFromFuture(downloadFile(context, dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
+    }
+    for (SymlinkNode symlink : directory.getSymlinksList()) {
+      Path dst = rootLocation.getRelative(symlink.getName());
+      // TODO(fmeum): The following line is not generally correct: The remote execution API allows
+      //  for non-normalized symlink targets, but the normalization applied by PathFragment.create
+      //  does not take directory symlinks into account. However, Bazel's file system API does not
+      //  currently offer a way to specify a raw String as a symlink target.
+      dst.createSymbolicLink(PathFragment.create(symlink.getTarget()));
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
       downloadTree(context, child.getDigest(), rootLocation.getRelative(child.getName()));

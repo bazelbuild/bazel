@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -94,6 +95,7 @@ public class MerkleTree {
   @Nullable private final Directory rootProto;
   private final Digest rootDigest;
   private final SortedSet<DirectoryTree.FileNode> files;
+  private final SortedSet<DirectoryTree.SymlinkNode> symlinks;
   private final SortedMap<String, MerkleTree> directories;
   private final long inputFiles;
   private final long inputBytes;
@@ -102,6 +104,7 @@ public class MerkleTree {
       @Nullable Directory rootProto,
       Digest rootDigest,
       SortedSet<DirectoryTree.FileNode> files,
+      SortedSet<DirectoryTree.SymlinkNode> symlinks,
       SortedMap<String, MerkleTree> directories,
       long inputFiles,
       long inputBytes) {
@@ -110,6 +113,7 @@ public class MerkleTree {
     this.rootProto = rootProto;
     this.rootDigest = Preconditions.checkNotNull(rootDigest, "rootDigest");
     this.files = Preconditions.checkNotNull(files, "files");
+    this.symlinks = Preconditions.checkNotNull(symlinks, "symlinks");
     this.directories = Preconditions.checkNotNull(directories, "directories");
     this.inputFiles = inputFiles;
     this.inputBytes = inputBytes;
@@ -121,13 +125,19 @@ public class MerkleTree {
     return rootProto;
   }
 
-  /** Returns the protobuf representation of the Merkle tree's root. */
+  /**
+   * Returns the protobuf representation of the Merkle tree's root.
+   */
   public Digest getRootDigest() {
     return rootDigest;
   }
 
   private SortedSet<DirectoryTree.FileNode> getFiles() {
     return files;
+  }
+
+  private SortedSet<DirectoryTree.SymlinkNode> getSymlinks() {
+    return symlinks;
   }
 
   private SortedMap<String, MerkleTree> getDirectories() {
@@ -243,13 +253,14 @@ public class MerkleTree {
           null,
           digestUtil.compute(new byte[0]),
           ImmutableSortedSet.of(),
+          ImmutableSortedSet.of(),
           ImmutableSortedMap.of(),
           0,
           0);
     }
     Map<PathFragment, MerkleTree> m = new HashMap<>();
     tree.visit(
-        (dirname, files, dirs) -> {
+        (dirname, files, symlinks, dirs) -> {
           SortedMap<String, MerkleTree> subDirs = new TreeMap<>();
           for (DirectoryTree.DirectoryNode dir : dirs) {
             PathFragment subDirname = dirname.getRelative(dir.getPathSegment());
@@ -258,7 +269,8 @@ public class MerkleTree {
                     m.remove(subDirname), "subMerkleTree at '%s' was null", subDirname);
             subDirs.put(dir.getPathSegment(), subMerkleTree);
           }
-          MerkleTree mt = buildMerkleTree(new TreeSet<>(files), subDirs, digestUtil);
+          MerkleTree mt = buildMerkleTree(new TreeSet<>(files), new TreeSet<>(symlinks), subDirs,
+              digestUtil);
           m.put(dirname, mt);
         });
     MerkleTree rootMerkleTree = m.get(PathFragment.EMPTY_FRAGMENT);
@@ -288,6 +300,10 @@ public class MerkleTree {
     for (MerkleTree merkleTree : merkleTrees) {
       files.addAll(merkleTree.getFiles());
     }
+    SortedSet<DirectoryTree.SymlinkNode> symlinks = Sets.newTreeSet();
+    for (MerkleTree merkleTree : merkleTrees) {
+      symlinks.addAll(merkleTree.getSymlinks());
+    }
 
     // Group all Merkle trees per path.
     Multimap<String, MerkleTree> allDirsToMerge = ArrayListMultimap.create();
@@ -301,16 +317,20 @@ public class MerkleTree {
         .forEach(
             (baseName, dirsToMerge) -> directories.put(baseName, merge(dirsToMerge, digestUtil)));
 
-    return buildMerkleTree(files, directories, digestUtil);
+    return buildMerkleTree(files, symlinks, directories, digestUtil);
   }
 
   private static MerkleTree buildMerkleTree(
       SortedSet<DirectoryTree.FileNode> files,
+      SortedSet<DirectoryTree.SymlinkNode> symlinks,
       SortedMap<String, MerkleTree> directories,
       DigestUtil digestUtil) {
     Directory.Builder b = Directory.newBuilder();
     for (DirectoryTree.FileNode file : files) {
       b.addFiles(buildProto(file));
+    }
+    for (DirectoryTree.SymlinkNode symlink : symlinks) {
+      b.addSymlinks(buildProto(symlink));
     }
     for (Map.Entry<String, MerkleTree> nameAndDir : directories.entrySet()) {
       b.addDirectories(buildProto(nameAndDir.getKey(), nameAndDir.getValue()));
@@ -318,7 +338,7 @@ public class MerkleTree {
     Directory protoDir = b.build();
     Digest protoDirDigest = digestUtil.compute(protoDir);
 
-    long inputFiles = files.size();
+    long inputFiles = files.size() + symlinks.size();
     for (MerkleTree dir : directories.values()) {
       inputFiles += dir.getInputFiles();
     }
@@ -331,7 +351,8 @@ public class MerkleTree {
       inputBytes += dir.getInputBytes();
     }
 
-    return new MerkleTree(protoDir, protoDirDigest, files, directories, inputFiles, inputBytes);
+    return new MerkleTree(protoDir, protoDirDigest, files, symlinks, directories, inputFiles,
+        inputBytes);
   }
 
   private static FileNode buildProto(DirectoryTree.FileNode file) {
@@ -346,6 +367,13 @@ public class MerkleTree {
     return DirectoryNode.newBuilder()
         .setName(decodeBytestringUtf8(baseName))
         .setDigest(dir.getRootDigest())
+        .build();
+  }
+
+  private static SymlinkNode buildProto(DirectoryTree.SymlinkNode symlink) {
+    return SymlinkNode.newBuilder()
+        .setName(decodeBytestringUtf8(symlink.getPathSegment()))
+        .setTarget(decodeBytestringUtf8(symlink.getTarget()))
         .build();
   }
 
