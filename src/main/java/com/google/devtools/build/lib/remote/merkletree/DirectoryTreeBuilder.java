@@ -18,11 +18,13 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.SymlinkNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -142,12 +144,13 @@ class DirectoryTreeBuilder {
                   "missing metadata for '%s'",
                   input.getExecPathString());
           switch (metadata.getType()) {
-            case REGULAR_FILE:
+            case REGULAR_FILE: {
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
               Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
               boolean childAdded =
                   currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
               return childAdded ? 1 : 0;
+            }
 
             case DIRECTORY:
               SortedMap<PathFragment, ActionInput> directoryInputs =
@@ -155,12 +158,16 @@ class DirectoryTreeBuilder {
               return buildFromActionInputs(
                   directoryInputs, metadataProvider, execRoot, digestUtil, tree);
 
-            case SYMLINK:
-              throw new IllegalStateException(
-                  String.format(
-                      "Encountered symlink input '%s', but all"
-                          + " symlinks should have been resolved by SkyFrame. This is a bug.",
-                      path));
+            case SYMLINK: {
+              Preconditions.checkState(input instanceof SpecialArtifact && input.isSymlink(),
+                  "Encountered symlink input '%s', but all source symlinks should have been"
+                      + " resolved by SkyFrame. This is a bug.",
+                  path);
+              Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
+              boolean childAdded = currDir.addChild(new SymlinkNode(path.getBaseName(),
+                  inputPath.readSymbolicLink()));
+              return childAdded ? 1 : 0;
+            }
 
             case SPECIAL_FILE:
               throw new IOException(

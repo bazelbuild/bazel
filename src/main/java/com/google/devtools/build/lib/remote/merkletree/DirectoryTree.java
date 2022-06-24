@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,7 +34,8 @@ import java.util.SortedSet;
 final class DirectoryTree {
 
   interface Visitor {
-    void visitDirectory(PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs);
+    void visitDirectory(PathFragment dirname, List<FileNode> files, List<SymlinkNode> symlinks,
+        List<DirectoryNode> dirs);
   }
 
   abstract static class Node implements Comparable<Node> {
@@ -138,6 +140,44 @@ final class DirectoryTree {
       }
       return false;
     }
+
+    @Override
+    public String toString() {
+      return String.format("%s (hash: %s, size: %d)",
+          getPathSegment(), digest.getHash(), digest.getSizeBytes());
+    }
+  }
+
+  static class SymlinkNode extends Node {
+    private final String target;
+
+    SymlinkNode(String pathSegment, String target) {
+      super(pathSegment);
+      this.target = target;
+    }
+
+    public String getTarget() {
+      return target;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(super.hashCode(), target);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o instanceof SymlinkNode) {
+        SymlinkNode other = (SymlinkNode) o;
+        return super.equals(other) && Objects.equals(target, other.target);
+      }
+      return false;
+    }
+
+    @Override
+    public String toString() {
+      return String.format("%s --> %s", getPathSegment(), getTarget());
+    }
   }
 
   static class DirectoryNode extends Node {
@@ -203,10 +243,13 @@ final class DirectoryTree {
     }
 
     List<FileNode> files = new ArrayList<>(dir.children.size());
+    List<SymlinkNode> symlinks = new ArrayList<>();
     List<DirectoryNode> dirs = new ArrayList<>();
     for (Node child : dir.children) {
       if (child instanceof FileNode) {
         files.add((FileNode) child);
+      } else if (child instanceof SymlinkNode) {
+        symlinks.add((SymlinkNode) child);
       } else if (child instanceof DirectoryNode) {
         dirs.add((DirectoryNode) child);
         visit(visitor, dirname.getRelative(child.pathSegment));
@@ -215,14 +258,14 @@ final class DirectoryTree {
             String.format("Node type '%s' is not supported", child.getClass().getSimpleName()));
       }
     }
-    visitor.visitDirectory(dirname, files, dirs);
+    visitor.visitDirectory(dirname, files, symlinks, dirs);
   }
 
   @Override
   public String toString() {
     Map<PathFragment, StringBuilder> m = new HashMap<>();
     visit(
-        (dirname, files, dirs) -> {
+        (dirname, files, symlinks, dirs) -> {
           int depth = dirname.segmentCount() - 1;
           StringBuilder sb = new StringBuilder();
 
@@ -231,12 +274,10 @@ final class DirectoryTree {
             sb.append(dirname.getBaseName());
             sb.append("\n");
           }
-          if (!files.isEmpty()) {
-            for (FileNode file : files) {
-              sb.append(" ".repeat(2 * (depth + 1)));
-              sb.append(formatFile(file));
-              sb.append("\n");
-            }
+          for (Node fileOrSymlink : Iterables.concat(files, symlinks)) {
+            sb.append(" ".repeat(2 * (depth + 1)));
+            sb.append(fileOrSymlink);
+            sb.append("\n");
           }
           if (!dirs.isEmpty()) {
             for (DirectoryNode dir : dirs) {
@@ -263,11 +304,5 @@ final class DirectoryTree {
     }
     DirectoryTree other = (DirectoryTree) o;
     return tree.equals(other.tree);
-  }
-
-  private static String formatFile(FileNode file) {
-    return String.format(
-        "%s (hash: %s, size: %d)",
-        file.getPathSegment(), file.digest.getHash(), file.digest.getSizeBytes());
   }
 }

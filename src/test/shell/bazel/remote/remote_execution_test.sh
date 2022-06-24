@@ -2819,4 +2819,53 @@ EOF
       || fail "Remote execution generated different result"
 }
 
+function test_unresolved_symlink_input() {
+  mkdir -p symlink
+  touch symlink/BUILD
+  cat > symlink/symlink.bzl <<EOF
+def _dangling_symlink_impl(ctx):
+    symlink = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.symlink(
+        output = symlink,
+        target_path = ctx.attr.link_target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+dangling_symlink = rule(
+    implementation = _dangling_symlink_impl,
+    attrs = {"link_target": attr.string()},
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="non/../existent")
+genrule(
+    name = "b",
+    srcs = [":a"],
+    outs = ["b.txt"],
+    cmd = "readlink $(location :a) > $@",
+)
+EOF
+
+  bazel build \
+    --experimental_allow_unresolved_symlinks \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:b &>$TEST_log || fail "expected build to succeed"
+  [[ $(cat bazel-bin/pkg/b.txt) =~ non/../existent ]] || fail "expected symlink target to be non/../existent"
+
+  bazel clean --expunge
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --experimental_allow_unresolved_symlinks \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_merkle_tree_cache \
+    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  [[ $(cat bazel-bin/pkg/b.txt) =~ non/../existent ]] || fail "expected symlink target to be non/../existent"
+}
+
 run_suite "Remote execution and remote cache tests"
