@@ -58,11 +58,6 @@ public abstract class Worker {
     return logFile;
   }
 
-  /** Returns the worker key of this worker */
-  public WorkerKey getWorkerKey() {
-    return workerKey;
-  }
-
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();
   }

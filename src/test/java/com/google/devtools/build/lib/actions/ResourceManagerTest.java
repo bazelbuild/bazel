@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +48,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
 
 /** Tests for {@link ResourceManager}. */
 @RunWith(JUnit4.class)
@@ -58,7 +57,7 @@ public final class ResourceManagerTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
   private final ResourceManager rm = ResourceManager.instanceForTestingOnly();
-  private Worker worker;
+  @Mock private Worker worker;
   private AtomicInteger counter;
   CyclicBarrier sync;
   CyclicBarrier sync2;
@@ -72,7 +71,6 @@ public final class ResourceManagerTest {
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
     rm.setPrioritizeLocalActions(true);
-    worker = mock(Worker.class);
     rm.setWorkerPool(createWorkerPool());
   }
 
@@ -669,13 +667,10 @@ public final class ResourceManagerTest {
   @Test
   public void testAcquireWithWorker_acquireAndRelease() throws Exception {
     int memory = 100;
-    when(worker.getWorkerKey()).thenReturn(createWorkerKey("dummy"));
 
     assertThat(rm.inUse()).isFalse();
-    ResourceHandle handle = acquire(memory, 1, 0, "dummy");
+    acquire(memory, 1, 0, "dummy");
     assertThat(rm.inUse()).isTrue();
-
-    assertThat(handle.getWorker().getWorkerKey().getMnemonic()).isEqualTo("dummy");
     release(memory, 1, 0);
     // When that RAM is released,
     // Then Resource Manager will not be "in use":

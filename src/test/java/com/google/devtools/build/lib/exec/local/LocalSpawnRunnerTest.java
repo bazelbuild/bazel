@@ -333,7 +333,7 @@ public class LocalSpawnRunnerTest {
         });
   }
 
-  private FileSystem setupEnvironmentForFakeExecution() throws InterruptedException, IOException {
+  private FileSystem setupEnvironmentForFakeExecution() {
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
@@ -354,7 +354,7 @@ public class LocalSpawnRunnerTest {
    * <p>Tests should call setupEnvironmentForFakeExecution() if they do not want real execution.
    */
   @Before
-  public final void setupEnvironmentForRealExecution() throws InterruptedException, IOException {
+  public final void setupEnvironmentForRealExecution() {
     SubprocessBuilder.setDefaultSubprocessFactory(JavaSubprocessFactory.INSTANCE);
     resourceManager.setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
   }
