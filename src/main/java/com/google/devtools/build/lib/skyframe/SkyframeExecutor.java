@@ -1498,11 +1498,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
           evaluationContext);
     } finally {
-      setExecutionProgressReceiver(null);
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
-      skyframeActionExecutor.executionOver();
-      actionExecutionFunction.complete(reporter);
+      cleanUpAfterSingleEvaluationWithActionExecution(reporter);
     }
   }
 
@@ -1554,11 +1552,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           /*numThreads=*/ options.getOptions(BuildRequestOptions.class).jobs,
           reporter);
     } finally {
-      setExecutionProgressReceiver(null);
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
-      skyframeActionExecutor.executionOver();
-      actionExecutionFunction.complete(reporter);
+      cleanUpAfterSingleEvaluationWithActionExecution(reporter);
     }
   }
 
@@ -2264,20 +2260,40 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       int mergedPhasesExecutionJobsCount)
       throws InterruptedException {
     checkActive();
+    try {
+      eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
+      EvaluationContext evaluationContext =
+          newEvaluationContextBuilder()
+              .setKeepGoing(keepGoing)
+              .setNumThreads(numThreads)
+              .setExecutorServiceSupplier(
+                  () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
+              .setCPUHeavySkyKeysThreadPoolSize(cpuHeavySkyKeysThreadPoolSize)
+              .setExecutionPhaseThreadPoolSize(mergedPhasesExecutionJobsCount)
+              .setEventHandler(eventHandler)
+              .build();
+      return memoizingEvaluator.evaluate(
+          Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
+    } finally {
+      // No more analysis expected after this.
+      perCommandSyscallCache.noteAnalysisPhaseEnded();
+    }
+  }
 
-    eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
-    EvaluationContext evaluationContext =
-        newEvaluationContextBuilder()
-            .setKeepGoing(keepGoing)
-            .setNumThreads(numThreads)
-            .setExecutorServiceSupplier(
-                () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
-            .setCPUHeavySkyKeysThreadPoolSize(cpuHeavySkyKeysThreadPoolSize)
-            .setExecutionPhaseThreadPoolSize(mergedPhasesExecutionJobsCount)
-            .setEventHandler(eventHandler)
-            .build();
-    return memoizingEvaluator.evaluate(
-        Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
+  /** Called after a single Skyframe evaluation that involves action execution. */
+  private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
+    setExecutionProgressReceiver(null);
+    skyframeActionExecutor.executionOver();
+    actionExecutionFunction.complete(eventHandler);
+  }
+
+  /**
+   * Clears the various states required for execution after ALL action execution in the build is
+   * done.
+   */
+  public void clearExecutionStates(ExtendedEventHandler eventHandler) {
+    cleanUpAfterSingleEvaluationWithActionExecution(eventHandler);
+    setActionExecutionProgressReportingObjects(null, null, null);
   }
 
   /**
